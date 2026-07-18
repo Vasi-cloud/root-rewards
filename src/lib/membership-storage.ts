@@ -12,6 +12,10 @@ export interface MembershipState {
   cancelAtPeriodEnd: boolean;
   /** Whether this month's cause credit was already applied */
   causeCreditUsedMonth: string | null;
+  /** Stripe Customer id when paid via Stripe */
+  stripeCustomerId: string | null;
+  /** Stripe Subscription id for Impact Member */
+  stripeSubscriptionId: string | null;
   updatedAt: string;
 }
 
@@ -22,6 +26,8 @@ function emptyState(): MembershipState {
     periodEndsAt: null,
     cancelAtPeriodEnd: false,
     causeCreditUsedMonth: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -70,6 +76,16 @@ function normalizeState(parsed: Partial<MembershipState>): MembershipState {
     periodEndsAt: parsed.tierId === "impact" ? periodEndsAt : null,
     cancelAtPeriodEnd: Boolean(parsed.cancelAtPeriodEnd) && parsed.tierId === "impact",
     causeCreditUsedMonth: parsed.causeCreditUsedMonth ?? null,
+    stripeCustomerId:
+      typeof parsed.stripeCustomerId === "string" &&
+      parsed.stripeCustomerId.startsWith("cus_")
+        ? parsed.stripeCustomerId
+        : null,
+    stripeSubscriptionId:
+      typeof parsed.stripeSubscriptionId === "string" &&
+      parsed.stripeSubscriptionId.startsWith("sub_")
+        ? parsed.stripeSubscriptionId
+        : null,
     updatedAt: parsed.updatedAt ?? new Date().toISOString(),
   };
 }
@@ -136,6 +152,8 @@ export function setMembershipTier(tierId: MembershipTierId): MembershipState {
       periodEndsAt,
       cancelAtPeriodEnd: false,
       causeCreditUsedMonth: current.causeCreditUsedMonth,
+      stripeCustomerId: current.stripeCustomerId,
+      stripeSubscriptionId: current.stripeSubscriptionId,
       updatedAt: nowIso,
     };
     saveMembership(next);
@@ -202,6 +220,37 @@ export function markCauseCreditUsed(
     ...state,
     causeCreditUsedMonth: currentCreditMonth(),
     updatedAt: new Date().toISOString(),
+  };
+  saveMembership(next);
+  return next;
+}
+
+/** Apply Stripe subscription details after successful Checkout / verify. */
+export function applyStripeMembership(params: {
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  periodEndsAt?: string | null;
+  cancelAtPeriodEnd?: boolean;
+}): MembershipState {
+  const current = loadMembership();
+  const nowIso = new Date().toISOString();
+  const startedAt = current.startedAt ?? nowIso;
+  const next: MembershipState = {
+    ...current,
+    tierId: "impact",
+    startedAt,
+    periodEndsAt:
+      params.periodEndsAt ?? current.periodEndsAt ?? addOneMonth(startedAt),
+    cancelAtPeriodEnd: Boolean(params.cancelAtPeriodEnd),
+    stripeCustomerId:
+      params.customerId?.startsWith("cus_")
+        ? params.customerId
+        : current.stripeCustomerId,
+    stripeSubscriptionId:
+      params.subscriptionId?.startsWith("sub_")
+        ? params.subscriptionId
+        : current.stripeSubscriptionId,
+    updatedAt: nowIso,
   };
   saveMembership(next);
   return next;

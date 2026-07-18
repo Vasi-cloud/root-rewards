@@ -66,14 +66,17 @@ export function MembershipCancelControls({
           ))}
         </ul>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" onClick={keepMembership} className="gap-1.5">
+          <Button
+            size="sm"
+            onClick={() => void keepMembership()}
+            className="gap-1.5"
+          >
             <Sparkles className="size-3.5" />
             Keep Impact Member
           </Button>
         </div>
         <p className="mt-2 text-xs text-amber-900/70">
-          Changed your mind? Reactivate anytime before {endsLabel} — no charge
-          in this demo.
+          Changed your mind? Reactivate anytime before {endsLabel}.
         </p>
       </div>
     );
@@ -101,7 +104,7 @@ export function MembershipCancelControls({
           {daysLeft > 0
             ? ` (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining)`
             : ""}
-          . You won&apos;t be billed again after that (demo — no real card).
+          . You won&apos;t be billed again after that.
         </p>
         <div className="mt-3 rounded-lg border border-emerald-200/80 bg-emerald-50/60 px-3 py-2.5">
           <p className="text-xs font-semibold uppercase tracking-wide text-emerald-900">
@@ -128,8 +131,7 @@ export function MembershipCancelControls({
             variant="outline"
             className="border-destructive/40 text-destructive hover:bg-destructive/5"
             onClick={() => {
-              cancelMembership();
-              setConfirming(false);
+              void cancelMembership().then(() => setConfirming(false));
             }}
           >
             Confirm cancel

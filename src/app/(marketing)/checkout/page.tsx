@@ -9,10 +9,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { TrustBadges } from "@/components/trust/trust-badges";
+import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
 import { useI18n } from "@/contexts/i18n-context";
 import { useMembership } from "@/contexts/membership-context";
@@ -35,6 +36,11 @@ import {
 import { saveLastDonation } from "@/lib/impact-storage";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import {
+  fetchPaymentsStatus,
+  startStripeCheckout,
+} from "@/lib/stripe/client";
+import { savePendingCheckout } from "@/lib/stripe/pending-order";
+import {
   validateAddress,
   validateEmail,
   validateName,
@@ -54,8 +60,9 @@ const fieldClass =
   "mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3.5 text-base leading-normal focus:outline-none focus:ring-2 focus:ring-ring";
 
 export default function CheckoutPage() {
-  const { cart, totalPrice, clearCart } = useCart();
+  const { cart, totalPrice } = useCart();
   const { t } = useI18n();
+  const { user } = useAuth();
   const router = useRouter();
   const {
     isImpactMember,
@@ -65,7 +72,12 @@ export default function CheckoutPage() {
   } = useMembership();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [stripeEnabled, setStripeEnabled] = useState(false);
   const [applyMemberCredit, setApplyMemberCredit] = useState(true);
+
+  useEffect(() => {
+    void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
+  }, []);
   const [selection, setSelection] = useState<CauseSelection>(() => {
     const initial = emptyCauseSelection();
     initial.trees = 1;
@@ -203,8 +215,6 @@ export default function CheckoutPage() {
     }
 
     setIsSubmitting(true);
-    saveLastDonation(selection);
-    if (memberCredit > 0) consumeCauseCredit();
 
     const weightedPercent =
       cart.length === 0
@@ -215,6 +225,56 @@ export default function CheckoutPage() {
             0
           ) / Math.max(totalPrice, 1);
 
+    const email = emailResult.value;
+    const name = nameResult.value;
+
+    savePendingCheckout({
+      selection,
+      memberCreditApplied: memberCredit > 0,
+      orderTotal: finalTotal,
+      cartSubtotal: totalPrice,
+      weightedAffiliatePercent: weightedPercent,
+      productName: cart[0]?.name,
+      productId: cart[0]?.id,
+      email,
+      name,
+      createdAt: new Date().toISOString(),
+    });
+
+    const stripeResult = await startStripeCheckout({
+      email,
+      name,
+      address: addressResult.value,
+      city: cityResult.value,
+      zip: zipResult.value,
+      userId: user?.uid ?? null,
+      memberCreditCents: Math.round(memberCredit * 100),
+      causeSelection: selection,
+      lineItems: cart.map((item) => ({
+        id: item.id,
+        name: item.name,
+        unitAmountCents: Math.round(item.price * 100),
+        quantity: item.quantity,
+        description: item.rentalDuration
+          ? `${item.rentalDuration}-day rental`
+          : item.category,
+      })),
+    });
+
+    if ("url" in stripeResult) {
+      window.location.href = stripeResult.url;
+      return;
+    }
+
+    if ("error" in stripeResult) {
+      setIsSubmitting(false);
+      setFormError(stripeResult.error);
+      return;
+    }
+
+    // Demo fallback — no Stripe secret configured
+    saveLastDonation(selection);
+    if (memberCredit > 0) consumeCauseCredit();
     recordAffiliateConversion({
       orderTotal: totalPrice,
       basePercent: weightedPercent,
@@ -222,9 +282,9 @@ export default function CheckoutPage() {
       productId: cart[0]?.id,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    clearCart();
-    router.push("/checkout/confirmation");
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    // Keep pending payload for success page; clear cart there after demo confirm
+    router.push("/checkout/success?demo=1");
   };
 
   const customDollars = parseFloat(customAmount);
@@ -522,12 +582,31 @@ export default function CheckoutPage() {
               <h2 className="font-heading mb-3 text-xl font-semibold sm:text-2xl">
                 Payment
               </h2>
-              <p className="text-base text-muted-foreground">
-                This is a demo. No real payment is processed.
-              </p>
-              <div className="mt-4 rounded-xl border bg-background px-4 py-3.5 text-base">
-                •••• •••• •••• 4242 · Visa · 06/28
-              </div>
+              {stripeEnabled ? (
+                <>
+                  <p className="text-base text-muted-foreground">
+                    You&apos;ll complete payment securely on Stripe Checkout —
+                    we never see or store your card details.
+                  </p>
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/50 px-4 py-3.5 text-sm text-emerald-950">
+                    Powered by Stripe · PCI DSS compliant · 3D Secure when
+                    required
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-base text-muted-foreground">
+                    Demo mode — no real payment is processed. Add{" "}
+                    <code className="rounded bg-muted px-1 text-xs">
+                      STRIPE_SECRET_KEY
+                    </code>{" "}
+                    to enable live checkout.
+                  </p>
+                  <div className="mt-4 rounded-xl border bg-background px-4 py-3.5 text-base">
+                    •••• •••• •••• 4242 · Visa · demo
+                  </div>
+                </>
+              )}
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                 Free returns within 30 days on unused items. Check the{" "}
                 <Link
@@ -550,10 +629,15 @@ export default function CheckoutPage() {
                 className="min-h-12 w-full text-base"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? t("checkout.processing") : t("checkout.place")}
+                {isSubmitting
+                  ? t("checkout.processing")
+                  : stripeEnabled
+                    ? `Pay $${finalTotal.toFixed(2)} with Stripe`
+                    : t("checkout.place")}
               </Button>
               <p className="mt-3 text-center text-sm text-muted-foreground">
                 Total ${finalTotal.toFixed(2)} ·{" "}
+                {stripeEnabled ? "Stripe Checkout · " : "Demo · "}
                 <Link
                   href="/returns"
                   className="underline-offset-2 hover:underline"
@@ -576,7 +660,7 @@ export default function CheckoutPage() {
         </div>
         <p className="mb-2.5 text-center text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
-            Secure checkout ·{" "}
+            {stripeEnabled ? "Stripe secure checkout" : "Demo checkout"} ·{" "}
             <Link href="/returns" className="underline-offset-2 hover:underline">
               Returns &amp; size guide
             </Link>
@@ -589,7 +673,11 @@ export default function CheckoutPage() {
           className="min-h-14 w-full text-base font-semibold"
           disabled={isSubmitting}
         >
-          {isSubmitting ? t("checkout.processing") : t("checkout.place")}
+          {isSubmitting
+            ? t("checkout.processing")
+            : stripeEnabled
+              ? `Pay $${finalTotal.toFixed(2)}`
+              : t("checkout.place")}
         </Button>
       </div>
     </div>

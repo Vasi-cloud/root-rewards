@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# local Stripe order confirmation store (dev / single-node)
+.data/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

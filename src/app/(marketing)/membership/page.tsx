@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, Leaf, Sparkles, Trees } from "lucide-react";
+import { Check, CreditCard, Leaf, Sparkles, Trees } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { MembershipCancelControls } from "@/components/membership/membership-cancel-controls";
 import { Badge } from "@/components/ui/badge";
@@ -14,14 +15,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useAuth } from "@/contexts/auth-context";
 import { useMembership } from "@/contexts/membership-context";
 import { MEMBERSHIP_TIERS } from "@/lib/membership";
 import {
   daysUntilPeriodEnd,
   formatMembershipDate,
 } from "@/lib/membership-storage";
+import { fetchPaymentsStatus } from "@/lib/stripe/client";
 
 export default function MembershipPage() {
+  const { user } = useAuth();
   const {
     tier,
     isImpactMember,
@@ -30,7 +34,56 @@ export default function MembershipPage() {
     cancelScheduled,
     periodEndsAt,
     keepMembership,
+    manageBilling,
+    stripeCustomerId,
   } = useMembership();
+  const [stripeEnabled, setStripeEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
+  }, []);
+
+  async function handleUpgrade() {
+    setBusy(true);
+    setBanner(null);
+    let email = user?.email ?? "";
+    if (stripeEnabled && !email) {
+      email =
+        window.prompt("Email for your Stripe membership receipt:")?.trim() ??
+        "";
+      if (!email) {
+        setBanner("An email is required for paid memberships.");
+        setBusy(false);
+        return;
+      }
+    }
+    const result = await upgradeToImpact(email || undefined);
+    if (result === "demo") {
+      setBanner(
+        "Demo upgrade complete — no card charged (Stripe not configured)."
+      );
+      setBusy(false);
+    } else if (result === "error") {
+      setBanner("Could not start membership checkout. Try again.");
+      setBusy(false);
+    }
+    // stripe → redirect
+  }
+
+  async function handlePortal() {
+    setBusy(true);
+    const result = await manageBilling();
+    if (result !== "portal") {
+      setBusy(false);
+      if (result === "demo") {
+        setBanner("Billing portal needs a Stripe customer — cancel below instead.");
+      } else {
+        setBanner("Could not open the billing portal.");
+      }
+    }
+  }
 
   return (
     <div className="relative overflow-hidden">
@@ -61,7 +114,23 @@ export default function MembershipPage() {
               Canceling · ends {formatMembershipDate(periodEndsAt)}
             </Badge>
           )}
+          <Badge
+            variant="outline"
+            className={
+              stripeEnabled
+                ? "border-emerald-300 text-emerald-900"
+                : "text-muted-foreground"
+            }
+          >
+            {stripeEnabled ? "Stripe billing ready" : "Demo billing"}
+          </Badge>
         </div>
+
+        {banner && (
+          <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-950">
+            {banner}
+          </p>
+        )}
 
         {isImpactMember && (
           <Card
@@ -83,7 +152,19 @@ export default function MembershipPage() {
                 . You keep benefits through the end of the billing period.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {stripeCustomerId && stripeEnabled && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={busy}
+                  onClick={() => void handlePortal()}
+                >
+                  <CreditCard className="size-4" />
+                  Open Stripe billing portal
+                </Button>
+              )}
               <MembershipCancelControls />
             </CardContent>
           </Card>
@@ -145,7 +226,8 @@ export default function MembershipPage() {
                           className="w-full"
                           variant="ghost"
                           size="sm"
-                          onClick={keepMembership}
+                          disabled={busy}
+                          onClick={() => void keepMembership()}
                         >
                           Keep Impact Member instead
                         </Button>
@@ -168,7 +250,11 @@ export default function MembershipPage() {
                     )
                   ) : active ? (
                     cancelScheduled ? (
-                      <Button className="w-full gap-2" onClick={keepMembership}>
+                      <Button
+                        className="w-full gap-2"
+                        disabled={busy}
+                        onClick={() => void keepMembership()}
+                      >
                         <Sparkles className="size-4" />
                         Keep Impact Member
                       </Button>
@@ -181,8 +267,15 @@ export default function MembershipPage() {
                       </Button>
                     )
                   ) : (
-                    <Button className="w-full gap-2" onClick={upgradeToImpact}>
-                      <Trees className="size-4" /> Become Impact Member
+                    <Button
+                      className="w-full gap-2"
+                      disabled={busy}
+                      onClick={() => void handleUpgrade()}
+                    >
+                      <Trees className="size-4" />
+                      {stripeEnabled
+                        ? "Subscribe with Stripe — $9/mo"
+                        : "Become Impact Member (demo)"}
                     </Button>
                   )}
                 </CardFooter>
@@ -192,14 +285,18 @@ export default function MembershipPage() {
         </div>
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          Demo billing — no card charged. Cancel anytime from your{" "}
-          <Link
-            href="/dashboard#membership"
-            className="text-primary underline-offset-2 hover:underline"
-          >
-            dashboard
-          </Link>
-          .
+          {stripeEnabled
+            ? "Live Stripe subscriptions — cards are charged securely. Cancel anytime from this page or the Stripe portal."
+            : "Demo billing — no card charged until you add Stripe keys. Cancel anytime from your "}
+          {!stripeEnabled && (
+            <Link
+              href="/dashboard#membership"
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              dashboard
+            </Link>
+          )}
+          {!stripeEnabled && "."}
         </p>
       </div>
     </div>
