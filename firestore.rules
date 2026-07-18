@@ -1,0 +1,116 @@
+rules_version = '2';
+
+/**
+ * Forest Buddies Firestore security rules
+ * Deploy: firebase deploy --only firestore:rules
+ *
+ * Clients may only manage their own user profile.
+ * Role is locked to "customer" on create and cannot be changed by the client.
+ * Products are public read; all product writes go through Admin SDK later.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function optionalNullableString(field, maxLen) {
+      return !(field in request.resource.data)
+        || request.resource.data[field] == null
+        || (request.resource.data[field] is string
+            && request.resource.data[field].size() <= maxLen);
+    }
+
+    function requiredString(field, maxLen) {
+      return field in request.resource.data
+        && request.resource.data[field] is string
+        && request.resource.data[field].size() > 0
+        && request.resource.data[field].size() <= maxLen;
+    }
+
+    function optionalIsoString(field) {
+      return !(field in request.resource.data)
+        || request.resource.data[field] == null
+        || (request.resource.data[field] is string
+            && request.resource.data[field].size() <= 40);
+    }
+
+    function userCreateKeysOk() {
+      return request.resource.data.keys().hasOnly([
+        'email',
+        'displayName',
+        'photoURL',
+        'role',
+        'affiliateCode',
+        'membershipTier',
+        'accountStatus',
+        'deactivatedAt',
+        'createdAt',
+        'updatedAt'
+      ]);
+    }
+
+    function userUpdateKeysOk() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'email',
+          'displayName',
+          'photoURL',
+          'affiliateCode',
+          'membershipTier',
+          'accountStatus',
+          'deactivatedAt',
+          'updatedAt'
+        ]);
+    }
+
+    function userFieldsValid() {
+      return optionalNullableString('email', 320)
+        && optionalNullableString('displayName', 120)
+        && optionalNullableString('photoURL', 2048)
+        && optionalNullableString('affiliateCode', 32)
+        && optionalNullableString('membershipTier', 32)
+        && optionalNullableString('accountStatus', 32)
+        && optionalIsoString('deactivatedAt')
+        && optionalIsoString('createdAt')
+        && optionalIsoString('updatedAt');
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      // First profile: must be customer; cannot self-assign admin/seller
+      allow create: if isOwner(userId)
+        && userCreateKeysOk()
+        && userFieldsValid()
+        && requiredString('role', 32)
+        && request.resource.data.role == 'customer'
+        && requiredString('updatedAt', 40);
+
+      // Updates: role is immutable from the client
+      allow update: if isOwner(userId)
+        && userUpdateKeysOk()
+        && userFieldsValid()
+        && (!('role' in request.resource.data)
+            || request.resource.data.role == resource.data.role)
+        && requiredString('updatedAt', 40);
+
+      allow delete: if false;
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Deny everything else by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
