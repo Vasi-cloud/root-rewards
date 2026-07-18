@@ -165,7 +165,7 @@ export function BecomeSellerApplicationForm({
   );
   const [tradingName, setTradingName] = useState(initial?.tradingName ?? "");
   const [companyName, setCompanyName] = useState(initial?.companyName ?? "");
-  const [shopName, setShopName] = useState(initial?.shopName ?? "");
+  const shopName = initial?.shopName ?? "";
   const [bio, setBio] = useState(initial?.bio ?? "");
   const [story, setStory] = useState(initial?.story ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");

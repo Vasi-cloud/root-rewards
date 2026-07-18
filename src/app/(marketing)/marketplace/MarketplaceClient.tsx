@@ -46,6 +46,32 @@ const allProducts = MARKETPLACE_PRODUCTS;
 
 type MarketSection = "all" | "products" | "services" | "rentals";
 
+/** Minimal Web Speech API shape — avoids `any` on window / event handlers. */
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+interface SpeechRecognitionResultEventLike {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+}
+
+function getSpeechRecognitionCtor(): SpeechRecognitionCtor | undefined {
+  if (typeof window === "undefined") return undefined;
+  const w = window as Window & {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+}
+
 function isServiceListing(product: Product): boolean {
   return product.listingType === "service";
 }
@@ -216,9 +242,7 @@ export default function MarketplaceClient() {
   };
 
   const startVoiceSearch = () => {
-    const SpeechRecognitionAPI =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionAPI = getSpeechRecognitionCtor();
 
     if (!SpeechRecognitionAPI) {
       alert("Voice search is not supported in your browser.");
@@ -230,8 +254,8 @@ export default function MarketplaceClient() {
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    recognition.onresult = (event: any) => {
-      const raw = event.results[0][0].transcript;
+    recognition.onresult = (event: SpeechRecognitionResultEventLike) => {
+      const raw = event.results[0]?.[0]?.transcript ?? "";
       const cleaned = cleanVoiceTranscript(raw);
       setSearchTerm(cleaned || raw);
       setIsListening(false);
