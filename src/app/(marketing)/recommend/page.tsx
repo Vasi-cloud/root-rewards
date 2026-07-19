@@ -310,7 +310,7 @@ export default function RecommendPage() {
         speakFeedback("I don’t have picks yet. Ask me what you’re shopping for.");
         return;
       }
-      let index =
+      const index =
         command.type === "add_cart"
           ? command.pickIndex
           : matchProductBySpokenName(command.productQuery, names);
