@@ -1413,9 +1413,6 @@ function PickList({
                 </Button>
               </div>
               <div className="mt-3 border-t border-border/50 pt-3">
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                  Also compare on big stores
-                </p>
                 <ProductPartnerLinks product={pick.product} />
               </div>
             </div>

@@ -7,6 +7,7 @@ import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
   getAffiliatePlatform,
+  partnerButtonLabel,
   platformIdFromStoreName,
 } from "@/lib/affiliate-platforms";
 import type { AffiliatePlatformId } from "@/types";
@@ -20,6 +21,8 @@ export function PartnerOutboundButton({
   listPrice,
   className,
   label,
+  primary = false,
+  showPrice = false,
 }: {
   /** Competitor store label from price comparison */
   store?: string;
@@ -31,6 +34,10 @@ export function PartnerOutboundButton({
   className?: string;
   /** Override button label (e.g. "Amazon UK") */
   label?: string;
+  /** Emphasize Amazon as the primary partner */
+  primary?: boolean;
+  /** Show list price next to the label for easy compare */
+  showPrice?: boolean;
 }) {
   const id =
     platformId ??
@@ -39,11 +46,13 @@ export function PartnerOutboundButton({
   if (!id || id === "forest-buddies") return null;
 
   const platform = getAffiliatePlatform(id);
-  const buttonLabel =
+  const name =
     label ??
-    (id === "amazon"
-      ? getAmazonStoreLabel()
-      : `Via ${platform.name.split(" ")[0]}`);
+    (id === "amazon" ? getAmazonStoreLabel() : partnerButtonLabel(id));
+  const priceBit =
+    showPrice && listPrice != null
+      ? ` · $${listPrice.toFixed(0)}`
+      : "";
 
   function handleClick() {
     const { url } = recordPartnerOutboundClick({
@@ -60,12 +69,17 @@ export function PartnerOutboundButton({
     <Button
       type="button"
       size="sm"
-      variant="outline"
-      className={`h-auto min-h-8 gap-1 px-2 py-1 text-xs ${className ?? ""}`}
+      variant={primary ? "default" : "outline"}
+      className={`h-auto min-h-8 gap-1 px-2 py-1 text-xs ${
+        primary
+          ? "bg-emerald-800 text-white hover:bg-emerald-800/90"
+          : ""
+      } ${className ?? ""}`}
       onClick={handleClick}
       title={`${platform.attributionNote} ${platform.trackingNote}`}
     >
-      {buttonLabel.startsWith("Via ") ? buttonLabel : `Via ${buttonLabel}`}
+      {name}
+      {priceBit}
       <ExternalLink className="size-3 opacity-70" />
     </Button>
   );

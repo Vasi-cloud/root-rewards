@@ -1004,31 +1004,10 @@ function ListingGrid({
                 )}
               </div>
 
-              {comparison && !isService && (
-                <div className="rounded-lg border border-border/60 bg-background/80 px-2.5 py-2 text-xs">
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
-                    {comparison.competitors.map((c) => (
-                      <span key={c.store}>
-                        {c.store}{" "}
-                        <span className="line-through tabular-nums">
-                          ${c.price}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                  {comparison.isBestDeal ? (
-                    <p className="mt-1 font-medium text-emerald-700">
-                      Save ${comparison.savings.toFixed(0)} vs lowest elsewhere
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-muted-foreground">
-                      Lowest elsewhere: ${comparison.lowestCompetitor}
-                    </p>
-                  )}
-                </div>
-              )}
               {!isService && (
-                <ProductPartnerLinks product={product} className="pt-0.5" />
+                <div className="rounded-lg border border-border/60 bg-background/80 px-2.5 py-2">
+                  <ProductPartnerLinks product={product} />
+                </div>
               )}
               {isService && product.availabilityNote && (
                 <p className="text-xs text-muted-foreground">

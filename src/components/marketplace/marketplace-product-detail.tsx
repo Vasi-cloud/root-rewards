@@ -125,14 +125,7 @@ export function MarketplaceProductDetail({
 
           <TrustBadges variant="product" />
 
-          {!isService && (
-            <div>
-              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                Also shop via partners
-              </p>
-              <ProductPartnerLinks product={product} />
-            </div>
-          )}
+          {!isService && <ProductPartnerLinks product={product} />}
 
           <ProductDetailsPanel
             details={product}

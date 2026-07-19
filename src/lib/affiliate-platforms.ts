@@ -88,6 +88,36 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
     payoutNote: "Pending until the network posts the order.",
     publisherTag: "fb-rei",
   },
+  {
+    id: "etsy",
+    name: "Etsy",
+    kind: "external",
+    attributionDaysTypical: 30,
+    attributionDaysMax: 30,
+    attributionNote: "Etsy Affiliate typically about 30 days on qualifying purchases.",
+    commissionRateTypical: 4,
+    commissionNote: "Often a few percent on eligible marketplace orders.",
+    trackingModel: "network_report",
+    trackingNote: "Outbound search tagged with your publisher ID; Etsy reports later.",
+    conversionLatency: "delayed",
+    payoutNote: "Paid on the network’s schedule after confirmation.",
+    publisherTag: "fb-etsy",
+  },
+  {
+    id: "walmart",
+    name: "Walmart",
+    kind: "external",
+    attributionDaysTypical: 3,
+    attributionDaysMax: 3,
+    attributionNote: "Creator / affiliate windows are often short (about 3 days).",
+    commissionRateTypical: 4,
+    commissionNote: "Category-based; rates change by offer.",
+    trackingModel: "network_report",
+    trackingNote: "Outbound search click; conversions arrive via partner reports.",
+    conversionLatency: "delayed",
+    payoutNote: "Reported and paid on Walmart’s creator schedule.",
+    publisherTag: "fb-walmart",
+  },
 ];
 
 export function getAffiliatePlatform(
@@ -98,6 +128,24 @@ export function getAffiliatePlatform(
   );
 }
 
+/** Short shopper-facing label for partner buttons. */
+export function partnerButtonLabel(id: AffiliatePlatformId): string {
+  switch (id) {
+    case "amazon":
+      return "Amazon";
+    case "target":
+      return "Target";
+    case "rei":
+      return "REI";
+    case "etsy":
+      return "Etsy";
+    case "walmart":
+      return "Walmart";
+    default:
+      return getAffiliatePlatform(id).name.split(" ")[0] ?? "Partner";
+  }
+}
+
 /** Map marketplace competitor store labels → platform ids. */
 export function platformIdFromStoreName(
   store: string
@@ -106,8 +154,19 @@ export function platformIdFromStoreName(
   if (key.includes("amazon")) return "amazon";
   if (key.includes("target")) return "target";
   if (key.includes("rei")) return "rei";
+  if (key.includes("etsy")) return "etsy";
+  if (key.includes("walmart")) return "walmart";
   return null;
 }
+
+/** External partners shown for price compare (Amazon first). */
+export const COMPARE_PLATFORM_ORDER: AffiliatePlatformId[] = [
+  "amazon",
+  "target",
+  "rei",
+  "etsy",
+  "walmart",
+];
 
 export function listExternalPlatforms(): AffiliatePlatform[] {
   return AFFILIATE_PLATFORMS.filter((p) => p.kind === "external");

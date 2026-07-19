@@ -152,25 +152,20 @@ export function ShopProductDetail({
             <TrustBadges variant="product" />
 
             {!isService && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-                  Also shop via partners
-                </p>
-                <ProductPartnerLinks
-                  product={
-                    {
-                      id: product.id,
-                      name: product.name,
-                      description: product.description,
-                      price: product.price,
-                      imageUrl: "",
-                      category: product.category,
-                      sustainabilityScore: product.ecoScore,
-                      affiliateCommissionPercent: 10,
-                    } satisfies Product
-                  }
-                />
-              </div>
+              <ProductPartnerLinks
+                product={
+                  {
+                    id: product.id,
+                    name: product.name,
+                    description: product.description,
+                    price: product.price,
+                    imageUrl: "",
+                    category: product.category,
+                    sustainabilityScore: product.ecoScore,
+                    affiliateCommissionPercent: 10,
+                  } satisfies Product
+                }
+              />
             )}
 
             <p className="text-base leading-relaxed text-foreground/90">

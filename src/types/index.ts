@@ -273,7 +273,9 @@ export type AffiliatePlatformId =
   | "forest-buddies"
   | "amazon"
   | "target"
-  | "rei";
+  | "rei"
+  | "etsy"
+  | "walmart";
 
 export type AffiliateEventType = "click" | "conversion" | "outbound";
 

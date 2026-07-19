@@ -80,6 +80,10 @@ export function buildPartnerOutboundUrl(opts: {
       return `https://www.target.com/s?searchTerm=${q}&afid=${encodeURIComponent(tag)}&ref=${sub}`;
     case "rei":
       return `https://www.rei.com/search?q=${q}&cm_mmc=${encodeURIComponent(tag)}-${sub}`;
+    case "etsy":
+      return `https://www.etsy.com/search?q=${q}&ref=${encodeURIComponent(`fb_${opts.affiliateCode}`)}&utm_source=forestbuddies&utm_medium=affiliate&utm_campaign=${encodeURIComponent(tag)}`;
+    case "walmart":
+      return `https://www.walmart.com/search?q=${q}&wmlspartner=${encodeURIComponent(tag)}&veh=${sub}`;
     default:
       return `/marketplace${opts.productId ? `?product=${opts.productId}` : ""}`;
   }

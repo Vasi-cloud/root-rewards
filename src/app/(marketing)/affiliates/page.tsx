@@ -48,7 +48,7 @@ const steps = [
     icon: Link2,
     title: "Share first-party or partner links",
     description:
-      "Use your Forest Buddies ?ref= URL, or outbound Amazon / Target / REI tags from the marketplace.",
+      "Use your Forest Buddies ?ref= URL, or outbound Amazon / Target / REI / Etsy / Walmart links from product cards.",
   },
   {
     icon: MousePointerClick,
