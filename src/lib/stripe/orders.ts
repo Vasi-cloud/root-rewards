@@ -37,6 +37,9 @@ export type ConfirmedOrder = {
   fulfilledAt: string;
   fulfilledBy: "webhook" | "success_page" | "demo";
   status: "paid" | "fulfilled";
+  /** Set after order confirmation email is attempted */
+  confirmationEmailId?: string | null;
+  confirmationEmailMode?: "live" | "demo" | "skipped" | null;
 };
 
 type OrderStore = {
@@ -108,6 +111,19 @@ export function saveConfirmedOrder(order: ConfirmedOrder): ConfirmedOrder {
   store.ordersBySession[order.sessionId] = order;
   saveDisk(store);
   return order;
+}
+
+export function updateConfirmedOrder(
+  sessionId: string,
+  patch: Partial<ConfirmedOrder>
+): ConfirmedOrder | null {
+  const store = getStore();
+  const current = store.ordersBySession[sessionId];
+  if (!current) return null;
+  const next = { ...current, ...patch };
+  store.ordersBySession[sessionId] = next;
+  saveDisk(store);
+  return next;
 }
 
 /** Idempotent webhook event gate — returns false if already processed. */

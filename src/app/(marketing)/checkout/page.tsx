@@ -236,6 +236,13 @@ export default function CheckoutPage() {
       weightedAffiliatePercent: weightedPercent,
       productName: cart[0]?.name,
       productId: cart[0]?.id,
+      sellerLines: cart.map((item) => ({
+        sellerUid: item.sellerUid,
+        productId: item.id,
+        quantity: item.quantity,
+        unitPrice: item.price,
+        category: item.category,
+      })),
       email,
       name,
       createdAt: new Date().toISOString(),

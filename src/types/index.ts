@@ -239,6 +239,8 @@ export interface Product {
   category: string;
   sustainabilityScore: number;
   affiliateCommissionPercent: number;
+  /** When set, checkout credits this seller's earnings */
+  sellerUid?: string;
   /** Goods (default) or service offering */
   listingType?: ListingType;
   rentalDuration?: number; // days, only for rental items

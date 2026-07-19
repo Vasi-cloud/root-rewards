@@ -6,6 +6,8 @@ import type { CartItem, Product } from "@/types";
 
 interface CartContextValue {
   cart: CartItem[];
+  /** True after the first localStorage read — avoid treating empty as “no cart”. */
+  hydrated: boolean;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -20,6 +22,7 @@ const CART_STORAGE_KEY = "forest-buddies-cart";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -31,16 +34,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore parse errors
     }
+    setHydrated(true);
   }, []);
 
-  // Persist to localStorage
+  // Persist only after hydration so the initial [] state never wipes storage
   useEffect(() => {
+    if (!hydrated) return;
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
     } catch {
       // ignore write errors (private mode etc.)
     }
-  }, [cart]);
+  }, [cart, hydrated]);
 
   const addToCart = useCallback((product: Product) => {
     setCart((prev) => {
@@ -78,6 +83,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       cart,
+      hydrated,
       addToCart,
       removeFromCart,
       updateQuantity,
@@ -85,7 +91,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       totalItems,
       totalPrice,
     }),
-    [cart, addToCart, removeFromCart, updateQuantity, clearCart, totalItems, totalPrice]
+    [
+      cart,
+      hydrated,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      totalItems,
+      totalPrice,
+    ]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

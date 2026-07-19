@@ -129,7 +129,11 @@ export function MarketplaceProductDetail({
             fallbackSizeGuide={!isService && product.category === "Apparel"}
           />
 
-          <ProductReviews productId={product.id} productName={product.name} />
+          <ProductReviews
+            productId={product.id}
+            productName={product.name}
+            listingType={isService ? "service" : "product"}
+          />
 
           <div className="sticky bottom-0 -mx-4 border-t border-border/60 bg-cream/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
             <Button size="lg" className="min-h-12 w-full gap-2 text-base" onClick={onAdd}>

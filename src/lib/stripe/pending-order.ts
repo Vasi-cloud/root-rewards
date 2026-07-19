@@ -1,4 +1,5 @@
 import type { CauseSelection } from "@/lib/causes";
+import type { SellerSaleLine } from "@/lib/seller-analytics";
 
 export const PENDING_CHECKOUT_KEY = "forest-buddies-pending-checkout";
 
@@ -10,6 +11,8 @@ export type PendingCheckoutOrder = {
   weightedAffiliatePercent: number;
   productName?: string;
   productId?: string;
+  /** Seller attribution for earnings after payment */
+  sellerLines?: SellerSaleLine[];
   email: string;
   name: string;
   createdAt: string;

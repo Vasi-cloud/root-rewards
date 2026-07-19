@@ -13,6 +13,7 @@ import { ShopTrustBar } from "@/components/shop/shop-trust-bar";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
 import { defaultProductImage } from "@/lib/shop-presentation";
+import { recordShopView } from "@/lib/seller-analytics";
 import {
   ensureDemoShops,
   getSellerBySlug,
@@ -22,7 +23,8 @@ import type { Product, SellerProfile, SellerProduct } from "@/types";
 
 function sellerProductToCartItem(
   product: SellerProduct,
-  shopName: string
+  shopName: string,
+  sellerUid: string
 ): Product {
   return {
     id: product.id,
@@ -33,6 +35,8 @@ function sellerProductToCartItem(
     category: product.category,
     sustainabilityScore: product.ecoScore,
     affiliateCommissionPercent: 12,
+    sellerUid,
+    listingType: product.listingType === "service" ? "service" : "product",
   };
 }
 
@@ -49,10 +53,14 @@ export default function SellerShopPage() {
 
   useEffect(() => {
     ensureDemoShops();
-    setShop(getSellerBySlug(slug));
+    const next = getSellerBySlug(slug);
+    setShop(next);
     setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
     setReady(true);
     setActiveProduct(null);
+    if (next?.uid && next.status === "approved") {
+      recordShopView(next.uid);
+    }
   }, [slug]);
 
   const approved = useMemo(
@@ -62,7 +70,7 @@ export default function SellerShopPage() {
 
   function addProduct(product: SellerProduct) {
     if (!shop) return;
-    addToCart(sellerProductToCartItem(product, shop.shopName));
+    addToCart(sellerProductToCartItem(product, shop.shopName, shop.uid));
   }
 
   if (!ready) {

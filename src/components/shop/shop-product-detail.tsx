@@ -182,7 +182,13 @@ export function ShopProductDetail({
               fallbackSizeGuide={!isService && product.category === "Apparel"}
             />
 
-            <ProductReviews productId={product.id} productName={product.name} />
+            <ProductReviews
+              productId={product.id}
+              productName={product.name}
+              listingType={
+                product.listingType === "service" ? "service" : "product"
+              }
+            />
 
             <div className="flex flex-wrap gap-1.5">
               {product.tags.map((tag) => (

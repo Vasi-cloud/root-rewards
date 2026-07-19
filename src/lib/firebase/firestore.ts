@@ -141,6 +141,28 @@ export async function ensureUserProfile(user: User): Promise<UserProfile | null>
   };
 
   await upsertUserProfile(profile);
+
+  // Welcome email for first-time profiles (email + Google). Fire-and-forget.
+  if (profile.email) {
+    const key = `fb-welcome-sent:${profile.uid}`;
+    try {
+      if (typeof window !== "undefined" && !sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        void fetch("/api/email/welcome", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: profile.email,
+            name: profile.displayName,
+            userId: profile.uid,
+          }),
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return profile;
 }
 

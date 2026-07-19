@@ -12,17 +12,14 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 
 import { ReportProductButton } from "@/components/marketplace/ReportProductButton";
 import { MarketplaceProductDetail } from "@/components/marketplace/marketplace-product-detail";
 import { FeaturedSoloMakers } from "@/components/marketplace/FeaturedSoloMakers";
-import {
-  MarketplaceRentals,
-  RENTAL_COUNT,
-} from "@/components/marketplace/MarketplaceRentals";
 import { SellerShopsStrip } from "@/components/marketplace/SellerShopsStrip";
 import { BuyLocalStrip } from "@/components/marketplace/BuyLocalStrip";
+import { ProductRatingBadge } from "@/components/product/product-reviews";
 import { PartnerOutboundButton } from "@/components/affiliate/PartnerOutboundButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +38,15 @@ import { MARKETPLACE_PRODUCTS } from "@/lib/marketplace-catalog";
 import { DELIVERY_MODE_LABELS, listingTypeLabel } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
 import type { CartItem, Product } from "@/types";
+
+const MarketplaceRentals = lazy(() =>
+  import("@/components/marketplace/MarketplaceRentals").then((m) => ({
+    default: m.MarketplaceRentals,
+  }))
+);
+
+/** Keep in sync with rentalItems in MarketplaceRentals */
+const RENTAL_COUNT = 6;
 
 const allProducts = MARKETPLACE_PRODUCTS;
 
@@ -606,7 +612,15 @@ export default function MarketplaceClient() {
       )}
 
       {section === "rentals" && (
-        <MarketplaceRentals onGoToAll={() => goToSection("all")} />
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-16 text-center text-sm text-muted-foreground">
+              Loading rentals…
+            </div>
+          }
+        >
+          <MarketplaceRentals onGoToAll={() => goToSection("all")} />
+        </Suspense>
       )}
 
       <div className="mt-12 rounded-2xl border border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">
@@ -928,6 +942,7 @@ function ListingGrid({
               <CardTitle className="font-heading text-lg leading-tight sm:text-xl">
                 {product.name}
               </CardTitle>
+              <ProductRatingBadge productId={product.id} className="mt-1" />
               <CardDescription className="line-clamp-2">
                 {product.description}
               </CardDescription>

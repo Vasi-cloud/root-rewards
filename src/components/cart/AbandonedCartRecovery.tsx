@@ -3,7 +3,7 @@
 import { Leaf, Mail, ShoppingBag, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
@@ -12,89 +12,138 @@ import {
   dismissAbandonedReminder,
   flagAbandonedCart,
   loadAbandonedCart,
-  sendMockAbandonedEmail,
+  markAbandonedReminderShown,
+  recordAbandonedEmail,
   shouldShowAbandonedReminder,
   type MockReminderEmail,
 } from "@/lib/abandoned-cart";
+import { requestAbandonedCartEmail } from "@/lib/email/client";
 
-const HIDE_ON = ["/checkout", "/checkout/confirmation", "/login", "/register"];
+const HIDE_ON = [
+  "/cart",
+  "/checkout",
+  "/checkout/confirmation",
+  "/checkout/success",
+  "/login",
+  "/register",
+];
 
 /**
- * MVP abandoned-cart recovery:
- * - Flags the cart when the shopper leaves with items
- * - On the next visit, shows a reminder modal (+ optional mock email)
+ * Abandoned-cart recovery (low intrusion):
+ * - Flags only on real leave (pagehide), not brief tab switches
+ * - Shows once after a real return with items still in cart
+ * - Bottom nudge — no full-screen blocker
  */
 export function AbandonedCartRecovery() {
-  const { cart, totalItems, totalPrice } = useCart();
+  const { cart, hydrated, totalItems, totalPrice } = useCart();
   const pathname = usePathname();
-  const [ready, setReady] = useState(false);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<MockReminderEmail | null>(null);
+  const [sentMode, setSentMode] = useState<"live" | "demo" | null>(null);
   const [preview, setPreview] = useState({
     itemCount: 0,
     totalPrice: 0,
     names: [] as string[],
   });
-
-  // Hydrate reminder after cart loads from localStorage
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      const state = loadAbandonedCart();
-      if (shouldShowAbandonedReminder(cart.length, state)) {
-        setPreview({
-          itemCount: state.itemCount || totalItems,
-          totalPrice: state.totalPrice || totalPrice,
-          names: state.previewNames,
-        });
-        setOpen(true);
-      }
-      setReady(true);
-    }, 400);
-    return () => window.clearTimeout(t);
-  }, [cart.length, totalItems, totalPrice]);
-
-  // Flag abandonment when leaving / hiding the page with items in cart
-  useEffect(() => {
-    const mark = () => {
-      if (cart.length > 0) flagAbandonedCart(cart);
-      else clearAbandonedFlag();
-    };
-
-    const onVisibility = () => {
-      if (document.visibilityState === "hidden") mark();
-    };
-
-    window.addEventListener("pagehide", mark);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("pagehide", mark);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [cart]);
-
-  // Checkout completed (cart emptied) — clear flag
-  useEffect(() => {
-    if (!ready) return;
-    if (cart.length === 0) clearAbandonedFlag();
-  }, [cart.length, ready]);
+  const evaluatedRef = useRef(false);
+  const cartRef = useRef(cart);
+  cartRef.current = cart;
 
   const hiddenRoute = HIDE_ON.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   );
 
-  if (!open || !ready || cart.length === 0 || hiddenRoute) return null;
+  // Evaluate once after cart hydrates — not on every navigation / cart tweak
+  useEffect(() => {
+    if (!hydrated || evaluatedRef.current || hiddenRoute) return;
+
+    const t = window.setTimeout(() => {
+      const state = loadAbandonedCart();
+      const items = cartRef.current;
+      if (!shouldShowAbandonedReminder(items.length, state)) {
+        evaluatedRef.current = true;
+        return;
+      }
+      setPreview({
+        itemCount: state.itemCount || items.reduce((s, i) => s + i.quantity, 0),
+        totalPrice:
+          state.totalPrice ||
+          items.reduce((s, i) => s + i.price * i.quantity, 0),
+        names: state.previewNames,
+      });
+      markAbandonedReminderShown();
+      setOpen(true);
+      evaluatedRef.current = true;
+    }, 1200);
+
+    return () => window.clearTimeout(t);
+  }, [hydrated, hiddenRoute]);
+
+  // Flag only when leaving the document (close / navigate away), not tab blur
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const onPageHide = () => {
+      const items = cartRef.current;
+      if (items.length > 0) flagAbandonedCart(items);
+      else clearAbandonedFlag();
+    };
+
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [hydrated]);
+
+  // Clear abandon state when cart is emptied (after hydrate)
+  useEffect(() => {
+    if (!hydrated) return;
+    if (cart.length === 0) {
+      clearAbandonedFlag();
+      if (open) setOpen(false);
+    }
+  }, [cart.length, hydrated, open]);
+
+  if (!open || !hydrated || cart.length === 0 || hiddenRoute) return null;
 
   function dismiss() {
     dismissAbandonedReminder();
     setOpen(false);
     setSent(null);
+    setError(null);
   }
 
-  function handleMockEmail(e: React.FormEvent) {
+  async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
-    const mail = sendMockAbandonedEmail({ email, cart });
+    setError(null);
+    setSending(true);
+    const names =
+      preview.names.length > 0
+        ? preview.names
+        : cart.slice(0, 3).map((i) => i.name);
+
+    const result = await requestAbandonedCartEmail({
+      email,
+      previewNames: names,
+      itemCount: preview.itemCount || totalItems,
+      totalPrice: preview.totalPrice || totalPrice,
+    });
+
+    setSending(false);
+    if (!result.ok) {
+      setError(result.error ?? "Could not send reminder.");
+      return;
+    }
+
+    const mail = recordAbandonedEmail({
+      email,
+      cart,
+      mode: result.mode ?? "demo",
+      providerId: undefined,
+    });
     setSent(mail);
+    setSentMode(result.mode ?? "demo");
   }
 
   const names =
@@ -104,86 +153,78 @@ export function AbandonedCartRecovery() {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-forest/40 p-0 backdrop-blur-[3px] sm:items-center sm:p-6"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex justify-center p-3 sm:inset-x-auto sm:bottom-5 sm:right-5 sm:justify-end sm:p-0"
       role="dialog"
-      aria-modal="true"
+      aria-label="Cart reminder"
       aria-labelledby="abandoned-cart-title"
     >
-      <div className="w-full max-w-md overflow-hidden rounded-t-3xl border border-border bg-cream shadow-xl sm:rounded-3xl">
-        <div className="flex items-start justify-between gap-3 border-b border-border/60 px-5 py-4">
-          <div className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
-              <ShoppingBag className="size-5" />
+      <div className="pointer-events-auto w-full max-w-md overflow-hidden rounded-2xl border border-border bg-cream shadow-lg sm:w-[22rem]">
+        <div className="flex items-start justify-between gap-2 border-b border-border/60 px-4 py-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+              <ShoppingBag className="size-4" />
             </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/70">
-                Cart reminder
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                Still in your cart
               </p>
               <h2
                 id="abandoned-cart-title"
-                className="font-heading text-xl font-semibold text-primary"
+                className="font-heading text-lg font-semibold leading-snug text-primary"
               >
-                Still thinking it over?
+                Your eco picks are waiting
               </h2>
             </div>
           </div>
           <button
             type="button"
             onClick={dismiss}
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="Dismiss reminder"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </button>
         </div>
 
-        <div className="space-y-4 px-5 py-5">
+        <div className="space-y-3 px-4 py-3.5">
           <p className="text-sm leading-relaxed text-muted-foreground">
             You left{" "}
-            <strong className="text-foreground">
+            <strong className="font-medium text-foreground">
               {preview.itemCount || totalItems} item
               {(preview.itemCount || totalItems) === 1 ? "" : "s"}
             </strong>{" "}
             (
-            <strong className="text-foreground">
+            <strong className="font-medium text-foreground">
               ${(preview.totalPrice || totalPrice).toFixed(2)}
             </strong>
-            ) in your cart. Your eco picks are still waiting.
+            ). Resume when you&apos;re ready.
           </p>
 
-          <ul className="rounded-xl border border-border/70 bg-white/70 px-3 py-2 text-sm">
+          <ul className="rounded-xl border border-border/70 bg-white/70 px-2.5 py-1 text-sm">
             {names.map((name) => (
               <li
                 key={name}
-                className="flex items-center gap-2 border-b border-border/50 py-2 last:border-0"
+                className="flex items-center gap-2 border-b border-border/50 py-1.5 last:border-0"
               >
                 <Leaf className="size-3.5 shrink-0 text-primary" />
                 <span className="truncate">{name}</span>
               </li>
             ))}
-            {cart.length > names.length && (
-              <li className="py-2 text-xs text-muted-foreground">
-                +{cart.length - names.length} more
-              </li>
-            )}
           </ul>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex gap-2">
             <Button
-              className="min-h-12 flex-1 text-base"
-              size="lg"
+              className="min-h-10 flex-1"
+              size="sm"
               nativeButton={false}
               render={<Link href="/checkout" />}
-              onClick={() => {
-                dismissAbandonedReminder();
-                setOpen(false);
-              }}
+              onClick={dismiss}
             >
-              Resume checkout
+              Checkout
             </Button>
             <Button
-              className="min-h-12 flex-1 text-base"
-              size="lg"
+              className="min-h-10 flex-1"
+              size="sm"
               variant="outline"
               nativeButton={false}
               render={<Link href="/cart" />}
@@ -193,29 +234,20 @@ export function AbandonedCartRecovery() {
             </Button>
           </div>
 
-          <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-800/80">
-              <Mail className="size-3.5" />
-              Email reminder (demo)
+          <div className="rounded-xl border border-dashed border-emerald-200/80 bg-emerald-50/40 p-2.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-800/80">
+              <Mail className="size-3" />
+              Email a reminder
             </p>
             {sent ? (
-              <div className="mt-2 space-y-1 text-sm text-emerald-950">
-                <p className="font-medium">Mock email queued</p>
-                <p className="text-xs text-emerald-800/90">
-                  To: {sent.to}
-                </p>
-                <p className="text-xs text-emerald-800/90">
-                  Subject: {sent.subject}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  {sent.preview}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  No real email was sent — MVP simulation only.
-                </p>
-              </div>
+              <p className="mt-1.5 text-xs text-emerald-950">
+                {sentMode === "live" ? "Sent to" : "Queued for"} {sent.to}
+              </p>
             ) : (
-              <form onSubmit={handleMockEmail} className="mt-2 flex gap-2">
+              <form
+                onSubmit={(e) => void handleEmail(e)}
+                className="mt-1.5 flex gap-1.5"
+              >
                 <input
                   type="email"
                   required
@@ -224,18 +256,29 @@ export function AbandonedCartRecovery() {
                   onChange={(e) => setEmail(e.target.value)}
                   inputMode="email"
                   autoComplete="email"
-                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3.5 py-2.5 text-base"
+                  className="min-h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-2.5 text-sm"
                 />
                 <Button
                   type="submit"
                   variant="outline"
-                  className="min-h-11 shrink-0 px-4 text-base"
+                  size="sm"
+                  disabled={sending}
+                  className="min-h-9 shrink-0 px-3"
                 >
-                  Send
+                  {sending ? "…" : "Send"}
                 </Button>
               </form>
             )}
+            {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
           </div>
+
+          <button
+            type="button"
+            onClick={dismiss}
+            className="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Not now
+          </button>
         </div>
       </div>
     </div>

@@ -2,11 +2,13 @@ import "server-only";
 
 import type Stripe from "stripe";
 
+import { sendOrderConfirmationEmail } from "@/lib/email/messages";
 import {
   getOrderBySessionId,
   makeOrderNumber,
   parseCauseSelectionFromMetadata,
   saveConfirmedOrder,
+  updateConfirmedOrder,
   type ConfirmedOrder,
   type OrderKind,
 } from "@/lib/stripe/orders";
@@ -110,9 +112,33 @@ export async function fulfillCheckoutSession(
     fulfilledAt: new Date().toISOString(),
     fulfilledBy,
     status: "fulfilled",
+    confirmationEmailId: null,
+    confirmationEmailMode: null,
   };
 
-  return saveConfirmedOrder(order);
+  const saved = saveConfirmedOrder(order);
+
+  // Only the first fulfillment sends mail (idempotent via early return above)
+  if (saved.kind === "marketplace_order" && saved.customerEmail) {
+    try {
+      const mail = await sendOrderConfirmationEmail(saved);
+      return (
+        updateConfirmedOrder(saved.sessionId, {
+          confirmationEmailId: mail.ok ? mail.id : null,
+          confirmationEmailMode: mail.ok ? mail.mode : "skipped",
+        }) ?? saved
+      );
+    } catch (err) {
+      console.warn("[email] order confirmation error", err);
+      return (
+        updateConfirmedOrder(saved.sessionId, {
+          confirmationEmailMode: "skipped",
+        }) ?? saved
+      );
+    }
+  }
+
+  return saved;
 }
 
 export async function retrieveAndFulfillSession(

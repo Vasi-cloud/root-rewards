@@ -10,12 +10,14 @@ import {
   DollarSign,
   Flag,
   Leaf,
+  EyeOff,
   MessageCircleHeart,
   Package,
   Pencil,
   Plus,
   Shield,
   ShoppingBag,
+  Star,
   Store,
   Trash2,
   TreePine,
@@ -45,10 +47,19 @@ import {
   subscribeFeedback,
 } from "@/lib/feedback-storage";
 import { TRUST_CONFIG, REPORT_FLAG_THRESHOLD } from "@/lib/moderation";
+import {
+  deleteReview,
+  formatReviewDate,
+  loadAllReviews,
+  reviewStats,
+  setReviewStatus,
+  subscribeReviews,
+} from "@/lib/review-storage";
 import type { FeedbackItem, FeedbackStatus } from "@/types/feedback";
 import { FEEDBACK_CATEGORY_LABELS } from "@/types/feedback";
 import type { ProductApprovalStatus, SellerStatus, SellerTrustTier } from "@/types";
 import { REPORT_REASON_LABELS } from "@/types/moderation";
+import type { ProductReviewRecord, ReviewStatus } from "@/types/reviews";
 
 const ADMIN_EMAIL = "cvasi.crisan@gmail.com";
 
@@ -57,6 +68,7 @@ type AdminTab =
   | "products"
   | "sellers"
   | "moderation"
+  | "reviews"
   | "feedback"
   | "orders"
   | "users"
@@ -372,6 +384,10 @@ export default function AdminDashboard() {
   const [feedbackFilter, setFeedbackFilter] = useState<
     "All" | FeedbackStatus
   >("new");
+  const [reviewItems, setReviewItems] = useState<ProductReviewRecord[]>([]);
+  const [reviewFilter, setReviewFilter] = useState<"All" | ReviewStatus>(
+    "pending"
+  );
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 
@@ -380,12 +396,18 @@ export default function AdminDashboard() {
       refreshSellers();
       refreshModeration();
       setFeedbackItems(loadFeedback());
+      setReviewItems(loadAllReviews());
     }
   }, [isAdmin, refreshSellers, refreshModeration]);
 
   useEffect(() => {
     if (!isAdmin) return;
     return subscribeFeedback(() => setFeedbackItems(loadFeedback()));
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    return subscribeReviews(() => setReviewItems(loadAllReviews()));
   }, [isAdmin]);
 
   useEffect(() => {
@@ -534,12 +556,17 @@ export default function AdminDashboard() {
   const filteredFeedback = feedbackItems.filter(
     (item) => feedbackFilter === "All" || item.status === feedbackFilter
   );
+  const rvStats = reviewStats(reviewItems);
+  const filteredReviews = reviewItems.filter(
+    (item) => reviewFilter === "All" || item.status === reviewFilter
+  );
 
   const tabs: { id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "overview", label: "Overview", icon: TrendingUp },
     { id: "products", label: "Products", icon: ShoppingBag },
     { id: "sellers", label: "Sellers", icon: Store },
     { id: "moderation", label: "Moderation", icon: Shield },
+    { id: "reviews", label: "Reviews", icon: Star },
     { id: "feedback", label: "Feedback", icon: MessageCircleHeart },
     { id: "orders", label: "Orders", icon: Package },
     { id: "users", label: "Users", icon: Users },
@@ -638,6 +665,27 @@ export default function AdminDashboard() {
                 hint={`${openFlags.length} flags · ${openReports.length} reports`}
               />
             </div>
+
+            {rvStats.pending > 0 && (
+              <Card className="border-amber-200 bg-amber-50/50">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="font-heading flex items-center gap-2 text-amber-950">
+                      <Star className="size-5" />
+                      Reviews awaiting moderation
+                    </CardTitle>
+                    <CardDescription className="text-amber-900/80">
+                      {rvStats.pending} rating
+                      {rvStats.pending === 1 ? "" : "s"} waiting to go live on
+                      product &amp; service pages.
+                    </CardDescription>
+                  </div>
+                  <Button size="sm" onClick={() => setTab("reviews")}>
+                    Moderate reviews
+                  </Button>
+                </CardHeader>
+              </Card>
+            )}
 
             {fbStats.newCount > 0 && (
               <Card className="border-emerald-200 bg-emerald-50/50">
@@ -1551,6 +1599,177 @@ export default function AdminDashboard() {
                           onClick={() => setReportStatus(report.id, "dismissed")}
                         >
                           Dismiss
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {tab === "reviews" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="font-heading text-2xl font-semibold text-primary">
+                Reviews &amp; ratings
+              </h2>
+              <p className="mt-1 text-muted-foreground">
+                Approve shopper reviews for products and services. Pending
+                reviews stay private until you publish them.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <StatCard
+                icon={Star}
+                label="Pending"
+                value={String(rvStats.pending)}
+                hint="Awaiting moderation"
+                accent
+              />
+              <StatCard
+                icon={Check}
+                label="Approved"
+                value={String(rvStats.approved)}
+                hint="Live on listings"
+              />
+              <StatCard
+                icon={EyeOff}
+                label="Hidden"
+                value={String(rvStats.hidden)}
+                hint="Removed from public"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {(["pending", "approved", "hidden", "All"] as const).map((f) => (
+                <Button
+                  key={f}
+                  size="sm"
+                  variant={reviewFilter === f ? "default" : "outline"}
+                  onClick={() => setReviewFilter(f)}
+                  className="capitalize"
+                >
+                  {f === "All" ? "All" : f}
+                </Button>
+              ))}
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-heading">Review queue</CardTitle>
+                <CardDescription>
+                  {filteredReviews.length} review
+                  {filteredReviews.length === 1 ? "" : "s"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {filteredReviews.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No reviews in this filter. Shoppers leave ratings from
+                    product and service detail pages.
+                  </p>
+                ) : (
+                  filteredReviews.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-border/70 bg-card p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary" className="capitalize">
+                            {item.listingType}
+                          </Badge>
+                          <Badge
+                            className={
+                              item.status === "pending"
+                                ? "bg-amber-100 text-amber-950"
+                                : item.status === "approved"
+                                  ? "bg-emerald-100 text-emerald-900"
+                                  : "bg-muted text-muted-foreground"
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                          <span className="inline-flex items-center gap-1 text-sm font-medium">
+                            <Star className="size-3.5 fill-gold text-gold" />
+                            {item.rating}/5
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatReviewDate(item.createdAt)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-primary">
+                        {item.productName}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {item.title}
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                        {item.body}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>{item.authorName}</span>
+                        {item.authorEmail && <span>{item.authorEmail}</span>}
+                        {item.location && <span>{item.location}</span>}
+                        <span className="font-mono">{item.productId}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.status !== "approved" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => {
+                              setReviewStatus(item.id, "approved");
+                              setReviewItems(loadAllReviews());
+                            }}
+                          >
+                            <Check className="size-3.5" />
+                            Approve
+                          </Button>
+                        )}
+                        {item.status !== "hidden" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => {
+                              setReviewStatus(item.id, "hidden");
+                              setReviewItems(loadAllReviews());
+                            }}
+                          >
+                            <EyeOff className="size-3.5" />
+                            Hide
+                          </Button>
+                        )}
+                        {item.status === "hidden" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => {
+                              setReviewStatus(item.id, "pending");
+                              setReviewItems(loadAllReviews());
+                            }}
+                          >
+                            Re-queue
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1 text-destructive"
+                          onClick={() => {
+                            deleteReview(item.id);
+                            setReviewItems(loadAllReviews());
+                          }}
+                        >
+                          <Trash2 className="size-3.5" />
+                          Delete
                         </Button>
                       </div>
                     </div>

@@ -28,6 +28,7 @@ import {
   confirmPaidOrder,
   type ConfirmedOrderClient,
 } from "@/lib/stripe/client";
+import { recordSellerSales } from "@/lib/seller-analytics";
 import {
   clearPendingCheckout,
   loadPendingCheckout,
@@ -59,11 +60,35 @@ function CheckoutSuccessInner() {
 
       if (isDemo) {
         const pending = loadPendingCheckout();
+        const orderNumber = `FB-DEMO-${Date.now().toString().slice(-6)}`;
+        if (pending?.sellerLines?.length) {
+          recordSellerSales(pending.sellerLines);
+        }
+        if (pending?.email) {
+          void fetch("/api/email/order-confirmation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: pending.email,
+              name: pending.name,
+              orderNumber,
+              amountTotalCents: Math.round(pending.orderTotal * 100),
+              causeSelection: pending.selection,
+              lineItems: [
+                {
+                  name: pending.productName ?? "Forest Buddies order",
+                  quantity: 1,
+                  amountCents: Math.round(pending.cartSubtotal * 100),
+                },
+              ],
+            }),
+          });
+        }
         clearPendingCheckout();
         clearCart();
         if (!cancelled) {
           setOrder({
-            orderNumber: `FB-DEMO-${Date.now().toString().slice(-6)}`,
+            orderNumber,
             kind: "marketplace_order",
             sessionId: "demo",
             amountTotalCents: Math.round((pending?.orderTotal ?? 0) * 100),
@@ -113,6 +138,9 @@ function CheckoutSuccessInner() {
           productName: pending.productName,
           productId: pending.productId,
         });
+        if (pending.sellerLines?.length) {
+          recordSellerSales(pending.sellerLines);
+        }
         clearPendingCheckout();
       } else if (result.order.causeSelection) {
         saveLastDonation(result.order.causeSelection as CauseSelection);
@@ -184,10 +212,10 @@ function CheckoutSuccessInner() {
         </p>
         <p className="mt-2 text-xs font-medium text-emerald-800">
           {order.fulfilledBy === "demo"
-            ? "Demo order — no card was charged"
+            ? "Demo order — no card was charged · confirmation email queued"
             : source === "store"
-              ? "Confirmed by Stripe webhook"
-              : "Confirmed securely with Stripe"}
+              ? "Confirmed by Stripe webhook · email sent"
+              : "Confirmed securely with Stripe · email sent"}
         </p>
       </div>
 

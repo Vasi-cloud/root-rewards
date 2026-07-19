@@ -1,16 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
-  DollarSign,
   Download,
-  Eye,
   FileSpreadsheet,
   Leaf,
-  Package,
   Pencil,
   Plus,
   ShoppingBag,
@@ -29,6 +26,7 @@ import {
   BecomeSellerHero,
 } from "@/components/seller/become-seller-application";
 import { SellerAccountControls } from "@/components/seller/seller-account-controls";
+import { productStatusBadge } from "@/components/seller/seller-hub-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,7 +45,6 @@ import type {
   SellerType,
   ServiceDeliveryMode,
 } from "@/types";
-import { formatCauseUnits, getCause } from "@/lib/causes";
 import {
   DELIVERY_MODE_LABELS,
   PRODUCT_CATEGORIES,
@@ -55,7 +52,38 @@ import {
   defaultCategoryFor,
   listingTypeLabel,
 } from "@/lib/listing-categories";
+import { getCause } from "@/lib/causes";
 import { apparelSizeChart } from "@/lib/product-details";
+
+const SellerOverviewPanel = lazy(() =>
+  import("@/components/seller/seller-overview-panel").then((m) => ({
+    default: m.SellerOverviewPanel,
+  }))
+);
+const SellerAnalyticsPanel = lazy(() =>
+  import("@/components/seller/seller-analytics-panel").then((m) => ({
+    default: m.SellerAnalyticsPanel,
+  }))
+);
+const SellerEarningsPanel = lazy(() =>
+  import("@/components/seller/seller-earnings-panel").then((m) => ({
+    default: m.SellerEarningsPanel,
+  }))
+);
+
+function SellerPanelFallback() {
+  return (
+    <div className="space-y-4" aria-busy="true">
+      <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="h-28 animate-pulse rounded-xl bg-muted/80" />
+        ))}
+      </div>
+      <div className="h-48 animate-pulse rounded-xl bg-muted/70" />
+    </div>
+  );
+}
 
 const CSV_HEADERS = [
   "title",
@@ -115,30 +143,6 @@ const emptyDraft = (): ProductDraft => ({
 
 type SellerTab = "overview" | "products" | "analytics" | "earnings" | "profile";
 type ProductPanel = "none" | "single" | "bulk";
-
-function productStatusBadge(status: ProductApprovalStatus) {
-  switch (status) {
-    case "approved":
-      return { label: "Approved", className: "bg-emerald-100 text-emerald-800" };
-    case "rejected":
-      return { label: "Rejected", className: "bg-destructive/10 text-destructive" };
-    default:
-      return { label: "Pending review", className: "bg-gold/25 text-primary" };
-  }
-}
-
-function payoutStatusBadge(status: string) {
-  switch (status) {
-    case "paid":
-      return { label: "Paid", className: "bg-emerald-100 text-emerald-800" };
-    case "processing":
-      return { label: "Processing", className: "bg-primary/10 text-primary" };
-    case "failed":
-      return { label: "Failed", className: "bg-destructive/10 text-destructive" };
-    default:
-      return { label: "Scheduled", className: "bg-gold/25 text-primary" };
-  }
-}
 
 function parseTags(raw: string): string[] {
   return raw
@@ -293,7 +297,6 @@ export default function SellerPage() {
   ]);
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
-  const [payoutMessage, setPayoutMessage] = useState<string | null>(null);
   const [catalogFilter, setCatalogFilter] = useState<
     "All" | ProductApprovalStatus
   >("All");
@@ -849,26 +852,32 @@ export default function SellerPage() {
     }
   }
 
-  const analytics = seller.analytics;
-  const topProducts = [...seller.products]
-    .sort((a, b) => b.sales - a.sales || b.views - a.views)
-    .slice(0, 5);
-  const maxTopViews = Math.max(1, ...topProducts.map((p) => p.views || 0));
-  const pendingCount = seller.products.filter((p) => p.status === "pending").length;
-  const approvedCount = seller.products.filter((p) => p.status === "approved").length;
-  const rejectedCount = seller.products.filter((p) => p.status === "rejected").length;
-  const catalogProducts = seller.products.filter(
-    (p) => catalogFilter === "All" || (p.status ?? "pending") === catalogFilter
+  const pendingCount = useMemo(
+    () => seller.products.filter((p) => p.status === "pending").length,
+    [seller.products]
   );
-  const nextPayout = (seller.payouts ?? []).find(
-    (p) => p.status === "scheduled" || p.status === "processing"
+  const approvedCount = useMemo(
+    () => seller.products.filter((p) => p.status === "approved").length,
+    [seller.products]
+  );
+  const rejectedCount = useMemo(
+    () => seller.products.filter((p) => p.status === "rejected").length,
+    [seller.products]
+  );
+  const catalogProducts = useMemo(
+    () =>
+      seller.products.filter(
+        (p) =>
+          catalogFilter === "All" || (p.status ?? "pending") === catalogFilter
+      ),
+    [seller.products, catalogFilter]
   );
 
   const tabs: { id: SellerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "overview", label: "Overview", icon: TrendingUp },
     { id: "products", label: "Products", icon: ShoppingBag },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "earnings", label: "Payouts", icon: Wallet },
+    { id: "earnings", label: "Earnings", icon: Wallet },
     { id: "profile", label: "Profile", icon: Store },
   ];
 
@@ -932,125 +941,9 @@ export default function SellerPage() {
       </nav>
 
       {tab === "overview" && (
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat
-              icon={DollarSign}
-              label="Total earnings"
-              value={`$${seller.earnings.total.toFixed(2)}`}
-              hint="All-time"
-            />
-            <Stat
-              icon={TrendingUp}
-              label="This month"
-              value={`$${seller.earnings.thisMonth.toFixed(2)}`}
-              hint={`${analytics.salesThisMonth} sales`}
-              accent
-            />
-            <Stat
-              icon={Eye}
-              label="Shop views"
-              value={analytics.viewsThisMonth.toLocaleString()}
-              hint={`${analytics.views.toLocaleString()} all-time`}
-            />
-            <Stat
-              icon={ShoppingBag}
-              label="Products"
-              value={String(seller.products.length)}
-              hint={`${approvedCount} live · ${pendingCount} in review`}
-            />
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-cream">
-              <CardHeader>
-                <CardTitle className="font-heading">Your brand impact</CardTitle>
-                <CardDescription>
-                  Causes your shop helps grow — keep telling that story.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {(seller.impact ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Add your story on the Profile tab to inspire shoppers.
-                  </p>
-                ) : (
-                  (seller.impact ?? []).map((row) => {
-                    const cause = getCause(row.causeId);
-                    return (
-                      <div
-                        key={row.causeId}
-                        className="flex justify-between rounded-xl border border-emerald-100 bg-white/70 px-3 py-2 text-sm"
-                      >
-                        <span className="font-medium text-emerald-900">
-                          {cause?.name ?? row.causeId}
-                          {row.label ? (
-                            <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                              {row.label}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="tabular-nums text-emerald-800">
-                          {cause
-                            ? formatCauseUnits(cause, row.unitsSupported)
-                            : row.unitsSupported}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2"
-                  onClick={() => setTab("profile")}
-                >
-                  Edit profile & story
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-heading">Approval queue</CardTitle>
-                <CardDescription>
-                  New and edited listings need admin approval before going live.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between rounded-xl border px-4 py-3">
-                  <span>Approved</span>
-                  <span className="font-medium text-emerald-800">{approvedCount}</span>
-                </div>
-                <div className="flex justify-between rounded-xl border px-4 py-3">
-                  <span>Pending review</span>
-                  <span className="font-medium text-primary">{pendingCount}</span>
-                </div>
-                <div className="flex justify-between rounded-xl border px-4 py-3">
-                  <span>Rejected</span>
-                  <span className="font-medium">
-                    {
-                      seller.products.filter((p) => p.status === "rejected")
-                        .length
-                    }
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading">Quick tips</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>• Listings start as pending — trusted sellers can auto-approve clean listings.</p>
-              <p>• Low eco scores or suspicious copy are flagged for admin review.</p>
-              <p>• Share your story so shoppers feel the mission behind every product.</p>
-              <p>• Request payouts from the Payouts tab when balance is available.</p>
-            </CardContent>
-          </Card>
-        </div>
+        <Suspense fallback={<SellerPanelFallback />}>
+          <SellerOverviewPanel seller={seller} onTab={setTab} />
+        </Suspense>
       )}
 
       {tab === "products" && (
@@ -2069,353 +1962,18 @@ export default function SellerPage() {
       )}
 
       {tab === "analytics" && (
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat
-              icon={Eye}
-              label="Total views"
-              value={analytics.views.toLocaleString()}
-              hint={`${analytics.viewsThisMonth.toLocaleString()} this month`}
-              accent
-            />
-            <Stat
-              icon={ShoppingBag}
-              label="Total sales"
-              value={String(analytics.sales)}
-              hint={`${analytics.salesThisMonth} this month`}
-            />
-            <Stat
-              icon={TrendingUp}
-              label="Conversion"
-              value={`${analytics.conversionRate.toFixed(1)}%`}
-              hint="Views → orders"
-            />
-            <Stat
-              icon={DollarSign}
-              label="Revenue (month)"
-              value={`$${seller.earnings.thisMonth.toFixed(2)}`}
-              hint={`${seller.earnings.orders} lifetime orders`}
-            />
-          </div>
-
-          <Card className="overflow-hidden border-primary/20">
-            <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-emerald-50/80 to-transparent">
-              <div className="flex items-center gap-2 text-primary">
-                <BarChart3 className="size-4" />
-                <span className="text-xs font-semibold uppercase tracking-wide">
-                  Performance
-                </span>
-              </div>
-              <CardTitle className="font-heading">Top products</CardTitle>
-              <CardDescription>
-                Ranked by sales, then views (demo metrics).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 p-5">
-              {topProducts.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  List products to start seeing performance here.
-                </p>
-              ) : (
-                topProducts.map((product, index) => (
-                  <div key={product.id} className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                          {index + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="truncate font-medium">
-                            {product.name}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {product.sales} sales · {product.views} views ·{" "}
-                            {product.ecoScore}% eco
-                          </div>
-                        </div>
-                      </div>
-                      <Badge
-                        className={
-                          productStatusBadge(product.status ?? "pending")
-                            .className
-                        }
-                      >
-                        {
-                          productStatusBadge(product.status ?? "pending")
-                            .label
-                        }
-                      </Badge>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-emerald-100">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{
-                          width: `${Math.max(
-                            8,
-                            ((product.views || 0) / maxTopViews) * 100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Suspense fallback={<SellerPanelFallback />}>
+          <SellerAnalyticsPanel seller={seller} />
+        </Suspense>
       )}
 
       {tab === "earnings" && (
-        <div className="space-y-6">
-          <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-background">
-            <CardContent className="grid gap-6 p-6 sm:grid-cols-[1.2fr_1fr] sm:items-center">
-              <div>
-                <div className="mb-2 flex items-center gap-2 text-primary">
-                  <Leaf className="size-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wide">
-                    Eco payouts
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">Available balance</p>
-                <p className="mt-1 font-heading text-4xl font-semibold tabular-nums text-emerald-900">
-                  ${(seller.earnings.available ?? 0).toFixed(2)}
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  ${seller.earnings.pending.toFixed(2)} in escrow · $
-                  {seller.earnings.thisMonth.toFixed(2)} earned this month
-                </p>
-                {nextPayout ? (
-                  <p className="mt-3 text-sm text-primary">
-                    Next: ${nextPayout.amount.toFixed(2)} ·{" "}
-                    {payoutStatusBadge(nextPayout.status).label.toLowerCase()}{" "}
-                    for {nextPayout.scheduledFor}
-                  </p>
-                ) : null}
-              </div>
-              <div className="space-y-3">
-                <Button
-                  className="w-full gap-1.5"
-                  disabled={(seller.earnings.available ?? 0) < 10}
-                  onClick={() => {
-                    const ok = requestPayout();
-                    setPayoutMessage(
-                      ok
-                        ? "Payout requested — status set to processing."
-                        : "Need at least $10 available to request a payout."
-                    );
-                  }}
-                >
-                  <Wallet className="size-4" />
-                  Request ${(seller.earnings.available ?? 0).toFixed(2)}
-                </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                  Minimum $10 · mock transfer to{" "}
-                  {seller.payoutMethod ?? "Bank transfer ····4821"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {payoutMessage && (
-            <p className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">
-              {payoutMessage}
-            </p>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Stat
-              icon={DollarSign}
-              label="Lifetime"
-              value={`$${seller.earnings.total.toFixed(2)}`}
-              hint="Paid + pending"
-            />
-            <Stat
-              icon={Package}
-              label="In escrow"
-              value={`$${seller.earnings.pending.toFixed(2)}`}
-              hint="Awaiting cycle"
-            />
-            <Stat
-              icon={TrendingUp}
-              label="This month"
-              value={`$${seller.earnings.thisMonth.toFixed(2)}`}
-              hint={`${seller.earnings.orders} orders`}
-              accent
-            />
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-heading">Earnings breakdown</CardTitle>
-                <CardDescription>
-                  This month&apos;s sales split — transparent and eco-aligned.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {(() => {
-                  const b = seller.earnings.breakdown;
-                  if (!b) {
-                    return (
-                      <p className="text-muted-foreground">
-                        Breakdown available after your first sales cycle.
-                      </p>
-                    );
-                  }
-                  const maxCat = Math.max(
-                    1,
-                    ...b.byCategory.map((c) => c.amount)
-                  );
-                  return (
-                    <>
-                      <div className="flex justify-between rounded-xl border px-4 py-3">
-                        <span>Gross product sales</span>
-                        <span className="font-medium tabular-nums">
-                          ${b.productSales.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between rounded-xl border px-4 py-3">
-                        <span>Platform fee (15%)</span>
-                        <span className="font-medium tabular-nums text-muted-foreground">
-                          −${b.platformFee.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3">
-                        <span>Cause contribution</span>
-                        <span className="font-medium tabular-nums text-emerald-800">
-                          −${b.causeContribution.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-                        <span className="font-medium">Your net share</span>
-                        <span className="font-semibold tabular-nums text-primary">
-                          ${b.sellerShare.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="pt-2">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          By category
-                        </p>
-                        <div className="space-y-2">
-                          {b.byCategory.map((row) => (
-                            <div key={row.category}>
-                              <div className="mb-1 flex justify-between text-xs">
-                                <span>{row.category}</span>
-                                <span className="tabular-nums">
-                                  ${row.amount.toFixed(2)}
-                                </span>
-                              </div>
-                              <div className="h-1.5 overflow-hidden rounded-full bg-emerald-100">
-                                <div
-                                  className="h-full rounded-full bg-primary"
-                                  style={{
-                                    width: `${Math.max(
-                                      8,
-                                      (row.amount / maxCat) * 100
-                                    )}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-heading">Payout details</CardTitle>
-                <CardDescription>
-                  85% seller share · 15% platform fee
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex justify-between rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
-                  <span>Method</span>
-                  <span className="font-medium">
-                    {seller.payoutMethod ?? "Bank transfer ····4821"}
-                  </span>
-                </div>
-                <div className="flex justify-between rounded-xl border px-4 py-3">
-                  <span>Seller share</span>
-                  <span className="font-medium text-emerald-800">85%</span>
-                </div>
-                <div className="flex justify-between rounded-xl border px-4 py-3">
-                  <span>Platform fee</span>
-                  <span className="font-medium">15%</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading">How it works</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              {[
-                "Sales settle into available after delivery",
-                "A slice of earnings can fund causes you care about",
-                "Request payout anytime with $10+",
-                "Demo only — Stripe can replace this later",
-              ].map((step, i) => (
-                <div key={step} className="flex gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                    {i + 1}
-                  </span>
-                  <p className="text-muted-foreground">{step}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading">Payout history</CardTitle>
-              <CardDescription>
-                Scheduled, processing, and completed transfers.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="divide-y p-0">
-              {(seller.payouts ?? []).length === 0 ? (
-                <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-                  No payouts yet.
-                </p>
-              ) : (
-                seller.payouts.map((payout) => {
-                  const badge = payoutStatusBadge(payout.status);
-                  return (
-                    <div
-                      key={payout.id}
-                      className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium tabular-nums">
-                            ${payout.amount.toFixed(2)}
-                          </span>
-                          <Badge className={badge.className}>{badge.label}</Badge>
-                        </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {payout.method}
-                        </p>
-                      </div>
-                      <div className="text-sm text-muted-foreground sm:text-right">
-                        {payout.status === "paid" && payout.paidAt
-                          ? `Paid ${payout.paidAt}`
-                          : `Scheduled ${payout.scheduledFor}`}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Suspense fallback={<SellerPanelFallback />}>
+          <SellerEarningsPanel
+            seller={seller}
+            onRequestPayout={requestPayout}
+          />
+        </Suspense>
       )}
 
       {tab === "profile" && (
@@ -2761,7 +2319,7 @@ function SellerShell({
                 Seller Hub
               </div>
               <div className="truncate text-xs text-muted-foreground">
-                {shopName ?? "Products, services & payouts"}
+                {shopName ?? "Sales, analytics & earnings"}
               </div>
             </div>
           </div>
@@ -2803,51 +2361,3 @@ function SellerShell({
   );
 }
 
-function Stat({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  accent,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  hint: string;
-  accent?: boolean;
-}) {
-  return (
-    <Card
-      className={
-        accent ? "border-emerald-200 bg-emerald-50/50" : "border-border/80"
-      }
-    >
-      <CardHeader className="pb-2">
-        <CardTitle
-          className={`flex items-center gap-2 text-sm font-medium ${
-            accent ? "text-emerald-700" : "text-muted-foreground"
-          }`}
-        >
-          <Icon className="size-4" />
-          {label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div
-          className={`text-2xl font-semibold tabular-nums ${
-            accent ? "text-emerald-800" : "text-primary"
-          }`}
-        >
-          {value}
-        </div>
-        <div
-          className={`mt-1 text-xs ${
-            accent ? "text-emerald-700" : "text-muted-foreground"
-          }`}
-        >
-          {hint}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
