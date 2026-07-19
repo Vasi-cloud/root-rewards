@@ -10,9 +10,11 @@ import {
 import { useEffect } from "react";
 
 import { ProductDetailsPanel } from "@/components/product/product-details-panel";
+import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { ProductGallery } from "@/components/shop/product-photo";
 import { TrustBadges } from "@/components/trust/trust-badges";
+import type { Product } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -148,6 +150,28 @@ export function ShopProductDetail({
             </ul>
 
             <TrustBadges variant="product" />
+
+            {!isService && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                  Also shop via partners
+                </p>
+                <ProductPartnerLinks
+                  product={
+                    {
+                      id: product.id,
+                      name: product.name,
+                      description: product.description,
+                      price: product.price,
+                      imageUrl: "",
+                      category: product.category,
+                      sustainabilityScore: product.ecoScore,
+                      affiliateCommissionPercent: 10,
+                    } satisfies Product
+                  }
+                />
+              </div>
+            )}
 
             <p className="text-base leading-relaxed text-foreground/90">
               {product.description}

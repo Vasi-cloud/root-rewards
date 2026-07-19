@@ -47,8 +47,10 @@ import {
   DISTANCE_OPTIONS_MI,
   STOCK_SIMULATION_DISCLAIMER,
   USER_LOCATION_OPTIONS,
+  distanceOptionLabel,
   findLocalStoresForProducts,
   formatDistance,
+  getLocationOption,
   type LocalStoreMatch,
   type NearbyStore,
 } from "@/lib/local-commerce";
@@ -114,6 +116,12 @@ export default function RecommendPage() {
     "unknown" | "mock" | "hybrid" | "forest-buddies" | "google-places"
   >("unknown");
   const [findingStores, setFindingStores] = useState(false);
+  const [geoOverride, setGeoOverride] = useState<{
+    lat: number;
+    lng: number;
+    label: string;
+  } | null>(null);
+  const activeLocation = getLocationOption(locationId);
 
   useEffect(() => {
     return () => {
@@ -533,10 +541,12 @@ export default function RecommendPage() {
   async function findNearestStoreFromVision(opts?: {
     locationId?: string;
     maxMiles?: (typeof DISTANCE_OPTIONS_MI)[number];
+    geo?: { lat: number; lng: number } | null;
   }) {
     if (!vision || vision.productIds.length === 0) return;
     const locId = opts?.locationId ?? locationId;
     const miles = opts?.maxMiles ?? maxMiles;
+    const geo = opts?.geo === undefined ? geoOverride : opts.geo;
     setFindingStores(true);
     setShowLocal(true);
     try {
@@ -544,7 +554,9 @@ export default function RecommendPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          locationId: locId,
+          locationId: geo ? undefined : locId,
+          lat: geo?.lat,
+          lng: geo?.lng,
           maxMiles: miles,
           productIds: vision.productIds,
           productNames: vision.picks.map((p) => p.product.name),
@@ -1155,12 +1167,18 @@ export default function RecommendPage() {
               maxMiles={maxMiles}
               stores={nearbyStores}
               placesEngine={placesEngine}
+              country={activeLocation.country}
+              geoLabel={geoOverride?.label ?? null}
               disabled={vision.productIds.length === 0}
               photoLabels={vision.labels.map((l) => l.label)}
               onLocationChange={(id) => {
                 setLocationId(id);
+                setGeoOverride(null);
                 if (showLocal) {
-                  void findNearestStoreFromVision({ locationId: id });
+                  void findNearestStoreFromVision({
+                    locationId: id,
+                    geo: null,
+                  });
                 }
               }}
               onMilesChange={(mi) => {
@@ -1168,6 +1186,33 @@ export default function RecommendPage() {
                 if (showLocal) {
                   void findNearestStoreFromVision({ maxMiles: mi });
                 }
+              }}
+              onUseMyLocation={() => {
+                if (!navigator.geolocation) {
+                  setVisionError(
+                    "Location isn’t available — pick a UK city instead."
+                  );
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const geo = {
+                      lat: pos.coords.latitude,
+                      lng: pos.coords.longitude,
+                      label: "Your current location",
+                    };
+                    setGeoOverride(geo);
+                    void findNearestStoreFromVision({
+                      geo: { lat: geo.lat, lng: geo.lng },
+                    });
+                  },
+                  () => {
+                    setVisionError(
+                      "Couldn’t read your location. Allow access, or pick London / Manchester."
+                    );
+                  },
+                  { enableHighAccuracy: false, timeout: 10000 }
+                );
               }}
               onFind={() => void findNearestStoreFromVision()}
             />
@@ -1260,6 +1305,7 @@ export default function RecommendPage() {
               locationId={locationId}
               maxMiles={maxMiles}
               localMatches={localMatches}
+              country={activeLocation.country}
               disabled={activePicks.length === 0}
               onLocationChange={setLocationId}
               onMilesChange={setMaxMiles}
@@ -1387,10 +1433,13 @@ function VisionNearestStorePanel({
   maxMiles,
   stores,
   placesEngine,
+  country,
+  geoLabel,
   disabled,
   photoLabels,
   onLocationChange,
   onMilesChange,
+  onUseMyLocation,
   onFind,
 }: {
   showLocal: boolean;
@@ -1399,10 +1448,13 @@ function VisionNearestStorePanel({
   maxMiles: (typeof DISTANCE_OPTIONS_MI)[number];
   stores: NearbyStore[] | null;
   placesEngine: string;
+  country: "gb" | "us";
+  geoLabel: string | null;
   disabled: boolean;
   photoLabels: string[];
   onLocationChange: (id: string) => void;
   onMilesChange: (mi: (typeof DISTANCE_OPTIONS_MI)[number]) => void;
+  onUseMyLocation: () => void;
   onFind: () => void;
 }) {
   const nearest = stores?.[0] ?? null;
@@ -1425,7 +1477,7 @@ function VisionNearestStorePanel({
             Nearest store for your photo
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Distance, directions, and availability hints — {engineLabel}.
+            UK-ready distance, directions, and availability hints — {engineLabel}.
           </p>
           {photoLabels.length > 0 && (
             <p className="mt-2 text-xs text-emerald-900/80">
@@ -1435,20 +1487,37 @@ function VisionNearestStorePanel({
               </span>
             </p>
           )}
+          {geoLabel && (
+            <p className="mt-1 text-xs font-medium text-emerald-900">
+              Using: {geoLabel}
+            </p>
+          )}
         </div>
-        <Button
-          type="button"
-          className="gap-1.5"
-          disabled={disabled || finding}
-          onClick={onFind}
-        >
-          <MapPin className="size-3.5" />
-          {finding
-            ? "Finding…"
-            : showLocal
-              ? "Update results"
-              : "Find Nearest Store"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-1.5"
+            disabled={disabled || finding}
+            onClick={onUseMyLocation}
+          >
+            <Navigation className="size-3.5" />
+            Use my location
+          </Button>
+          <Button
+            type="button"
+            className="gap-1.5"
+            disabled={disabled || finding}
+            onClick={onFind}
+          >
+            <MapPin className="size-3.5" />
+            {finding
+              ? "Finding…"
+              : showLocal
+                ? "Update results"
+                : "Find Nearest Store"}
+          </Button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -1457,10 +1526,17 @@ function VisionNearestStorePanel({
             Near
           </label>
           <select
-            value={locationId}
-            onChange={(e) => onLocationChange(e.target.value)}
+            value={geoLabel ? "__geo__" : locationId}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (next === "__geo__") return;
+              onLocationChange(next);
+            }}
             className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm"
           >
+            {geoLabel && (
+              <option value="__geo__">{geoLabel}</option>
+            )}
             {USER_LOCATION_OPTIONS.map((loc) => (
               <option key={loc.id} value={loc.id}>
                 {loc.label}
@@ -1483,7 +1559,7 @@ function VisionNearestStorePanel({
           >
             {DISTANCE_OPTIONS_MI.map((mi) => (
               <option key={mi} value={mi}>
-                {mi} mi
+                {distanceOptionLabel(mi, country)}
               </option>
             ))}
           </select>
@@ -1523,7 +1599,7 @@ function VisionNearestStorePanel({
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1 font-medium text-emerald-900">
                         <MapPin className="size-3.5" />
-                        {formatDistance(nearest.distanceMi)} away
+                        {formatDistance(nearest.distanceMi, country)} away
                       </span>
                       <span>· {nearest.city}</span>
                       {nearest.openNow === true && (
@@ -1543,7 +1619,7 @@ function VisionNearestStorePanel({
                     )}
                   </div>
                   <Badge className="bg-emerald-100 text-emerald-900 tabular-nums">
-                    {formatDistance(nearest.distanceMi)}
+                    {formatDistance(nearest.distanceMi, country)}
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -1630,7 +1706,7 @@ function VisionNearestStorePanel({
                         <p className="text-xs text-muted-foreground">
                           {store.city} ·{" "}
                           <span className="font-medium text-emerald-900">
-                            {formatDistance(store.distanceMi)}
+                            {formatDistance(store.distanceMi, country)}
                           </span>
                           {store.matchingProductNames[0]
                             ? ` · ${store.matchingProductNames[0]}`
@@ -1690,6 +1766,7 @@ function LocalStoresPanel({
   locationId,
   maxMiles,
   localMatches,
+  country,
   disabled,
   onLocationChange,
   onMilesChange,
@@ -1699,6 +1776,7 @@ function LocalStoresPanel({
   locationId: string;
   maxMiles: (typeof DISTANCE_OPTIONS_MI)[number];
   localMatches: LocalStoreMatch[] | null;
+  country: "gb" | "us";
   disabled: boolean;
   onLocationChange: (id: string) => void;
   onMilesChange: (mi: (typeof DISTANCE_OPTIONS_MI)[number]) => void;
@@ -1768,7 +1846,7 @@ function LocalStoresPanel({
           >
             {DISTANCE_OPTIONS_MI.map((mi) => (
               <option key={mi} value={mi}>
-                {mi} mi
+                {distanceOptionLabel(mi, country)}
               </option>
             ))}
           </select>
@@ -1781,7 +1859,7 @@ function LocalStoresPanel({
             <div className="space-y-3 rounded-xl border border-dashed border-border bg-secondary/30 px-4 py-3">
               <p className="text-sm text-muted-foreground">
                 No makers in range carry these items yet. Try a wider radius,
-                another city, or check big stores while we grow local stock
+                another city, or check Amazon UK while we grow local stock
                 access.
               </p>
               <div className="flex flex-wrap gap-2">
@@ -1810,7 +1888,7 @@ function LocalStoresPanel({
                     <div>
                       <p className="font-medium text-primary">{maker.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {maker.city} · {formatDistance(distanceMi)}
+                        {maker.city} · {formatDistance(distanceMi, country)}
                         {maker.services[0] ? ` · ${maker.services[0]}` : ""}
                       </p>
                     </div>

@@ -149,6 +149,8 @@ export async function searchNearbyGooglePlaces(input: {
   maxMiles: number;
   textQuery: string;
   categoryHint?: string | null;
+  /** ISO country for Places region bias (e.g. "gb") */
+  regionCode?: string | null;
   limit?: number;
 }): Promise<NearbyStore[]> {
   if (!isGooglePlacesConfigured()) return [];
@@ -158,6 +160,8 @@ export async function searchNearbyGooglePlaces(input: {
     50000,
     Math.max(500, Math.round(input.maxMiles * 1609.34))
   );
+  const regionCode = input.regionCode?.trim().toUpperCase() || undefined;
+  const languageCode = regionCode === "GB" ? "en-GB" : "en";
 
   let places: PlacesApiPlace[] = [];
 
@@ -167,7 +171,8 @@ export async function searchNearbyGooglePlaces(input: {
       {
         textQuery: input.textQuery,
         pageSize: limit,
-        languageCode: "en",
+        languageCode,
+        ...(regionCode ? { regionCode } : {}),
         locationBias: {
           circle: {
             center: {
@@ -192,7 +197,7 @@ export async function searchNearbyGooglePlaces(input: {
           includedTypes: placeTypesForCategory(input.categoryHint),
           maxResultCount: limit,
           rankPreference: "DISTANCE",
-          languageCode: "en",
+          languageCode,
           locationRestriction: {
             circle: {
               center: {

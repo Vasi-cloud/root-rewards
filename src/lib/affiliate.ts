@@ -1,3 +1,4 @@
+import { buildAmazonAffiliateUrl } from "@/lib/amazon-affiliate";
 import {
   getAffiliatePlatform,
   type AffiliatePlatform,
@@ -53,13 +54,14 @@ export function buildReferralUrl(opts: {
 }
 
 /**
- * Build a realistic outbound partner URL (demo destinations).
- * Amazon uses Associate `tag`; others use subId-style query params.
+ * Build a realistic outbound partner URL.
+ * Amazon uses Associates `tag` on amazon.co.uk (default) or amazon.com.
  */
 export function buildPartnerOutboundUrl(opts: {
   platformId: AffiliatePlatformId;
   productName: string;
   productId?: string;
+  amazonAsin?: string | null;
   affiliateCode: string;
 }): string {
   const platform = getAffiliatePlatform(opts.platformId);
@@ -69,7 +71,11 @@ export function buildPartnerOutboundUrl(opts: {
 
   switch (opts.platformId) {
     case "amazon":
-      return `https://www.amazon.com/s?k=${q}&tag=${encodeURIComponent(tag)}&ascsubtag=${sub}`;
+      return buildAmazonAffiliateUrl({
+        productName: opts.productName,
+        amazonAsin: opts.amazonAsin,
+        affiliateCode: opts.affiliateCode,
+      });
     case "target":
       return `https://www.target.com/s?searchTerm=${q}&afid=${encodeURIComponent(tag)}&ref=${sub}`;
     case "rei":

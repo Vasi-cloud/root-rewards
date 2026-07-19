@@ -246,6 +246,8 @@ export interface Product {
   rentalDuration?: number; // days, only for rental items
   /** Optional external price comparisons (Amazon, etc.) */
   competitorPrices?: CompetitorPrice[];
+  /** Amazon ASIN for deep affiliate links (falls back to tagged search) */
+  amazonAsin?: string;
   /** Rich listing details — shown in product detail to reduce returns */
   materials?: string;
   madeIn?: string;

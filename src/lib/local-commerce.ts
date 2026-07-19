@@ -6,22 +6,59 @@ export interface GeoPoint {
   lng: number;
 }
 
+export type LocationCountry = "gb" | "us";
+
 export interface UserLocationOption {
   id: string;
   label: string;
   region: string;
   lat: number;
   lng: number;
+  /** Drives Google Places region bias + distance labels */
+  country: LocationCountry;
 }
 
-/** Demo “where you are” — pair with browser geolocation later. */
+/** Demo “where you are” — UK first; browser geolocation also supported. */
 export const USER_LOCATION_OPTIONS: UserLocationOption[] = [
+  {
+    id: "london",
+    label: "London, UK — Shoreditch",
+    region: "Greater London",
+    lat: 51.5255,
+    lng: -0.0789,
+    country: "gb",
+  },
+  {
+    id: "manchester",
+    label: "Manchester, UK — Northern Quarter",
+    region: "North West England",
+    lat: 53.4839,
+    lng: -2.2339,
+    country: "gb",
+  },
+  {
+    id: "bristol",
+    label: "Bristol, UK — Stokes Croft",
+    region: "South West England",
+    lat: 51.4626,
+    lng: -2.5909,
+    country: "gb",
+  },
+  {
+    id: "edinburgh",
+    label: "Edinburgh, UK — Stockbridge",
+    region: "Scotland",
+    lat: 55.958,
+    lng: -3.2085,
+    country: "gb",
+  },
   {
     id: "portland",
     label: "Portland, OR — Pearl District",
     region: "Pacific Northwest",
     lat: 45.5308,
     lng: -122.6815,
+    country: "us",
   },
   {
     id: "san-diego",
@@ -29,6 +66,7 @@ export const USER_LOCATION_OPTIONS: UserLocationOption[] = [
     region: "Southern California",
     lat: 32.7442,
     lng: -117.1295,
+    country: "us",
   },
   {
     id: "austin",
@@ -36,6 +74,7 @@ export const USER_LOCATION_OPTIONS: UserLocationOption[] = [
     region: "Central Texas",
     lat: 30.2495,
     lng: -97.7501,
+    country: "us",
   },
   {
     id: "seattle",
@@ -43,6 +82,7 @@ export const USER_LOCATION_OPTIONS: UserLocationOption[] = [
     region: "Pacific Northwest",
     lat: 47.6253,
     lng: -122.3222,
+    country: "us",
   },
   {
     id: "denver",
@@ -50,8 +90,15 @@ export const USER_LOCATION_OPTIONS: UserLocationOption[] = [
     region: "Front Range",
     lat: 39.7675,
     lng: -104.9798,
+    country: "us",
   },
 ];
+
+export function getLocationOption(id: string): UserLocationOption {
+  return (
+    USER_LOCATION_OPTIONS.find((l) => l.id === id) ?? USER_LOCATION_OPTIONS[0]
+  );
+}
 
 export interface LocalMaker {
   id: string;
@@ -221,6 +268,72 @@ export const LOCAL_MAKERS: LocalMaker[] = [
     services: ["BYO containers", "Bike delivery"],
     tags: ["home", "beauty", "refill"],
     hoursHint: "Tue–Sat 10am–6pm",
+  },
+  {
+    id: "maker-shoreditch",
+    name: "Brick Lane Refill Co.",
+    city: "London, UK",
+    address: "88 Brick Lane, London E1 6RL",
+    blurb: "Zero-waste kitchen kits and stainless bottles near Shoreditch High Street.",
+    lat: 51.5218,
+    lng: -0.0718,
+    productIds: ["2", "5", "9", "14", "18"],
+    shopSlug: "brick-lane-refill",
+    services: ["Click & collect", "BYO jar"],
+    tags: ["kitchen", "zero-waste", "refill"],
+    hoursHint: "Mon–Sat 10am–7pm · Sun 11am–5pm",
+  },
+  {
+    id: "maker-hackney",
+    name: "Hackney Botanical Apothecary",
+    city: "London, UK",
+    address: "142 Chatsworth Road, London E5 0JT",
+    blurb: "Organic balms, bamboo brushes, and plant cleaners from East London makers.",
+    lat: 51.5512,
+    lng: -0.0426,
+    productIds: ["3", "7", "10", "15", "16"],
+    services: ["Local courier", "Workshop nights"],
+    tags: ["beauty", "home", "local"],
+    hoursHint: "Wed–Sun 11am–6pm",
+  },
+  {
+    id: "maker-nq",
+    name: "Northern Quarter Green Hub",
+    city: "Manchester, UK",
+    address: "22 Thomas Street, Manchester M4 1ER",
+    blurb: "Hemp apparel, totes, and trail bottles in the heart of the NQ.",
+    lat: 53.4831,
+    lng: -2.2364,
+    productIds: ["1", "4", "9", "11", "17"],
+    services: ["Same-day bike delivery", "Repairs"],
+    tags: ["apparel", "outdoors", "kitchen"],
+    hoursHint: "Daily 10am–7pm",
+  },
+  {
+    id: "maker-stokes",
+    name: "Stokes Croft Supply",
+    city: "Bristol, UK",
+    address: "101 Stokes Croft, Bristol BS1 3RD",
+    blurb: "Solar lanterns, wraps, and refill cleaners from Bristol independents.",
+    lat: 51.4629,
+    lng: -2.5901,
+    productIds: ["3", "5", "8", "9", "14"],
+    services: ["Pickup locker", "Refill bar"],
+    tags: ["home", "kitchen", "zero-waste"],
+    hoursHint: "Tue–Sat 10am–6pm",
+  },
+  {
+    id: "maker-stockbridge",
+    name: "Stockbridge Pantry & Pack",
+    city: "Edinburgh, UK",
+    address: "30 Raeburn Place, Edinburgh EH4 1HN",
+    blurb: "Reusable kitchen kits and organic cotton totes for Stockbridge shoppers.",
+    lat: 55.9586,
+    lng: -3.2098,
+    productIds: ["1", "2", "5", "9", "14"],
+    services: ["Click & collect", "Gift wrap"],
+    tags: ["kitchen", "gifts", "local"],
+    hoursHint: "Mon–Sat 9am–6pm · Sun 11am–4pm",
   },
 ];
 
@@ -463,15 +576,33 @@ export function getNearbyMakers(user: GeoPoint, maxMiles: number) {
 }
 
 /** Normalize lat/lng into 0–100% for a fake map pin layout. */
+export function mapBoundsForCountry(country: LocationCountry = "us"): {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+} {
+  if (country === "gb") {
+    return { minLat: 50.0, maxLat: 58.8, minLng: -6.8, maxLng: 1.9 };
+  }
+  return { minLat: 29.5, maxLat: 46.5, minLng: -123.5, maxLng: -96.5 };
+}
+
 export function pinPosition(
   point: GeoPoint,
-  bounds = {
-    minLat: 29.5,
-    maxLat: 46.5,
-    minLng: -123.5,
-    maxLng: -96.5,
-  }
+  boundsOrCountry:
+    | LocationCountry
+    | {
+        minLat: number;
+        maxLat: number;
+        minLng: number;
+        maxLng: number;
+      } = "us"
 ): { left: number; top: number } {
+  const bounds =
+    typeof boundsOrCountry === "string"
+      ? mapBoundsForCountry(boundsOrCountry)
+      : boundsOrCountry;
   const left =
     ((point.lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100;
   const top =
@@ -482,10 +613,27 @@ export function pinPosition(
   };
 }
 
-export function formatDistance(mi: number): string {
+export function formatDistance(
+  mi: number,
+  country: LocationCountry = "us"
+): string {
+  if (country === "gb") {
+    const km = mi * 1.60934;
+    if (km < 1) return "< 1 km";
+    if (km < 10) return `${km.toFixed(1)} km`;
+    return `${Math.round(km)} km`;
+  }
   if (mi < 1) return "< 1 mi";
   if (mi < 10) return `${mi.toFixed(1)} mi`;
   return `${Math.round(mi)} mi`;
+}
+
+export function distanceOptionLabel(
+  mi: number,
+  country: LocationCountry = "us"
+): string {
+  if (country === "gb") return `${Math.round(mi * 1.60934)} km`;
+  return `${mi} mi`;
 }
 
 export interface LocalStoreMatch {
@@ -733,11 +881,18 @@ export function buildPlacesSearchQuery(input: {
   labels?: string[];
   productNames?: string[];
   cityLabel?: string;
+  country?: LocationCountry;
 }): string {
   const label = input.labels?.[0] ?? input.categoryHint ?? "eco products";
   const product = input.productNames?.[0];
-  const city = input.cityLabel?.split("—")[0]?.trim() ?? "";
+  const city = (input.cityLabel ?? "").split(/[\u2014-]/)[0]?.trim() ?? "";
   const focus = product ? `${product}` : `${label}`;
-  return `sustainable eco store ${focus} near ${city}`.replace(/\s+/g, " ").trim();
+  if (input.country === "gb") {
+    return `zero waste eco shop ${focus} near ${city} UK`
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  return `sustainable eco store ${focus} near ${city}`
+    .replace(/\s+/g, " ")
+    .trim();
 }
-

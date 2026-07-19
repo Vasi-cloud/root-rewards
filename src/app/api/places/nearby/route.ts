@@ -9,6 +9,7 @@ import {
   buildPlacesSearchQuery,
   findNearestStoresForVision,
   localMatchesToNearbyStores,
+  type LocationCountry,
   type NearbyStore,
 } from "@/lib/local-commerce";
 
@@ -48,11 +49,23 @@ export async function POST(request: Request) {
 
   const lat = Number(raw.lat);
   const lng = Number(raw.lng);
-  const user = location
-    ? { lat: location.lat, lng: location.lng }
-    : Number.isFinite(lat) && Number.isFinite(lng)
-      ? { lat, lng }
-      : USER_LOCATION_OPTIONS[0];
+  const hasCustomGeo = Number.isFinite(lat) && Number.isFinite(lng);
+  // Browser / custom coords win when provided
+  const user = hasCustomGeo
+    ? { lat, lng }
+    : location
+      ? { lat: location.lat, lng: location.lng }
+      : {
+          lat: USER_LOCATION_OPTIONS[0].lat,
+          lng: USER_LOCATION_OPTIONS[0].lng,
+        };
+
+  /** Preset country, else UK bias when custom coords look like Britain */
+  const country: LocationCountry = hasCustomGeo
+    ? lat > 49 && lat < 61 && lng > -9 && lng < 2
+      ? "gb"
+      : (location?.country ?? "us")
+    : (location?.country ?? "gb");
 
   const maxMiles = Math.min(
     500,
@@ -103,13 +116,15 @@ export async function POST(request: Request) {
           productNames.length > 0
             ? productNames
             : makerMatches[0]?.matchingProducts.map((p) => p.product.name),
-        cityLabel: location?.label,
+        cityLabel: location?.label ?? (country === "gb" ? "United Kingdom" : ""),
+        country,
       });
       googleStores = await searchNearbyGooglePlaces({
         user,
         maxMiles,
         textQuery,
         categoryHint,
+        regionCode: country,
         limit,
       });
     } catch (err) {
@@ -152,6 +167,8 @@ export async function POST(request: Request) {
       lat: user.lat,
       lng: user.lng,
       label: location?.label ?? "Custom location",
+      country,
     },
+    country,
   });
 }

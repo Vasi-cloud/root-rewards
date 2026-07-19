@@ -4,6 +4,7 @@ import { Leaf, X } from "lucide-react";
 import { useEffect } from "react";
 
 import { ProductDetailsPanel } from "@/components/product/product-details-panel";
+import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { ProductReviews } from "@/components/product/product-reviews";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { Badge } from "@/components/ui/badge";
@@ -123,6 +124,15 @@ export function MarketplaceProductDetail({
           </p>
 
           <TrustBadges variant="product" />
+
+          {!isService && (
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                Also shop via partners
+              </p>
+              <ProductPartnerLinks product={product} />
+            </div>
+          )}
 
           <ProductDetailsPanel
             details={product}

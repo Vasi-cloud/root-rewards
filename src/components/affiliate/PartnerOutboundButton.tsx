@@ -3,6 +3,7 @@
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
   getAffiliatePlatform,
@@ -15,16 +16,21 @@ export function PartnerOutboundButton({
   platformId,
   productId,
   productName,
+  amazonAsin,
   listPrice,
   className,
+  label,
 }: {
   /** Competitor store label from price comparison */
   store?: string;
   platformId?: AffiliatePlatformId;
   productId?: string;
   productName: string;
+  amazonAsin?: string | null;
   listPrice?: number;
   className?: string;
+  /** Override button label (e.g. "Amazon UK") */
+  label?: string;
 }) {
   const id =
     platformId ??
@@ -33,12 +39,18 @@ export function PartnerOutboundButton({
   if (!id || id === "forest-buddies") return null;
 
   const platform = getAffiliatePlatform(id);
+  const buttonLabel =
+    label ??
+    (id === "amazon"
+      ? getAmazonStoreLabel()
+      : `Via ${platform.name.split(" ")[0]}`);
 
   function handleClick() {
     const { url } = recordPartnerOutboundClick({
       platformId: id!,
       productId,
       productName,
+      amazonAsin,
       listPrice,
     });
     window.open(url, "_blank", "noopener,noreferrer");
@@ -53,7 +65,7 @@ export function PartnerOutboundButton({
       onClick={handleClick}
       title={`${platform.attributionNote} ${platform.trackingNote}`}
     >
-      Via {platform.name.split(" ")[0]}
+      {buttonLabel.startsWith("Via ") ? buttonLabel : `Via ${buttonLabel}`}
       <ExternalLink className="size-3 opacity-70" />
     </Button>
   );

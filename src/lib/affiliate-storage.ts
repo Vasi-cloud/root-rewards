@@ -252,6 +252,7 @@ export function recordPartnerOutboundClick(opts: {
   platformId: AffiliatePlatformId;
   productId?: string;
   productName: string;
+  amazonAsin?: string | null;
   /** Competitor list price for demo pending estimates */
   listPrice?: number;
 }): { url: string; event: AffiliateEvent } {
@@ -265,6 +266,7 @@ export function recordPartnerOutboundClick(opts: {
     platformId: opts.platformId,
     productName: opts.productName,
     productId: opts.productId,
+    amazonAsin: opts.amazonAsin,
     affiliateCode: code,
   });
 

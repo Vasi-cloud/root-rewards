@@ -20,7 +20,7 @@ import { FeaturedSoloMakers } from "@/components/marketplace/FeaturedSoloMakers"
 import { SellerShopsStrip } from "@/components/marketplace/SellerShopsStrip";
 import { BuyLocalStrip } from "@/components/marketplace/BuyLocalStrip";
 import { ProductRatingBadge } from "@/components/product/product-reviews";
-import { PartnerOutboundButton } from "@/components/affiliate/PartnerOutboundButton";
+import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -1008,20 +1008,11 @@ function ListingGrid({
                 <div className="rounded-lg border border-border/60 bg-background/80 px-2.5 py-2 text-xs">
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
                     {comparison.competitors.map((c) => (
-                      <span
-                        key={c.store}
-                        className="inline-flex items-center gap-1.5"
-                      >
+                      <span key={c.store}>
                         {c.store}{" "}
                         <span className="line-through tabular-nums">
                           ${c.price}
                         </span>
-                        <PartnerOutboundButton
-                          store={c.store}
-                          productId={product.id}
-                          productName={product.name}
-                          listPrice={c.price}
-                        />
                       </span>
                     ))}
                   </div>
@@ -1035,6 +1026,9 @@ function ListingGrid({
                     </p>
                   )}
                 </div>
+              )}
+              {!isService && (
+                <ProductPartnerLinks product={product} className="pt-0.5" />
               )}
               {isService && product.availabilityNote && (
                 <p className="text-xs text-muted-foreground">

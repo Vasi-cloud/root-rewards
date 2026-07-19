@@ -21,6 +21,7 @@ import {
   DISTANCE_OPTIONS_MI,
   STOCK_SIMULATION_DISCLAIMER,
   USER_LOCATION_OPTIONS,
+  distanceOptionLabel,
   formatDistance,
   getLocalListings,
   getNearbyMakers,
@@ -163,7 +164,9 @@ function BuyLocalPageInner() {
                         : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:bg-emerald-100"
                     }`}
                   >
-                    {mi >= 500 ? "Anywhere" : `${mi} mi`}
+                    {mi >= 500
+                      ? "Anywhere"
+                      : distanceOptionLabel(mi, user.country)}
                   </button>
                 ))}
               </div>
@@ -231,7 +234,7 @@ function BuyLocalPageInner() {
                     </h3>
                     <Badge className="shrink-0 gap-1 bg-emerald-100 text-emerald-900">
                       <MapPin className="size-3" />
-                      {formatDistance(distanceMi)}
+                      {formatDistance(distanceMi, user.country)}
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{maker.city}</p>
@@ -295,7 +298,7 @@ function BuyLocalPageInner() {
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="outline">{product.category}</Badge>
                     <span className="text-xs font-medium text-emerald-800">
-                      {formatDistance(distanceMi)} away
+                      {formatDistance(distanceMi, user.country)} away
                     </span>
                   </div>
                   {productParam === product.id && (
@@ -376,7 +379,7 @@ function LocalMapPlaceholder({
   maxMiles: number;
 }) {
   const nearby = getNearbyMakers(user, maxMiles);
-  const you = pinPosition(user);
+  const you = pinPosition(user, user.country);
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-[#dfece4] shadow-sm lg:col-span-3">
@@ -429,17 +432,18 @@ function LocalMapPlaceholder({
           </div>
 
           {nearby.map(({ maker, distanceMi }) => {
-            const pos = pinPosition(maker);
+            const pos = pinPosition(maker, user.country);
             return (
               <div
                 key={maker.id}
                 className="absolute z-10 -translate-x-1/2 -translate-y-full"
                 style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
-                title={`${maker.name} · ${formatDistance(distanceMi)}`}
+                title={`${maker.name} · ${formatDistance(distanceMi, user.country)}`}
               >
                 <div className="flex flex-col items-center">
                   <span className="mb-0.5 max-w-[7rem] truncate rounded-md bg-cream/95 px-1.5 py-0.5 text-[10px] font-medium text-forest shadow-sm">
-                    {maker.name.split(" ")[0]} · {formatDistance(distanceMi)}
+                    {maker.name.split(" ")[0]} ·{" "}
+                    {formatDistance(distanceMi, user.country)}
                   </span>
                   <MapPin className="size-6 fill-emerald-700 text-emerald-900 drop-shadow" />
                 </div>

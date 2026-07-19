@@ -47,15 +47,16 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
     attributionDaysTypical: 1,
     attributionDaysMax: 1,
     attributionNote:
-      "Often ~24 hours last-click; category and region rules can differ.",
+      "Often ~24 hours last-click; UK and US programme rules can differ.",
     commissionRateTypical: 4,
     commissionNote: "Typically ~1–10% by category; rates change and can reverse.",
     trackingModel: "cookie",
     trackingNote:
-      "Outbound clicks tagged with your Associate ID; Amazon reports sales later.",
+      "Outbound clicks tagged with your Associate ID on Amazon UK/US; Amazon reports sales later.",
     conversionLatency: "delayed",
     payoutNote: "Earnings stay pending until the partner confirms (often 1–3 days+).",
-    publisherTag: "forestbuddies-20",
+    /** Overridden by NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG when set */
+    publisherTag: "forestbuddies-21",
   },
   {
     id: "target",
