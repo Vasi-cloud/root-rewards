@@ -315,6 +315,30 @@ export default function SellerPage() {
     }
   }, [seller]);
 
+  const pendingCount = useMemo(
+    () =>
+      (seller?.products ?? []).filter((p) => p.status === "pending").length,
+    [seller?.products]
+  );
+  const approvedCount = useMemo(
+    () =>
+      (seller?.products ?? []).filter((p) => p.status === "approved").length,
+    [seller?.products]
+  );
+  const rejectedCount = useMemo(
+    () =>
+      (seller?.products ?? []).filter((p) => p.status === "rejected").length,
+    [seller?.products]
+  );
+  const catalogProducts = useMemo(
+    () =>
+      (seller?.products ?? []).filter(
+        (p) =>
+          catalogFilter === "All" || (p.status ?? "pending") === catalogFilter
+      ),
+    [seller?.products, catalogFilter]
+  );
+
   if (authLoading || sellerLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-cream text-muted-foreground">
@@ -851,27 +875,6 @@ export default function SellerPage() {
       setBulkError("Could not read that CSV file. Try the template format.");
     }
   }
-
-  const pendingCount = useMemo(
-    () => seller.products.filter((p) => p.status === "pending").length,
-    [seller.products]
-  );
-  const approvedCount = useMemo(
-    () => seller.products.filter((p) => p.status === "approved").length,
-    [seller.products]
-  );
-  const rejectedCount = useMemo(
-    () => seller.products.filter((p) => p.status === "rejected").length,
-    [seller.products]
-  );
-  const catalogProducts = useMemo(
-    () =>
-      seller.products.filter(
-        (p) =>
-          catalogFilter === "All" || (p.status ?? "pending") === catalogFilter
-      ),
-    [seller.products, catalogFilter]
-  );
 
   const tabs: { id: SellerTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "overview", label: "Overview", icon: TrendingUp },
