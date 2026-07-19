@@ -27,11 +27,17 @@ import { LocalAvailabilityBadge } from "@/components/local/local-availability-ba
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { useCart } from "@/contexts/cart-context";
 import {
+  VOICE_COMMAND_HINTS,
   buildLeafySpeechScript,
   isSpeechRecognitionSupported,
   isSpeechSynthesisSupported,
   loadAutoSpeakPreference,
+  loadListenAfterSpeakPreference,
+  matchProductBySpokenName,
+  parseVoiceCommand,
   saveAutoSpeakPreference,
+  saveListenAfterSpeakPreference,
+  speakFeedback,
   speakText,
   startListening,
   stopSpeaking,
@@ -73,13 +79,19 @@ export default function RecommendPage() {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
+  const [listenAfterSpeak, setListenAfterSpeak] = useState(true);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+  const [interimHeard, setInterimHeard] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [vision, setVision] = useState<VisionResult | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const listenHandleRef = useRef<SpeechRecognitionHandle | null>(null);
+  const picksRef = useRef<ProductRecommendation[]>([]);
+  const modeRef = useRef<AskMode>("text");
+  const resultRef = useRef<RecommendResult | null>(null);
+  const visionRef = useRef<VisionResult | null>(null);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -111,6 +123,7 @@ export default function RecommendPage() {
 
   useEffect(() => {
     setAutoSpeak(loadAutoSpeakPreference());
+    setListenAfterSpeak(loadListenAfterSpeakPreference());
     return () => {
       listenHandleRef.current?.stop();
       stopSpeaking();
@@ -149,6 +162,11 @@ export default function RecommendPage() {
       ? vision.productIds
       : (result?.picks.map((p) => p.product.id) ?? []);
 
+  picksRef.current = activePicks;
+  modeRef.current = mode;
+  resultRef.current = result;
+  visionRef.current = vision;
+
   function leafyReplyScript(
     nextResult: RecommendResult | null = result,
     nextVision: VisionResult | null = vision
@@ -161,6 +179,7 @@ export default function RecommendPage() {
           price: p.product.price,
           reason: `${Math.round(p.score)} percent match`,
         })),
+        includeVoiceHint: true,
       });
     }
     if (nextResult) {
@@ -170,6 +189,7 @@ export default function RecommendPage() {
           name: p.product.name,
           price: p.product.price,
         })),
+        includeVoiceHint: true,
       });
     }
     return null;
@@ -177,7 +197,8 @@ export default function RecommendPage() {
 
   function speakLeafyReply(
     nextResult: RecommendResult | null = result,
-    nextVision: VisionResult | null = vision
+    nextVision: VisionResult | null = vision,
+    opts?: { listenAfter?: boolean }
   ) {
     const script = leafyReplyScript(nextResult, nextVision);
     if (!script) {
@@ -186,13 +207,23 @@ export default function RecommendPage() {
     }
     listenHandleRef.current?.stop();
     setListening(false);
+    setInterimHeard(null);
     setVoiceError(null);
     setVoiceStatus("Leafy is speaking…");
+    const shouldListenAfter =
+      opts?.listenAfter ?? (listenAfterSpeak && isSpeechRecognitionSupported());
     speakText(script, {
       onStart: () => setSpeaking(true),
       onEnd: () => {
         setSpeaking(false);
-        setVoiceStatus(null);
+        setVoiceStatus(
+          shouldListenAfter
+            ? "Your turn — say Add to cart, or Add pick 2…"
+            : null
+        );
+        if (shouldListenAfter) {
+          window.setTimeout(() => startVoiceListen({ forCommands: true }), 350);
+        }
       },
       onError: (message) => {
         setSpeaking(false);
@@ -209,6 +240,155 @@ export default function RecommendPage() {
     setListening(false);
     setSpeaking(false);
     setVoiceStatus(null);
+    setInterimHeard(null);
+  }
+
+  function confirmAdded(product: Product) {
+    addToCart(product);
+    setAddedId(product.id);
+    window.setTimeout(() => setAddedId(null), 1600);
+    const line = `Added ${product.name} to your cart. About $${product.price.toFixed(0)}.`;
+    setVoiceStatus(line);
+    setVoiceError(null);
+    speakFeedback(line, {
+      onEnd: () => {
+        if (listenAfterSpeak && isSpeechRecognitionSupported()) {
+          setVoiceStatus("Say Add pick 2, or another product name…");
+          window.setTimeout(() => startVoiceListen({ forCommands: true }), 300);
+        }
+      },
+    });
+  }
+
+  function handleVoiceTranscript(transcript: string) {
+    const picks = picksRef.current;
+    const names = picks.map((p) => p.product.name);
+    const command = parseVoiceCommand(transcript, names);
+
+    setVoiceStatus(`Heard: “${transcript}”`);
+    setInterimHeard(null);
+
+    if (command.type === "stop") {
+      stopLeafyVoice();
+      setVoiceStatus("Okay — voice paused.");
+      speakFeedback("Okay. Voice paused.");
+      return;
+    }
+
+    if (command.type === "help") {
+      setVoiceStatus(VOICE_COMMAND_HINTS);
+      speakFeedback(
+        "You can say: Add to cart. Add pick 2. Or say a product name. Or find nearest store. Or ask a new shopping question."
+      );
+      return;
+    }
+
+    if (command.type === "speak_again") {
+      speakLeafyReply(resultRef.current, visionRef.current, {
+        listenAfter: true,
+      });
+      return;
+    }
+
+    if (command.type === "find_stores") {
+      if (modeRef.current === "vision" && visionRef.current) {
+        setVoiceStatus("Finding nearest stores…");
+        speakFeedback("Looking for the nearest store for your photo.");
+        void findNearestStoreFromVision();
+      } else {
+        setVoiceStatus("Open Snap & match, or browse Buy Local for stores.");
+        speakFeedback(
+          "For nearby stores, snap a photo in Snap and match, or open Buy Local."
+        );
+      }
+      return;
+    }
+
+    if (command.type === "add_cart" || command.type === "add_cart_by_name") {
+      if (picks.length === 0) {
+        setVoiceError("Ask Leafy for picks first, then say Add to cart.");
+        speakFeedback("I don’t have picks yet. Ask me what you’re shopping for.");
+        return;
+      }
+      let index =
+        command.type === "add_cart"
+          ? command.pickIndex
+          : matchProductBySpokenName(command.productQuery, names);
+      if (index < 0 || index >= picks.length) {
+        setVoiceError(
+          `I couldn’t match that. Try “Add pick 1” through “Add pick ${picks.length}”.`
+        );
+        speakFeedback(
+          `I couldn’t find that product. Say add pick 1 through pick ${picks.length}.`
+        );
+        return;
+      }
+      confirmAdded(picks[index].product);
+      return;
+    }
+
+    // Free-form shopping question
+    setMode("text");
+    setQuery(command.query);
+    const money = command.query.match(/\$?\s*(\d{1,3})\b/);
+    if (money) setBudget(money[1]);
+    void runRecommend(command.query, money?.[1] ?? budget, { fromVoice: true });
+  }
+
+  function startVoiceListen(opts?: { forCommands?: boolean }) {
+    if (!isSpeechRecognitionSupported()) {
+      setVoiceError(
+        "Voice input isn’t supported in this browser. Try Chrome or Edge, or type your question."
+      );
+      return;
+    }
+
+    listenHandleRef.current?.stop();
+    stopSpeaking();
+    setSpeaking(false);
+    setVoiceError(null);
+    setInterimHeard(null);
+
+    const hasPicks = picksRef.current.length > 0;
+    const forCommands = Boolean(opts?.forCommands && hasPicks);
+    setVoiceStatus(
+      forCommands
+        ? "Listening for a command… Add to cart, or a new question"
+        : "Listening… say what you’re shopping for"
+    );
+    setListening(true);
+
+    const handle = startListening({
+      continuous: forCommands,
+      onInterim: (text) => setInterimHeard(text),
+      onSpeechStart: () =>
+        setVoiceStatus(
+          forCommands ? "Hearing you…" : "Hearing your question…"
+        ),
+      onResult: (transcript) => {
+        handleVoiceTranscript(transcript);
+      },
+      onError: (message) => {
+        setVoiceError(message);
+        setVoiceStatus(null);
+        setInterimHeard(null);
+      },
+      onEnd: () => {
+        setListening(false);
+        setInterimHeard(null);
+        listenHandleRef.current = null;
+      },
+    });
+    listenHandleRef.current = handle;
+
+    // End continuous command window after ~8s so mic doesn't stay open forever
+    if (forCommands && handle) {
+      window.setTimeout(() => {
+        if (listenHandleRef.current === handle) {
+          handle.stop();
+        }
+      }, 8000);
+    }
   }
 
   function toggleListen() {
@@ -217,43 +397,10 @@ export default function RecommendPage() {
       listenHandleRef.current = null;
       setListening(false);
       setVoiceStatus(null);
+      setInterimHeard(null);
       return;
     }
-
-    if (!isSpeechRecognitionSupported()) {
-      setVoiceError(
-        "Voice input isn’t supported in this browser. Try Chrome or Edge, or type your question."
-      );
-      return;
-    }
-
-    stopSpeaking();
-    setSpeaking(false);
-    setVoiceError(null);
-    setVoiceStatus("Listening… say what you’re shopping for");
-    setListening(true);
-    setMode("text");
-
-    const handle = startListening({
-      onResult: (transcript) => {
-        setQuery(transcript);
-        const money = transcript.match(/\$?\s*(\d{1,3})\b/);
-        if (money) setBudget(money[1]);
-        setVoiceStatus(`Heard: “${transcript}”`);
-        void runRecommend(transcript, money?.[1] ?? budget, {
-          fromVoice: true,
-        });
-      },
-      onError: (message) => {
-        setVoiceError(message);
-        setVoiceStatus(null);
-      },
-      onEnd: () => {
-        setListening(false);
-        listenHandleRef.current = null;
-      },
-    });
-    listenHandleRef.current = handle;
+    startVoiceListen({ forCommands: picksRef.current.length > 0 });
   }
 
   async function runRecommend(
@@ -318,6 +465,7 @@ export default function RecommendPage() {
     setVisionError(null);
     setVision(null);
     setLocalMatches(null);
+    setNearbyStores(null);
     setShowLocal(false);
   }
 
@@ -429,10 +577,15 @@ export default function RecommendPage() {
     }
   }
 
-  function handleAdd(product: Product) {
+  function handleAdd(product: Product, opts?: { speak?: boolean }) {
     addToCart(product);
     setAddedId(product.id);
-    window.setTimeout(() => setAddedId(null), 1200);
+    window.setTimeout(() => setAddedId(null), 1600);
+    if (opts?.speak) {
+      const line = `Added ${product.name} to your cart.`;
+      setVoiceStatus(line);
+      speakFeedback(line);
+    }
   }
 
   return (
@@ -452,9 +605,9 @@ export default function RecommendPage() {
         </h1>
         <p className="mt-3 max-w-xl text-muted-foreground sm:text-lg">
           Type, tap <strong className="font-medium text-foreground">Listen</strong>{" "}
-          to ask out loud, or snap a photo. Leafy can also{" "}
-          <strong className="font-medium text-foreground">Speak</strong> her
-          answer — helpful if reading is hard.
+          to ask out loud, or snap a photo. After Leafy speaks, say{" "}
+          <strong className="font-medium text-foreground">Add to cart</strong>{" "}
+          for a pick — clear spoken feedback included.
         </p>
 
         <div
@@ -466,7 +619,8 @@ export default function RecommendPage() {
             Voice controls
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Large buttons · works with keyboard · Chrome or Edge recommended
+            Conversational Leafy — ask out loud, hear answers, say{" "}
+            <strong className="font-medium text-foreground">Add to cart</strong>
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Button
@@ -482,7 +636,7 @@ export default function RecommendPage() {
               aria-label={
                 listening
                   ? "Stop listening"
-                  : "Listen — speak your shopping question"
+                  : "Listen — speak a question or Add to cart"
               }
               disabled={thinking}
               onClick={toggleListen}
@@ -528,7 +682,10 @@ export default function RecommendPage() {
               )}
             </Button>
           </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="mt-3 rounded-xl border border-emerald-100 bg-white/70 px-3 py-2 text-xs leading-relaxed text-emerald-950 sm:text-sm">
+            {VOICE_COMMAND_HINTS}
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
             <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-foreground">
               <input
                 type="checkbox"
@@ -547,6 +704,24 @@ export default function RecommendPage() {
               />
               <span>Always read Leafy’s answers aloud</span>
             </label>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="size-5 accent-primary"
+                checked={listenAfterSpeak}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setListenAfterSpeak(on);
+                  saveListenAfterSpeakPreference(on);
+                  setVoiceStatus(
+                    on
+                      ? "After speaking, Leafy will listen for Add to cart"
+                      : "Won’t auto-listen after speaking"
+                  );
+                }}
+              />
+              <span>After speaking, listen for “Add to cart”</span>
+            </label>
             {(listening || speaking) && (
               <Button
                 type="button"
@@ -561,11 +736,16 @@ export default function RecommendPage() {
             )}
           </div>
           <div
-            className="mt-2 min-h-[1.25rem] text-sm"
+            className="mt-2 min-h-[1.25rem] space-y-1 text-sm"
             role="status"
             aria-live="polite"
             aria-atomic="true"
           >
+            {interimHeard && listening && (
+              <p className="text-muted-foreground">
+                Hearing: <span className="text-foreground">“{interimHeard}”</span>
+              </p>
+            )}
             {voiceStatus && (
               <p className="text-emerald-900">{voiceStatus}</p>
             )}
