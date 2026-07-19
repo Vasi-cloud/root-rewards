@@ -2,13 +2,18 @@
 
 import {
   Camera,
+  ExternalLink,
   ImagePlus,
   Leaf,
   MapPin,
   Mic,
+  Navigation,
   Sparkles,
   ShoppingBag,
+  Square,
   Store,
+  Volume2,
+  VolumeX,
   Wand2,
   X,
 } from "lucide-react";
@@ -22,11 +27,25 @@ import { LocalAvailabilityBadge } from "@/components/local/local-availability-ba
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { useCart } from "@/contexts/cart-context";
 import {
+  buildLeafySpeechScript,
+  isSpeechRecognitionSupported,
+  isSpeechSynthesisSupported,
+  loadAutoSpeakPreference,
+  saveAutoSpeakPreference,
+  speakText,
+  startListening,
+  stopSpeaking,
+  type SpeechRecognitionHandle,
+} from "@/lib/leafy-voice";
+import {
   DISTANCE_OPTIONS_MI,
   STOCK_SIMULATION_DISCLAIMER,
   USER_LOCATION_OPTIONS,
   findLocalStoresForProducts,
+  findNearestStoresForVision,
   formatDistance,
+  googleMapsDirectionsUrl,
+  googleMapsStoreUrl,
   type LocalStoreMatch,
 } from "@/lib/local-commerce";
 import {
@@ -54,11 +73,15 @@ export default function RecommendPage() {
   const [query, setQuery] = useState("eco kitchen under $50");
   const [budget, setBudget] = useState("50");
   const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [vision, setVision] = useState<VisionResult | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const listenHandleRef = useRef<SpeechRecognitionHandle | null>(null);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -76,12 +99,21 @@ export default function RecommendPage() {
   const [localMatches, setLocalMatches] = useState<LocalStoreMatch[] | null>(
     null
   );
+  const [findingStores, setFindingStores] = useState(false);
 
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    setAutoSpeak(loadAutoSpeakPreference());
+    return () => {
+      listenHandleRef.current?.stop();
+      stopSpeaking();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,12 +138,125 @@ export default function RecommendPage() {
       ? vision.productIds
       : (result?.picks.map((p) => p.product.id) ?? []);
 
-  async function runRecommend(nextQuery = query, nextBudget = budget) {
+  function leafyReplyScript(
+    nextResult: RecommendResult | null = result,
+    nextVision: VisionResult | null = vision
+  ): string | null {
+    if (nextVision) {
+      return buildLeafySpeechScript({
+        message: nextVision.summary,
+        picks: nextVision.picks.map((p) => ({
+          name: p.product.name,
+          price: p.product.price,
+          reason: `${Math.round(p.score)} percent match`,
+        })),
+      });
+    }
+    if (nextResult) {
+      return buildLeafySpeechScript({
+        message: nextResult.message,
+        picks: nextResult.picks.map((p) => ({
+          name: p.product.name,
+          price: p.product.price,
+        })),
+      });
+    }
+    return null;
+  }
+
+  function speakLeafyReply(
+    nextResult: RecommendResult | null = result,
+    nextVision: VisionResult | null = vision
+  ) {
+    const script = leafyReplyScript(nextResult, nextVision);
+    if (!script) {
+      setVoiceError("Ask Leafy a question first — then tap Speak.");
+      return;
+    }
+    listenHandleRef.current?.stop();
+    setListening(false);
+    setVoiceError(null);
+    setVoiceStatus("Leafy is speaking…");
+    speakText(script, {
+      onStart: () => setSpeaking(true),
+      onEnd: () => {
+        setSpeaking(false);
+        setVoiceStatus(null);
+      },
+      onError: (message) => {
+        setSpeaking(false);
+        setVoiceStatus(null);
+        setVoiceError(message);
+      },
+    });
+  }
+
+  function stopLeafyVoice() {
+    listenHandleRef.current?.stop();
+    listenHandleRef.current = null;
+    stopSpeaking();
+    setListening(false);
+    setSpeaking(false);
+    setVoiceStatus(null);
+  }
+
+  function toggleListen() {
+    if (listening) {
+      listenHandleRef.current?.stop();
+      listenHandleRef.current = null;
+      setListening(false);
+      setVoiceStatus(null);
+      return;
+    }
+
+    if (!isSpeechRecognitionSupported()) {
+      setVoiceError(
+        "Voice input isn’t supported in this browser. Try Chrome or Edge, or type your question."
+      );
+      return;
+    }
+
+    stopSpeaking();
+    setSpeaking(false);
+    setVoiceError(null);
+    setVoiceStatus("Listening… say what you’re shopping for");
+    setListening(true);
+    setMode("text");
+
+    const handle = startListening({
+      onResult: (transcript) => {
+        setQuery(transcript);
+        const money = transcript.match(/\$?\s*(\d{1,3})\b/);
+        if (money) setBudget(money[1]);
+        setVoiceStatus(`Heard: “${transcript}”`);
+        void runRecommend(transcript, money?.[1] ?? budget, {
+          fromVoice: true,
+        });
+      },
+      onError: (message) => {
+        setVoiceError(message);
+        setVoiceStatus(null);
+      },
+      onEnd: () => {
+        setListening(false);
+        listenHandleRef.current = null;
+      },
+    });
+    listenHandleRef.current = handle;
+  }
+
+  async function runRecommend(
+    nextQuery = query,
+    nextBudget = budget,
+    opts?: { fromVoice?: boolean }
+  ) {
     setThinking(true);
     setVoiceError(null);
     setVision(null);
     setLocalMatches(null);
     setShowLocal(false);
+    stopSpeaking();
+    setSpeaking(false);
     const parsedBudget = Number(nextBudget);
     const out = await recommendProductsAsync({
       query: nextQuery,
@@ -123,6 +268,10 @@ export default function RecommendPage() {
     });
     setResult(out);
     setThinking(false);
+    if (autoSpeak || opts?.fromVoice) {
+      // Small pause so screen readers / UI settle before TTS
+      window.setTimeout(() => speakLeafyReply(out, null), 400);
+    }
   }
 
   function clearPhoto() {
@@ -199,6 +348,9 @@ export default function RecommendPage() {
     });
     setVision(out);
     setThinking(false);
+    if (autoSpeak) {
+      window.setTimeout(() => speakLeafyReply(null, out), 400);
+    }
   }
 
   function findLocalStores() {
@@ -215,46 +367,31 @@ export default function RecommendPage() {
     setShowLocal(true);
   }
 
-  function startVoice() {
-    const SpeechRecognitionAPI =
-      (
-        window as unknown as {
-          SpeechRecognition?: new () => SpeechRecognition;
-          webkitSpeechRecognition?: new () => SpeechRecognition;
-        }
-      ).SpeechRecognition ||
-      (
-        window as unknown as {
-          webkitSpeechRecognition?: new () => SpeechRecognition;
-        }
-      ).webkitSpeechRecognition;
-
-    if (!SpeechRecognitionAPI) {
-      setVoiceError("Voice isn’t supported in this browser — try Chrome.");
-      return;
-    }
-
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setQuery(transcript);
-      const money = transcript.match(/\$?\s*(\d{1,3})\b/);
-      if (money) setBudget(money[1]);
-      setListening(false);
-      void runRecommend(transcript, money?.[1] ?? budget);
-    };
-    recognition.onerror = () => {
-      setListening(false);
-    };
-    recognition.onend = () => setListening(false);
-
-    setListening(true);
-    setVoiceError(null);
-    recognition.start();
+  /** Snap & Match → nearest store using vision picks + labels (mock geo). */
+  function findNearestStoreFromVision(opts?: {
+    locationId?: string;
+    maxMiles?: (typeof DISTANCE_OPTIONS_MI)[number];
+  }) {
+    if (!vision || vision.productIds.length === 0) return;
+    const locId = opts?.locationId ?? locationId;
+    const miles = opts?.maxMiles ?? maxMiles;
+    setFindingStores(true);
+    const user =
+      USER_LOCATION_OPTIONS.find((l) => l.id === locId) ??
+      USER_LOCATION_OPTIONS[0];
+    window.setTimeout(() => {
+      const matches = findNearestStoresForVision({
+        productIds: vision.productIds,
+        categoryHint: vision.categoryHint,
+        labels: vision.labels.map((l) => l.label),
+        user,
+        maxMiles: miles,
+        limit: 5,
+      });
+      setLocalMatches(matches);
+      setShowLocal(true);
+      setFindingStores(false);
+    }, 350);
   }
 
   function handleAdd(product: Product) {
@@ -279,16 +416,141 @@ export default function RecommendPage() {
           Ask Leafy what to buy
         </h1>
         <p className="mt-3 max-w-xl text-muted-foreground sm:text-lg">
-          Describe an occasion, speak it, or snap a photo — Leafy uses Grok
-          Vision to spot what you&apos;re looking at and forage matching eco
-          finds from the marketplace.
+          Type, tap <strong className="font-medium text-foreground">Listen</strong>{" "}
+          to ask out loud, or snap a photo. Leafy can also{" "}
+          <strong className="font-medium text-foreground">Speak</strong> her
+          answer — helpful if reading is hard.
         </p>
+
+        <div
+          className="mt-6 rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50/90 via-cream to-white p-4 sm:p-5"
+          role="region"
+          aria-label="Voice controls for Ask Leafy"
+        >
+          <p className="text-sm font-medium text-primary">
+            Voice controls
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Large buttons · works with keyboard · Chrome or Edge recommended
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Button
+              type="button"
+              size="lg"
+              variant={listening ? "default" : "outline"}
+              className={`min-h-14 gap-2 text-base ${
+                listening
+                  ? "bg-red-600 text-white hover:bg-red-600/90"
+                  : "border-emerald-300 bg-white"
+              }`}
+              aria-pressed={listening}
+              aria-label={
+                listening
+                  ? "Stop listening"
+                  : "Listen — speak your shopping question"
+              }
+              disabled={thinking}
+              onClick={toggleListen}
+            >
+              <Mic className={`size-5 ${listening ? "animate-pulse" : ""}`} />
+              {listening ? "Listening… tap to stop" : "Listen"}
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant={speaking ? "default" : "outline"}
+              className={`min-h-14 gap-2 text-base ${
+                speaking ? "" : "border-emerald-300 bg-white"
+              }`}
+              aria-pressed={speaking}
+              aria-label={
+                speaking
+                  ? "Stop Leafy speaking"
+                  : "Speak — hear Leafy’s reply out loud"
+              }
+              disabled={thinking || (!result && !vision)}
+              onClick={() => {
+                if (speaking) {
+                  stopLeafyVoice();
+                  return;
+                }
+                speakLeafyReply(
+                  mode === "vision" ? null : result,
+                  mode === "vision" ? vision : null
+                );
+              }}
+            >
+              {speaking ? (
+                <>
+                  <Square className="size-5" />
+                  Stop speaking
+                </>
+              ) : (
+                <>
+                  <Volume2 className="size-5" />
+                  Speak
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="size-5 accent-primary"
+                checked={autoSpeak}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setAutoSpeak(on);
+                  saveAutoSpeakPreference(on);
+                  setVoiceStatus(
+                    on
+                      ? "Auto-speak on — Leafy will read answers aloud"
+                      : "Auto-speak off"
+                  );
+                }}
+              />
+              <span>Always read Leafy’s answers aloud</span>
+            </label>
+            {(listening || speaking) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="min-h-11 gap-1.5 self-start"
+                onClick={stopLeafyVoice}
+              >
+                <VolumeX className="size-4" />
+                Stop all voice
+              </Button>
+            )}
+          </div>
+          <div
+            className="mt-2 min-h-[1.25rem] text-sm"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {voiceStatus && (
+              <p className="text-emerald-900">{voiceStatus}</p>
+            )}
+            {voiceError && (
+              <p className="text-amber-900">{voiceError}</p>
+            )}
+            {!isSpeechRecognitionSupported() &&
+              !isSpeechSynthesisSupported() && (
+                <p className="text-muted-foreground">
+                  Voice isn’t available in this browser — typing still works.
+                </p>
+              )}
+          </div>
+        </div>
 
         <div className="mt-6 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setMode("text")}
-            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
+            className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
               mode === "text"
                 ? "bg-primary text-primary-foreground"
                 : "border border-border bg-white/80 text-foreground hover:bg-muted"
@@ -300,7 +562,7 @@ export default function RecommendPage() {
           <button
             type="button"
             onClick={() => setMode("vision")}
-            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
+            className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
               mode === "vision"
                 ? "bg-primary text-primary-foreground"
                 : "border border-border bg-white/80 text-foreground hover:bg-muted"
@@ -331,38 +593,18 @@ export default function RecommendPage() {
               >
                 What are you shopping for?
               </label>
-              <div className="relative">
-                <textarea
-                  id="rec-query"
-                  rows={2}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder='e.g. "gift for birthday" or "eco kitchen under $50"'
-                  className="w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 pr-14 text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <button
-                  type="button"
-                  onClick={startVoice}
-                  disabled={listening}
-                  className={`absolute top-3 right-3 rounded-xl p-2.5 transition-all ${
-                    listening
-                      ? "animate-pulse bg-red-100 text-red-600"
-                      : "bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
-                  }`}
-                  aria-label="Speak your request"
-                  title="Voice input"
-                >
-                  <Mic className="size-5" />
-                </button>
-              </div>
-              {listening && (
-                <p className="mt-1.5 text-sm text-red-600">
-                  Listening… say your occasion
-                </p>
-              )}
-              {voiceError && (
-                <p className="mt-1.5 text-sm text-amber-800">{voiceError}</p>
-              )}
+              <textarea
+                id="rec-query"
+                rows={2}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder='e.g. "gift for birthday" or "eco kitchen under $50"'
+                className="w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                Or tap <strong className="font-medium">Listen</strong> above and
+                say it out loud.
+              </p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -388,7 +630,7 @@ export default function RecommendPage() {
               <Button
                 type="submit"
                 size="lg"
-                className="min-h-11 flex-1 gap-2"
+                className="min-h-12 flex-1 gap-2 text-base"
                 disabled={thinking || !query.trim()}
               >
                 <Sparkles className="size-4" />
@@ -597,9 +839,38 @@ export default function RecommendPage() {
                 )}
               </div>
 
-              <p className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl">
+              <p
+                className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl"
+                id="leafy-vision-reply"
+              >
                 {vision.summary}
               </p>
+
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  className="min-h-12 gap-2 border-emerald-300 bg-white text-base"
+                  aria-label="Speak Leafy’s photo reply"
+                  onClick={() => {
+                    if (speaking) stopLeafyVoice();
+                    else speakLeafyReply(null, vision);
+                  }}
+                >
+                  {speaking ? (
+                    <>
+                      <Square className="size-4" />
+                      Stop
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="size-4" />
+                      Speak this reply
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {typeof vision.confidence === "number" && (
                 <div className="mt-3">
@@ -638,14 +909,58 @@ export default function RecommendPage() {
                   ? ` · ${vision.fallbackReason}`
                   : ""}
               </p>
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Button
+                  type="button"
+                  size="lg"
+                  className="min-h-11 flex-1 gap-2 sm:flex-none"
+                  disabled={findingStores || vision.productIds.length === 0}
+                  onClick={() => findNearestStoreFromVision()}
+                >
+                  <MapPin className="size-4" />
+                  {findingStores
+                    ? "Looking nearby…"
+                    : showLocal
+                      ? "Refresh nearest store"
+                      : "Find Nearest Store"}
+                </Button>
+                <p className="text-xs text-muted-foreground sm:max-w-[14rem]">
+                  Uses your photo matches + mock location — Google Maps Places
+                  later.
+                </p>
+              </div>
             </div>
+
+            <VisionNearestStorePanel
+              showLocal={showLocal}
+              finding={findingStores}
+              locationId={locationId}
+              maxMiles={maxMiles}
+              localMatches={localMatches}
+              disabled={vision.productIds.length === 0}
+              photoLabels={vision.labels.map((l) => l.label)}
+              onLocationChange={(id) => {
+                setLocationId(id);
+                if (showLocal) {
+                  findNearestStoreFromVision({ locationId: id });
+                }
+              }}
+              onMilesChange={(mi) => {
+                setMaxMiles(mi);
+                if (showLocal) {
+                  findNearestStoreFromVision({ maxMiles: mi });
+                }
+              }}
+              onFind={() => findNearestStoreFromVision()}
+            />
 
             <div>
               <h2 className="font-heading text-xl font-semibold text-primary">
                 Marketplace twins
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Ranked by visual kinship — add one to cart or check nearby makers.
+                Ranked by visual kinship — shop online or pick up nearby.
               </p>
             </div>
 
@@ -656,21 +971,10 @@ export default function RecommendPage() {
               reasonLabel="Why Leafy matched it"
             />
 
-            <LocalStoresPanel
-              showLocal={showLocal}
-              locationId={locationId}
-              maxMiles={maxMiles}
-              localMatches={localMatches}
-              disabled={productIdsForLocal.length === 0}
-              onLocationChange={setLocationId}
-              onMilesChange={setMaxMiles}
-              onFind={findLocalStores}
-            />
-
             <p className="text-center text-xs text-muted-foreground">
               {vision.engine === "grok-vision"
-                ? "Live Grok Vision via xAI · picks mapped to Forest Buddies catalog"
-                : "Demo eyes on — set XAI_API_KEY in .env.local for live Grok Vision"}
+                ? "Live Grok Vision via xAI · nearest stores use mock geo for now"
+                : "Demo eyes on — set XAI_API_KEY for live Grok Vision"}
             </p>
           </div>
         )}
@@ -694,9 +998,37 @@ export default function RecommendPage() {
                   </Badge>
                 ))}
               </div>
-              <p className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl">
+              <p
+                className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl"
+                id="leafy-text-reply"
+              >
                 {result.message}
               </p>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  className="min-h-12 gap-2 border-emerald-300 bg-white text-base"
+                  aria-label="Speak Leafy’s reply"
+                  onClick={() => {
+                    if (speaking) stopLeafyVoice();
+                    else speakLeafyReply(result, null);
+                  }}
+                >
+                  {speaking ? (
+                    <>
+                      <Square className="size-4" />
+                      Stop
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="size-4" />
+                      Speak this reply
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             <PickList
@@ -827,6 +1159,264 @@ function PickList({
           </div>
         </article>
       ))}
+    </div>
+  );
+}
+
+function VisionNearestStorePanel({
+  showLocal,
+  finding,
+  locationId,
+  maxMiles,
+  localMatches,
+  disabled,
+  photoLabels,
+  onLocationChange,
+  onMilesChange,
+  onFind,
+}: {
+  showLocal: boolean;
+  finding: boolean;
+  locationId: string;
+  maxMiles: (typeof DISTANCE_OPTIONS_MI)[number];
+  localMatches: LocalStoreMatch[] | null;
+  disabled: boolean;
+  photoLabels: string[];
+  onLocationChange: (id: string) => void;
+  onMilesChange: (mi: (typeof DISTANCE_OPTIONS_MI)[number]) => void;
+  onFind: () => void;
+}) {
+  const user =
+    USER_LOCATION_OPTIONS.find((l) => l.id === locationId) ??
+    USER_LOCATION_OPTIONS[0];
+  const nearest = localMatches?.[0] ?? null;
+  const others = localMatches?.slice(1) ?? [];
+
+  return (
+    <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/40 to-cream p-5 shadow-sm sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 font-heading text-lg font-semibold text-primary">
+            <Navigation className="size-5 text-emerald-800" />
+            Nearest store for your photo
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Leafy matches your snap to makers nearby — distance is mock for now;
+            Maps links open Google for directions.
+          </p>
+          {photoLabels.length > 0 && (
+            <p className="mt-2 text-xs text-emerald-900/80">
+              Looking for:{" "}
+              <span className="font-medium capitalize">
+                {photoLabels.slice(0, 3).join(", ")}
+              </span>
+            </p>
+          )}
+        </div>
+        <Button
+          type="button"
+          className="gap-1.5"
+          disabled={disabled || finding}
+          onClick={onFind}
+        >
+          <MapPin className="size-3.5" />
+          {finding
+            ? "Finding…"
+            : showLocal
+              ? "Update results"
+              : "Find Nearest Store"}
+        </Button>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            Near
+          </label>
+          <select
+            value={locationId}
+            onChange={(e) => onLocationChange(e.target.value)}
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm"
+          >
+            {USER_LOCATION_OPTIONS.map((loc) => (
+              <option key={loc.id} value={loc.id}>
+                {loc.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:w-36">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            Within
+          </label>
+          <select
+            value={maxMiles}
+            onChange={(e) =>
+              onMilesChange(
+                Number(e.target.value) as (typeof DISTANCE_OPTIONS_MI)[number]
+              )
+            }
+            className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm"
+          >
+            {DISTANCE_OPTIONS_MI.map((mi) => (
+              <option key={mi} value={mi}>
+                {mi} mi
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {showLocal && localMatches && (
+        <div className="mt-4 space-y-3">
+          {nearest ? (
+            <>
+              <div className="rounded-2xl border border-primary/20 bg-white/90 p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                      Closest match
+                    </p>
+                    <h3 className="font-heading text-xl font-semibold text-primary">
+                      {nearest.maker.name}
+                    </h3>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 font-medium text-emerald-900">
+                        <MapPin className="size-3.5" />
+                        {formatDistance(nearest.distanceMi)} away
+                      </span>
+                      <span>· {nearest.maker.city}</span>
+                    </p>
+                  </div>
+                  <Badge className="bg-emerald-100 text-emerald-900 tabular-nums">
+                    {formatDistance(nearest.distanceMi)}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {nearest.maker.blurb}
+                </p>
+                <ul className="mt-3 space-y-1.5">
+                  {nearest.matchingProducts.slice(0, 2).map(({ product, availability }) => (
+                    <li
+                      key={product.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-cream/70 px-3 py-2 text-sm"
+                    >
+                      <span className="font-medium text-primary">
+                        {product.name}
+                      </span>
+                      <LocalAvailabilityBadge availability={availability} />
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-1.5"
+                    nativeButton={false}
+                    render={
+                      <a
+                        href={googleMapsDirectionsUrl(nearest.maker, user)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                  >
+                    <Navigation className="size-3.5" />
+                    Directions
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    nativeButton={false}
+                    render={
+                      <a
+                        href={googleMapsStoreUrl(nearest.maker)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                  >
+                    <ExternalLink className="size-3.5" />
+                    Open in Maps
+                  </Button>
+                  {nearest.maker.shopSlug && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      nativeButton={false}
+                      render={
+                        <Link href={`/shop/${nearest.maker.shopSlug}`} />
+                      }
+                    >
+                      Visit shop
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {others.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Other nearby stores
+                  </p>
+                  {others.map(({ maker, distanceMi, matchingProducts }) => (
+                    <div
+                      key={maker.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-white/80 px-3.5 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-primary">{maker.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {maker.city} ·{" "}
+                          <span className="font-medium text-emerald-900">
+                            {formatDistance(distanceMi)}
+                          </span>
+                          {matchingProducts[0]
+                            ? ` · ${matchingProducts[0].product.name}`
+                            : ""}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1 shrink-0"
+                        nativeButton={false}
+                        render={
+                          <a
+                            href={googleMapsStoreUrl(maker)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          />
+                        }
+                      >
+                        <MapPin className="size-3.5" />
+                        Map
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
+              No stores in range for this photo yet. Widen the radius or try
+              another city — or browse{" "}
+              <Link
+                href="/local"
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Buy Local
+              </Link>
+              .
+            </div>
+          )}
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {STOCK_SIMULATION_DISCLAIMER} Google Maps links are search/directions
+            only — live Places inventory comes later.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1040,17 +1630,3 @@ function LocalStoresPanel({
   );
 }
 
-/** Minimal typings for Web Speech API (not in all TS libs). */
-interface SpeechRecognition extends EventTarget {
-  lang: string;
-  interimResults: boolean;
-  maxAlternatives: number;
-  start: () => void;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-}
-
-interface SpeechRecognitionEvent {
-  results: { [index: number]: { [index: number]: { transcript: string } } };
-}

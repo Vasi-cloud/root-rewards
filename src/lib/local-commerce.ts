@@ -448,3 +448,117 @@ export function findLocalStoresForProducts(
     });
 }
 
+function categoryTokens(categoryHint?: string | null, labels?: string[]): string[] {
+  const raw = [
+    categoryHint ?? "",
+    ...(labels ?? []),
+  ]
+    .join(" ")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 2);
+  return [...new Set(raw)];
+}
+
+/**
+ * Vision-aware nearest stores: prefer makers that carry matched products,
+ * then fall back to category / label affinity so Snap & Match always has
+ * something practical to show (mock geo — Google Maps Places later).
+ */
+export function findNearestStoresForVision(input: {
+  productIds: string[];
+  categoryHint?: string | null;
+  labels?: string[];
+  user: GeoPoint;
+  maxMiles: number;
+  limit?: number;
+}): LocalStoreMatch[] {
+  const limit = input.limit ?? 5;
+  const byProduct = findLocalStoresForProducts(
+    input.productIds,
+    input.user,
+    input.maxMiles
+  );
+  if (byProduct.length >= 2) return byProduct.slice(0, limit);
+
+  const tokens = categoryTokens(input.categoryHint, input.labels);
+  const byId = new Map(MARKETPLACE_PRODUCTS.map((p) => [p.id, p]));
+  const seen = new Set(byProduct.map((m) => m.maker.id));
+  const extras: LocalStoreMatch[] = [];
+
+  for (const maker of LOCAL_MAKERS) {
+    if (seen.has(maker.id)) continue;
+    const distanceMi = milesBetween(input.user, maker);
+    if (distanceMi > input.maxMiles) continue;
+
+    const hay = `${maker.name} ${maker.blurb} ${maker.tags.join(" ")} ${maker.services.join(" ")}`.toLowerCase();
+    const tagHit =
+      tokens.length === 0
+        ? 0
+        : tokens.reduce((n, t) => (hay.includes(t) ? n + 1 : n), 0);
+
+    const relatedProducts: LocalProductMatch[] = maker.productIds
+      .map((id) => {
+        const product = byId.get(id);
+        if (!product) return null;
+        const productHay =
+          `${product.name} ${product.category} ${product.description}`.toLowerCase();
+        const productHit = tokens.reduce(
+          (n, t) => (productHay.includes(t) ? n + 1 : n),
+          0
+        );
+        const categoryHit =
+          input.categoryHint &&
+          product.category.toLowerCase() === input.categoryHint.toLowerCase()
+            ? 2
+            : 0;
+        if (tagHit + productHit + categoryHit === 0 && tokens.length > 0) {
+          return null;
+        }
+        // When no vision tokens, keep closest makers with any stock
+        if (tokens.length === 0 && extras.length >= limit) return null;
+        return {
+          product,
+          availability: simulateLocalAvailability(maker.id, id),
+        };
+      })
+      .filter((row): row is LocalProductMatch => Boolean(row))
+      .slice(0, 3);
+
+    if (relatedProducts.length === 0) continue;
+
+    extras.push({
+      maker,
+      distanceMi,
+      matchingProducts: relatedProducts,
+      bestAvailability:
+        relatedProducts[0]?.availability.status ?? "out_of_stock",
+    });
+    seen.add(maker.id);
+  }
+
+  extras.sort((a, b) => a.distanceMi - b.distanceMi);
+
+  return [...byProduct, ...extras]
+    .sort((a, b) => a.distanceMi - b.distanceMi)
+    .slice(0, limit);
+}
+
+/** Google Maps search link (no API key) — swap for Places SDK later. */
+export function googleMapsStoreUrl(maker: LocalMaker): string {
+  const q = encodeURIComponent(`${maker.name} ${maker.city}`);
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
+
+/** Directions-style link using mock lat/lng. */
+export function googleMapsDirectionsUrl(
+  maker: LocalMaker,
+  from?: GeoPoint
+): string {
+  const destination = `${maker.lat},${maker.lng}`;
+  if (from) {
+    return `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${destination}`;
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+}
+
