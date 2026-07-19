@@ -42,11 +42,9 @@ import {
   STOCK_SIMULATION_DISCLAIMER,
   USER_LOCATION_OPTIONS,
   findLocalStoresForProducts,
-  findNearestStoresForVision,
   formatDistance,
-  googleMapsDirectionsUrl,
-  googleMapsStoreUrl,
   type LocalStoreMatch,
+  type NearbyStore,
 } from "@/lib/local-commerce";
 import {
   SUGGESTED_PROMPTS,
@@ -99,6 +97,10 @@ export default function RecommendPage() {
   const [localMatches, setLocalMatches] = useState<LocalStoreMatch[] | null>(
     null
   );
+  const [nearbyStores, setNearbyStores] = useState<NearbyStore[] | null>(null);
+  const [placesEngine, setPlacesEngine] = useState<
+    "unknown" | "mock" | "hybrid" | "forest-buddies" | "google-places"
+  >("unknown");
   const [findingStores, setFindingStores] = useState(false);
 
   useEffect(() => {
@@ -125,6 +127,15 @@ export default function RecommendPage() {
       })
       .catch(() => {
         if (!cancelled) setVisionReady("mock");
+      });
+    void fetch("/api/places/nearby")
+      .then((r) => r.json())
+      .then((data: { configured?: boolean }) => {
+        if (cancelled) return;
+        setPlacesEngine(data.configured ? "google-places" : "mock");
+      })
+      .catch(() => {
+        if (!cancelled) setPlacesEngine("mock");
       });
     return () => {
       cancelled = true;
@@ -254,6 +265,7 @@ export default function RecommendPage() {
     setVoiceError(null);
     setVision(null);
     setLocalMatches(null);
+    setNearbyStores(null);
     setShowLocal(false);
     stopSpeaking();
     setSpeaking(false);
@@ -283,6 +295,7 @@ export default function RecommendPage() {
     setVision(null);
     setVisionError(null);
     setLocalMatches(null);
+    setNearbyStores(null);
     setShowLocal(false);
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -327,6 +340,7 @@ export default function RecommendPage() {
     setVoiceError(null);
     setVisionError(null);
     setLocalMatches(null);
+    setNearbyStores(null);
     setShowLocal(false);
 
     const usingDemoChip = Boolean(overrideName && !photoFileRef.current);
@@ -367,8 +381,8 @@ export default function RecommendPage() {
     setShowLocal(true);
   }
 
-  /** Snap & Match → nearest store using vision picks + labels (mock geo). */
-  function findNearestStoreFromVision(opts?: {
+  /** Snap & Match → Forest Buddies makers + Google Places (when configured). */
+  async function findNearestStoreFromVision(opts?: {
     locationId?: string;
     maxMiles?: (typeof DISTANCE_OPTIONS_MI)[number];
   }) {
@@ -376,22 +390,43 @@ export default function RecommendPage() {
     const locId = opts?.locationId ?? locationId;
     const miles = opts?.maxMiles ?? maxMiles;
     setFindingStores(true);
-    const user =
-      USER_LOCATION_OPTIONS.find((l) => l.id === locId) ??
-      USER_LOCATION_OPTIONS[0];
-    window.setTimeout(() => {
-      const matches = findNearestStoresForVision({
-        productIds: vision.productIds,
-        categoryHint: vision.categoryHint,
-        labels: vision.labels.map((l) => l.label),
-        user,
-        maxMiles: miles,
-        limit: 5,
+    setShowLocal(true);
+    try {
+      const res = await fetch("/api/places/nearby", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locationId: locId,
+          maxMiles: miles,
+          productIds: vision.productIds,
+          productNames: vision.picks.map((p) => p.product.name),
+          categoryHint: vision.categoryHint,
+          labels: vision.labels.map((l) => l.label),
+          limit: 6,
+        }),
       });
-      setLocalMatches(matches);
-      setShowLocal(true);
+      const data = (await res.json()) as {
+        stores?: NearbyStore[];
+        engine?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not find nearby stores.");
+      }
+      setNearbyStores(data.stores ?? []);
+      if (
+        data.engine === "hybrid" ||
+        data.engine === "mock" ||
+        data.engine === "forest-buddies" ||
+        data.engine === "google-places"
+      ) {
+        setPlacesEngine(data.engine);
+      }
+    } catch {
+      setNearbyStores([]);
+    } finally {
       setFindingStores(false);
-    }, 350);
+    }
   }
 
   function handleAdd(product: Product) {
@@ -926,8 +961,9 @@ export default function RecommendPage() {
                       : "Find Nearest Store"}
                 </Button>
                 <p className="text-xs text-muted-foreground sm:max-w-[14rem]">
-                  Uses your photo matches + mock location — Google Maps Places
-                  later.
+                  {placesEngine === "google-places" || placesEngine === "hybrid"
+                    ? "Live Google Maps + Forest Buddies makers"
+                    : "Enhanced mock makers — add GOOGLE_MAPS_API_KEY for live Places"}
                 </p>
               </div>
             </div>
@@ -937,22 +973,23 @@ export default function RecommendPage() {
               finding={findingStores}
               locationId={locationId}
               maxMiles={maxMiles}
-              localMatches={localMatches}
+              stores={nearbyStores}
+              placesEngine={placesEngine}
               disabled={vision.productIds.length === 0}
               photoLabels={vision.labels.map((l) => l.label)}
               onLocationChange={(id) => {
                 setLocationId(id);
                 if (showLocal) {
-                  findNearestStoreFromVision({ locationId: id });
+                  void findNearestStoreFromVision({ locationId: id });
                 }
               }}
               onMilesChange={(mi) => {
                 setMaxMiles(mi);
                 if (showLocal) {
-                  findNearestStoreFromVision({ maxMiles: mi });
+                  void findNearestStoreFromVision({ maxMiles: mi });
                 }
               }}
-              onFind={() => findNearestStoreFromVision()}
+              onFind={() => void findNearestStoreFromVision()}
             />
 
             <div>
@@ -973,8 +1010,8 @@ export default function RecommendPage() {
 
             <p className="text-center text-xs text-muted-foreground">
               {vision.engine === "grok-vision"
-                ? "Live Grok Vision via xAI · nearest stores use mock geo for now"
-                : "Demo eyes on — set XAI_API_KEY for live Grok Vision"}
+                ? "Live Grok Vision · Find Nearest Store uses makers + Google Places when configured"
+                : "Demo vision · set XAI_API_KEY and GOOGLE_MAPS_API_KEY for the full stack"}
             </p>
           </div>
         )}
@@ -1168,7 +1205,8 @@ function VisionNearestStorePanel({
   finding,
   locationId,
   maxMiles,
-  localMatches,
+  stores,
+  placesEngine,
   disabled,
   photoLabels,
   onLocationChange,
@@ -1179,18 +1217,24 @@ function VisionNearestStorePanel({
   finding: boolean;
   locationId: string;
   maxMiles: (typeof DISTANCE_OPTIONS_MI)[number];
-  localMatches: LocalStoreMatch[] | null;
+  stores: NearbyStore[] | null;
+  placesEngine: string;
   disabled: boolean;
   photoLabels: string[];
   onLocationChange: (id: string) => void;
   onMilesChange: (mi: (typeof DISTANCE_OPTIONS_MI)[number]) => void;
   onFind: () => void;
 }) {
-  const user =
-    USER_LOCATION_OPTIONS.find((l) => l.id === locationId) ??
-    USER_LOCATION_OPTIONS[0];
-  const nearest = localMatches?.[0] ?? null;
-  const others = localMatches?.slice(1) ?? [];
+  const nearest = stores?.[0] ?? null;
+  const others = stores?.slice(1) ?? [];
+  const engineLabel =
+    placesEngine === "hybrid"
+      ? "Forest Buddies + Google Maps"
+      : placesEngine === "google-places"
+        ? "Google Maps Places"
+        : placesEngine === "forest-buddies"
+          ? "Forest Buddies makers"
+          : "Enhanced mock makers";
 
   return (
     <div className="rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/40 to-cream p-5 shadow-sm sm:p-6">
@@ -1201,8 +1245,7 @@ function VisionNearestStorePanel({
             Nearest store for your photo
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Leafy matches your snap to makers nearby — distance is mock for now;
-            Maps links open Google for directions.
+            Distance, directions, and availability hints — {engineLabel}.
           </p>
           {photoLabels.length > 0 && (
             <p className="mt-2 text-xs text-emerald-900/80">
@@ -1267,47 +1310,81 @@ function VisionNearestStorePanel({
         </div>
       </div>
 
-      {showLocal && localMatches && (
+      {showLocal && finding && (
+        <p className="mt-4 text-sm text-muted-foreground">Searching nearby…</p>
+      )}
+
+      {showLocal && !finding && stores && (
         <div className="mt-4 space-y-3">
           {nearest ? (
             <>
               <div className="rounded-2xl border border-primary/20 bg-white/90 p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">
-                      Closest match
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                        Closest match
+                      </p>
+                      <Badge
+                        className={
+                          nearest.source === "google"
+                            ? "bg-sky-100 text-sky-950"
+                            : "bg-emerald-100 text-emerald-900"
+                        }
+                      >
+                        {nearest.source === "google"
+                          ? "Google Maps"
+                          : "Forest Buddies"}
+                      </Badge>
+                    </div>
                     <h3 className="font-heading text-xl font-semibold text-primary">
-                      {nearest.maker.name}
+                      {nearest.name}
                     </h3>
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1 font-medium text-emerald-900">
                         <MapPin className="size-3.5" />
                         {formatDistance(nearest.distanceMi)} away
                       </span>
-                      <span>· {nearest.maker.city}</span>
+                      <span>· {nearest.city}</span>
+                      {nearest.openNow === true && (
+                        <span className="font-medium text-emerald-800">
+                          · Open now
+                        </span>
+                      )}
+                      {nearest.openNow === false && <span>· Closed now</span>}
+                      {nearest.rating != null && (
+                        <span>· {nearest.rating.toFixed(1)}★</span>
+                      )}
                     </p>
+                    {nearest.address && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {nearest.address}
+                      </p>
+                    )}
                   </div>
                   <Badge className="bg-emerald-100 text-emerald-900 tabular-nums">
                     {formatDistance(nearest.distanceMi)}
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {nearest.maker.blurb}
+                  {nearest.blurb}
                 </p>
-                <ul className="mt-3 space-y-1.5">
-                  {nearest.matchingProducts.slice(0, 2).map(({ product, availability }) => (
-                    <li
-                      key={product.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-cream/70 px-3 py-2 text-sm"
-                    >
-                      <span className="font-medium text-primary">
-                        {product.name}
-                      </span>
-                      <LocalAvailabilityBadge availability={availability} />
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-2 rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-sm text-emerald-950">
+                  {nearest.availabilityHint}
+                  {nearest.hoursHint ? ` · ${nearest.hoursHint}` : ""}
+                </p>
+                {nearest.matchingProductNames.length > 0 && (
+                  <ul className="mt-3 space-y-1.5">
+                    {nearest.matchingProductNames.slice(0, 3).map((name) => (
+                      <li
+                        key={name}
+                        className="rounded-lg border border-border/60 bg-cream/70 px-3 py-2 text-sm font-medium text-primary"
+                      >
+                        Matches: {name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -1315,7 +1392,7 @@ function VisionNearestStorePanel({
                     nativeButton={false}
                     render={
                       <a
-                        href={googleMapsDirectionsUrl(nearest.maker, user)}
+                        href={nearest.directionsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                       />
@@ -1331,7 +1408,7 @@ function VisionNearestStorePanel({
                     nativeButton={false}
                     render={
                       <a
-                        href={googleMapsStoreUrl(nearest.maker)}
+                        href={nearest.mapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                       />
@@ -1340,14 +1417,12 @@ function VisionNearestStorePanel({
                     <ExternalLink className="size-3.5" />
                     Open in Maps
                   </Button>
-                  {nearest.maker.shopSlug && (
+                  {nearest.shopSlug && (
                     <Button
                       size="sm"
                       variant="outline"
                       nativeButton={false}
-                      render={
-                        <Link href={`/shop/${nearest.maker.shopSlug}`} />
-                      }
+                      render={<Link href={`/shop/${nearest.shopSlug}`} />}
                     >
                       Visit shop
                     </Button>
@@ -1360,21 +1435,28 @@ function VisionNearestStorePanel({
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Other nearby stores
                   </p>
-                  {others.map(({ maker, distanceMi, matchingProducts }) => (
+                  {others.map((store) => (
                     <div
-                      key={maker.id}
+                      key={store.id}
                       className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-white/80 px-3.5 py-3"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium text-primary">{maker.name}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-primary">{store.name}</p>
+                          <Badge variant="outline" className="text-[10px]">
+                            {store.source === "google" ? "Maps" : "FB"}
+                          </Badge>
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                          {maker.city} ·{" "}
+                          {store.city} ·{" "}
                           <span className="font-medium text-emerald-900">
-                            {formatDistance(distanceMi)}
+                            {formatDistance(store.distanceMi)}
                           </span>
-                          {matchingProducts[0]
-                            ? ` · ${matchingProducts[0].product.name}`
-                            : ""}
+                          {store.matchingProductNames[0]
+                            ? ` · ${store.matchingProductNames[0]}`
+                            : store.availabilityHint
+                              ? ` · ${store.availabilityHint}`
+                              : ""}
                         </p>
                       </div>
                       <Button
@@ -1384,14 +1466,14 @@ function VisionNearestStorePanel({
                         nativeButton={false}
                         render={
                           <a
-                            href={googleMapsStoreUrl(maker)}
+                            href={store.directionsUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                           />
                         }
                       >
-                        <MapPin className="size-3.5" />
-                        Map
+                        <Navigation className="size-3.5" />
+                        Go
                       </Button>
                     </div>
                   ))}
@@ -1412,8 +1494,10 @@ function VisionNearestStorePanel({
             </div>
           )}
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {STOCK_SIMULATION_DISCLAIMER} Google Maps links are search/directions
-            only — live Places inventory comes later.
+            {STOCK_SIMULATION_DISCLAIMER}{" "}
+            {placesEngine === "hybrid" || placesEngine === "google-places"
+              ? "Google results show live maps data; product shelf status stays simulated."
+              : "Add GOOGLE_MAPS_API_KEY (Places API New) for live nearby stores."}
           </p>
         </div>
       )}

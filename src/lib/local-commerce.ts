@@ -14,28 +14,42 @@ export interface UserLocationOption {
   lng: number;
 }
 
-/** Mock “where you are” — swap for geolocation / Maps later. */
+/** Demo “where you are” — pair with browser geolocation later. */
 export const USER_LOCATION_OPTIONS: UserLocationOption[] = [
   {
     id: "portland",
-    label: "Portland, OR",
+    label: "Portland, OR — Pearl District",
     region: "Pacific Northwest",
-    lat: 45.5152,
-    lng: -122.6784,
+    lat: 45.5308,
+    lng: -122.6815,
   },
   {
     id: "san-diego",
-    label: "San Diego, CA",
+    label: "San Diego, CA — North Park",
     region: "Southern California",
-    lat: 32.7157,
-    lng: -117.1611,
+    lat: 32.7442,
+    lng: -117.1295,
   },
   {
     id: "austin",
-    label: "Austin, TX",
+    label: "Austin, TX — South Congress",
     region: "Central Texas",
-    lat: 30.2672,
-    lng: -97.7431,
+    lat: 30.2495,
+    lng: -97.7501,
+  },
+  {
+    id: "seattle",
+    label: "Seattle, WA — Capitol Hill",
+    region: "Pacific Northwest",
+    lat: 47.6253,
+    lng: -122.3222,
+  },
+  {
+    id: "denver",
+    label: "Denver, CO — RiNo",
+    region: "Front Range",
+    lat: 39.7675,
+    lng: -104.9798,
   },
 ];
 
@@ -43,6 +57,8 @@ export interface LocalMaker {
   id: string;
   name: string;
   city: string;
+  /** Street-level address for Maps / directions */
+  address?: string;
   blurb: string;
   lat: number;
   lng: number;
@@ -53,77 +69,158 @@ export interface LocalMaker {
   /** Local services (pickup, workshops, etc.) */
   services: string[];
   tags: string[];
+  /** Shopper-facing hours hint */
+  hoursHint?: string;
 }
 
-/** Eco makers with mock coordinates near demo cities. */
+/** Eco makers with realistic neighborhood coordinates near demo cities. */
 export const LOCAL_MAKERS: LocalMaker[] = [
   {
     id: "maker-grove",
     name: "Green Grove Goods",
     city: "Portland, OR",
-    blurb: "Regenerative kitchen tools — pickup Saturdays at the Alberta makers market.",
-    lat: 45.559,
-    lng: -122.65,
+    address: "1624 NE Alberta St, Portland, OR 97211",
+    blurb:
+      "Regenerative kitchen tools — Saturday pickup at the Alberta makers market stall.",
+    lat: 45.5591,
+    lng: -122.6487,
     productIds: ["2", "5", "9", "14", "18"],
     shopSlug: "green-grove",
     services: ["Local pickup", "Zero-waste refill"],
-    tags: ["kitchen", "handmade"],
+    tags: ["kitchen", "handmade", "refill"],
+    hoursHint: "Sat 9am–2pm market · Tue–Fri by appointment",
   },
   {
     id: "maker-cedar",
     name: "Cedar & Steam Co-op",
     city: "Portland, OR",
+    address: "820 NW 23rd Ave, Portland, OR 97210",
     blurb: "Plant-based cleaners and home staples made within city limits.",
-    lat: 45.504,
-    lng: -122.675,
+    lat: 45.5289,
+    lng: -122.6984,
     productIds: ["3", "12", "16"],
     services: ["Same-day bike delivery", "Workshop nights"],
-    tags: ["home", "co-op"],
+    tags: ["home", "co-op", "cleaners"],
+    hoursHint: "Daily 10am–6pm",
+  },
+  {
+    id: "maker-hawthorne",
+    name: "Hawthorne Refill Bar",
+    city: "Portland, OR",
+    address: "3538 SE Hawthorne Blvd, Portland, OR 97214",
+    blurb: "Bulk oils, soaps, and jar-friendly pantry staples on Hawthorne.",
+    lat: 45.5122,
+    lng: -122.6281,
+    productIds: ["3", "5", "9", "18"],
+    services: ["Bring-your-own jar", "Curbside"],
+    tags: ["kitchen", "refill", "zero-waste"],
+    hoursHint: "Mon–Sat 11am–7pm",
   },
   {
     id: "maker-tide",
     name: "Tide Line Collective",
     city: "San Diego, CA",
-    blurb: "Ocean-bound plastic remade into daily gear — shore cleanups every month.",
-    lat: 32.74,
-    lng: -117.2,
+    address: "3010 Upas St, San Diego, CA 92104",
+    blurb:
+      "Ocean-bound plastic remade into daily gear — shore cleanups every month.",
+    lat: 32.7418,
+    lng: -117.1299,
     productIds: ["1", "4", "9", "17"],
     shopSlug: "tide-line",
     services: ["Beach pickup hub", "Repair clinic"],
-    tags: ["ocean", "recycled"],
+    tags: ["ocean", "recycled", "outdoors"],
+    hoursHint: "Wed–Sun 11am–6pm",
   },
   {
     id: "maker-canyon",
     name: "Canyon Light Studio",
     city: "San Diego, CA",
-    blurb: "Solar lanterns and trail kits for coastal hikers.",
-    lat: 32.84,
-    lng: -117.1,
+    address: "2228 Bacon St, San Diego, CA 92107",
+    blurb: "Solar lanterns and trail kits for coastal hikers in OB.",
+    lat: 32.7477,
+    lng: -117.2491,
     productIds: ["8", "10"],
     services: ["Trailhead meetup"],
-    tags: ["outdoors", "solar"],
+    tags: ["outdoors", "solar", "camping"],
+    hoursHint: "Fri–Sun 10am–5pm",
+  },
+  {
+    id: "maker-libra",
+    name: "Libra Zero Waste",
+    city: "San Diego, CA",
+    address: "3811 30th St, San Diego, CA 92104",
+    blurb: "Package-free grocery and beauty refills in North Park.",
+    lat: 32.7456,
+    lng: -117.1302,
+    productIds: ["5", "7", "10", "15", "16"],
+    services: ["Refill bar", "Local delivery"],
+    tags: ["beauty", "grocery", "refill"],
+    hoursHint: "Daily 10am–7pm",
   },
   {
     id: "maker-pecan",
     name: "Pecan Street Provisions",
     city: "Austin, TX",
+    address: "1700 S Congress Ave, Austin, TX 78704",
     blurb: "Fair-trade apparel and plantable cards from a riverside studio.",
-    lat: 30.29,
-    lng: -97.74,
+    lat: 30.2479,
+    lng: -97.7505,
     productIds: ["6", "11", "13", "7"],
     services: ["Studio open house", "Gift wrapping"],
-    tags: ["gifts", "apparel"],
+    tags: ["gifts", "apparel", "stationery"],
+    hoursHint: "Tue–Sun 11am–6pm",
   },
   {
     id: "maker-barton",
     name: "Barton Creek Botanicals",
     city: "Austin, TX",
+    address: "1401 E 7th St, Austin, TX 78702",
     blurb: "Organic balms and cotton rounds from a small East Austin workshop.",
-    lat: 30.25,
-    lng: -97.77,
+    lat: 30.2651,
+    lng: -97.7274,
     productIds: ["7", "15", "10"],
     services: ["Curbside pickup"],
-    tags: ["beauty", "local"],
+    tags: ["beauty", "local", "skincare"],
+    hoursHint: "Wed–Sat 12pm–6pm",
+  },
+  {
+    id: "maker-wildflower",
+    name: "Wildflower Supply Co.",
+    city: "Austin, TX",
+    address: "2110 S Lamar Blvd, Austin, TX 78704",
+    blurb: "Reusable kitchen kits and beeswax wraps near Zilker.",
+    lat: 30.2488,
+    lng: -97.7699,
+    productIds: ["2", "5", "9", "14"],
+    services: ["In-store demos", "Pickup locker"],
+    tags: ["kitchen", "zero-waste"],
+    hoursHint: "Mon–Sat 10am–7pm · Sun 11am–5pm",
+  },
+  {
+    id: "maker-pine",
+    name: "Pine & Parcel Market",
+    city: "Seattle, WA",
+    address: "516 Broadway E, Seattle, WA 98102",
+    blurb: "Capitol Hill hub for hemp apparel and durable outdoor bottles.",
+    lat: 47.6236,
+    lng: -122.3208,
+    productIds: ["1", "4", "9", "11", "17"],
+    services: ["Same-day courier", "Repair nights"],
+    tags: ["apparel", "outdoors", "kitchen"],
+    hoursHint: "Daily 10am–8pm",
+  },
+  {
+    id: "maker-front",
+    name: "Front Range Refillery",
+    city: "Denver, CO",
+    address: "3350 Brighton Blvd, Denver, CO 80216",
+    blurb: "RiNo refill shop for cleaners, balms, and jar pantry goods.",
+    lat: 39.7698,
+    lng: -104.9789,
+    productIds: ["3", "5", "7", "15", "16"],
+    services: ["BYO containers", "Bike delivery"],
+    tags: ["home", "beauty", "refill"],
+    hoursHint: "Tue–Sat 10am–6pm",
   },
 ];
 
@@ -461,9 +558,8 @@ function categoryTokens(categoryHint?: string | null, labels?: string[]): string
 }
 
 /**
- * Vision-aware nearest stores: prefer makers that carry matched products,
- * then fall back to category / label affinity so Snap & Match always has
- * something practical to show (mock geo — Google Maps Places later).
+ * Vision-aware nearest Forest Buddies makers: prefer product id matches,
+ * then category / label affinity. Pair with Google Places via /api/places/nearby.
  */
 export function findNearestStoresForVision(input: {
   productIds: string[];
@@ -544,21 +640,104 @@ export function findNearestStoresForVision(input: {
     .slice(0, limit);
 }
 
-/** Google Maps search link (no API key) — swap for Places SDK later. */
-export function googleMapsStoreUrl(maker: LocalMaker): string {
-  const q = encodeURIComponent(`${maker.name} ${maker.city}`);
-  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+export type NearbyStoreSource = "forest-buddies" | "google";
+
+/** Unified card for Find Nearest Store (makers + Google Places). */
+export interface NearbyStore {
+  id: string;
+  name: string;
+  city: string;
+  address?: string;
+  distanceMi: number;
+  lat: number;
+  lng: number;
+  blurb: string;
+  source: NearbyStoreSource;
+  openNow?: boolean | null;
+  rating?: number;
+  hoursHint?: string;
+  availabilityHint: string;
+  matchingProductNames: string[];
+  shopSlug?: string;
+  placeId?: string;
+  mapsUrl: string;
+  directionsUrl: string;
 }
 
-/** Directions-style link using mock lat/lng. */
+export function googleMapsSearchUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+export function googleMapsStoreUrl(maker: Pick<LocalMaker, "name" | "city" | "address" | "lat" | "lng">): string {
+  if (maker.address) return googleMapsSearchUrl(maker.address);
+  return googleMapsSearchUrl(`${maker.name} ${maker.city}`);
+}
+
+/** Directions link — works for makers and Google Places coords. */
 export function googleMapsDirectionsUrl(
-  maker: LocalMaker,
+  dest: { lat: number; lng: number; name?: string },
   from?: GeoPoint
 ): string {
-  const destination = `${maker.lat},${maker.lng}`;
+  const destination = `${dest.lat},${dest.lng}`;
   if (from) {
     return `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${destination}`;
   }
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+}
+
+export function localMatchToNearbyStore(
+  match: LocalStoreMatch,
+  from: GeoPoint
+): NearbyStore {
+  const { maker, distanceMi, matchingProducts, bestAvailability } = match;
+  const top = matchingProducts[0];
+  const availabilityHint =
+    top?.availability.etaNote ??
+    (bestAvailability === "in_stock"
+      ? "Likely in stock (demo)"
+      : bestAvailability === "limited"
+        ? "Limited stock (demo)"
+        : bestAvailability === "pickup_only"
+          ? "Pickup available (demo)"
+          : "Call ahead (demo)");
+
+  return {
+    id: maker.id,
+    name: maker.name,
+    city: maker.city,
+    address: maker.address,
+    distanceMi,
+    lat: maker.lat,
+    lng: maker.lng,
+    blurb: maker.blurb,
+    source: "forest-buddies",
+    hoursHint: maker.hoursHint,
+    availabilityHint,
+    matchingProductNames: matchingProducts.map((p) => p.product.name),
+    shopSlug: maker.shopSlug,
+    mapsUrl: googleMapsStoreUrl(maker),
+    directionsUrl: googleMapsDirectionsUrl(maker, from),
+  };
+}
+
+export function localMatchesToNearbyStores(
+  matches: LocalStoreMatch[],
+  from: GeoPoint
+): NearbyStore[] {
+  return matches.map((m) => localMatchToNearbyStore(m, from));
+}
+
+/** Build a practical Google Text query from vision / product context. */
+export function buildPlacesSearchQuery(input: {
+  categoryHint?: string | null;
+  labels?: string[];
+  productNames?: string[];
+  cityLabel?: string;
+}): string {
+  const label = input.labels?.[0] ?? input.categoryHint ?? "eco products";
+  const product = input.productNames?.[0];
+  const city = input.cityLabel?.split("—")[0]?.trim() ?? "";
+  const focus = product ? `${product}` : `${label}`;
+  return `sustainable eco store ${focus} near ${city}`.replace(/\s+/g, " ").trim();
 }
 
