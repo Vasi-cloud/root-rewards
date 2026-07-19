@@ -35,9 +35,10 @@ import {
   type ProductRecommendation,
   type RecommendResult,
 } from "@/lib/recommendation-agent";
+import { consumeRateLimit } from "@/lib/rate-limit";
 import {
   VISION_DEMO_HINTS,
-  classifyPhotoMockAsync,
+  classifyPhotoAsync,
   type VisionResult,
 } from "@/lib/vision-agent";
 import type { Product } from "@/types";
@@ -47,6 +48,7 @@ type AskMode = "text" | "vision";
 export default function RecommendPage() {
   const { addToCart } = useCart();
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoFileRef = useRef<File | null>(null);
 
   const [mode, setMode] = useState<AskMode>("text");
   const [query, setQuery] = useState("eco kitchen under $50");
@@ -63,6 +65,9 @@ export default function RecommendPage() {
   const [fileSize, setFileSize] = useState<number | undefined>();
   const [visionNote, setVisionNote] = useState("");
   const [visionError, setVisionError] = useState<string | null>(null);
+  const [visionReady, setVisionReady] = useState<"unknown" | "grok" | "mock">(
+    "unknown"
+  );
 
   const [showLocal, setShowLocal] = useState(false);
   const [locationId, setLocationId] = useState(USER_LOCATION_OPTIONS[0].id);
@@ -77,6 +82,22 @@ export default function RecommendPage() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/vision/analyze")
+      .then((r) => r.json())
+      .then((data: { engine?: string }) => {
+        if (cancelled) return;
+        setVisionReady(data.engine === "grok-vision" ? "grok" : "mock");
+      })
+      .catch(() => {
+        if (!cancelled) setVisionReady("mock");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activePicks: ProductRecommendation[] =
     mode === "vision" && vision ? vision.picks : (result?.picks ?? []);
@@ -109,6 +130,7 @@ export default function RecommendPage() {
     setPreviewUrl(null);
     setFileName(null);
     setFileSize(undefined);
+    photoFileRef.current = null;
     setVision(null);
     setVisionError(null);
     setLocalMatches(null);
@@ -123,10 +145,11 @@ export default function RecommendPage() {
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
-      setVisionError("Keep photos under 8 MB for this demo.");
+      setVisionError("Keep photos under 8 MB.");
       return;
     }
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+    photoFileRef.current = file;
     setPreviewUrl(URL.createObjectURL(file));
     setFileName(file.name);
     setFileSize(file.size);
@@ -138,10 +161,17 @@ export default function RecommendPage() {
 
   async function runVision(overrideName?: string, overrideNote?: string) {
     const name = overrideName ?? fileName;
-    if (!name) {
-      setVisionError("Upload a photo (or tap a demo filename) first.");
+    if (!name && !photoFileRef.current) {
+      setVisionError("Upload a photo (or tap a demo chip) first.");
       return;
     }
+
+    const rate = consumeRateLimit("vision");
+    if (!rate.allowed) {
+      setVisionError(rate.message);
+      return;
+    }
+
     setMode("vision");
     setThinking(true);
     setResult(null);
@@ -149,16 +179,20 @@ export default function RecommendPage() {
     setVisionError(null);
     setLocalMatches(null);
     setShowLocal(false);
-    if (overrideName && overrideName !== fileName) {
+
+    const usingDemoChip = Boolean(overrideName && !photoFileRef.current);
+    if (usingDemoChip && overrideName) {
       setFileName(overrideName);
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
         setPreviewUrl(null);
       }
     }
+
     const note = (overrideNote ?? visionNote).trim() || undefined;
-    const out = await classifyPhotoMockAsync({
-      fileName: name,
+    const out = await classifyPhotoAsync({
+      file: usingDemoChip ? null : photoFileRef.current,
+      fileName: name ?? "photo.jpg",
       fileSize,
       note,
       limit: 4,
@@ -239,15 +273,15 @@ export default function RecommendPage() {
       <div className="relative mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
         <Badge className="mb-3 gap-1 bg-emerald-800/10 text-emerald-900">
           <Wand2 className="size-3" />
-          Ask Leafy · text, voice &amp; vision
+          Ask Leafy · text, voice &amp; Grok Vision
         </Badge>
         <h1 className="font-heading text-3xl font-semibold text-primary sm:text-5xl">
           Ask Leafy what to buy
         </h1>
         <p className="mt-3 max-w-xl text-muted-foreground sm:text-lg">
-          Describe an occasion, speak it, or snap a photo of something you like
-          — I&apos;ll recommend similar eco products and nearby makers. Mock
-          vision today; Grok Vision / Google Vision later.
+          Describe an occasion, speak it, or snap a photo — Leafy uses Grok
+          Vision to spot what you&apos;re looking at and forage matching eco
+          finds from the marketplace.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -274,6 +308,11 @@ export default function RecommendPage() {
           >
             <Camera className="size-3.5" />
             Snap &amp; match
+            {visionReady === "grok" && (
+              <span className="ml-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-900">
+                Grok
+              </span>
+            )}
           </button>
         </div>
 
@@ -375,18 +414,35 @@ export default function RecommendPage() {
             </div>
           </form>
         ) : (
-          <div className="mt-6 space-y-4 rounded-3xl border border-border/70 bg-white/80 p-5 shadow-sm sm:p-6">
+          <div className="mt-6 space-y-4 rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-white/90 to-sky-50/50 p-5 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                <Leaf className="size-3.5" />
+                Leafy&apos;s eyes
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {visionReady === "grok"
+                  ? "Powered by Grok Vision"
+                  : visionReady === "mock"
+                    ? "Demo mode (add XAI_API_KEY for live Grok)"
+                    : "Checking vision…"}
+              </span>
+            </div>
+
             <div>
-              <p className="mb-1.5 text-sm font-medium">Upload a photo</p>
+              <p className="mb-1.5 text-sm font-medium">
+                Snap something you like
+              </p>
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/*"
+                capture="environment"
                 className="hidden"
                 onChange={(e) => onFileChosen(e.target.files?.[0] ?? null)}
               />
               {previewUrl ? (
-                <div className="relative overflow-hidden rounded-2xl border border-border bg-secondary/30">
+                <div className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-[radial-gradient(ellipse_at_top,_rgba(149,213,178,0.25),transparent_60%)]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewUrl}
@@ -403,7 +459,7 @@ export default function RecommendPage() {
                   </button>
                   {fileName && (
                     <p className="border-t border-border/60 bg-cream/80 px-3 py-2 text-xs text-muted-foreground">
-                      {fileName}
+                      {fileName} · ready for the canopy scan
                     </p>
                   )}
                 </div>
@@ -411,21 +467,21 @@ export default function RecommendPage() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/40 px-4 py-10 text-center transition hover:bg-emerald-50"
+                  className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/80 bg-white/60 px-4 py-10 text-center transition hover:border-emerald-500 hover:bg-emerald-50/80"
                 >
                   <ImagePlus className="size-8 text-emerald-800" />
                   <span className="font-medium text-primary">
                     Drop or choose a photo
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    JPG, PNG, WebP · mock labels from the filename for now
+                  <span className="max-w-xs text-xs text-muted-foreground">
+                    JPG or PNG works best · Leafy + Grok will suggest marketplace
+                    twins
                   </span>
                 </button>
               )}
               {!previewUrl && fileName && (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Using demo name:{" "}
-                  <span className="font-medium">{fileName}</span>
+                  Demo cue: <span className="font-medium">{fileName}</span>
                 </p>
               )}
             </div>
@@ -435,7 +491,7 @@ export default function RecommendPage() {
                 htmlFor="vision-note"
                 className="mb-1.5 block text-sm font-medium"
               >
-                Optional hint
+                Optional hint for Leafy
               </label>
               <input
                 id="vision-note"
@@ -452,11 +508,12 @@ export default function RecommendPage() {
                   key={h.fileName}
                   type="button"
                   onClick={() => {
+                    photoFileRef.current = null;
                     setFileName(h.fileName);
                     setVisionNote(h.label.toLowerCase());
                     void runVision(h.fileName, h.label.toLowerCase());
                   }}
-                  className="rounded-full border border-sky-200 bg-sky-50/80 px-3 py-1.5 text-xs font-medium text-sky-950 hover:bg-sky-100 sm:text-sm"
+                  className="rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-emerald-100 sm:text-sm"
                 >
                   Try “{h.label}”
                 </button>
@@ -487,7 +544,7 @@ export default function RecommendPage() {
                 onClick={() => void runVision()}
               >
                 <Camera className="size-4" />
-                {thinking ? "Scanning photo…" : "Find similar products"}
+                {thinking ? "Leafy is looking…" : "Match with Grok Vision"}
               </Button>
             </div>
           </div>
@@ -498,12 +555,14 @@ export default function RecommendPage() {
             <Leaf className="mx-auto size-8 animate-fb-float text-primary" />
             <p className="font-heading mt-3 text-lg font-semibold text-primary">
               {mode === "vision"
-                ? "Reading your photo…"
+                ? "Leafy is peering through the leaves…"
                 : "Scanning the canopy…"}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "vision"
-                ? "Mock vision labels → similar eco products"
+                ? visionReady === "grok"
+                  ? "Grok Vision → eco twins from the marketplace"
+                  : "Matching shapes & vibes to Forest Buddies finds"
                 : "Matching budget, occasion, and eco scores"}
             </p>
           </div>
@@ -511,14 +570,57 @@ export default function RecommendPage() {
 
         {!thinking && mode === "vision" && vision && (
           <div className="mt-8 space-y-5 animate-fb-fade-up">
-            <div className="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 via-cream to-emerald-50/50 px-5 py-4">
+            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-5 py-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className="bg-sky-800 text-white">
-                  {vision.engine === "mock" ? "Mock vision" : vision.engine}
+                <Badge
+                  className={
+                    vision.engine === "grok-vision"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-amber-800 text-white"
+                  }
+                >
+                  {vision.engine === "grok-vision"
+                    ? "Grok Vision"
+                    : "Mock vision"}
                 </Badge>
                 {vision.categoryHint && (
                   <Badge variant="outline">{vision.categoryHint}</Badge>
                 )}
+                {typeof vision.confidence === "number" && (
+                  <Badge
+                    variant="secondary"
+                    className="tabular-nums"
+                    title="Overall look confidence"
+                  >
+                    {Math.round(vision.confidence * 100)}% sure
+                  </Badge>
+                )}
+              </div>
+
+              <p className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl">
+                {vision.summary}
+              </p>
+
+              {typeof vision.confidence === "number" && (
+                <div className="mt-3">
+                  <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                    <span>Match confidence</span>
+                    <span className="tabular-nums font-medium text-emerald-900">
+                      {Math.round(vision.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-emerald-100">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-primary transition-all"
+                      style={{
+                        width: `${Math.max(8, Math.round(vision.confidence * 100))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {vision.labels.map((l) => (
                   <Badge
                     key={l.label}
@@ -529,11 +631,21 @@ export default function RecommendPage() {
                   </Badge>
                 ))}
               </div>
-              <p className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl">
-                {vision.summary}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+
+              <p className="mt-2 text-xs text-muted-foreground">
                 Source: {vision.sourceName}
+                {vision.fallback && vision.fallbackReason
+                  ? ` · ${vision.fallbackReason}`
+                  : ""}
+              </p>
+            </div>
+
+            <div>
+              <h2 className="font-heading text-xl font-semibold text-primary">
+                Marketplace twins
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ranked by visual kinship — add one to cart or check nearby makers.
               </p>
             </div>
 
@@ -541,7 +653,7 @@ export default function RecommendPage() {
               picks={vision.picks}
               addedId={addedId}
               onAdd={handleAdd}
-              reasonLabel="Why it matches"
+              reasonLabel="Why Leafy matched it"
             />
 
             <LocalStoresPanel
@@ -556,9 +668,9 @@ export default function RecommendPage() {
             />
 
             <p className="text-center text-xs text-muted-foreground">
-              Engine: mock vision (filename + hint). Swap{" "}
-              <code className="rounded bg-muted px-1">classifyPhotoMock</code>{" "}
-              for Grok Vision or Google Vision later.
+              {vision.engine === "grok-vision"
+                ? "Live Grok Vision via xAI · picks mapped to Forest Buddies catalog"
+                : "Demo eyes on — set XAI_API_KEY in .env.local for live Grok Vision"}
             </p>
           </div>
         )}
@@ -643,9 +755,14 @@ function PickList({
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/70">
-                    Pick #{i + 1}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/70">
+                      Pick #{i + 1}
+                    </p>
+                    <Badge className="bg-emerald-100 text-emerald-900 tabular-nums">
+                      {Math.round(pick.score)}% match
+                    </Badge>
+                  </div>
                   <h2 className="font-heading text-xl font-semibold text-primary">
                     {pick.product.name}
                   </h2>

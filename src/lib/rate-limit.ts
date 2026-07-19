@@ -12,7 +12,8 @@ export type RateLimitBucket =
   | "support"
   | "checkout"
   | "recommend"
-  | "review";
+  | "review"
+  | "vision";
 
 type BucketState = {
   timestamps: number[];
@@ -32,6 +33,7 @@ const LIMITS: Record<
   checkout: { max: 4, windowMs: 60_000, lockMs: 20_000 },
   recommend: { max: 20, windowMs: 60_000, lockMs: 15_000 },
   review: { max: 5, windowMs: 60_000, lockMs: 30_000 },
+  vision: { max: 8, windowMs: 60_000, lockMs: 25_000 },
 };
 
 function load(): Store {

@@ -154,7 +154,7 @@ const FAQ: FaqEntry[] = [
       "picture",
     ],
     answer:
-      "Ask Leafy (/recommend) can take a shopping note, voice, or photo. Snap & match uses mock vision today and suggests similar products. Find local stores shows simulated availability nearby, plus Amazon / Target / REI links when you want a big-store option. Real stock feeds come later.",
+      "Ask Leafy (/recommend) can take a shopping note, voice, or photo. Snap & match uses Grok Vision when XAI_API_KEY is set (otherwise a friendly mock) to suggest similar marketplace products with confidence scores. Find local stores shows simulated availability nearby, plus Amazon / Target / REI links when you want a big-store option.",
     suggestions: [
       "Buy Local nearby",
       "How do returns work?",

@@ -1,36 +1,21 @@
-import { MARKETPLACE_PRODUCTS } from "@/lib/marketplace-catalog";
-import type { ProductRecommendation } from "@/lib/recommendation-agent";
-import type { Product } from "@/types";
+import {
+  craftVisionPicks,
+  productsByIds,
+} from "@/lib/vision/catalog-match";
+import type {
+  VisionEngine,
+  VisionLabel,
+  VisionResult,
+} from "@/lib/vision/types";
+
+export type { VisionEngine, VisionLabel, VisionResult };
 
 /**
- * Mock vision agent — classify an uploaded photo and recommend similar products.
- * Keep VisionResult stable for a future Grok Vision / Google Vision swap.
+ * Mock vision agent — classify via filename + optional note.
+ * Live path: POST /api/vision/analyze → Grok Vision when XAI_API_KEY is set.
  */
 
-export type VisionEngine = "mock" | "grok-vision" | "google-vision";
-
-export interface VisionLabel {
-  label: string;
-  confidence: number;
-}
-
-export interface VisionResult {
-  /** Detected / inferred labels from the photo */
-  labels: VisionLabel[];
-  /** Friendly one-liner for the UI */
-  summary: string;
-  /** Similar marketplace products */
-  picks: ProductRecommendation[];
-  /** Product ids for local-store lookup */
-  productIds: string[];
-  /** Dominant category guess */
-  categoryHint: string | null;
-  sourceName: string;
-  engine: VisionEngine;
-}
-
 type Cue = {
-  /** Tokens matched against filename + optional note */
   tokens: string[];
   labels: string[];
   productIds: string[];
@@ -183,16 +168,6 @@ function pickCueScores(haystack: string): { cue: Cue; hits: number }[] {
   return scored.sort((a, b) => b.hits - a.hits);
 }
 
-function productsByIds(ids: string[]): Product[] {
-  const map = new Map(MARKETPLACE_PRODUCTS.map((p) => [p.id, p]));
-  const out: Product[] = [];
-  for (const id of ids) {
-    const p = map.get(id);
-    if (p && !out.some((x) => x.id === p.id)) out.push(p);
-  }
-  return out;
-}
-
 function buildLabels(
   cues: { cue: Cue; hits: number }[],
   categoryHint: string | null
@@ -207,7 +182,10 @@ function buildLabels(
       });
     }
   }
-  if (categoryHint && !labels.some((l) => l.label === categoryHint.toLowerCase())) {
+  if (
+    categoryHint &&
+    !labels.some((l) => l.label === categoryHint.toLowerCase())
+  ) {
     labels.push({ label: categoryHint.toLowerCase(), confidence: 0.62 });
   }
   if (labels.length === 0) {
@@ -219,39 +197,12 @@ function buildLabels(
   return labels.slice(0, 5);
 }
 
-function craftVisionPicks(
-  products: Product[],
-  labels: VisionLabel[],
-  categoryHint: string | null
-): ProductRecommendation[] {
-  const labelText = labels.map((l) => l.label).join(" ");
-  return products.map((product, i) => {
-    const sameCat = categoryHint && product.category === categoryHint;
-    const visualSimilarity = Math.max(
-      52,
-      Math.round(92 - i * 8 + (sameCat ? 6 : 0))
-    );
-    const tags = ["vision match", ...(sameCat ? [categoryHint.toLowerCase()] : [])];
-    if (product.sustainabilityScore >= 90) tags.push("eco standout");
-    return {
-      product,
-      score: visualSimilarity,
-      reason: `Looks similar to your photo (${visualSimilarity}% visual match${
-        sameCat ? ` · ${categoryHint}` : ""
-      }). Detected: ${labelText || "eco everyday"}.`,
-      matchTags: [...new Set(tags)],
-    } satisfies ProductRecommendation;
-  });
-}
-
 /**
  * Classify a photo using filename + optional note (mock CV).
- * Pass `file` from an `<input type="file">` — only name/size are used today.
  */
 export function classifyPhotoMock(input: {
   fileName: string;
   fileSize?: number;
-  /** Optional typed hint from the shopper */
   note?: string;
   limit?: number;
 }): VisionResult {
@@ -270,8 +221,8 @@ export function classifyPhotoMock(input: {
       }
     }
   } else {
-    // Deterministic fallback from filename length so demos feel consistent
-    const seed = (input.fileName.length + (input.fileSize ?? 0)) % FALLBACK_IDS.length;
+    const seed =
+      (input.fileName.length + (input.fileSize ?? 0)) % FALLBACK_IDS.length;
     productIds = [
       ...FALLBACK_IDS.slice(seed),
       ...FALLBACK_IDS.slice(0, seed),
@@ -287,7 +238,7 @@ export function classifyPhotoMock(input: {
   const summary =
     cueScores.length > 0
       ? `I spotted something like “${topLabel}” in your photo. Here are similar Forest Buddies finds.`
-      : `Couldn’t read a clear object name from the file — here are close eco matches while vision is still mock. Try a filename like bottle.jpg or tote.png.`;
+      : `Couldn’t read a clear object from the file name — here are leafy stand-ins. Upload a real photo for Grok Vision, or try a demo chip.`;
 
   return {
     labels,
@@ -297,6 +248,7 @@ export function classifyPhotoMock(input: {
     categoryHint,
     sourceName: input.fileName,
     engine: "mock",
+    confidence: labels[0]?.confidence ?? 0.5,
   };
 }
 
@@ -307,10 +259,85 @@ export async function classifyPhotoMockAsync(
     note?: string;
     limit?: number;
   },
-  delayMs = 900
+  delayMs = 700
 ): Promise<VisionResult> {
   await new Promise((r) => setTimeout(r, delayMs));
   return classifyPhotoMock(input);
+}
+
+/** Resize / convert to JPEG data URL for the vision API (jpg/png preferred). */
+export async function fileToVisionDataUrl(file: File): Promise<{
+  dataUrl: string;
+  mimeType: string;
+}> {
+  const bitmap = await createImageBitmap(file);
+  const maxEdge = 1280;
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not prepare the photo for Leafy.");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  return { dataUrl, mimeType: "image/jpeg" };
+}
+
+/**
+ * Client helper: send photo to /api/vision/analyze (Grok when configured).
+ * Falls back to mock on network / demo errors so Ask Leafy never hard-fails.
+ */
+export async function classifyPhotoAsync(input: {
+  file?: File | null;
+  fileName: string;
+  fileSize?: number;
+  note?: string;
+  imageDataUrl?: string;
+  limit?: number;
+}): Promise<VisionResult> {
+  let imageDataUrl = input.imageDataUrl;
+  if (!imageDataUrl && input.file) {
+    const prepared = await fileToVisionDataUrl(input.file);
+    imageDataUrl = prepared.dataUrl;
+  }
+
+  if (imageDataUrl) {
+    try {
+      const res = await fetch("/api/vision/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageDataUrl,
+          fileName: input.fileName,
+          note: input.note,
+          limit: input.limit ?? 4,
+        }),
+      });
+      const data = (await res.json()) as VisionResult & { error?: string };
+      if (res.ok && data.picks) return data;
+      // Server may return mock + fallback flags even on 200
+      if (data.picks) return data;
+    } catch {
+      // fall through to mock
+    }
+  }
+
+  const mock = await classifyPhotoMockAsync({
+    fileName: input.fileName,
+    fileSize: input.fileSize,
+    note: input.note,
+    limit: input.limit,
+  });
+  return {
+    ...mock,
+    fallback: true,
+    fallbackReason: imageDataUrl
+      ? "Vision API unavailable — using Leafy’s forest instincts (mock)."
+      : "Demo mode — add a photo for Grok Vision, or keep exploring with filename cues.",
+  };
 }
 
 /** Demo filenames that trigger strong mock matches (for chips / hints). */

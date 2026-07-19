@@ -347,7 +347,7 @@ export default function MarketplaceClient() {
             href="/recommend"
             className="font-medium text-primary underline-offset-2 hover:underline"
           >
-            Not sure what to get? Ask Leafy — or snap a photo
+            Not sure what to get? Ask Leafy — or snap a photo with Grok Vision
           </Link>
           .
         </p>
