@@ -55,8 +55,8 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
       "Outbound clicks tagged with your Associate ID on Amazon UK/US; Amazon reports sales later.",
     conversionLatency: "delayed",
     payoutNote: "Earnings stay pending until the partner confirms (often 1–3 days+).",
-    /** Overridden by NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG when set */
-    publisherTag: "forestbuddies-21",
+    /** Associates tag — forestbuddies-20 (see amazon-affiliate.ts) */
+    publisherTag: "forestbuddies-20",
   },
   {
     id: "target",

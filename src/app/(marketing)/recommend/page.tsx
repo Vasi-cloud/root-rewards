@@ -1403,6 +1403,16 @@ function PickList({
                   <ShoppingBag className="size-3.5" />
                   {addedId === pick.product.id ? "Added!" : "Add to cart"}
                 </Button>
+                <PartnerOutboundButton
+                  platformId="amazon"
+                  productId={pick.product.id}
+                  productName={pick.product.name}
+                  amazonAsin={pick.product.amazonAsin}
+                  listPrice={pick.product.price}
+                  label="Shop Amazon"
+                  primary
+                  className="min-h-9 px-3 text-sm"
+                />
                 <Button
                   size="sm"
                   variant="outline"

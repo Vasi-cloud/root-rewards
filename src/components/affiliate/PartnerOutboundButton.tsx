@@ -62,8 +62,14 @@ export function PartnerOutboundButton({
       amazonAsin,
       listPrice,
     });
+    // New tab + Associates tag / ascsubtag tracking
     window.open(url, "_blank", "noopener,noreferrer");
   }
+
+  const tip =
+    id === "amazon"
+      ? `Amazon Associates link (tag forestbuddies-20). ${platform.attributionNote}`
+      : `${platform.attributionNote} ${platform.trackingNote}`;
 
   return (
     <Button
@@ -76,7 +82,8 @@ export function PartnerOutboundButton({
           : ""
       } ${className ?? ""}`}
       onClick={handleClick}
-      title={`${platform.attributionNote} ${platform.trackingNote}`}
+      title={tip}
+      aria-label={`${name}${priceBit} (opens in new tab)`}
     >
       {name}
       {priceBit}

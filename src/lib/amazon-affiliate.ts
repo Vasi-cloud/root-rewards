@@ -1,42 +1,40 @@
 /**
- * Amazon Associates helpers — UK-first with optional US marketplace.
- * Client-safe: uses NEXT_PUBLIC_* env vars.
+ * Amazon Associates helpers.
+ * Associate tag: forestbuddies-20 (override with NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG).
  */
 
 export type AmazonMarketplace = "uk" | "us";
 
-const DEMO_TAGS: Record<AmazonMarketplace, string> = {
-  uk: "forestbuddies-21",
-  us: "forestbuddies-20",
-};
+/** Forest Buddies Amazon Associates ID */
+export const AMAZON_ASSOCIATE_TAG = "forestbuddies-20";
 
 export function getAmazonMarketplace(): AmazonMarketplace {
   const raw = (
-    process.env.NEXT_PUBLIC_AMAZON_MARKETPLACE ?? "uk"
+    process.env.NEXT_PUBLIC_AMAZON_MARKETPLACE ?? "us"
   ).toLowerCase();
-  return raw === "us" ? "us" : "uk";
+  return raw === "uk" ? "uk" : "us";
 }
 
 export function getAmazonHost(): string {
-  return getAmazonMarketplace() === "us"
-    ? "www.amazon.com"
-    : "www.amazon.co.uk";
+  return getAmazonMarketplace() === "uk"
+    ? "www.amazon.co.uk"
+    : "www.amazon.com";
 }
 
 export function getAmazonAssociateTag(): string {
-  const fromEnv =
-    process.env.NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG?.trim() ||
-    (getAmazonMarketplace() === "uk"
-      ? process.env.NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG_UK?.trim()
-      : process.env.NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG_US?.trim());
-  return fromEnv || DEMO_TAGS[getAmazonMarketplace()];
+  return (
+    process.env.NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG?.trim() || AMAZON_ASSOCIATE_TAG
+  );
 }
 
 export function getAmazonStoreLabel(): string {
   return getAmazonMarketplace() === "uk" ? "Amazon UK" : "Amazon";
 }
 
-/** Build a tagged Amazon product or search URL. */
+/**
+ * Build a tagged Amazon product or search URL.
+ * Always includes `tag=forestbuddies-20` (or env override) for Associates tracking.
+ */
 export function buildAmazonAffiliateUrl(opts: {
   productName: string;
   amazonAsin?: string | null;
