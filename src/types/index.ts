@@ -275,7 +275,8 @@ export type AffiliatePlatformId =
   | "target"
   | "rei"
   | "etsy"
-  | "walmart";
+  | "walmart"
+  | "clickbank";
 
 export type AffiliateEventType = "click" | "conversion" | "outbound";
 

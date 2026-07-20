@@ -84,6 +84,9 @@ export function buildPartnerOutboundUrl(opts: {
       return `https://www.etsy.com/search?q=${q}&ref=${encodeURIComponent(`fb_${opts.affiliateCode}`)}&utm_source=forestbuddies&utm_medium=affiliate&utm_campaign=${encodeURIComponent(tag)}`;
     case "walmart":
       return `https://www.walmart.com/search?q=${q}&wmlspartner=${encodeURIComponent(tag)}&veh=${sub}`;
+    case "clickbank":
+      // Placeholder hop — replace affiliate + vendor IDs when ClickBank is live
+      return `https://hop.clickbank.net/?affiliate=${encodeURIComponent(tag)}&vendor=PLACEHOLDER&tid=${sub}&cbpage=${q}`;
     default:
       return `/marketplace${opts.productId ? `?product=${opts.productId}` : ""}`;
   }

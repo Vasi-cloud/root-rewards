@@ -71,7 +71,7 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
     trackingNote: "Clicks leave Forest Buddies; conversions arrive via partner reports.",
     conversionLatency: "delayed",
     payoutNote: "Reported and paid on the partner’s schedule.",
-    publisherTag: "fb-target",
+    publisherTag: "PLACEHOLDER-target",
   },
   {
     id: "rei",
@@ -86,7 +86,7 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
     trackingNote: "Tracked as an outbound partner click; sales confirmed later.",
     conversionLatency: "delayed",
     payoutNote: "Pending until the network posts the order.",
-    publisherTag: "fb-rei",
+    publisherTag: "PLACEHOLDER-rei",
   },
   {
     id: "etsy",
@@ -101,7 +101,7 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
     trackingNote: "Outbound search tagged with your publisher ID; Etsy reports later.",
     conversionLatency: "delayed",
     payoutNote: "Paid on the network’s schedule after confirmation.",
-    publisherTag: "fb-etsy",
+    publisherTag: "PLACEHOLDER-etsy",
   },
   {
     id: "walmart",
@@ -116,7 +116,22 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
     trackingNote: "Outbound search click; conversions arrive via partner reports.",
     conversionLatency: "delayed",
     payoutNote: "Reported and paid on Walmart’s creator schedule.",
-    publisherTag: "fb-walmart",
+    publisherTag: "PLACEHOLDER-walmart",
+  },
+  {
+    id: "clickbank",
+    name: "ClickBank",
+    kind: "external",
+    attributionDaysTypical: 60,
+    attributionDaysMax: 60,
+    attributionNote: "ClickBank hops often use longer cookie windows (about 60 days).",
+    commissionRateTypical: 50,
+    commissionNote: "Offer-dependent; digital products can pay high % (placeholder).",
+    trackingModel: "network_report",
+    trackingNote: "Hop links use your affiliate nickname; replace PLACEHOLDER tags when live.",
+    conversionLatency: "delayed",
+    payoutNote: "Paid on ClickBank’s schedule after confirmation.",
+    publisherTag: "PLACEHOLDER-clickbank",
   },
 ];
 
@@ -141,6 +156,8 @@ export function partnerButtonLabel(id: AffiliatePlatformId): string {
       return "Etsy";
     case "walmart":
       return "Walmart";
+    case "clickbank":
+      return "ClickBank";
     default:
       return getAffiliatePlatform(id).name.split(" ")[0] ?? "Partner";
   }
@@ -156,6 +173,7 @@ export function platformIdFromStoreName(
   if (key.includes("rei")) return "rei";
   if (key.includes("etsy")) return "etsy";
   if (key.includes("walmart")) return "walmart";
+  if (key.includes("clickbank") || key.includes("click bank")) return "clickbank";
   return null;
 }
 
@@ -166,6 +184,16 @@ export const COMPARE_PLATFORM_ORDER: AffiliatePlatformId[] = [
   "rei",
   "etsy",
   "walmart",
+  "clickbank",
+];
+
+/** Secondary partners always offered for compare (Amazon is separate / primary). */
+export const SECONDARY_COMPARE_PLATFORMS: AffiliatePlatformId[] = [
+  "target",
+  "rei",
+  "etsy",
+  "walmart",
+  "clickbank",
 ];
 
 export function listExternalPlatforms(): AffiliatePlatform[] {
