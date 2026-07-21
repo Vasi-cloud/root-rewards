@@ -3,6 +3,7 @@
  * First version: local parsing (no live LLM). Feels smart, stays honest.
  */
 
+import { getAmazonMarketplace } from "@/lib/amazon-affiliate";
 import type { Product } from "@/types";
 
 export type SampleRecipe = {
@@ -554,9 +555,11 @@ export function estimateShoppingListTotal(
   ) / 100;
 }
 
-/** Prefer £ for UK marketplace, otherwise $. */
+/** Match cart / Amazon marketplace currency so Kitchen totals align with checkout. */
 export function formatKitchenMoney(amount: number): string {
-  return `£${amount.toFixed(2)}`;
+  return getAmazonMarketplace() === "uk"
+    ? `£${amount.toFixed(2)}`
+    : `$${amount.toFixed(2)}`;
 }
 
 export function ingredientToCartProduct(ing: ShoppingIngredient): Product {

@@ -1,23 +1,24 @@
 "use client";
 
-import {
-  BookOpen,
-  Leaf,
-  PawPrint,
-  Sun,
-  Waves,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
 import { useI18n } from "@/contexts/i18n-context";
 import { useMembership } from "@/contexts/membership-context";
-import { recordAffiliateConversion } from "@/lib/affiliate-storage";
+import {
+  recordAffiliateConversion,
+  recordPartnerOutboundClick,
+} from "@/lib/affiliate-storage";
+import {
+  buildAmazonAffiliateUrl,
+  getAmazonStoreLabel,
+} from "@/lib/amazon-affiliate";
+import {
+  estimateCo2FromTrees,
+  estimateTreesFromSubtotal,
+  formatCartMoney,
+} from "@/lib/cart-impact";
 import {
   CAUSES,
   dollarsToUnits,
@@ -46,6 +47,19 @@ import {
   validateName,
   validatePostalCode,
 } from "@/lib/validation";
+import {
+  BookOpen,
+  ExternalLink,
+  Leaf,
+  PawPrint,
+  Sun,
+  TreePine,
+  Truck,
+  Waves,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 const CAUSE_ICONS = {
   trees: Leaf,
@@ -155,16 +169,28 @@ export default function CheckoutPage() {
           Your cart is empty
         </h1>
         <p className="mt-3 text-base text-muted-foreground">
-          Add some sustainable products first.
+          Add eco products from the marketplace — or send a list from Leafy
+          Kitchen with Add All to Cart.
         </p>
-        <Button
-          nativeButton={false}
-          render={<Link href="/marketplace" />}
-          className="mt-8 min-h-12 w-full sm:w-auto"
-          size="lg"
-        >
-          Browse marketplace
-        </Button>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button
+            nativeButton={false}
+            render={<Link href="/marketplace" />}
+            className="min-h-12 w-full sm:w-auto"
+            size="lg"
+          >
+            Browse marketplace
+          </Button>
+          <Button
+            nativeButton={false}
+            render={<Link href="/kitchen" />}
+            variant="outline"
+            className="min-h-12 w-full sm:w-auto"
+            size="lg"
+          >
+            Open Leafy Kitchen
+          </Button>
+        </div>
       </div>
     );
   }
@@ -306,13 +332,47 @@ export default function CheckoutPage() {
       ? 0
       : Math.max(0, customDollars - previewUnits * activeCause.unitPrice);
 
+  const treesEstimate = estimateTreesFromSubtotal(totalPrice);
+  const co2Estimate = estimateCo2FromTrees(treesEstimate);
+
+  function buyOnAmazon(item: (typeof cart)[number]) {
+    const { url } = recordPartnerOutboundClick({
+      platformId: "amazon",
+      productId: item.id,
+      productName: item.name,
+      amazonAsin: item.amazonAsin,
+      listPrice: item.price,
+    });
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 pb-36 pt-6 sm:px-6 sm:pb-14 sm:pt-10 lg:pt-14">
-      <div className="mb-6 flex items-center gap-3 sm:mb-8">
+      <div className="mb-5 flex items-center gap-3 sm:mb-6">
         <Leaf className="size-7 shrink-0 text-primary" />
-        <h1 className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
-          {t("checkout.title")}
-        </h1>
+        <div>
+          <h1 className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
+            {t("checkout.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+            Simple, secure checkout · partner dropship delivery
+          </p>
+        </div>
+      </div>
+
+      {/* Trees pledge — required trust note */}
+      <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-300/80 bg-gradient-to-r from-emerald-50 via-cream to-sky-50/50 px-4 py-3.5 text-emerald-950 sm:px-5">
+        <TreePine className="mt-0.5 size-5 shrink-0 text-emerald-800" />
+        <div>
+          <p className="text-base font-semibold tracking-tight">
+            Every purchase helps plant trees
+          </p>
+          <p className="mt-0.5 text-sm leading-relaxed text-emerald-900/85">
+            Your basket (~{formatCartMoney(totalPrice)}) can fund about{" "}
+            {treesEstimate} tree{treesEstimate === 1 ? "" : "s"} (~{co2Estimate}{" "}
+            kg CO₂e) when you choose Trees below — or pick another cause.
+          </p>
+        </div>
       </div>
 
       {/* Mobile: summary → impact → shipping. Desktop: two columns. */}
@@ -337,11 +397,23 @@ export default function CheckoutPage() {
                     <div className="mt-0.5 text-sm text-muted-foreground">
                       {item.rentalDuration
                         ? `${item.rentalDuration}-day rental`
-                        : `Qty ${item.quantity}`}
+                        : `Qty ${item.quantity} · ${formatCartMoney(item.price)} each`}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => buyOnAmazon(item)}
+                      className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-800 underline-offset-2 hover:underline"
+                      title={buildAmazonAffiliateUrl({
+                        productName: item.name,
+                        amazonAsin: item.amazonAsin,
+                      })}
+                    >
+                      Buy on {getAmazonStoreLabel()}
+                      <ExternalLink className="size-3 opacity-70" />
+                    </button>
                   </div>
                   <div className="shrink-0 text-base font-semibold tabular-nums text-primary">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    {formatCartMoney(item.price * item.quantity)}
                   </div>
                 </div>
               ))}
@@ -349,7 +421,17 @@ export default function CheckoutPage() {
 
             <div className="mt-4 flex justify-between border-t pt-4 text-lg font-semibold sm:text-xl">
               <span>Subtotal</span>
-              <span className="tabular-nums">${totalPrice.toFixed(2)}</span>
+              <span className="tabular-nums">
+                {formatCartMoney(totalPrice)}
+              </span>
+            </div>
+
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-2.5 text-sm text-emerald-950">
+              <TreePine className="mt-0.5 size-4 shrink-0 text-emerald-800" />
+              <p>
+                Estimated tree impact from this order: ~{treesEstimate} tree
+                {treesEstimate === 1 ? "" : "s"} if you fund Trees.
+              </p>
             </div>
 
             {lines.map(({ cause, units, cost }) => (
@@ -493,9 +575,16 @@ export default function CheckoutPage() {
             className="space-y-5 sm:space-y-6"
           >
             <div className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6">
-              <h2 className="font-heading mb-5 text-xl font-semibold sm:text-2xl">
+              <h2 className="font-heading mb-2 text-xl font-semibold sm:text-2xl">
                 Shipping details
               </h2>
+              <div className="mb-5 flex gap-2.5 rounded-xl border border-border/70 bg-muted/40 px-3.5 py-3 text-sm text-muted-foreground">
+                <Truck className="mt-0.5 size-4 shrink-0 text-primary" />
+                <p>
+                  Eco partners fulfill and ship your order directly (dropship).
+                  You get one simple checkout here — tracking arrives by email.
+                </p>
+              </div>
 
               <div className="grid gap-5">
                 <div>
@@ -642,9 +731,14 @@ export default function CheckoutPage() {
                     ? `Pay $${finalTotal.toFixed(2)} with Stripe`
                     : t("checkout.place")}
               </Button>
-              <p className="mt-3 text-center text-sm text-muted-foreground">
-                Total ${finalTotal.toFixed(2)} ·{" "}
+              <p className="mt-3 text-center text-sm font-medium text-emerald-900">
+                Every purchase helps plant trees
+              </p>
+              <p className="mt-1.5 text-center text-sm text-muted-foreground">
+                Total {formatCartMoney(finalTotal)} ·{" "}
                 {stripeEnabled ? "Stripe Checkout · " : "Demo · "}
+                Prefer {getAmazonStoreLabel()}? Use Buy on{" "}
+                {getAmazonStoreLabel()} above.{" "}
                 <Link
                   href="/returns"
                   className="underline-offset-2 hover:underline"
@@ -662,9 +756,12 @@ export default function CheckoutPage() {
         <div className="mb-1 flex items-center justify-between text-base">
           <span className="text-muted-foreground">Total</span>
           <span className="text-lg font-semibold tabular-nums text-primary">
-            ${finalTotal.toFixed(2)}
+            {formatCartMoney(finalTotal)}
           </span>
         </div>
+        <p className="mb-2.5 text-center text-xs font-medium text-emerald-900">
+          Every purchase helps plant trees
+        </p>
         <p className="mb-2.5 text-center text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             {stripeEnabled ? "Stripe secure checkout" : "Demo checkout"} ·{" "}

@@ -63,7 +63,7 @@ function peekCookMinutes(text: string, sampleId: string | null): number {
 
 export default function KitchenAssistantPage() {
   const { showSuccess } = useAppToast();
-  const { cart, addToCart } = useCart();
+  const { cart, addToCart, totalItems, totalPrice } = useCart();
   const resultsRef = useRef<HTMLElement>(null);
 
   const [recipeText, setRecipeText] = useState("");
@@ -244,12 +244,15 @@ export default function KitchenAssistantPage() {
         )
       );
       showSuccess(
-        `${unitTotal} item${unitTotal === 1 ? "" : "s"} added · ${moneyLabel}`,
-        `${lineCount} ingredient${lineCount === 1 ? "" : "s"} in your Forest Buddies cart.`,
-        { accent: "cart" }
+        `Added ${unitTotal} item${unitTotal === 1 ? "" : "s"} · ${moneyLabel}`,
+        `${lineCount} ingredient${lineCount === 1 ? "" : "s"} are in your Forest Buddies cart. Review totals and tree impact next.`,
+        {
+          accent: "cart",
+          action: { label: "View cart & checkout", href: "/cart" },
+        }
       );
       setLeafyTip(
-        `Cart updated: ${unitTotal} item${unitTotal === 1 ? "" : "s"} (~${moneyLabel}). Checked rows are covered.`
+        `Nice — ${unitTotal} item${unitTotal === 1 ? "" : "s"} (~${moneyLabel}) added. View cart for trees, or keep using Buy Online per item.`
       );
     } else {
       showSuccess(
@@ -548,30 +551,68 @@ Ingredients:
                       </div>
                     </div>
 
-                    {/* Estimated cost */}
-                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-cream px-4 py-3.5">
+                    {/* Estimated cost + hero Add All */}
+                    <div className="rounded-2xl border-2 border-emerald-700/25 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/30 p-4 shadow-sm sm:p-5">
                       <div className="flex flex-wrap items-end justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
                             Estimated basket
                           </p>
-                          <p className="font-heading mt-1 text-3xl font-semibold tabular-nums text-emerald-950">
-                            {formatKitchenMoney(listTotalAll)}
+                          <p className="font-heading mt-1 text-3xl font-semibold tabular-nums text-emerald-950 sm:text-4xl">
+                            {formatKitchenMoney(
+                              addableTotal > 0 ? addableTotal : listTotalAll
+                            )}
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            Illustrative prices · confirm in store or at
-                            checkout
+                            {addableTotal > 0
+                              ? `${addableIngredients.length} ready to add · illustrative prices`
+                              : "Illustrative prices · confirm at checkout"}
                           </p>
                         </div>
-                        {addableTotal > 0 && (
-                          <p className="text-right text-sm text-emerald-900">
-                            Ready to add
-                            <span className="mt-0.5 block font-heading text-xl font-semibold tabular-nums">
-                              {formatKitchenMoney(addableTotal)}
+                        {addableTotal > 0 && addableTotal !== listTotalAll && (
+                          <p className="text-right text-xs text-emerald-900/80">
+                            Full list
+                            <span className="mt-0.5 block font-heading text-lg font-semibold tabular-nums text-emerald-950">
+                              {formatKitchenMoney(listTotalAll)}
                             </span>
                           </p>
                         )}
                       </div>
+
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="mt-4 h-16 w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg shadow-emerald-900/25 ring-2 ring-emerald-700/20 hover:bg-emerald-900 hover:shadow-xl sm:h-[4.25rem] sm:text-lg"
+                        disabled={
+                          ingredients.length === 0 ||
+                          addableIngredients.length === 0 ||
+                          addingAll
+                        }
+                        onClick={() => void addAllToCart()}
+                      >
+                        {addingAll ? (
+                          <span className="inline-flex items-center gap-2.5">
+                            <Loader2 className="size-5 animate-spin" />
+                            Adding to cart…
+                          </span>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center gap-2">
+                              <ShoppingBag className="size-5" />
+                              Add All to Cart
+                            </span>
+                            {addableTotal > 0 && (
+                              <span className="font-heading text-xl font-semibold tabular-nums tracking-tight sm:text-2xl">
+                                {formatKitchenMoney(addableTotal)}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </Button>
+                      <p className="mt-2 text-center text-[11px] text-emerald-900/70">
+                        Adds quantities to your Forest Buddies cart · Buy Online
+                        stays available per item
+                      </p>
                     </div>
 
                     {confirmClear && (
@@ -610,31 +651,18 @@ Ingredients:
                       </div>
                     )}
 
-                    <Button
-                      type="button"
-                      size="lg"
-                      className="h-12 w-full gap-2.5 bg-primary text-base font-semibold text-primary-foreground shadow-lg shadow-emerald-900/15 hover:bg-primary/90 hover:shadow-xl"
-                      disabled={
-                        ingredients.length === 0 ||
-                        addableIngredients.length === 0 ||
-                        addingAll
-                      }
-                      onClick={() => void addAllToCart()}
-                    >
-                      {addingAll ? (
-                        <>
-                          <Loader2 className="size-5 animate-spin" />
-                          Adding to cart…
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingBag className="size-5" />
-                          {addableTotal > 0
-                            ? `Add All to Cart (${formatKitchenMoney(addableTotal)})`
-                            : "Add All to Cart"}
-                        </>
-                      )}
-                    </Button>
+                    {totalItems > 0 && (
+                      <Button
+                        nativeButton={false}
+                        render={<Link href="/cart" />}
+                        variant="outline"
+                        size="lg"
+                        className="h-12 w-full gap-2 border-emerald-300/80 text-base font-medium text-emerald-950"
+                      >
+                        View cart ({totalItems}) ·{" "}
+                        {formatKitchenMoney(totalPrice)}
+                      </Button>
+                    )}
                     {ingredients.length > 0 &&
                       addableIngredients.length === 0 && (
                         <p className="text-center text-xs text-muted-foreground">
@@ -785,7 +813,7 @@ Ingredients:
                     <Button
                       type="button"
                       size="lg"
-                      className="h-12 w-full gap-2.5 bg-primary text-base font-semibold shadow-lg sm:hidden"
+                      className="h-14 w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg sm:hidden"
                       disabled={
                         ingredients.length === 0 ||
                         addableIngredients.length === 0 ||
@@ -794,16 +822,21 @@ Ingredients:
                       onClick={() => void addAllToCart()}
                     >
                       {addingAll ? (
-                        <>
+                        <span className="inline-flex items-center gap-2">
                           <Loader2 className="size-5 animate-spin" />
                           Adding…
-                        </>
+                        </span>
                       ) : (
                         <>
-                          <ShoppingBag className="size-5" />
-                          {addableTotal > 0
-                            ? `Add All to Cart (${formatKitchenMoney(addableTotal)})`
-                            : "Add All to Cart"}
+                          <span className="inline-flex items-center gap-2">
+                            <ShoppingBag className="size-5" />
+                            Add All to Cart
+                          </span>
+                          {addableTotal > 0 && (
+                            <span className="font-heading text-lg font-semibold tabular-nums">
+                              {formatKitchenMoney(addableTotal)}
+                            </span>
+                          )}
                         </>
                       )}
                     </Button>
@@ -811,7 +844,7 @@ Ingredients:
                       <Button
                         type="button"
                         size="sm"
-                        className="hidden gap-1.5 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 sm:inline-flex"
+                        className="hidden gap-1.5 bg-emerald-800 text-cream shadow-sm hover:bg-emerald-900 sm:inline-flex"
                         disabled={
                           ingredients.length === 0 ||
                           addableIngredients.length === 0 ||
@@ -821,8 +854,8 @@ Ingredients:
                       >
                         <ShoppingBag className="size-3.5" />
                         {addableTotal > 0
-                          ? `Add All (${formatKitchenMoney(addableTotal)})`
-                          : "Add All"}
+                          ? `Add All to Cart (${formatKitchenMoney(addableTotal)})`
+                          : "Add All to Cart"}
                       </Button>
                       <Button
                         variant="outline"
@@ -831,7 +864,9 @@ Ingredients:
                         nativeButton={false}
                         render={<Link href="/cart" />}
                       >
-                        View cart
+                        {totalItems > 0
+                          ? `View cart (${totalItems}) · ${formatKitchenMoney(totalPrice)}`
+                          : "View cart"}
                       </Button>
                       <Button
                         variant="outline"
