@@ -39,13 +39,15 @@ import {
   AISLE_LABELS,
   SAMPLE_RECIPES,
   buildRecipePlan,
+  estimateIngredientLineTotal,
   estimateShopMinutes,
+  estimateShoppingListTotal,
   extractIngredientsFromRecipe,
   formatIngredientLabel,
+  formatKitchenMoney,
   groupByAisle,
   ingredientToCartProduct,
   kitchenIngredientCartId,
-  type RecipePlan,
   type ShoppingIngredient,
 } from "@/lib/leafy-kitchen";
 import { cn } from "@/lib/utils";
@@ -68,9 +70,6 @@ export default function KitchenAssistantPage() {
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [ingredients, setIngredients] = useState<ShoppingIngredient[]>([]);
-  const [plan, setPlan] = useState<RecipePlan | null>(null);
-  const [planOpen, setPlanOpen] = useState(false);
-  const [planning, setPlanning] = useState(false);
   const [addingAll, setAddingAll] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [recipeCollapsed, setRecipeCollapsed] = useState(false);
@@ -91,21 +90,34 @@ export default function KitchenAssistantPage() {
     [ingredients, cartIds]
   );
 
-  const addableUnitCount = useMemo(
-    () =>
-      addableIngredients.reduce(
-        (sum, ing) => sum + Math.max(1, ing.cartQty || 1),
-        0
-      ),
-    [addableIngredients]
+  const listTotalAll = useMemo(
+    () => estimateShoppingListTotal(ingredients, { onlyAddable: () => true }),
+    [ingredients]
   );
 
-  const timePreview = useMemo(() => {
+  const addableTotal = useMemo(
+    () =>
+      estimateShoppingListTotal(ingredients, {
+        onlyAddable: (ing) =>
+          !ing.checked && !cartIds.has(kitchenIngredientCartId(ing)),
+      }),
+    [ingredients, cartIds]
+  );
+
+  const livePlan = useMemo(() => {
     if (ingredients.length === 0) return null;
-    const shop = estimateShopMinutes(ingredients.length);
-    const cook = peekCookMinutes(recipeText, selectedSampleId);
-    const buffer = 10;
-    const total = shop + cook + buffer;
+    const sample = SAMPLE_RECIPES.find((s) => s.id === selectedSampleId);
+    return buildRecipePlan({
+      recipeText,
+      ingredients,
+      sampleCookMinutes: sample?.cookMinutes,
+    });
+  }, [ingredients, recipeText, selectedSampleId]);
+
+  const timePreview = useMemo(() => {
+    if (!livePlan) return null;
+    const { shopMinutes: shop, cookMinutes: cook, prepBufferMinutes: buffer, totalMinutes: total } =
+      livePlan;
     return {
       shop,
       cook,
@@ -122,7 +134,7 @@ export default function KitchenAssistantPage() {
         },
       ] as const,
     };
-  }, [ingredients, recipeText, selectedSampleId]);
+  }, [livePlan]);
 
   useEffect(() => {
     if (phase === "ready" && ingredients.length > 0) {
@@ -141,8 +153,6 @@ export default function KitchenAssistantPage() {
     }
 
     setPhase("extracting");
-    setPlan(null);
-    setPlanOpen(false);
     setLeafyTip("Reading your recipe… sorting quantities and aisles…");
 
     await new Promise((r) => window.setTimeout(r, 650));
@@ -210,6 +220,7 @@ export default function KitchenAssistantPage() {
 
     const addedIds = new Set<string>();
     let unitTotal = 0;
+    let moneyTotal = 0;
     for (const ing of addableIngredients) {
       const product = ingredientToCartProduct(ing);
       if (cartIds.has(product.id) || addedIds.has(product.id)) continue;
@@ -217,9 +228,13 @@ export default function KitchenAssistantPage() {
       addToCart(product, qty);
       addedIds.add(product.id);
       unitTotal += qty;
+      moneyTotal += estimateIngredientLineTotal(ing);
     }
 
     const lineCount = addedIds.size;
+    const moneyLabel = formatKitchenMoney(
+      Math.round(moneyTotal * 100) / 100
+    );
     if (lineCount > 0) {
       setIngredients((prev) =>
         prev.map((ing) =>
@@ -229,16 +244,12 @@ export default function KitchenAssistantPage() {
         )
       );
       showSuccess(
-        unitTotal === 1
-          ? "Added to your cart"
-          : `${unitTotal} items added to cart`,
-        lineCount === unitTotal
-          ? "View your cart from the header anytime."
-          : `${lineCount} ingredients · quantities respected.`,
+        `${unitTotal} item${unitTotal === 1 ? "" : "s"} added · ${moneyLabel}`,
+        `${lineCount} ingredient${lineCount === 1 ? "" : "s"} in your Forest Buddies cart.`,
         { accent: "cart" }
       );
       setLeafyTip(
-        `Cart updated with ${unitTotal} item${unitTotal === 1 ? "" : "s"} from your list. Checked rows are covered.`
+        `Cart updated: ${unitTotal} item${unitTotal === 1 ? "" : "s"} (~${moneyLabel}). Checked rows are covered.`
       );
     } else {
       showSuccess(
@@ -252,8 +263,6 @@ export default function KitchenAssistantPage() {
 
   function clearList() {
     setIngredients([]);
-    setPlan(null);
-    setPlanOpen(false);
     setConfirmClear(false);
     setPhase("idle");
     setRecipeCollapsed(false);
@@ -261,31 +270,6 @@ export default function KitchenAssistantPage() {
       "List cleared — pick a sample or paste a new recipe when you’re ready."
     );
     showSuccess("Shopping list cleared", "Start fresh whenever you like.");
-  }
-
-  async function planRecipe() {
-    if (ingredients.length === 0) return;
-    setPlanning(true);
-    await new Promise((r) => window.setTimeout(r, 400));
-    const sample = SAMPLE_RECIPES.find((s) => s.id === selectedSampleId);
-    const next = buildRecipePlan({
-      recipeText,
-      ingredients,
-      sampleCookMinutes: sample?.cookMinutes,
-    });
-    setPlan(next);
-    setPlanOpen(true);
-    setPlanning(false);
-    setLeafyTip(next.summary);
-    showSuccess(
-      "Cook plan ready",
-      `About ${next.totalMinutes} minutes · shop ${next.shopMinutes}m + cook ${next.cookMinutes}m.`
-    );
-    window.setTimeout(() => {
-      document
-        .getElementById("cook-plan")
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 50);
   }
 
   const showResults =
@@ -411,13 +395,11 @@ export default function KitchenAssistantPage() {
                 onChange={(e) => {
                   setRecipeText(e.target.value);
                   setSelectedSampleId(null);
-                  if (phase === "ready") {
-                    setPhase("idle");
-                    setIngredients([]);
-                    setPlan(null);
-                    setPlanOpen(false);
-                    setRecipeCollapsed(false);
-                  }
+                    if (phase === "ready") {
+                      setPhase("idle");
+                      setIngredients([]);
+                      setRecipeCollapsed(false);
+                    }
                 }}
                 rows={phase === "ready" ? 8 : 11}
                 placeholder={`Paste a recipe here…
@@ -458,18 +440,16 @@ Ingredients:
                 type="button"
                 variant="ghost"
                 disabled={!recipeText || phase === "extracting"}
-                onClick={() => {
-                  setRecipeText("");
-                  setSelectedSampleId(null);
-                  setIngredients([]);
-                  setPlan(null);
-                  setPlanOpen(false);
-                  setPhase("idle");
-                  setRecipeCollapsed(false);
-                  setLeafyTip(
-                    "Fresh start — paste a recipe or pick a sample when you’re ready."
-                  );
-                }}
+                  onClick={() => {
+                    setRecipeText("");
+                    setSelectedSampleId(null);
+                    setIngredients([]);
+                    setPhase("idle");
+                    setRecipeCollapsed(false);
+                    setLeafyTip(
+                      "Fresh start — paste a recipe or pick a sample when you’re ready."
+                    );
+                  }}
               >
                 Clear
               </Button>
@@ -534,74 +514,12 @@ Ingredients:
 
             {phase === "ready" && ingredients.length > 0 && (
               <>
-                {/* Visual time estimate */}
-                {timePreview && (
-                  <Card className="overflow-hidden border-emerald-200/90 bg-gradient-to-br from-emerald-50 via-cream to-white shadow-sm">
-                    <CardContent className="space-y-4 p-4 sm:p-5">
-                      <div className="flex flex-wrap items-end justify-between gap-2">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
-                            Time estimate
-                          </p>
-                          <p className="font-heading mt-1 text-3xl font-semibold tabular-nums text-emerald-950">
-                            ~{timePreview.total}
-                            <span className="ml-1 text-lg font-medium text-emerald-800/80">
-                              min
-                            </span>
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            Shopping + cooking + a little buffer
-                          </p>
-                        </div>
-                        <span className="flex size-11 items-center justify-center rounded-full bg-emerald-800/10 text-emerald-900">
-                          <Clock className="size-5" />
-                        </span>
-                      </div>
-                      <div
-                        className="flex h-3 overflow-hidden rounded-full bg-emerald-100"
-                        role="img"
-                        aria-label={`Shop ${timePreview.shop} minutes, cook ${timePreview.cook} minutes, buffer ${timePreview.buffer} minutes`}
-                      >
-                        {timePreview.segments.map((seg) => (
-                          <div
-                            key={seg.key}
-                            className={cn(
-                              "h-full transition-all duration-500",
-                              seg.color
-                            )}
-                            style={{
-                              width: `${(seg.minutes / timePreview.total) * 100}%`,
-                            }}
-                            title={`${seg.label}: ${seg.minutes}m`}
-                          />
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {timePreview.segments.map((seg) => (
-                          <div
-                            key={seg.key}
-                            className="rounded-xl border border-emerald-200/70 bg-white/80 px-2 py-2.5 text-center"
-                          >
-                            <p className="text-[11px] text-muted-foreground">
-                              {seg.label}
-                            </p>
-                            <p className="font-heading text-lg font-semibold tabular-nums text-emerald-950">
-                              {seg.minutes}
-                              <span className="text-xs font-medium">m</span>
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
                 <Card className="border-emerald-200/80 bg-white shadow-md ring-1 ring-emerald-900/5">
                   <CardHeader className="space-y-4 pb-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
-                          Step 2
+                          Step 1
                         </p>
                         <CardTitle className="mt-1 text-xl sm:text-2xl">
                           Shopping list
@@ -609,9 +527,6 @@ Ingredients:
                         <CardDescription className="mt-1">
                           {checkedCount}/{ingredients.length} checked · grouped
                           by aisle
-                          {addableUnitCount > 0
-                            ? ` · ${addableUnitCount} units ready`
-                            : ""}
                         </CardDescription>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -630,6 +545,32 @@ Ingredients:
                             Clear list
                           </Button>
                         ) : null}
+                      </div>
+                    </div>
+
+                    {/* Estimated cost */}
+                    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-cream px-4 py-3.5">
+                      <div className="flex flex-wrap items-end justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                            Estimated basket
+                          </p>
+                          <p className="font-heading mt-1 text-3xl font-semibold tabular-nums text-emerald-950">
+                            {formatKitchenMoney(listTotalAll)}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Illustrative prices · confirm in store or at
+                            checkout
+                          </p>
+                        </div>
+                        {addableTotal > 0 && (
+                          <p className="text-right text-sm text-emerald-900">
+                            Ready to add
+                            <span className="mt-0.5 block font-heading text-xl font-semibold tabular-nums">
+                              {formatKitchenMoney(addableTotal)}
+                            </span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -688,12 +629,9 @@ Ingredients:
                       ) : (
                         <>
                           <ShoppingBag className="size-5" />
-                          Add All to Cart
-                          {addableUnitCount > 0 && (
-                            <span className="rounded-lg bg-white/20 px-2 py-0.5 text-sm font-bold tabular-nums">
-                              {addableUnitCount}
-                            </span>
-                          )}
+                          {addableTotal > 0
+                            ? `Add All to Cart (${formatKitchenMoney(addableTotal)})`
+                            : "Add All to Cart"}
                         </>
                       )}
                     </Button>
@@ -798,7 +736,10 @@ Ingredients:
                                         </button>
                                       </div>
                                       <span className="text-[11px] text-muted-foreground">
-                                        Qty for cart
+                                        Qty ·{" "}
+                                        {formatKitchenMoney(
+                                          estimateIngredientLineTotal(ing)
+                                        )}
                                       </span>
                                     </div>
 
@@ -860,180 +801,130 @@ Ingredients:
                       ) : (
                         <>
                           <ShoppingBag className="size-5" />
-                          Add All to Cart
-                          {addableUnitCount > 0 && (
-                            <span className="rounded-lg bg-white/20 px-2 py-0.5 text-sm font-bold">
-                              {addableUnitCount}
-                            </span>
-                          )}
+                          {addableTotal > 0
+                            ? `Add All to Cart (${formatKitchenMoney(addableTotal)})`
+                            : "Add All to Cart"}
                         </>
                       )}
                     </Button>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <Button
-                          type="button"
-                          size="lg"
-                          className="h-11 w-full gap-2 shadow-md sm:w-auto"
-                          disabled={planning}
-                          onClick={() => void planRecipe()}
-                        >
-                          {planning ? (
-                            <>
-                              <Loader2 className="size-4 animate-spin" />
-                              Planning…
-                            </>
-                          ) : (
-                            <>
-                              <CalendarPlus className="size-4" />
-                              Plan This Recipe
-                              {timePreview && (
-                                <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
-                                  ~{timePreview.total}m
-                                </span>
-                              )}
-                            </>
-                          )}
-                        </Button>
-                        {timePreview && (
-                          <p className="mt-2 text-xs text-emerald-900/75">
-                            Estimate: {timePreview.shop}m shopping +{" "}
-                            {timePreview.cook}m cooking + {timePreview.buffer}m
-                            buffer
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="hidden gap-1.5 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 sm:inline-flex"
-                          disabled={
-                            ingredients.length === 0 ||
-                            addableIngredients.length === 0 ||
-                            addingAll
-                          }
-                          onClick={() => void addAllToCart()}
-                        >
-                          <ShoppingBag className="size-3.5" />
-                          Add All
-                          {addableUnitCount > 0 ? ` (${addableUnitCount})` : ""}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0"
-                          nativeButton={false}
-                          render={<Link href="/cart" />}
-                        >
-                          View cart
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0"
-                          nativeButton={false}
-                          render={<Link href="/local" />}
-                        >
-                          Browse Buy Local
-                        </Button>
-                      </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="hidden gap-1.5 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 sm:inline-flex"
+                        disabled={
+                          ingredients.length === 0 ||
+                          addableIngredients.length === 0 ||
+                          addingAll
+                        }
+                        onClick={() => void addAllToCart()}
+                      >
+                        <ShoppingBag className="size-3.5" />
+                        {addableTotal > 0
+                          ? `Add All (${formatKitchenMoney(addableTotal)})`
+                          : "Add All"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        nativeButton={false}
+                        render={<Link href="/cart" />}
+                      >
+                        View cart
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        nativeButton={false}
+                        render={<Link href="/local" />}
+                      >
+                        Browse Buy Local
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0"
+                        nativeButton={false}
+                        render={<a href="#cook-plan" />}
+                      >
+                        Plan My Cook
+                      </Button>
                     </div>
                   </CardFooter>
                 </Card>
 
-                {planOpen && plan && (
+                {/* Plan My Cook — after list */}
+                {livePlan && timePreview && (
                   <Card
                     id="cook-plan"
-                    className="scroll-mt-24 border-emerald-300/90 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/50 shadow-lg animate-[fb-fade-up_0.4s_ease-out]"
+                    className="scroll-mt-24 overflow-hidden border-emerald-300/90 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 shadow-md"
                   >
-                    <CardHeader>
+                    <CardHeader className="pb-2">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
-                        Step 3 · Cook plan
+                        Step 2 · Plan My Cook
                       </p>
-                      <CardTitle className="flex items-center gap-2 text-xl text-emerald-950">
+                      <CardTitle className="flex flex-wrap items-center gap-2 text-xl text-emerald-950 sm:text-2xl">
                         <Clock className="size-5" />
-                        {plan.title}
+                        ~{timePreview.total} minutes total
                       </CardTitle>
                       <CardDescription className="text-emerald-900/75">
-                        {plan.servingsHint
-                          ? `Serves ${plan.servingsHint} · `
+                        {livePlan.title}
+                        {livePlan.servingsHint
+                          ? ` · Serves ${livePlan.servingsHint}`
                           : ""}
-                        {plan.ingredientCount} ingredients on your list
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {(
-                          [
-                            ["Shop", plan.shopMinutes, "Gather ingredients"],
-                            ["Cook", plan.cookMinutes, "Active kitchen time"],
-                            ["Buffer", plan.prepBufferMinutes, "Plate & tidy"],
-                            ["Total", plan.totalMinutes, "End to end"],
-                          ] as const
-                        ).map(([label, mins, hint]) => (
+                      <div
+                        className="flex h-3 overflow-hidden rounded-full bg-emerald-100"
+                        role="img"
+                        aria-label={`Shop ${timePreview.shop} minutes, cook ${timePreview.cook} minutes, buffer ${timePreview.buffer} minutes`}
+                      >
+                        {timePreview.segments.map((seg) => (
                           <div
-                            key={label}
-                            className={cn(
-                              "rounded-xl border px-2 py-3 text-center",
-                              label === "Total"
-                                ? "border-emerald-800/30 bg-emerald-800 text-cream"
-                                : "border-emerald-200/80 bg-white/80"
-                            )}
+                            key={seg.key}
+                            className={cn("h-full", seg.color)}
+                            style={{
+                              width: `${(seg.minutes / timePreview.total) * 100}%`,
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {timePreview.segments.map((seg) => (
+                          <div
+                            key={seg.key}
+                            className="rounded-xl border border-emerald-200/70 bg-white/80 px-2 py-2.5 text-center"
                           >
-                            <p
-                              className={cn(
-                                "text-[11px]",
-                                label === "Total"
-                                  ? "text-cream/75"
-                                  : "text-muted-foreground"
-                              )}
-                            >
-                              {label}
+                            <p className="text-[11px] text-muted-foreground">
+                              {seg.label}
                             </p>
-                            <p
-                              className={cn(
-                                "font-heading text-2xl font-semibold tabular-nums",
-                                label === "Total"
-                                  ? "text-cream"
-                                  : "text-emerald-950"
-                              )}
-                            >
-                              {mins}
-                              <span className="text-sm font-medium">m</span>
-                            </p>
-                            <p
-                              className={cn(
-                                "mt-0.5 text-[10px] leading-tight",
-                                label === "Total"
-                                  ? "text-cream/65"
-                                  : "text-muted-foreground"
-                              )}
-                            >
-                              {hint}
+                            <p className="font-heading text-lg font-semibold tabular-nums text-emerald-950">
+                              {seg.minutes}
+                              <span className="text-xs font-medium">m</span>
                             </p>
                           </div>
                         ))}
                       </div>
-                      <p className="text-sm leading-relaxed text-emerald-950/90">
-                        {plan.summary}
-                      </p>
+                      <p className="text-sm text-emerald-950/90">{livePlan.summary}</p>
                       <p className="rounded-lg border border-dashed border-emerald-300/80 bg-white/60 px-3 py-2 text-xs text-emerald-900/80">
-                        Google Calendar opens a draft event. Full sync &amp;
-                        reminders are on the roadmap.
+                        Google Calendar opens a draft event (template link).
+                        Full sync is on the roadmap.
                       </p>
                     </CardContent>
                     <CardFooter className="flex flex-wrap gap-2 border-t-0 bg-transparent">
                       <Button
+                        className="gap-2 shadow-md"
                         nativeButton={false}
                         render={
                           <a
-                            href={plan.calendarUrl}
+                            href={livePlan.calendarUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                           />
                         }
-                        className="gap-2"
                       >
                         <CalendarPlus className="size-4" />
                         Add to Google Calendar
