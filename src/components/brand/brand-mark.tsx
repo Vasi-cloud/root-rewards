@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 /** Canonical registered brand string for prominent display */
 export const BRAND_NAME_REGISTERED = "Forest Buddies®";
 
-/** Compact nav / logo wordmark with ® */
+/**
+ * Nav wordmark with ®.
+ * Mobile: "FB®" (no overflow). sm+: full "Forest Buddies®".
+ */
 export function BrandMark({
   className = "",
   shortOnMobile = true,
@@ -14,21 +17,23 @@ export function BrandMark({
   className?: string;
   shortOnMobile?: boolean;
 }) {
+  if (!shortOnMobile) {
+    return (
+      <span className={`whitespace-nowrap ${className}`}>
+        {BRAND_NAME_REGISTERED}
+      </span>
+    );
+  }
+
   return (
-    <span className={className}>
-      {shortOnMobile ? (
-        <>
-          <span className="sm:hidden">Forest®</span>
-          <span className="hidden sm:inline">{BRAND_NAME_REGISTERED}</span>
-        </>
-      ) : (
-        BRAND_NAME_REGISTERED
-      )}
+    <span className={`whitespace-nowrap tracking-tight ${className}`}>
+      <span className="sm:hidden">FB®</span>
+      <span className="hidden sm:inline">{BRAND_NAME_REGISTERED}</span>
     </span>
   );
 }
 
-/** Small badge for marketplace / shop / product headers */
+/** Quiet badge for marketplace / shop / product headers */
 export function MarketplaceBrandBadge({
   className = "",
 }: {
@@ -37,14 +42,17 @@ export function MarketplaceBrandBadge({
   return (
     <Badge
       variant="secondary"
-      className={`font-normal text-muted-foreground ${className}`}
+      className={`border-transparent bg-muted/50 font-normal text-muted-foreground ${className}`}
     >
       Forest Buddies® Marketplace
     </Badge>
   );
 }
 
-/** Subtle footer strip for shop / marketplace surfaces */
+/**
+ * Extra-subtle strip for shop surfaces only
+ * (marketplace, shop, cart, local — not home / about / legal / seller).
+ */
 export function SubtleTrademarkNotice({
   className = "",
 }: {
@@ -52,17 +60,35 @@ export function SubtleTrademarkNotice({
 }) {
   return (
     <p
-      className={`text-center text-[11px] leading-relaxed text-muted-foreground sm:text-xs ${className}`}
+      className={`text-center text-[9px] leading-none tracking-wide text-muted-foreground/50 sm:text-[10px] ${className}`}
     >
-      Forest Buddies® Marketplace · UK Registered Trademark (No.{" "}
-      <TrademarkRegLink className="underline-offset-2 hover:underline" />
-      ).{" "}
+      Forest Buddies® Marketplace • UK Trademark{" "}
+      <TrademarkRegLink className="text-muted-foreground/55 underline-offset-2 hover:underline" />
+      {" • "}
       <Link
         href="/trademark"
-        className="underline-offset-2 hover:underline"
+        className="text-muted-foreground/55 underline-offset-2 hover:underline"
       >
-        Trademark notice
+        Notice
       </Link>
     </p>
+  );
+}
+
+/** Shop-related routes that get the full trademark strip */
+export function shouldShowShopTrademarkStrip(pathname: string | null): boolean {
+  if (!pathname) return false;
+  // Explicitly exclude seller hub even if nested under marketing shell
+  if (pathname === "/seller" || pathname.startsWith("/seller/")) return false;
+
+  return (
+    pathname === "/marketplace" ||
+    pathname.startsWith("/marketplace/") ||
+    pathname === "/shop" ||
+    pathname.startsWith("/shop/") ||
+    pathname === "/cart" ||
+    pathname.startsWith("/cart/") ||
+    pathname === "/local" ||
+    pathname.startsWith("/local/")
   );
 }

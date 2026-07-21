@@ -59,14 +59,17 @@ export default function AboutPage() {
 
       <Separator className="my-10" />
 
-      <section aria-labelledby="our-brand-heading">
+      <section
+        aria-labelledby="our-brand-heading"
+        className="rounded-2xl border border-emerald-200/60 bg-emerald-50/40 px-5 py-6 sm:px-6 sm:py-7"
+      >
         <h2
           id="our-brand-heading"
-          className="font-heading text-2xl font-semibold text-primary"
+          className="font-heading text-2xl font-semibold text-primary sm:text-3xl"
         >
           Our Brand
         </h2>
-        <p className="mt-4 leading-relaxed text-muted-foreground">
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
           Forest Buddies® is a registered UK trademark (No.{" "}
           <TrademarkRegLink className="font-medium text-primary underline-offset-2 hover:underline" />
           ) of Paaro Limited. The mark protects our sustainable marketplace

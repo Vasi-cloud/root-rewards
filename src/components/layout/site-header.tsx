@@ -81,12 +81,13 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 overflow-hidden px-3 sm:h-16 sm:gap-3 sm:px-6">
         <Link
           href="/"
-          className="flex min-w-0 max-w-[42%] items-center gap-2 font-heading text-base font-semibold text-primary sm:max-w-none sm:text-lg md:text-xl"
+          className="flex min-w-0 shrink items-center gap-1.5 font-heading text-base font-semibold text-primary sm:gap-2 sm:text-lg md:text-xl"
+          aria-label="Forest Buddies® home"
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground sm:size-9">
             <Leaf className="size-4 sm:size-5" />
           </span>
-          <BrandMark className="truncate" />
+          <BrandMark className="min-w-0" />
         </Link>
 
         <MainNav

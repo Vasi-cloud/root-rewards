@@ -3,7 +3,6 @@
 import { Leaf } from "lucide-react";
 import Link from "next/link";
 
-import { TrademarkRegLink } from "@/components/legal/trademark-reg-link";
 import { SupportChatTrigger } from "@/components/support/SupportChat";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { Separator } from "@/components/ui/separator";
@@ -76,11 +75,8 @@ export function SiteFooter() {
         </div>
         <Separator className="my-8 bg-primary-foreground/20" />
         <TrustBadges variant="footer" className="mb-4" />
-        <p className="text-center text-xs text-primary-foreground/70 sm:text-sm">
-          © {new Date().getFullYear()} Forest Buddies® — A UK Registered
-          Trademark (No.{" "}
-          <TrademarkRegLink className="text-sage underline-offset-2 hover:underline" />
-          ). All rights reserved.
+        <p className="text-center text-[10px] text-primary-foreground/45 sm:text-[11px]">
+          © {new Date().getFullYear()} Forest Buddies® • UK Registered Trademark
         </p>
       </div>
     </footer>

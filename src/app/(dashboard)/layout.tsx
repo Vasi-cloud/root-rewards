@@ -28,7 +28,7 @@ export default function DashboardLayout({
             className="flex min-w-0 items-center gap-2 font-heading text-sm font-semibold text-primary sm:text-base"
           >
             <Leaf className="size-4 shrink-0" />
-            <BrandMark className="truncate" />
+            <BrandMark />
           </Link>
           <nav className="hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 text-sm lg:flex">
             {dashboardNav.map((item) => (
