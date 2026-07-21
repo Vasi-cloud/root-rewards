@@ -8,7 +8,7 @@ export const BRAND_NAME_REGISTERED = "Forest Buddies®";
 
 /**
  * Nav wordmark with ®.
- * Mobile: "FB®" (no overflow). sm+: full "Forest Buddies®".
+ * Mobile: "FB®" (clean, no overflow). sm+: "Forest Buddies®".
  */
 export function BrandMark({
   className = "",
@@ -42,7 +42,7 @@ export function MarketplaceBrandBadge({
   return (
     <Badge
       variant="secondary"
-      className={`border-transparent bg-muted/50 font-normal text-muted-foreground ${className}`}
+      className={`border-transparent bg-muted/40 font-normal text-muted-foreground ${className}`}
     >
       Forest Buddies® Marketplace
     </Badge>
@@ -50,7 +50,7 @@ export function MarketplaceBrandBadge({
 }
 
 /**
- * Extra-subtle strip for shop surfaces only
+ * Subtle strip for shop surfaces only
  * (marketplace, shop, cart, local — not home / about / legal / seller).
  */
 export function SubtleTrademarkNotice({
@@ -60,17 +60,26 @@ export function SubtleTrademarkNotice({
 }) {
   return (
     <p
-      className={`text-center text-[9px] leading-none tracking-wide text-muted-foreground/50 sm:text-[10px] ${className}`}
+      className={`text-center text-[9px] leading-snug tracking-wide text-muted-foreground/45 sm:text-[10px] ${className}`}
     >
-      Forest Buddies® Marketplace • UK Trademark{" "}
-      <TrademarkRegLink className="text-muted-foreground/55 underline-offset-2 hover:underline" />
-      {" • "}
-      <Link
-        href="/trademark"
-        className="text-muted-foreground/55 underline-offset-2 hover:underline"
-      >
-        Notice
-      </Link>
+      Forest Buddies® Marketplace · UK Registered Trademark (No.{" "}
+      <TrademarkRegLink className="text-muted-foreground/50 underline-offset-2 hover:underline" />
+      )
+    </p>
+  );
+}
+
+/** Minimal footer copyright for marketing / legal / home / seller */
+export function MinimalTrademarkFooter({
+  className = "",
+}: {
+  className?: string;
+}) {
+  return (
+    <p
+      className={`text-center text-[10px] text-primary-foreground/40 sm:text-[11px] ${className}`}
+    >
+      © {new Date().getFullYear()} Forest Buddies® • UK Registered Trademark
     </p>
   );
 }
@@ -78,7 +87,6 @@ export function SubtleTrademarkNotice({
 /** Shop-related routes that get the full trademark strip */
 export function shouldShowShopTrademarkStrip(pathname: string | null): boolean {
   if (!pathname) return false;
-  // Explicitly exclude seller hub even if nested under marketing shell
   if (pathname === "/seller" || pathname.startsWith("/seller/")) return false;
 
   return (

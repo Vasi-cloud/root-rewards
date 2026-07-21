@@ -26,11 +26,11 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
       <AbandonedCartRecovery />
       <main className="min-w-0 flex-1">{children}</main>
       {showShopStrip ? (
-        <div className="border-t border-border/20 px-4 py-1.5">
+        <div className="border-t border-border/15 px-4 py-1.5">
           <SubtleTrademarkNotice />
         </div>
       ) : null}
-      <SiteFooter />
+      <SiteFooter trademarkMode={showShopStrip ? "compact" : "minimal"} />
       <SupportChat />
     </div>
   );

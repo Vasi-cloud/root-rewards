@@ -3,6 +3,7 @@
 import { Leaf } from "lucide-react";
 import Link from "next/link";
 
+import { MinimalTrademarkFooter } from "@/components/brand/brand-mark";
 import { SupportChatTrigger } from "@/components/support/SupportChat";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { Separator } from "@/components/ui/separator";
@@ -35,7 +36,16 @@ const footerLinks = {
   ],
 };
 
-export function SiteFooter() {
+/**
+ * @param trademarkMode
+ * - `minimal` — © year + UK Registered Trademark (home, about, legal, seller)
+ * - `compact` — © year + brand only (shop pages already show the strip above)
+ */
+export function SiteFooter({
+  trademarkMode = "minimal",
+}: {
+  trademarkMode?: "minimal" | "compact";
+}) {
   return (
     <footer className="mt-auto border-t border-border bg-primary text-primary-foreground">
       <div className="mx-auto max-w-6xl px-3 py-10 sm:px-6 sm:py-12">
@@ -75,9 +85,13 @@ export function SiteFooter() {
         </div>
         <Separator className="my-8 bg-primary-foreground/20" />
         <TrustBadges variant="footer" className="mb-4" />
-        <p className="text-center text-[10px] text-primary-foreground/45 sm:text-[11px]">
-          © {new Date().getFullYear()} Forest Buddies® • UK Registered Trademark
-        </p>
+        {trademarkMode === "minimal" ? (
+          <MinimalTrademarkFooter />
+        ) : (
+          <p className="text-center text-[10px] text-primary-foreground/35 sm:text-[11px]">
+            © {new Date().getFullYear()} Forest Buddies®
+          </p>
+        )}
       </div>
     </footer>
   );
