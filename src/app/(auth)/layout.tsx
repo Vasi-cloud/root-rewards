@@ -14,7 +14,7 @@ export default function AuthLayout({
           className="inline-flex items-center gap-2 font-heading text-lg font-semibold text-primary"
         >
           <Leaf className="size-5" />
-          Forest Buddies
+          Forest Buddies®
         </Link>
       </header>
       <main className="flex flex-1 items-center justify-center px-4 pb-16">

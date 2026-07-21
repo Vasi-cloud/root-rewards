@@ -93,7 +93,7 @@ export default function MembershipPage() {
           Membership
         </Badge>
         <h1 className="font-heading max-w-2xl text-3xl font-semibold text-primary sm:text-5xl">
-          Grow with Forest Buddies
+          Grow with Forest Buddies®
         </h1>
         <p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">
           Start free, or become an Impact Member to boost affiliate earnings and

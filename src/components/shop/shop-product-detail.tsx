@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { ProductDetailsPanel } from "@/components/product/product-details-panel";
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { ProductReviews } from "@/components/product/product-reviews";
@@ -65,6 +66,7 @@ export function ShopProductDetail({
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-cream/95 px-4 py-3 backdrop-blur-md sm:px-6">
           <div className="min-w-0">
+            <MarketplaceBrandBadge className="mb-1 text-[10px]" />
             <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {shopName}
               {shopLocation ? ` · ${shopLocation}` : ""}

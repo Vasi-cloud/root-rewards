@@ -22,11 +22,11 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: "Forest Buddies — Sustainable Marketplace & Affiliates",
-    template: "%s | Forest Buddies",
+    default: "Forest Buddies® — Sustainable Marketplace & Affiliates",
+    template: "%s | Forest Buddies®",
   },
   description:
-    "Shop sustainable products from verified eco brands. Earn rewards as an affiliate with Forest Buddies.",
+    "Shop sustainable products from verified eco brands. Earn rewards as an affiliate with Forest Buddies®.",
 };
 
 export const viewport: Viewport = {

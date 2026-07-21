@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 
 import { AffiliateTracker } from "@/components/affiliate/AffiliateTracker";
+import { SubtleTrademarkNotice } from "@/components/brand/brand-mark";
 import { AbandonedCartRecovery } from "@/components/cart/AbandonedCartRecovery";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -17,6 +18,9 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
       <SiteHeader />
       <AbandonedCartRecovery />
       <main className="min-w-0 flex-1">{children}</main>
+      <div className="border-t border-border/50 bg-cream/80 px-4 py-3">
+        <SubtleTrademarkNotice />
+      </div>
       <SiteFooter />
       <SupportChat />
     </div>

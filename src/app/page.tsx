@@ -110,7 +110,7 @@ export default function HomePage() {
         <div className="relative mx-auto flex min-h-[min(88vh,44rem)] w-full max-w-5xl flex-col justify-end px-4 pb-10 pt-20 sm:min-h-[min(92vh,52rem)] sm:max-w-6xl sm:px-6 sm:pb-24 sm:pt-32">
           <div className="w-full max-w-xl sm:max-w-2xl lg:max-w-3xl">
             <p className="animate-fb-fade-up font-heading text-lg font-semibold tracking-tight text-sage sm:text-3xl md:text-4xl">
-              Forest Buddies
+              Forest Buddies®
             </p>
             <h1
               className="animate-fb-fade-up mt-2 font-heading text-[1.75rem] font-semibold leading-[1.15] tracking-tight text-cream sm:mt-3 sm:text-5xl lg:text-6xl"
@@ -166,7 +166,7 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sage to-transparent" />
         <div className="mx-auto w-full max-w-5xl sm:max-w-6xl">
           <h2 className="font-heading text-2xl font-semibold text-primary sm:text-4xl">
-            How Forest Buddies works
+            How Forest Buddies® works
           </h2>
           <p className="mt-3 max-w-md text-sm text-muted-foreground sm:max-w-xl sm:text-base">
             Three simple steps from curious shopper to lasting impact.
@@ -357,7 +357,7 @@ export default function HomePage() {
             Ready to root your next chapter?
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-cream/75 sm:mt-4 sm:max-w-lg sm:text-base">
-            Whether you shop, sell, or share—Forest Buddies turns everyday
+            Whether you shop, sell, or share—Forest Buddies® turns everyday
             choices into forest-sized hope.
           </p>
           <div className="mx-auto mt-6 flex w-full max-w-sm flex-col gap-2 sm:mt-10 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-3">

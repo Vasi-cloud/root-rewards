@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { ShopHero } from "@/components/shop/shop-hero";
 import { ShopProductCard } from "@/components/shop/shop-product-card";
 import { ShopProductDetail } from "@/components/shop/shop-product-detail";
@@ -112,6 +113,7 @@ export default function SellerShopPage() {
         aria-hidden
       />
       <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 sm:pt-10">
+        <MarketplaceBrandBadge className="mb-4" />
         <ShopHero shop={shop} listingCount={approved.length} />
 
         <div className="mt-5 sm:mt-6">
@@ -171,7 +173,7 @@ export default function SellerShopPage() {
               More trusted eco shops
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Explore other verified makers on Forest Buddies.
+              Explore other verified makers on Forest Buddies®.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {others.map((s) => (

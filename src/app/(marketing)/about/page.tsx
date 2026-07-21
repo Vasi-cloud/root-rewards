@@ -1,5 +1,7 @@
 import { Heart, Recycle, TreePine } from "lucide-react";
+import Link from "next/link";
 
+import { TrademarkRegLink } from "@/components/legal/trademark-reg-link";
 import { Separator } from "@/components/ui/separator";
 
 export const metadata = {
@@ -28,12 +30,13 @@ export default function AboutPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <h1 className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
-        About Forest Buddies
+        About Forest Buddies®
       </h1>
-      <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
-        Forest Buddies was built for people who want their purchases—and their side hustles—to
-        align with a healthier planet. We combine a curated sustainable marketplace with an
-        affiliate platform that rewards honest advocacy.
+      <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+        Forest Buddies was built for people who want their purchases—and their
+        side hustles—to align with a healthier planet. We combine a curated
+        sustainable marketplace with an affiliate platform that rewards honest
+        advocacy.
       </p>
 
       <Separator className="my-10" />
@@ -53,6 +56,34 @@ export default function AboutPage() {
           </div>
         ))}
       </div>
+
+      <Separator className="my-10" />
+
+      <section aria-labelledby="our-brand-heading">
+        <h2
+          id="our-brand-heading"
+          className="font-heading text-2xl font-semibold text-primary"
+        >
+          Our Brand
+        </h2>
+        <p className="mt-4 leading-relaxed text-muted-foreground">
+          Forest Buddies® is a registered UK trademark (No.{" "}
+          <TrademarkRegLink className="font-medium text-primary underline-offset-2 hover:underline" />
+          ) of Paaro Limited. The mark protects our sustainable marketplace
+          platform, mobile application, and commitment to environmental
+          awareness and responsible commerce.
+        </p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Read the full{" "}
+          <Link
+            href="/trademark"
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            Trademark Notice
+          </Link>
+          .
+        </p>
+      </section>
     </div>
   );
 }

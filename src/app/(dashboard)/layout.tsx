@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Leaf, LogOut } from "lucide-react";
 
+import { BrandMark } from "@/components/brand/brand-mark";
 import { DashboardSignOut } from "@/components/dashboard/sign-out-button";
 import { Separator } from "@/components/ui/separator";
 
@@ -27,10 +28,7 @@ export default function DashboardLayout({
             className="flex min-w-0 items-center gap-2 font-heading text-sm font-semibold text-primary sm:text-base"
           >
             <Leaf className="size-4 shrink-0" />
-            <span className="truncate">
-              <span className="sm:hidden">Forest</span>
-              <span className="hidden sm:inline">Forest Buddies</span>
-            </span>
+            <BrandMark className="truncate" />
           </Link>
           <nav className="hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 text-sm lg:flex">
             {dashboardNav.map((item) => (

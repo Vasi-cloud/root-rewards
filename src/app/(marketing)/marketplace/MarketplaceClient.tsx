@@ -20,6 +20,7 @@ import { FeaturedSoloMakers } from "@/components/marketplace/FeaturedSoloMakers"
 import { SellerShopsStrip } from "@/components/marketplace/SellerShopsStrip";
 import { BuyLocalStrip } from "@/components/marketplace/BuyLocalStrip";
 import { ProductRatingBadge } from "@/components/product/product-reviews";
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -332,10 +333,13 @@ export default function MarketplaceClient() {
   return (
     <div className="mx-auto max-w-6xl px-3 py-8 sm:px-6 sm:py-12">
       <div className="mb-6 sm:mb-8">
-        <Badge variant="secondary" className="mb-3">
-          <ShoppingBag className="mr-1 size-3" />
-          Marketplace
-        </Badge>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <MarketplaceBrandBadge />
+          <Badge variant="outline" className="gap-1 font-normal">
+            <ShoppingBag className="size-3" />
+            Categories &amp; listings
+          </Badge>
+        </div>
         <h1 className="font-heading text-2xl font-semibold text-primary sm:text-4xl">
           Shop sustainable products
         </h1>

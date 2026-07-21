@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { TrademarkRegLink } from "@/components/legal/trademark-reg-link";
 import { Separator } from "@/components/ui/separator";
 
 export const metadata = {
@@ -127,6 +128,37 @@ export default function TermsPage() {
           <p className="mt-2 text-muted-foreground">
             We may update these Terms as the product matures. Continued use after
             changes means you accept the revised Terms.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-heading text-xl font-semibold text-primary">
+            10. Trademark Notice
+          </h2>
+          <p className="mt-2 text-muted-foreground">
+            &lsquo;Forest Buddies&rsquo; and the Forest Buddies logo are
+            registered trademarks (
+            <TrademarkRegLink className="font-medium text-primary underline-offset-2 hover:underline" />
+            ) of Paaro Limited, Company Number 09643184, in the United Kingdom.
+          </p>
+          <p className="mt-3 text-muted-foreground">
+            The Forest Buddies® mark is protected under Class 9 (software and
+            downloadable applications), Class 35 (online marketplace and
+            advertising services), and Class 36 (electronic wallet and financial
+            transaction services).
+          </p>
+          <p className="mt-3 text-muted-foreground">
+            Any unauthorised use of the Forest Buddies® name, logo, or brand is
+            strictly prohibited and may result in legal action.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Full notice:{" "}
+            <Link
+              href="/trademark"
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              /trademark
+            </Link>
           </p>
         </section>
       </div>

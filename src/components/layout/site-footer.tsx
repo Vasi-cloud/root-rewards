@@ -3,6 +3,7 @@
 import { Leaf } from "lucide-react";
 import Link from "next/link";
 
+import { TrademarkRegLink } from "@/components/legal/trademark-reg-link";
 import { SupportChatTrigger } from "@/components/support/SupportChat";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +31,7 @@ const footerLinks = {
   Legal: [
     { href: "/privacy", label: "Privacy Policy" },
     { href: "/terms", label: "Terms of Service" },
+    { href: "/trademark", label: "Trademark Notice" },
     { href: "/returns", label: "Returns & size guide" },
   ],
 };
@@ -42,7 +44,7 @@ export function SiteFooter() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 font-heading text-lg font-semibold">
               <Leaf className="size-5 text-sage" />
-              Forest Buddies
+              Forest Buddies®
             </div>
             <p className="text-sm text-primary-foreground/80">
               A sustainable marketplace where conscious shoppers discover eco
@@ -74,10 +76,11 @@ export function SiteFooter() {
         </div>
         <Separator className="my-8 bg-primary-foreground/20" />
         <TrustBadges variant="footer" className="mb-4" />
-        <p className="text-center text-xs text-primary-foreground/70">
-          © {new Date().getFullYear()} Forest Buddies. Shop sustainable. Earn as
-          an affiliate. Secure checkout badges are demo signals until live
-          payments connect.
+        <p className="text-center text-xs text-primary-foreground/70 sm:text-sm">
+          © {new Date().getFullYear()} Forest Buddies® — A UK Registered
+          Trademark (No.{" "}
+          <TrademarkRegLink className="text-sage underline-offset-2 hover:underline" />
+          ). All rights reserved.
         </p>
       </div>
     </footer>

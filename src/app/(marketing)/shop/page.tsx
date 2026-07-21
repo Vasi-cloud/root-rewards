@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { defaultProductImage } from "@/lib/shop-presentation";
@@ -112,9 +113,12 @@ export default function ShopsIndexPage() {
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-sage/20 via-cream to-cream">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        <Badge className="mb-3 bg-emerald-800/10 text-emerald-900">
-          Seller shops
-        </Badge>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <MarketplaceBrandBadge />
+          <Badge className="bg-emerald-800/10 font-normal text-emerald-900">
+            Seller shops
+          </Badge>
+        </div>
         <h1 className="font-heading max-w-2xl text-3xl font-semibold text-primary sm:text-5xl">
           Meet makers with a story
         </h1>

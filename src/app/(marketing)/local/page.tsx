@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LocalAvailabilityBadge } from "@/components/local/local-availability-badge";
@@ -105,10 +106,13 @@ function BuyLocalPageInner() {
       />
 
       <div className="relative mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-        <Badge className="mb-3 gap-1 bg-emerald-800/10 text-emerald-900">
-          <HeartHandshake className="size-3.5" />
-          Buy Local
-        </Badge>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <MarketplaceBrandBadge />
+          <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
+            <HeartHandshake className="size-3.5" />
+            Buy Local
+          </Badge>
+        </div>
         <h1 className="font-heading max-w-2xl text-3xl font-semibold text-primary sm:text-5xl">
           Keep good close to home
         </h1>

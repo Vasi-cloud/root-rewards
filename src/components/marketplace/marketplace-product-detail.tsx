@@ -3,6 +3,7 @@
 import { Leaf, X } from "lucide-react";
 import { useEffect } from "react";
 
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { ProductDetailsPanel } from "@/components/product/product-details-panel";
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { ProductReviews } from "@/components/product/product-reviews";
@@ -57,9 +58,12 @@ export function MarketplaceProductDetail({
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-cream/95 px-4 py-3 backdrop-blur-md sm:px-6">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {isService ? "Service details" : "Product details"}
-            </p>
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <MarketplaceBrandBadge className="text-[10px]" />
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {isService ? "Service details" : "Product details"}
+              </p>
+            </div>
             <h2 className="font-heading truncate text-lg font-semibold text-primary sm:text-xl">
               {product.name}
             </h2>

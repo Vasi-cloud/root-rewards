@@ -586,7 +586,7 @@ export default function AdminDashboard() {
                 Admin Dashboard
               </h1>
               <p className="hidden text-xs text-muted-foreground sm:block sm:text-sm">
-                Forest Buddies operations
+                Forest Buddies® operations
               </p>
             </div>
           </div>

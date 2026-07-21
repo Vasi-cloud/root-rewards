@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BrandMark } from "@/components/brand/brand-mark";
 import { MainNav } from "@/components/layout/main-nav";
 import { DashboardSignOut } from "@/components/dashboard/sign-out-button";
 import { Button } from "@/components/ui/button";
@@ -85,10 +86,7 @@ export function SiteHeader() {
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground sm:size-9">
             <Leaf className="size-4 sm:size-5" />
           </span>
-          <span className="truncate">
-            <span className="sm:hidden">Forest</span>
-            <span className="hidden sm:inline">Forest Buddies</span>
-          </span>
+          <BrandMark className="truncate" />
         </Link>
 
         <MainNav
@@ -171,7 +169,9 @@ export function SiteHeader() {
               className="flex w-[min(100vw-1.5rem,20rem)] max-w-full flex-col overflow-hidden"
             >
               <SheetHeader className="shrink-0">
-                <SheetTitle className="font-heading">Forest Buddies</SheetTitle>
+                <SheetTitle className="font-heading">
+                  Forest Buddies®
+                </SheetTitle>
               </SheetHeader>
               <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-4">
                 <MainNav

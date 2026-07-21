@@ -2319,7 +2319,7 @@ function SellerShell({
             </div>
             <div className="min-w-0">
               <div className="font-heading text-sm font-semibold text-primary sm:text-base">
-                Seller Hub
+                Forest Buddies® Seller Hub
               </div>
               <div className="truncate text-xs text-muted-foreground">
                 {shopName ?? "Sales, analytics & earnings"}

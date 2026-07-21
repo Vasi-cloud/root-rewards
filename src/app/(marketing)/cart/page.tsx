@@ -3,6 +3,7 @@
 import { ArrowLeft, Leaf, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
 
@@ -15,6 +16,7 @@ export default function CartPage() {
         <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-primary/5">
           <ShoppingCart className="size-10 text-primary" />
         </div>
+        <MarketplaceBrandBadge className="mb-3" />
         <h1 className="font-heading text-3xl font-semibold text-primary">
           Your cart is empty
         </h1>
@@ -38,6 +40,7 @@ export default function CartPage() {
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-14">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
+          <MarketplaceBrandBadge className="mb-2" />
           <div className="flex items-center gap-3">
             <Leaf className="size-6 shrink-0 text-primary" />
             <h1 className="font-heading text-3xl font-semibold text-primary">
