@@ -3,6 +3,8 @@
  * First version: local parsing (no live LLM). Feels smart, stays honest.
  */
 
+import type { Product } from "@/types";
+
 export type SampleRecipe = {
   id: string;
   title: string;
@@ -319,6 +321,48 @@ export function formatIngredientLabel(ing: ShoppingIngredient): string {
   }
   if (ing.quantity) return `${ing.quantity} ${ing.name}`;
   return ing.name;
+}
+
+/** Stable cart id for a kitchen ingredient (dedupe across recipes). */
+export function kitchenIngredientCartId(ing: Pick<ShoppingIngredient, "name">): string {
+  const slug = ing.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48);
+  return `kitchen-${slug || "item"}`;
+}
+
+const AISLE_BASE_PRICE: Record<ShoppingIngredient["aisle"], number> = {
+  produce: 2.5,
+  protein: 6.5,
+  dairy: 3.5,
+  pantry: 4.0,
+  other: 3.0,
+};
+
+export function ingredientToCartProduct(ing: ShoppingIngredient): Product {
+  const qty = ing.quantity ? Number.parseFloat(ing.quantity) : NaN;
+  const qtyFactor =
+    Number.isFinite(qty) && qty > 0 ? Math.min(3, Math.max(0.5, qty)) : 1;
+  const price =
+    Math.round(AISLE_BASE_PRICE[ing.aisle] * qtyFactor * 100) / 100;
+
+  return {
+    id: kitchenIngredientCartId(ing),
+    name: formatIngredientLabel(ing),
+    description: `From Leafy Kitchen · ${AISLE_LABELS[ing.aisle]}. Confirm size and brand at checkout or in-store.`,
+    price,
+    imageUrl:
+      "data:image/svg+xml," +
+      encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect fill="#e8f0ea" width="160" height="160"/><text x="80" y="88" text-anchor="middle" font-size="48">🌿</text></svg>`
+      ),
+    category: "Kitchen",
+    sustainabilityScore: 80,
+    affiliateCommissionPercent: 5,
+    availabilityNote: "Kitchen list item — availability not verified",
+  };
 }
 
 /** Rough shop time: ~2.5 min per unique ingredient, capped. */

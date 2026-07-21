@@ -29,6 +29,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAppToast } from "@/components/ui/app-toast";
+import { useCart } from "@/contexts/cart-context";
 import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
@@ -39,6 +40,8 @@ import {
   extractIngredientsFromRecipe,
   formatIngredientLabel,
   groupByAisle,
+  ingredientToCartProduct,
+  kitchenIngredientCartId,
   type RecipePlan,
   type ShoppingIngredient,
 } from "@/lib/leafy-kitchen";
@@ -55,6 +58,7 @@ function peekCookMinutes(text: string, sampleId: string | null): number {
 
 export default function KitchenAssistantPage() {
   const { showSuccess } = useAppToast();
+  const { cart, addToCart } = useCart();
   const resultsRef = useRef<HTMLElement>(null);
 
   const [recipeText, setRecipeText] = useState("");
@@ -64,13 +68,24 @@ export default function KitchenAssistantPage() {
   const [plan, setPlan] = useState<RecipePlan | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
+  const [addingAll, setAddingAll] = useState(false);
   const [recipeCollapsed, setRecipeCollapsed] = useState(false);
   const [leafyTip, setLeafyTip] = useState(
     "Paste a recipe or pick a sample — I’ll sort your shopping list by aisle."
   );
 
+  const cartIds = useMemo(() => new Set(cart.map((item) => item.id)), [cart]);
+
   const grouped = useMemo(() => groupByAisle(ingredients), [ingredients]);
   const checkedCount = ingredients.filter((i) => i.checked).length;
+
+  const addableIngredients = useMemo(
+    () =>
+      ingredients.filter(
+        (ing) => !ing.checked && !cartIds.has(kitchenIngredientCartId(ing))
+      ),
+    [ingredients, cartIds]
+  );
 
   const timePreview = useMemo(() => {
     if (ingredients.length === 0) return null;
@@ -152,6 +167,44 @@ export default function KitchenAssistantPage() {
       productName: `${ing.name} organic`,
     });
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function addAllToCart() {
+    if (addableIngredients.length === 0) return;
+    setAddingAll(true);
+    await new Promise((r) => window.setTimeout(r, 280));
+
+    const addedIds = new Set<string>();
+    for (const ing of addableIngredients) {
+      const product = ingredientToCartProduct(ing);
+      if (cartIds.has(product.id) || addedIds.has(product.id)) continue;
+      addToCart(product);
+      addedIds.add(product.id);
+    }
+
+    const count = addedIds.size;
+    if (count > 0) {
+      setIngredients((prev) =>
+        prev.map((ing) =>
+          addedIds.has(kitchenIngredientCartId(ing))
+            ? { ...ing, checked: true }
+            : ing
+        )
+      );
+      showSuccess(
+        count === 1 ? "1 item added to cart" : `${count} items added to cart`,
+        "Open your cart anytime from the header."
+      );
+      setLeafyTip(
+        `Added ${count} ingredient${count === 1 ? "" : "s"} to your Forest Buddies cart. Checked items are already covered.`
+      );
+    } else {
+      showSuccess(
+        "Already in your cart",
+        "Every unchecked item was already in the cart."
+      );
+    }
+    setAddingAll(false);
   }
 
   async function planRecipe() {
@@ -452,12 +505,50 @@ Ingredients:
                         <CardDescription className="mt-1">
                           {checkedCount}/{ingredients.length} checked · grouped
                           by aisle
+                          {addableIngredients.length > 0
+                            ? ` · ${addableIngredients.length} ready for cart`
+                            : ""}
                         </CardDescription>
                       </div>
                       <Badge className="bg-emerald-800 text-cream">
                         {ingredients.length} items
                       </Badge>
                     </div>
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="mt-4 h-11 w-full gap-2 bg-emerald-800 text-cream shadow-md hover:bg-emerald-700 hover:shadow-lg"
+                      disabled={
+                        ingredients.length === 0 ||
+                        addableIngredients.length === 0 ||
+                        addingAll
+                      }
+                      onClick={() => void addAllToCart()}
+                    >
+                      {addingAll ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Adding to cart…
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingBag className="size-4" />
+                          Add All to Cart
+                          {addableIngredients.length > 0 && (
+                            <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
+                              {addableIngredients.length}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </Button>
+                    {ingredients.length > 0 &&
+                      addableIngredients.length === 0 && (
+                        <p className="mt-2 text-center text-xs text-muted-foreground">
+                          Everything on this list is already checked or in your
+                          cart.
+                        </p>
+                      )}
                   </CardHeader>
                   <CardContent className="space-y-5">
                     {grouped.map(({ aisle, items }) => (
@@ -466,12 +557,17 @@ Ingredients:
                           {AISLE_LABELS[aisle]}
                         </p>
                         <ul className="space-y-2">
-                          {items.map((ing) => (
+                          {items.map((ing) => {
+                            const inCart = cartIds.has(
+                              kitchenIngredientCartId(ing)
+                            );
+                            const done = ing.checked || inCart;
+                            return (
                             <li
                               key={ing.id}
                               className={cn(
                                 "rounded-xl border border-border/60 bg-muted/15 p-3 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm",
-                                ing.checked && "bg-emerald-50/50 opacity-70"
+                                done && "bg-emerald-50/50 opacity-75"
                               )}
                             >
                               <div className="flex items-start gap-2">
@@ -480,7 +576,7 @@ Ingredients:
                                   onClick={() => toggleChecked(ing.id)}
                                   className={cn(
                                     "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-                                    ing.checked
+                                    done
                                       ? "border-emerald-800 bg-emerald-800 text-cream"
                                       : "border-border bg-background hover:border-emerald-400"
                                   )}
@@ -490,19 +586,29 @@ Ingredients:
                                       : `Check off ${ing.name}`
                                   }
                                 >
-                                  {ing.checked && (
+                                  {done && (
                                     <Check className="size-3" strokeWidth={3} />
                                   )}
                                 </button>
                                 <div className="min-w-0 flex-1">
-                                  <p
-                                    className={cn(
-                                      "text-sm font-medium text-foreground",
-                                      ing.checked && "line-through"
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p
+                                      className={cn(
+                                        "text-sm font-medium text-foreground",
+                                        done && "line-through"
+                                      )}
+                                    >
+                                      {formatIngredientLabel(ing)}
+                                    </p>
+                                    {inCart && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="bg-emerald-100 text-[10px] font-medium text-emerald-900"
+                                      >
+                                        In cart
+                                      </Badge>
                                     )}
-                                  >
-                                    {formatIngredientLabel(ing)}
-                                  </p>
+                                  </div>
                                   <div className="mt-2 flex flex-wrap gap-2">
                                     <Button
                                       type="button"
@@ -535,12 +641,42 @@ Ingredients:
                                 </div>
                               </div>
                             </li>
-                          ))}
+                            );
+                          })}
                         </ul>
                       </div>
                     ))}
                   </CardContent>
-                  <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-emerald-50/40 sm:flex-row sm:items-center sm:justify-between">
+                  <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-emerald-50/40">
+                    <Button
+                      type="button"
+                      size="lg"
+                      className="h-11 w-full gap-2 bg-emerald-800 text-cream shadow-md hover:bg-emerald-700 sm:hidden"
+                      disabled={
+                        ingredients.length === 0 ||
+                        addableIngredients.length === 0 ||
+                        addingAll
+                      }
+                      onClick={() => void addAllToCart()}
+                    >
+                      {addingAll ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Adding…
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingBag className="size-4" />
+                          Add All to Cart
+                          {addableIngredients.length > 0 && (
+                            <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold">
+                              {addableIngredients.length}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </Button>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <Button
                         type="button"
@@ -574,15 +710,42 @@ Ingredients:
                         </p>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                      nativeButton={false}
-                      render={<Link href="/local" />}
-                    >
-                      Browse Buy Local
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="hidden gap-1.5 sm:inline-flex"
+                        disabled={
+                          ingredients.length === 0 ||
+                          addableIngredients.length === 0 ||
+                          addingAll
+                        }
+                        onClick={() => void addAllToCart()}
+                      >
+                        <ShoppingBag className="size-3.5" />
+                        Add All to Cart
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        nativeButton={false}
+                        render={<Link href="/cart" />}
+                      >
+                        View cart
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        nativeButton={false}
+                        render={<Link href="/local" />}
+                      >
+                        Browse Buy Local
+                      </Button>
+                    </div>
+                    </div>
                   </CardFooter>
                 </Card>
 
