@@ -4,6 +4,7 @@ import {
   CalendarPlus,
   Check,
   ChefHat,
+  ChevronDown,
   Clock,
   ExternalLink,
   Leaf,
@@ -14,7 +15,7 @@ import {
   Wand2,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +28,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useAppToast } from "@/components/ui/app-toast";
 import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
   AISLE_LABELS,
   SAMPLE_RECIPES,
   buildRecipePlan,
+  estimateShopMinutes,
   extractIngredientsFromRecipe,
   formatIngredientLabel,
   groupByAisle,
@@ -43,13 +46,25 @@ import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "extracting" | "ready";
 
+function peekCookMinutes(text: string, sampleId: string | null): number {
+  const sample = SAMPLE_RECIPES.find((s) => s.id === sampleId);
+  if (sample) return sample.cookMinutes;
+  const m = text.match(/(\d+)\s*min/i);
+  return m ? Number(m[1]) : 25;
+}
+
 export default function KitchenAssistantPage() {
+  const { showSuccess } = useAppToast();
+  const resultsRef = useRef<HTMLElement>(null);
+
   const [recipeText, setRecipeText] = useState("");
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [ingredients, setIngredients] = useState<ShoppingIngredient[]>([]);
   const [plan, setPlan] = useState<RecipePlan | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
+  const [planning, setPlanning] = useState(false);
+  const [recipeCollapsed, setRecipeCollapsed] = useState(false);
   const [leafyTip, setLeafyTip] = useState(
     "Paste a recipe or pick a sample — I’ll sort your shopping list by aisle."
   );
@@ -57,20 +72,28 @@ export default function KitchenAssistantPage() {
   const grouped = useMemo(() => groupByAisle(ingredients), [ingredients]);
   const checkedCount = ingredients.filter((i) => i.checked).length;
 
-  function loadSample(id: string) {
-    const sample = SAMPLE_RECIPES.find((s) => s.id === id);
-    if (!sample) return;
-    setSelectedSampleId(id);
-    setRecipeText(sample.text);
-    setPhase("idle");
-    setIngredients([]);
-    setPlan(null);
-    setPlanOpen(false);
-    setLeafyTip(`Nice pick — “${sample.title}” is ready when you are.`);
-  }
+  const timePreview = useMemo(() => {
+    if (ingredients.length === 0) return null;
+    const shop = estimateShopMinutes(ingredients.length);
+    const cook = peekCookMinutes(recipeText, selectedSampleId);
+    const buffer = 10;
+    return {
+      shop,
+      cook,
+      buffer,
+      total: shop + cook + buffer,
+    };
+  }, [ingredients, recipeText, selectedSampleId]);
 
-  async function runExtract() {
-    const text = recipeText.trim();
+  useEffect(() => {
+    if (phase === "ready" && ingredients.length > 0) {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [phase, ingredients.length]);
+
+  async function runExtract(textOverride?: string, sampleId?: string | null) {
+    const text = (textOverride ?? recipeText).trim();
+    const sid = sampleId !== undefined ? sampleId : selectedSampleId;
     if (text.length < 12) {
       setLeafyTip(
         "I need a bit more to work with — paste ingredients, or try a sample recipe."
@@ -83,20 +106,37 @@ export default function KitchenAssistantPage() {
     setPlanOpen(false);
     setLeafyTip("Reading your recipe… sorting quantities and aisles…");
 
-    await new Promise((r) => window.setTimeout(r, 700));
+    await new Promise((r) => window.setTimeout(r, 650));
 
     const parsed = extractIngredientsFromRecipe(text);
     setIngredients(parsed.map((i) => ({ ...i, checked: false })));
     setPhase("ready");
+    setRecipeCollapsed(true);
+
     if (parsed.length === 0) {
       setLeafyTip(
         "Hmm, I couldn’t find clear ingredient lines. Try listing them under “Ingredients:” or pick a sample."
       );
     } else {
+      const shop = estimateShopMinutes(parsed.length);
+      const cook = peekCookMinutes(text, sid);
       setLeafyTip(
-        `Found ${parsed.length} ingredient${parsed.length === 1 ? "" : "s"}. Shop online or check locally — then plan your cook.`
+        `Found ${parsed.length} ingredients · about ${shop + cook + 10} min end-to-end. Shop, check local, then plan your cook.`
+      );
+      showSuccess(
+        "Shopping list ready",
+        `${parsed.length} ingredients sorted by aisle.`
       );
     }
+  }
+
+  function loadSample(id: string) {
+    const sample = SAMPLE_RECIPES.find((s) => s.id === id);
+    if (!sample) return;
+    setSelectedSampleId(id);
+    setRecipeText(sample.text);
+    setLeafyTip(`Nice pick — building a list for “${sample.title}”…`);
+    void runExtract(sample.text, id);
   }
 
   function toggleChecked(id: string) {
@@ -114,8 +154,10 @@ export default function KitchenAssistantPage() {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  function planRecipe() {
+  async function planRecipe() {
     if (ingredients.length === 0) return;
+    setPlanning(true);
+    await new Promise((r) => window.setTimeout(r, 400));
     const sample = SAMPLE_RECIPES.find((s) => s.id === selectedSampleId);
     const next = buildRecipePlan({
       recipeText,
@@ -124,8 +166,23 @@ export default function KitchenAssistantPage() {
     });
     setPlan(next);
     setPlanOpen(true);
+    setPlanning(false);
     setLeafyTip(next.summary);
+    showSuccess(
+      "Cook plan ready",
+      `About ${next.totalMinutes} minutes · shop ${next.shopMinutes}m + cook ${next.cookMinutes}m.`
+    );
+    window.setTimeout(() => {
+      document
+        .getElementById("cook-plan")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 50);
   }
+
+  const showResults =
+    phase === "extracting" ||
+    phase === "ready" ||
+    (phase === "idle" && !recipeText);
 
   return (
     <div className="relative overflow-hidden">
@@ -134,7 +191,7 @@ export default function KitchenAssistantPage() {
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+      <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <MarketplaceBrandBadge />
           <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
@@ -146,159 +203,201 @@ export default function KitchenAssistantPage() {
           </Badge>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-          <div>
-            <h1 className="font-heading max-w-xl text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
-              From recipe to basket — with Leafy
-            </h1>
-            <p className="mt-3 max-w-xl text-muted-foreground sm:text-lg">
-              Paste a recipe (or try a sample). Leafy builds a smart shopping
-              list, then helps you buy online, check local stores, and plan your
-              cook time.
+        <h1 className="font-heading max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
+          From recipe to basket — with Leafy
+        </h1>
+        <p className="mt-3 max-w-2xl text-muted-foreground sm:text-lg">
+          Pick a sample or paste a recipe. Leafy builds your shopping list,
+          then helps you buy online, check local stores, and plan cook time.
+        </p>
+
+        <div className="mt-5 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/90 p-3.5 shadow-sm sm:p-4">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
+            <Leaf className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/70">
+              Leafy says
             </p>
+            <p className="mt-0.5 text-sm leading-relaxed text-foreground">
+              {leafyTip}
+            </p>
+          </div>
+        </div>
 
-            {/* Leafy speech bubble */}
-            <div className="mt-6 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/90 p-4 shadow-sm">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
-                <Leaf className="size-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/70">
-                  Leafy says
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-foreground">
-                  {leafyTip}
-                </p>
-              </div>
-            </div>
+        {/* Sample chips — always visible */}
+        <div className="mt-6">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Start with a sample
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
+            {SAMPLE_RECIPES.map((sample) => (
+              <button
+                key={sample.id}
+                type="button"
+                disabled={phase === "extracting"}
+                onClick={() => loadSample(sample.id)}
+                className={cn(
+                  "min-w-[11rem] shrink-0 rounded-2xl border px-3.5 py-2.5 text-left text-sm transition-all duration-200 active:scale-[0.98] sm:min-w-0",
+                  selectedSampleId === sample.id && phase !== "idle"
+                    ? "border-emerald-800 bg-emerald-800 text-cream shadow-md"
+                    : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-sm"
+                )}
+              >
+                <span className="font-medium">{sample.title}</span>
+                <span
+                  className={cn(
+                    "mt-0.5 block text-[11px]",
+                    selectedSampleId === sample.id && phase !== "idle"
+                      ? "text-cream/80"
+                      : "text-emerald-800/70"
+                  )}
+                >
+                  {sample.tagline}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
 
-            <Card className="mt-6 border-border/70 bg-white/90 shadow-sm">
-              <CardHeader className="pb-3">
+        <div
+          className={cn(
+            "mt-8 grid gap-6 lg:gap-8",
+            phase === "ready" && ingredients.length > 0
+              ? "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"
+              : "lg:grid-cols-2"
+          )}
+        >
+          {/* Recipe input */}
+          <Card className="border-border/70 bg-white/95 shadow-sm">
+            <CardHeader className="pb-2">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-2 text-left lg:pointer-events-none"
+                onClick={() => setRecipeCollapsed((c) => !c)}
+              >
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Wand2 className="size-4 text-primary" />
                   Your recipe
                 </CardTitle>
-                <CardDescription>
-                  Paste ingredients and method, or start from a Forest Buddies
-                  sample.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">
-                    Try a sample
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {SAMPLE_RECIPES.map((sample) => (
-                      <button
-                        key={sample.id}
-                        type="button"
-                        onClick={() => loadSample(sample.id)}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-left text-sm transition-all duration-200 active:scale-[0.98]",
-                          selectedSampleId === sample.id
-                            ? "border-emerald-800 bg-emerald-800 text-cream shadow-sm"
-                            : "border-emerald-200 bg-emerald-50/70 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100"
-                        )}
-                      >
-                        <span className="font-medium">{sample.title}</span>
-                        <span
-                          className={cn(
-                            "mt-0.5 block text-[11px]",
-                            selectedSampleId === sample.id
-                              ? "text-cream/80"
-                              : "text-emerald-800/70"
-                          )}
-                        >
-                          {sample.tagline}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <textarea
-                  value={recipeText}
-                  onChange={(e) => {
-                    setRecipeText(e.target.value);
-                    setSelectedSampleId(null);
-                    if (phase === "ready") {
-                      setPhase("idle");
-                      setIngredients([]);
-                      setPlan(null);
-                    }
-                  }}
-                  rows={12}
-                  placeholder={`Paste a recipe here…
+                <ChevronDown
+                  className={cn(
+                    "size-4 text-muted-foreground transition-transform lg:hidden",
+                    !recipeCollapsed && "rotate-180"
+                  )}
+                />
+              </button>
+              <CardDescription className={cn(recipeCollapsed && "hidden lg:block")}>
+                Paste ingredients and method, or use a sample above.
+              </CardDescription>
+            </CardHeader>
+            <CardContent
+              className={cn(
+                "space-y-4",
+                recipeCollapsed && "hidden lg:block"
+              )}
+            >
+              <textarea
+                value={recipeText}
+                onChange={(e) => {
+                  setRecipeText(e.target.value);
+                  setSelectedSampleId(null);
+                  if (phase === "ready") {
+                    setPhase("idle");
+                    setIngredients([]);
+                    setPlan(null);
+                    setPlanOpen(false);
+                    setRecipeCollapsed(false);
+                  }
+                }}
+                rows={phase === "ready" ? 8 : 11}
+                placeholder={`Paste a recipe here…
 
 Ingredients:
 - 1 cup lentils
 - 2 tbsp olive oil
 …`}
-                  className="w-full resize-y rounded-xl border border-input bg-background px-3 py-3 font-mono text-sm leading-relaxed text-foreground shadow-xs outline-none placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                  aria-label="Recipe text"
-                />
-              </CardContent>
-              <CardFooter className="flex flex-wrap gap-2 border-t-0 bg-transparent">
-                <Button
-                  type="button"
-                  className="gap-2 shadow-sm"
-                  disabled={phase === "extracting"}
-                  onClick={() => void runExtract()}
-                >
-                  {phase === "extracting" ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Leafy is reading…
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="size-4" />
-                      Make shopping list
-                    </>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={!recipeText}
-                  onClick={() => {
-                    setRecipeText("");
-                    setSelectedSampleId(null);
-                    setIngredients([]);
-                    setPlan(null);
-                    setPlanOpen(false);
-                    setPhase("idle");
-                    setLeafyTip(
-                      "Fresh start — paste a recipe or pick a sample when you’re ready."
-                    );
-                  }}
-                >
-                  Clear
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
+                className="w-full resize-y rounded-xl border border-input bg-background px-3 py-3 font-mono text-sm leading-relaxed text-foreground shadow-xs outline-none placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+                aria-label="Recipe text"
+              />
+            </CardContent>
+            <CardFooter
+              className={cn(
+                "flex flex-wrap gap-2 border-t-0 bg-transparent",
+                recipeCollapsed && "hidden lg:flex"
+              )}
+            >
+              <Button
+                type="button"
+                className="gap-2 shadow-sm"
+                disabled={phase === "extracting"}
+                onClick={() => void runExtract()}
+              >
+                {phase === "extracting" ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Leafy is reading…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4" />
+                    Make shopping list
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={!recipeText || phase === "extracting"}
+                onClick={() => {
+                  setRecipeText("");
+                  setSelectedSampleId(null);
+                  setIngredients([]);
+                  setPlan(null);
+                  setPlanOpen(false);
+                  setPhase("idle");
+                  setRecipeCollapsed(false);
+                  setLeafyTip(
+                    "Fresh start — paste a recipe or pick a sample when you’re ready."
+                  );
+                }}
+              >
+                Clear
+              </Button>
+            </CardFooter>
+          </Card>
 
-          {/* Results column */}
-          <div className="space-y-4 lg:sticky lg:top-20">
+          {/* Results */}
+          <section
+            ref={resultsRef}
+            id="shopping-list"
+            className="scroll-mt-24 space-y-4"
+          >
             {phase === "extracting" && (
-              <Card className="border-dashed border-emerald-200 bg-emerald-50/40" aria-busy>
-                <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
-                  <Loader2 className="size-8 animate-spin text-emerald-800" />
+              <Card
+                className="border-dashed border-emerald-200 bg-emerald-50/50"
+                aria-busy
+              >
+                <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                  <Loader2 className="size-9 animate-spin text-emerald-800" />
                   <p className="font-heading text-lg font-semibold text-emerald-950">
                     Leafy is sorting your list…
                   </p>
-                  <p className="max-w-xs text-sm text-emerald-900/70">
-                    Matching quantities, guessing aisles, and prepping Buy Online
-                    + Check Local links.
-                  </p>
+                  <div className="mt-2 w-full max-w-xs space-y-2">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="h-10 animate-pulse rounded-xl bg-emerald-200/50"
+                        style={{ animationDelay: `${i * 120}ms` }}
+                      />
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
 
-            {phase === "idle" && (
-              <Card className="border-dashed border-border/80 bg-card/60">
+            {phase === "idle" && showResults && (
+              <Card className="border-dashed border-border/80 bg-card/70">
                 <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
                   <span className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
                     <ShoppingBag className="size-6" />
@@ -307,9 +406,8 @@ Ingredients:
                     Your shopping list will appear here
                   </p>
                   <p className="max-w-sm text-sm text-muted-foreground">
-                    Start with a sample recipe for a quick taste of the flow —
-                    or paste anything from a blog, Notes app, or handwritten
-                    jot.
+                    Tap a sample above for an instant list — or paste your own
+                    recipe and hit Make shopping list.
                   </p>
                 </CardContent>
               </Card>
@@ -327,17 +425,36 @@ Ingredients:
 
             {phase === "ready" && ingredients.length > 0 && (
               <>
-                <Card className="border-border/70 bg-white shadow-sm">
+                {/* Time preview strip */}
+                {timePreview && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-cream px-4 py-3 text-sm text-emerald-950 shadow-sm">
+                    <Clock className="size-4 shrink-0 text-emerald-800" />
+                    <span className="font-medium">
+                      ~{timePreview.total} min total
+                    </span>
+                    <span className="text-emerald-800/70">
+                      · {timePreview.shop}m shop · {timePreview.cook}m cook ·{" "}
+                      {timePreview.buffer}m buffer
+                    </span>
+                  </div>
+                )}
+
+                <Card className="border-emerald-200/80 bg-white shadow-md ring-1 ring-emerald-900/5">
                   <CardHeader className="pb-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <CardTitle className="text-xl">Shopping list</CardTitle>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
+                          Step 2
+                        </p>
+                        <CardTitle className="mt-1 text-xl sm:text-2xl">
+                          Shopping list
+                        </CardTitle>
                         <CardDescription className="mt-1">
                           {checkedCount}/{ingredients.length} checked · grouped
                           by aisle
                         </CardDescription>
                       </div>
-                      <Badge className="bg-emerald-100 text-emerald-900">
+                      <Badge className="bg-emerald-800 text-cream">
                         {ingredients.length} items
                       </Badge>
                     </div>
@@ -353,7 +470,7 @@ Ingredients:
                             <li
                               key={ing.id}
                               className={cn(
-                                "rounded-xl border border-border/60 bg-muted/20 p-3 transition-colors",
+                                "rounded-xl border border-border/60 bg-muted/15 p-3 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm",
                                 ing.checked && "bg-emerald-50/50 opacity-70"
                               )}
                             >
@@ -423,64 +540,131 @@ Ingredients:
                       </div>
                     ))}
                   </CardContent>
-                  <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-muted/30 sm:flex-row sm:items-center">
+                  <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-emerald-50/40 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="h-11 w-full gap-2 shadow-md sm:w-auto"
+                        disabled={planning}
+                        onClick={() => void planRecipe()}
+                      >
+                        {planning ? (
+                          <>
+                            <Loader2 className="size-4 animate-spin" />
+                            Planning…
+                          </>
+                        ) : (
+                          <>
+                            <CalendarPlus className="size-4" />
+                            Plan This Recipe
+                            {timePreview && (
+                              <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
+                                ~{timePreview.total}m
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </Button>
+                      {timePreview && (
+                        <p className="mt-2 text-xs text-emerald-900/75">
+                          Estimate: {timePreview.shop}m shopping +{" "}
+                          {timePreview.cook}m cooking + {timePreview.buffer}m
+                          buffer
+                        </p>
+                      )}
+                    </div>
                     <Button
-                      type="button"
-                      className="gap-2 shadow-sm"
-                      onClick={planRecipe}
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      nativeButton={false}
+                      render={<Link href="/local" />}
                     >
-                      <CalendarPlus className="size-4" />
-                      Plan This Recipe
+                      Browse Buy Local
                     </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Estimates shopping + cooking time, then offers a Google
-                      Calendar draft.
-                    </p>
                   </CardFooter>
                 </Card>
 
                 {planOpen && plan && (
-                  <Card className="border-emerald-300/80 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 shadow-md animate-[fb-fade-up_0.4s_ease-out]">
+                  <Card
+                    id="cook-plan"
+                    className="scroll-mt-24 border-emerald-300/90 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/50 shadow-lg animate-[fb-fade-up_0.4s_ease-out]"
+                  >
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-lg text-emerald-950">
-                        <Clock className="size-4" />
-                        Your cook plan
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
+                        Step 3 · Cook plan
+                      </p>
+                      <CardTitle className="flex items-center gap-2 text-xl text-emerald-950">
+                        <Clock className="size-5" />
+                        {plan.title}
                       </CardTitle>
                       <CardDescription className="text-emerald-900/75">
-                        {plan.title}
                         {plan.servingsHint
-                          ? ` · Serves ${plan.servingsHint}`
+                          ? `Serves ${plan.servingsHint} · `
                           : ""}
+                        {plan.ingredientCount} ingredients on your list
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="rounded-xl border border-emerald-200/80 bg-white/70 px-2 py-3">
-                          <p className="text-xs text-muted-foreground">Shop</p>
-                          <p className="font-heading text-xl font-semibold text-emerald-950">
-                            {plan.shopMinutes}m
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-emerald-200/80 bg-white/70 px-2 py-3">
-                          <p className="text-xs text-muted-foreground">Cook</p>
-                          <p className="font-heading text-xl font-semibold text-emerald-950">
-                            {plan.cookMinutes}m
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-emerald-200/80 bg-white/70 px-2 py-3">
-                          <p className="text-xs text-muted-foreground">Total</p>
-                          <p className="font-heading text-xl font-semibold text-emerald-950">
-                            {plan.totalMinutes}m
-                          </p>
-                        </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {(
+                          [
+                            ["Shop", plan.shopMinutes, "Gather ingredients"],
+                            ["Cook", plan.cookMinutes, "Active kitchen time"],
+                            ["Buffer", plan.prepBufferMinutes, "Plate & tidy"],
+                            ["Total", plan.totalMinutes, "End to end"],
+                          ] as const
+                        ).map(([label, mins, hint]) => (
+                          <div
+                            key={label}
+                            className={cn(
+                              "rounded-xl border px-2 py-3 text-center",
+                              label === "Total"
+                                ? "border-emerald-800/30 bg-emerald-800 text-cream"
+                                : "border-emerald-200/80 bg-white/80"
+                            )}
+                          >
+                            <p
+                              className={cn(
+                                "text-[11px]",
+                                label === "Total"
+                                  ? "text-cream/75"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {label}
+                            </p>
+                            <p
+                              className={cn(
+                                "font-heading text-2xl font-semibold tabular-nums",
+                                label === "Total"
+                                  ? "text-cream"
+                                  : "text-emerald-950"
+                              )}
+                            >
+                              {mins}
+                              <span className="text-sm font-medium">m</span>
+                            </p>
+                            <p
+                              className={cn(
+                                "mt-0.5 text-[10px] leading-tight",
+                                label === "Total"
+                                  ? "text-cream/65"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {hint}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                       <p className="text-sm leading-relaxed text-emerald-950/90">
-                        {plan.summary} Includes a {plan.prepBufferMinutes}-minute
-                        buffer for washing up and plating.
+                        {plan.summary}
                       </p>
-                      <p className="rounded-lg border border-dashed border-emerald-300/80 bg-white/50 px-3 py-2 text-xs text-emerald-900/80">
-                        Google Calendar: opens a draft event (template link).
-                        Full calendar sync &amp; reminders are on the roadmap.
+                      <p className="rounded-lg border border-dashed border-emerald-300/80 bg-white/60 px-3 py-2 text-xs text-emerald-900/80">
+                        Google Calendar opens a draft event. Full sync &amp;
+                        reminders are on the roadmap.
                       </p>
                     </CardContent>
                     <CardFooter className="flex flex-wrap gap-2 border-t-0 bg-transparent">
@@ -512,10 +696,10 @@ Ingredients:
                 )}
               </>
             )}
-          </div>
+          </section>
         </div>
 
-        <p className="mt-12 text-center text-xs text-muted-foreground">
+        <p className="mt-10 text-center text-xs text-muted-foreground sm:mt-12">
           Leafy Kitchen is a helper — always check allergens and store
           availability. Affiliate links may earn Forest Buddies a small
           commission.

@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-/** Full nav — used in mobile sheet and large desktops */
+/** Full nav — used in mobile sheet */
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/marketplace", label: "Marketplace" },
-  { href: "/local", label: "Buy Local" },
-  { href: "/kitchen", label: "Kitchen" },
+  { href: "/local", label: "Buy Local", featured: true },
+  { href: "/kitchen", label: "Leafy Kitchen", featured: true },
   { href: "/seller", label: "Sell" },
   { href: "/recommend", label: "Ask Leafy" },
   { href: "/affiliates", label: "Affiliates" },
@@ -19,11 +19,11 @@ const navItems = [
   { href: "/about", label: "About" },
 ];
 
-/** Compact top-bar links so the header never needs horizontal scroll */
+/** Compact top-bar — Buy Local + Leafy Kitchen kept visible */
 const desktopPrimaryItems = [
   { href: "/marketplace", label: "Marketplace" },
-  { href: "/local", label: "Buy Local" },
-  { href: "/kitchen", label: "Kitchen" },
+  { href: "/local", label: "Buy Local", featured: true },
+  { href: "/kitchen", label: "Leafy Kitchen", featured: true },
   { href: "/recommend", label: "Ask Leafy" },
   { href: "/membership", label: "Membership" },
   { href: "/about", label: "About" },
@@ -47,15 +47,18 @@ export function MainNav({
           item.href === "/"
             ? pathname === "/"
             : pathname.startsWith(item.href);
+        const featured = "featured" in item && item.featured;
         return (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              "rounded-lg px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform] duration-200",
+              "rounded-lg px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200",
               isActive
-                ? "bg-primary/10 text-primary"
-                : "text-foreground/80 hover:bg-muted hover:text-primary active:scale-[0.98]"
+                ? "bg-primary/10 text-primary shadow-sm"
+                : featured
+                  ? "text-emerald-900 hover:bg-emerald-50 hover:text-emerald-950 active:scale-[0.98]"
+                  : "text-foreground/80 hover:bg-muted hover:text-primary active:scale-[0.98]"
             )}
           >
             {item.label}

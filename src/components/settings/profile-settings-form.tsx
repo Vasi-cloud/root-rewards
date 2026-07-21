@@ -3,7 +3,7 @@
 import { Camera, Check, Loader2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { useSettingsToast } from "@/components/settings/settings-toast";
+import { useAppToast } from "@/components/ui/app-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ function initialsFrom(name: string, email: string) {
 
 export function ProfileSettingsForm() {
   const { user, profile, updateProfileDetails } = useAuth();
-  const { showSuccess } = useSettingsToast();
+  const { showSuccess } = useAppToast();
   const fileId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
 

@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useAppToast } from "@/components/ui/app-toast";
 import { useCart } from "@/contexts/cart-context";
 import {
   DISTANCE_OPTIONS_MI,
@@ -42,6 +43,7 @@ import {
   type UserLocationOption,
 } from "@/lib/local-commerce";
 import { ensureDemoShops } from "@/lib/seller-storage";
+import { cn } from "@/lib/utils";
 
 export default function BuyLocalPage() {
   return (
@@ -59,6 +61,7 @@ export default function BuyLocalPage() {
 
 function BuyLocalPageInner() {
   const { addToCart } = useCart();
+  const { showSuccess } = useAppToast();
   const searchParams = useSearchParams();
   const cityParam = searchParams.get("city");
   const productParam = searchParams.get("product");
@@ -183,6 +186,7 @@ function BuyLocalPageInner() {
   function handleAdd(productId: string, product: (typeof listings)[0]["product"]) {
     addToCart(product);
     setAddedId(productId);
+    showSuccess("Added to cart", product.name);
     window.setTimeout(() => setAddedId(null), 1200);
   }
 
@@ -336,11 +340,12 @@ function BuyLocalPageInner() {
                       key={mi}
                       type="button"
                       onClick={() => setMaxMiles(mi)}
-                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200 active:scale-[0.98]",
                         maxMiles === mi
-                          ? "border-emerald-800 bg-emerald-800 text-white"
-                          : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:bg-emerald-100"
-                      }`}
+                          ? "border-emerald-800 bg-emerald-800 text-white shadow-sm"
+                          : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-sm"
+                      )}
                     >
                       {mi >= 500
                         ? "Anywhere"
@@ -354,7 +359,12 @@ function BuyLocalPageInner() {
                 <p className="font-medium">Near {user.label}</p>
                 <p className="mt-1 text-emerald-800/85">
                   {storesLoading
-                    ? "Finding stores…"
+                    ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="size-3.5 animate-spin rounded-full border-2 border-emerald-800/30 border-t-emerald-800" />
+                        Finding stores…
+                      </span>
+                    )
                     : `${nearbyStores.length} store${nearbyStores.length === 1 ? "" : "s"} · ${makers.length} maker${makers.length === 1 ? "" : "s"}`}
                   {placesEngine === "hybrid" || placesEngine === "google-places"
                     ? " · Google Maps"

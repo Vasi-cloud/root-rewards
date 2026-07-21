@@ -16,10 +16,7 @@ import { useRouter } from "next/navigation";
 
 import { AccountDeactivateControls } from "@/components/settings/account-deactivate-controls";
 import { ProfileSettingsForm } from "@/components/settings/profile-settings-form";
-import {
-  SettingsToastProvider,
-  useSettingsToast,
-} from "@/components/settings/settings-toast";
+import { useAppToast } from "@/components/ui/app-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,17 +54,13 @@ const DEFAULT_NOTIFS = {
  * Account Settings — lives at `/dashboard/settings` (dashboard layout).
  */
 export default function AccountSettingsPage() {
-  return (
-    <SettingsToastProvider>
-      <AccountSettingsPageInner />
-    </SettingsToastProvider>
-  );
+  return <AccountSettingsPageInner />;
 }
 
 function AccountSettingsPageInner() {
   const { user, loading } = useAuth();
   const { tier, isImpactMember } = useMembership();
-  const { showSuccess } = useSettingsToast();
+  const { showSuccess } = useAppToast();
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<string>("profile");
   const [notifs, setNotifs] = useState(DEFAULT_NOTIFS);

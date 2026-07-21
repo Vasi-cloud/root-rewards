@@ -7,6 +7,7 @@ import { I18nProvider } from "@/contexts/i18n-context";
 import { MembershipProvider } from "@/contexts/membership-context";
 import { ModerationProvider } from "@/contexts/moderation-context";
 import { SellerProvider } from "@/contexts/seller-context";
+import { AppToastProvider } from "@/components/ui/app-toast";
 
 import "./globals.css";
 
@@ -52,7 +53,9 @@ export default function RootLayout({
             <AuthProvider>
               <MembershipProvider>
                 <SellerProvider>
-                  <ModerationProvider>{children}</ModerationProvider>
+                  <ModerationProvider>
+                    <AppToastProvider>{children}</AppToastProvider>
+                  </ModerationProvider>
                 </SellerProvider>
               </MembershipProvider>
             </AuthProvider>
