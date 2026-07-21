@@ -3,6 +3,7 @@
 import { Camera, Check, Loader2 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { useSettingsToast } from "@/components/settings/settings-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ function initialsFrom(name: string, email: string) {
 
 export function ProfileSettingsForm() {
   const { user, profile, updateProfileDetails } = useAuth();
+  const { showSuccess } = useSettingsToast();
   const fileId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -54,6 +56,10 @@ export function ProfileSettingsForm() {
         photoURL: photoPreview,
       });
       setSaved(true);
+      showSuccess(
+        "Profile saved",
+        "Your name and photo preview are up to date."
+      );
       window.setTimeout(() => setSaved(false), 2200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save profile.");
@@ -103,26 +109,26 @@ export function ProfileSettingsForm() {
   return (
     <form onSubmit={onSave} className="space-y-6">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-        <div className="flex flex-col items-center gap-2 sm:items-start">
+        <div className="flex flex-col items-center gap-3 sm:items-start">
           <div className="relative">
             <Avatar
               size="lg"
-              className="size-20 ring-2 ring-emerald-200/80 transition-transform duration-200 hover:scale-[1.02] sm:size-24"
+              className="size-24 ring-2 ring-emerald-200/80 transition-transform duration-200 hover:scale-[1.02] sm:size-28"
             >
               {photoPreview ? (
                 <AvatarImage src={photoPreview} alt="" />
               ) : null}
-              <AvatarFallback className="bg-emerald-100 font-heading text-lg text-emerald-900 sm:text-xl">
+              <AvatarFallback className="bg-emerald-100 font-heading text-xl text-emerald-900 sm:text-2xl">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="absolute -right-1 -bottom-1 inline-flex size-8 items-center justify-center rounded-full border border-border bg-card text-primary shadow-sm transition-colors hover:bg-emerald-50"
+              className="absolute -right-1 -bottom-1 inline-flex size-10 items-center justify-center rounded-full border-2 border-cream bg-emerald-800 text-cream shadow-md transition-all duration-200 hover:scale-110 hover:bg-emerald-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
               aria-label="Upload profile photo"
             >
-              <Camera className="size-3.5" />
+              <Camera className="size-4" />
             </button>
           </div>
           <input
@@ -133,27 +139,29 @@ export function ProfileSettingsForm() {
             className="sr-only"
             onChange={(e) => onPickPhoto(e.target.files?.[0])}
           />
-          <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
+          <div className="flex w-full max-w-[16rem] flex-col gap-2 sm:max-w-none sm:flex-row sm:flex-wrap">
             <Button
               type="button"
-              size="xs"
-              variant="outline"
+              size="default"
+              className="h-10 gap-2 bg-emerald-800 px-4 text-cream shadow-sm transition-all duration-200 hover:bg-emerald-700 hover:shadow-md hover:brightness-105 active:scale-[0.98]"
               onClick={() => fileRef.current?.click()}
             >
+              <Camera className="size-4" />
               Change photo
             </Button>
             {photoPreview && (
               <Button
                 type="button"
-                size="xs"
+                size="default"
                 variant="ghost"
+                className="h-10"
                 onClick={clearPhoto}
               >
                 Remove
               </Button>
             )}
           </div>
-          <p className="max-w-[14rem] text-center text-[11px] leading-relaxed text-muted-foreground sm:text-left">
+          <p className="max-w-[16rem] text-center text-[11px] leading-relaxed text-muted-foreground sm:text-left">
             Photo upload is a device preview for now — we never claim cloud
             sync until it ships.
           </p>
@@ -170,6 +178,7 @@ export function ProfileSettingsForm() {
               placeholder="How you appear on Forest Buddies"
               autoComplete="nickname"
               required
+              disabled={saving}
             />
           </div>
           <div className="space-y-2">
@@ -201,7 +210,11 @@ export function ProfileSettingsForm() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" disabled={saving || !displayName.trim()}>
+        <Button
+          type="submit"
+          disabled={saving || !displayName.trim()}
+          className="min-w-[8.5rem]"
+        >
           {saving ? (
             <>
               <Loader2 className="size-3.5 animate-spin" />

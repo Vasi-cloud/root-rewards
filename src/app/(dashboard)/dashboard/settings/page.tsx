@@ -3,6 +3,7 @@
 import {
   Bell,
   Check,
+  Loader2,
   Lock,
   Settings,
   ShieldCheck,
@@ -15,6 +16,10 @@ import { useRouter } from "next/navigation";
 
 import { AccountDeactivateControls } from "@/components/settings/account-deactivate-controls";
 import { ProfileSettingsForm } from "@/components/settings/profile-settings-form";
+import {
+  SettingsToastProvider,
+  useSettingsToast,
+} from "@/components/settings/settings-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,12 +57,24 @@ const DEFAULT_NOTIFS = {
  * Account Settings — lives at `/dashboard/settings` (dashboard layout).
  */
 export default function AccountSettingsPage() {
-  const { user, profile, loading } = useAuth();
+  return (
+    <SettingsToastProvider>
+      <AccountSettingsPageInner />
+    </SettingsToastProvider>
+  );
+}
+
+function AccountSettingsPageInner() {
+  const { user, loading } = useAuth();
   const { tier, isImpactMember } = useMembership();
+  const { showSuccess } = useSettingsToast();
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<string>("profile");
   const [notifs, setNotifs] = useState(DEFAULT_NOTIFS);
   const [units, setUnits] = useState<"mi" | "km">("mi");
+  const [savingNotifs, setSavingNotifs] = useState(false);
+  const [savingPrefs, setSavingPrefs] = useState(false);
+  const [notifsSaved, setNotifsSaved] = useState(false);
   const [prefsSaved, setPrefsSaved] = useState(false);
 
   useEffect(() => {
@@ -83,6 +100,27 @@ export default function AccountSettingsPage() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  // Highlight section as user scrolls (mobile + desktop)
+  useEffect(() => {
+    const ids = SETTINGS_SECTIONS.map((s) => s.id);
+    const observers: IntersectionObserver[] = [];
+
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry?.isIntersecting) setActiveSection(id);
+        },
+        { rootMargin: "-30% 0px -55% 0px", threshold: 0 }
+      );
+      observer.observe(el);
+      observers.push(observer);
+    }
+
+    return () => observers.forEach((o) => o.disconnect());
+  }, [user]);
+
   if (loading) {
     return (
       <div className="space-y-4" aria-busy="true">
@@ -100,17 +138,42 @@ export default function AccountSettingsPage() {
     return null;
   }
 
-  function savePreferences() {
-    setProfileOverrides(user!.uid, {
-      notifications: notifs,
-      preferredUnits: units,
-    });
-    setPrefsSaved(true);
-    window.setTimeout(() => setPrefsSaved(false), 2000);
+  async function saveNotifications() {
+    setSavingNotifs(true);
+    setNotifsSaved(false);
+    try {
+      await new Promise((r) => window.setTimeout(r, 350));
+      setProfileOverrides(user!.uid, { notifications: notifs });
+      setNotifsSaved(true);
+      showSuccess("Notifications saved", "Your email preferences were updated.");
+      window.setTimeout(() => setNotifsSaved(false), 2000);
+    } finally {
+      setSavingNotifs(false);
+    }
+  }
+
+  async function savePreferences() {
+    setSavingPrefs(true);
+    setPrefsSaved(false);
+    try {
+      await new Promise((r) => window.setTimeout(r, 350));
+      setProfileOverrides(user!.uid, { preferredUnits: units });
+      setPrefsSaved(true);
+      showSuccess("Preferences saved", "Distance units are ready for Buy Local.");
+      window.setTimeout(() => setPrefsSaved(false), 2000);
+    } finally {
+      setSavingPrefs(false);
+    }
+  }
+
+  function goToSection(id: string) {
+    setActiveSection(id);
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
         <Badge variant="secondary" className="mb-2 gap-1">
           <Settings className="size-3" />
@@ -126,30 +189,33 @@ export default function AccountSettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
-        <nav
-          className="flex gap-1 overflow-x-auto pb-1 lg:sticky lg:top-24 lg:flex-col lg:self-start lg:overflow-visible lg:pb-0"
-          aria-label="Settings sections"
-        >
-          {SETTINGS_SECTIONS.map(({ id, label, icon: Icon }) => (
-            <a
-              key={id}
-              href={`#${id}`}
-              onClick={() => setActiveSection(id)}
-              className={cn(
-                "inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                activeSection === id
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Icon className="size-3.5 shrink-0" />
-              {label}
-            </a>
-          ))}
-        </nav>
+        {/* Mobile: sticky horizontal chip bar; Desktop: sticky sidebar */}
+        <div className="sticky top-[3.25rem] z-30 -mx-3 border-b border-border/50 bg-cream/95 px-3 py-2 backdrop-blur-md sm:top-16 lg:static lg:z-auto lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <nav
+            className="flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] lg:sticky lg:top-24 lg:flex-col lg:self-start lg:overflow-visible lg:pb-0 [&::-webkit-scrollbar]:hidden"
+            aria-label="Settings sections"
+          >
+            {SETTINGS_SECTIONS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => goToSection(id)}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 lg:rounded-lg lg:border-transparent",
+                  activeSection === id
+                    ? "border-emerald-300 bg-emerald-800 text-cream shadow-sm lg:border-transparent lg:bg-primary/10 lg:text-primary lg:shadow-none"
+                    : "border-border/70 bg-card/80 text-muted-foreground hover:border-emerald-200 hover:bg-emerald-50/80 hover:text-foreground lg:bg-transparent"
+                )}
+              >
+                <Icon className="size-3.5 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
         <div className="min-w-0 space-y-6">
-          <Card id="profile" className="scroll-mt-28 border-border/70 shadow-sm">
+          <Card id="profile" className="scroll-mt-36 border-border/70 shadow-sm sm:scroll-mt-28">
             <CardHeader>
               <CardTitle className="font-heading flex items-center gap-2 text-xl">
                 <UserRound className="size-5 text-primary" />
@@ -181,7 +247,7 @@ export default function AccountSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card id="security" className="scroll-mt-28 border-border/70 shadow-sm">
+          <Card id="security" className="scroll-mt-36 border-border/70 shadow-sm sm:scroll-mt-28">
             <CardHeader>
               <CardTitle className="font-heading flex items-center gap-2 text-xl">
                 <Lock className="size-5 text-primary" />
@@ -215,7 +281,7 @@ export default function AccountSettingsPage() {
 
           <Card
             id="notifications"
-            className="scroll-mt-28 border-border/70 shadow-sm"
+            className="scroll-mt-36 border-border/70 shadow-sm sm:scroll-mt-28"
           >
             <CardHeader>
               <CardTitle className="font-heading flex items-center gap-2 text-xl">
@@ -245,17 +311,29 @@ export default function AccountSettingsPage() {
                     type="checkbox"
                     className="size-4 accent-emerald-800"
                     checked={notifs[key]}
+                    disabled={savingNotifs}
                     onChange={(e) =>
                       setNotifs((n) => ({ ...n, [key]: e.target.checked }))
                     }
                   />
                 </label>
               ))}
-              <Button type="button" size="sm" onClick={savePreferences}>
-                {prefsSaved ? (
+              <Button
+                type="button"
+                size="sm"
+                className="min-w-[10.5rem]"
+                disabled={savingNotifs}
+                onClick={() => void saveNotifications()}
+              >
+                {savingNotifs ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Saving…
+                  </>
+                ) : notifsSaved ? (
                   <>
                     <Check className="size-3.5" />
-                    Preferences saved
+                    Saved
                   </>
                 ) : (
                   "Save notifications"
@@ -266,7 +344,7 @@ export default function AccountSettingsPage() {
 
           <Card
             id="preferences"
-            className="scroll-mt-28 border-border/70 shadow-sm"
+            className="scroll-mt-36 border-border/70 shadow-sm sm:scroll-mt-28"
           >
             <CardHeader>
               <CardTitle className="font-heading flex items-center gap-2 text-xl">
@@ -290,9 +368,10 @@ export default function AccountSettingsPage() {
                     <button
                       key={value}
                       type="button"
+                      disabled={savingPrefs}
                       onClick={() => setUnits(value)}
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                        "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-60",
                         units === value
                           ? "border-emerald-800 bg-emerald-800 text-white"
                           : "border-border bg-background hover:bg-muted"
@@ -307,15 +386,34 @@ export default function AccountSettingsPage() {
                 Language is controlled from the site header. Preferred cause
                 sync will land here later.
               </p>
-              <Button type="button" size="sm" variant="outline" onClick={savePreferences}>
-                {prefsSaved ? "Saved" : "Save preferences"}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-w-[9.5rem]"
+                disabled={savingPrefs}
+                onClick={() => void savePreferences()}
+              >
+                {savingPrefs ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Saving…
+                  </>
+                ) : prefsSaved ? (
+                  <>
+                    <Check className="size-3.5" />
+                    Saved
+                  </>
+                ) : (
+                  "Save preferences"
+                )}
               </Button>
             </CardContent>
           </Card>
 
           <Card
             id="deactivate"
-            className="scroll-mt-28 border-destructive/25 shadow-sm"
+            className="scroll-mt-36 border-destructive/25 shadow-sm sm:scroll-mt-28"
           >
             <CardHeader>
               <CardTitle className="font-heading text-lg">Danger zone</CardTitle>
