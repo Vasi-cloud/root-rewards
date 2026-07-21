@@ -16,10 +16,15 @@ type ToastMessage = {
   id: number;
   title: string;
   description?: string;
+  accent?: "default" | "cart";
 };
 
 type ToastContextValue = {
-  showSuccess: (title: string, description?: string) => void;
+  showSuccess: (
+    title: string,
+    description?: string,
+    opts?: { accent?: "default" | "cart" }
+  ) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -32,10 +37,17 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const showSuccess = useCallback(
-    (title: string, description?: string) => {
+    (
+      title: string,
+      description?: string,
+      opts?: { accent?: "default" | "cart" }
+    ) => {
       const id = Date.now() + Math.floor(Math.random() * 1000);
-      setToasts((prev) => [...prev.slice(-2), { id, title, description }]);
-      window.setTimeout(() => dismiss(id), 3200);
+      setToasts((prev) => [
+        ...prev.slice(-2),
+        { id, title, description, accent: opts?.accent ?? "default" },
+      ]);
+      window.setTimeout(() => dismiss(id), 3600);
     },
     [dismiss]
   );
@@ -54,17 +66,34 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
             key={toast.id}
             role="status"
             className={cn(
-              "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-emerald-200 bg-cream/95 px-4 py-3 text-sm text-emerald-950 shadow-lg shadow-emerald-900/10 backdrop-blur-md",
-              "animate-[fb-fade-up_0.35s_ease-out]"
+              "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border px-4 py-3.5 text-sm shadow-lg backdrop-blur-md",
+              "animate-[fb-fade-up_0.35s_ease-out]",
+              toast.accent === "cart"
+                ? "border-emerald-700/40 bg-emerald-900 text-cream shadow-emerald-900/25"
+                : "border-emerald-200 bg-cream/95 text-emerald-950 shadow-emerald-900/10"
             )}
           >
-            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">
-              <Check className="size-3.5" strokeWidth={2.5} />
+            <span
+              className={cn(
+                "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
+                toast.accent === "cart"
+                  ? "bg-cream/15 text-cream"
+                  : "bg-emerald-100 text-emerald-800"
+              )}
+            >
+              <Check className="size-4" strokeWidth={2.5} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-medium">{toast.title}</p>
+              <p className="font-medium leading-snug">{toast.title}</p>
               {toast.description && (
-                <p className="mt-0.5 text-xs text-emerald-900/70">
+                <p
+                  className={cn(
+                    "mt-0.5 text-xs leading-relaxed",
+                    toast.accent === "cart"
+                      ? "text-cream/75"
+                      : "text-emerald-900/70"
+                  )}
+                >
                   {toast.description}
                 </p>
               )}
@@ -72,7 +101,12 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => dismiss(toast.id)}
-              className="rounded-md p-1 text-emerald-800/60 transition-colors hover:bg-emerald-100 hover:text-emerald-950"
+              className={cn(
+                "rounded-md p-1 transition-colors",
+                toast.accent === "cart"
+                  ? "text-cream/60 hover:bg-cream/10 hover:text-cream"
+                  : "text-emerald-800/60 hover:bg-emerald-100 hover:text-emerald-950"
+              )}
               aria-label="Dismiss"
             >
               <X className="size-3.5" />

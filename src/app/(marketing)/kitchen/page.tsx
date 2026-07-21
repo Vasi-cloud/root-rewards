@@ -10,8 +10,11 @@ import {
   Leaf,
   Loader2,
   MapPin,
+  Minus,
+  Plus,
   ShoppingBag,
   Sparkles,
+  Trash2,
   Wand2,
 } from "lucide-react";
 import Link from "next/link";
@@ -69,6 +72,7 @@ export default function KitchenAssistantPage() {
   const [planOpen, setPlanOpen] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [addingAll, setAddingAll] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const [recipeCollapsed, setRecipeCollapsed] = useState(false);
   const [leafyTip, setLeafyTip] = useState(
     "Paste a recipe or pick a sample — I’ll sort your shopping list by aisle."
@@ -87,16 +91,36 @@ export default function KitchenAssistantPage() {
     [ingredients, cartIds]
   );
 
+  const addableUnitCount = useMemo(
+    () =>
+      addableIngredients.reduce(
+        (sum, ing) => sum + Math.max(1, ing.cartQty || 1),
+        0
+      ),
+    [addableIngredients]
+  );
+
   const timePreview = useMemo(() => {
     if (ingredients.length === 0) return null;
     const shop = estimateShopMinutes(ingredients.length);
     const cook = peekCookMinutes(recipeText, selectedSampleId);
     const buffer = 10;
+    const total = shop + cook + buffer;
     return {
       shop,
       cook,
       buffer,
-      total: shop + cook + buffer,
+      total,
+      segments: [
+        { key: "shop", label: "Shop", minutes: shop, color: "bg-emerald-600" },
+        { key: "cook", label: "Cook", minutes: cook, color: "bg-emerald-800" },
+        {
+          key: "buffer",
+          label: "Buffer",
+          minutes: buffer,
+          color: "bg-sage",
+        },
+      ] as const,
     };
   }, [ingredients, recipeText, selectedSampleId]);
 
@@ -124,9 +148,12 @@ export default function KitchenAssistantPage() {
     await new Promise((r) => window.setTimeout(r, 650));
 
     const parsed = extractIngredientsFromRecipe(text);
-    setIngredients(parsed.map((i) => ({ ...i, checked: false })));
+    setIngredients(
+      parsed.map((i) => ({ ...i, checked: false, cartQty: i.cartQty || 1 }))
+    );
     setPhase("ready");
     setRecipeCollapsed(true);
+    setConfirmClear(false);
 
     if (parsed.length === 0) {
       setLeafyTip(
@@ -160,6 +187,13 @@ export default function KitchenAssistantPage() {
     );
   }
 
+  function setCartQty(id: string, next: number) {
+    const qty = Math.max(1, Math.min(20, Math.floor(next)));
+    setIngredients((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, cartQty: qty } : i))
+    );
+  }
+
   function openBuyOnline(ing: ShoppingIngredient) {
     const { url } = recordPartnerOutboundClick({
       platformId: "amazon",
@@ -172,18 +206,21 @@ export default function KitchenAssistantPage() {
   async function addAllToCart() {
     if (addableIngredients.length === 0) return;
     setAddingAll(true);
-    await new Promise((r) => window.setTimeout(r, 280));
+    await new Promise((r) => window.setTimeout(r, 320));
 
     const addedIds = new Set<string>();
+    let unitTotal = 0;
     for (const ing of addableIngredients) {
       const product = ingredientToCartProduct(ing);
       if (cartIds.has(product.id) || addedIds.has(product.id)) continue;
-      addToCart(product);
+      const qty = Math.max(1, ing.cartQty || 1);
+      addToCart(product, qty);
       addedIds.add(product.id);
+      unitTotal += qty;
     }
 
-    const count = addedIds.size;
-    if (count > 0) {
+    const lineCount = addedIds.size;
+    if (lineCount > 0) {
       setIngredients((prev) =>
         prev.map((ing) =>
           addedIds.has(kitchenIngredientCartId(ing))
@@ -192,19 +229,38 @@ export default function KitchenAssistantPage() {
         )
       );
       showSuccess(
-        count === 1 ? "1 item added to cart" : `${count} items added to cart`,
-        "Open your cart anytime from the header."
+        unitTotal === 1
+          ? "Added to your cart"
+          : `${unitTotal} items added to cart`,
+        lineCount === unitTotal
+          ? "View your cart from the header anytime."
+          : `${lineCount} ingredients · quantities respected.`,
+        { accent: "cart" }
       );
       setLeafyTip(
-        `Added ${count} ingredient${count === 1 ? "" : "s"} to your Forest Buddies cart. Checked items are already covered.`
+        `Cart updated with ${unitTotal} item${unitTotal === 1 ? "" : "s"} from your list. Checked rows are covered.`
       );
     } else {
       showSuccess(
         "Already in your cart",
-        "Every unchecked item was already in the cart."
+        "Every unchecked item was already in the cart.",
+        { accent: "cart" }
       );
     }
     setAddingAll(false);
+  }
+
+  function clearList() {
+    setIngredients([]);
+    setPlan(null);
+    setPlanOpen(false);
+    setConfirmClear(false);
+    setPhase("idle");
+    setRecipeCollapsed(false);
+    setLeafyTip(
+      "List cleared — pick a sample or paste a new recipe when you’re ready."
+    );
+    showSuccess("Shopping list cleared", "Start fresh whenever you like.");
   }
 
   async function planRecipe() {
@@ -478,22 +534,70 @@ Ingredients:
 
             {phase === "ready" && ingredients.length > 0 && (
               <>
-                {/* Time preview strip */}
+                {/* Visual time estimate */}
                 {timePreview && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-cream px-4 py-3 text-sm text-emerald-950 shadow-sm">
-                    <Clock className="size-4 shrink-0 text-emerald-800" />
-                    <span className="font-medium">
-                      ~{timePreview.total} min total
-                    </span>
-                    <span className="text-emerald-800/70">
-                      · {timePreview.shop}m shop · {timePreview.cook}m cook ·{" "}
-                      {timePreview.buffer}m buffer
-                    </span>
-                  </div>
+                  <Card className="overflow-hidden border-emerald-200/90 bg-gradient-to-br from-emerald-50 via-cream to-white shadow-sm">
+                    <CardContent className="space-y-4 p-4 sm:p-5">
+                      <div className="flex flex-wrap items-end justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
+                            Time estimate
+                          </p>
+                          <p className="font-heading mt-1 text-3xl font-semibold tabular-nums text-emerald-950">
+                            ~{timePreview.total}
+                            <span className="ml-1 text-lg font-medium text-emerald-800/80">
+                              min
+                            </span>
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Shopping + cooking + a little buffer
+                          </p>
+                        </div>
+                        <span className="flex size-11 items-center justify-center rounded-full bg-emerald-800/10 text-emerald-900">
+                          <Clock className="size-5" />
+                        </span>
+                      </div>
+                      <div
+                        className="flex h-3 overflow-hidden rounded-full bg-emerald-100"
+                        role="img"
+                        aria-label={`Shop ${timePreview.shop} minutes, cook ${timePreview.cook} minutes, buffer ${timePreview.buffer} minutes`}
+                      >
+                        {timePreview.segments.map((seg) => (
+                          <div
+                            key={seg.key}
+                            className={cn(
+                              "h-full transition-all duration-500",
+                              seg.color
+                            )}
+                            style={{
+                              width: `${(seg.minutes / timePreview.total) * 100}%`,
+                            }}
+                            title={`${seg.label}: ${seg.minutes}m`}
+                          />
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {timePreview.segments.map((seg) => (
+                          <div
+                            key={seg.key}
+                            className="rounded-xl border border-emerald-200/70 bg-white/80 px-2 py-2.5 text-center"
+                          >
+                            <p className="text-[11px] text-muted-foreground">
+                              {seg.label}
+                            </p>
+                            <p className="font-heading text-lg font-semibold tabular-nums text-emerald-950">
+                              {seg.minutes}
+                              <span className="text-xs font-medium">m</span>
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
 
                 <Card className="border-emerald-200/80 bg-white shadow-md ring-1 ring-emerald-900/5">
-                  <CardHeader className="pb-3">
+                  <CardHeader className="space-y-4 pb-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
@@ -505,19 +609,70 @@ Ingredients:
                         <CardDescription className="mt-1">
                           {checkedCount}/{ingredients.length} checked · grouped
                           by aisle
-                          {addableIngredients.length > 0
-                            ? ` · ${addableIngredients.length} ready for cart`
+                          {addableUnitCount > 0
+                            ? ` · ${addableUnitCount} units ready`
                             : ""}
                         </CardDescription>
                       </div>
-                      <Badge className="bg-emerald-800 text-cream">
-                        {ingredients.length} items
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="bg-emerald-800 text-cream">
+                          {ingredients.length} items
+                        </Badge>
+                        {!confirmClear ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 gap-1.5 text-muted-foreground hover:text-destructive"
+                            onClick={() => setConfirmClear(true)}
+                          >
+                            <Trash2 className="size-3.5" />
+                            Clear list
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
+
+                    {confirmClear && (
+                      <div
+                        role="alertdialog"
+                        aria-labelledby="clear-list-title"
+                        className="rounded-xl border border-amber-300/90 bg-amber-50 px-3.5 py-3 text-sm text-amber-950"
+                      >
+                        <p id="clear-list-title" className="font-medium">
+                          Clear this shopping list?
+                        </p>
+                        <p className="mt-1 text-xs text-amber-900/80">
+                          This removes ingredients from Leafy’s list. Items
+                          already in your cart stay in the cart.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="gap-1.5"
+                            onClick={clearList}
+                          >
+                            <Trash2 className="size-3.5" />
+                            Yes, clear list
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmClear(false)}
+                          >
+                            Keep list
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     <Button
                       type="button"
                       size="lg"
-                      className="mt-4 h-11 w-full gap-2 bg-emerald-800 text-cream shadow-md hover:bg-emerald-700 hover:shadow-lg"
+                      className="h-12 w-full gap-2.5 bg-primary text-base font-semibold text-primary-foreground shadow-lg shadow-emerald-900/15 hover:bg-primary/90 hover:shadow-xl"
                       disabled={
                         ingredients.length === 0 ||
                         addableIngredients.length === 0 ||
@@ -527,16 +682,16 @@ Ingredients:
                     >
                       {addingAll ? (
                         <>
-                          <Loader2 className="size-4 animate-spin" />
+                          <Loader2 className="size-5 animate-spin" />
                           Adding to cart…
                         </>
                       ) : (
                         <>
-                          <ShoppingBag className="size-4" />
+                          <ShoppingBag className="size-5" />
                           Add All to Cart
-                          {addableIngredients.length > 0 && (
-                            <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
-                              {addableIngredients.length}
+                          {addableUnitCount > 0 && (
+                            <span className="rounded-lg bg-white/20 px-2 py-0.5 text-sm font-bold tabular-nums">
+                              {addableUnitCount}
                             </span>
                           )}
                         </>
@@ -544,7 +699,7 @@ Ingredients:
                     </Button>
                     {ingredients.length > 0 &&
                       addableIngredients.length === 0 && (
-                        <p className="mt-2 text-center text-xs text-muted-foreground">
+                        <p className="text-center text-xs text-muted-foreground">
                           Everything on this list is already checked or in your
                           cart.
                         </p>
@@ -563,84 +718,122 @@ Ingredients:
                             );
                             const done = ing.checked || inCart;
                             return (
-                            <li
-                              key={ing.id}
-                              className={cn(
-                                "rounded-xl border border-border/60 bg-muted/15 p-3 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm",
-                                done && "bg-emerald-50/50 opacity-75"
-                              )}
-                            >
-                              <div className="flex items-start gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleChecked(ing.id)}
-                                  className={cn(
-                                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-                                    done
-                                      ? "border-emerald-800 bg-emerald-800 text-cream"
-                                      : "border-border bg-background hover:border-emerald-400"
-                                  )}
-                                  aria-label={
-                                    ing.checked
-                                      ? `Uncheck ${ing.name}`
-                                      : `Check off ${ing.name}`
-                                  }
-                                >
-                                  {done && (
-                                    <Check className="size-3" strokeWidth={3} />
-                                  )}
-                                </button>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p
-                                      className={cn(
-                                        "text-sm font-medium text-foreground",
-                                        done && "line-through"
-                                      )}
-                                    >
-                                      {formatIngredientLabel(ing)}
-                                    </p>
-                                    {inCart && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="bg-emerald-100 text-[10px] font-medium text-emerald-900"
-                                      >
-                                        In cart
-                                      </Badge>
+                              <li
+                                key={ing.id}
+                                className={cn(
+                                  "rounded-xl border border-border/60 bg-muted/15 p-3 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm",
+                                  done && "bg-emerald-50/50 opacity-75"
+                                )}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleChecked(ing.id)}
+                                    className={cn(
+                                      "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
+                                      done
+                                        ? "border-emerald-800 bg-emerald-800 text-cream"
+                                        : "border-border bg-background hover:border-emerald-400"
                                     )}
-                                  </div>
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      className="h-8 gap-1.5 bg-emerald-800 text-cream hover:bg-emerald-700"
-                                      onClick={() => openBuyOnline(ing)}
-                                    >
-                                      <ShoppingBag className="size-3.5" />
-                                      Buy Online
-                                      <span className="hidden text-[10px] opacity-80 sm:inline">
-                                        · {getAmazonStoreLabel()}
+                                    aria-label={
+                                      ing.checked
+                                        ? `Uncheck ${ing.name}`
+                                        : `Check off ${ing.name}`
+                                    }
+                                  >
+                                    {done && (
+                                      <Check
+                                        className="size-3"
+                                        strokeWidth={3}
+                                      />
+                                    )}
+                                  </button>
+                                  <div className="min-w-0 flex-1 space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p
+                                        className={cn(
+                                          "text-sm font-medium text-foreground",
+                                          done && "line-through"
+                                        )}
+                                      >
+                                        {formatIngredientLabel(ing)}
+                                      </p>
+                                      {inCart && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="bg-emerald-100 text-[10px] font-medium text-emerald-900"
+                                        >
+                                          In cart
+                                        </Badge>
+                                      )}
+                                    </div>
+
+                                    {/* Qty stepper */}
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5 shadow-xs">
+                                        <button
+                                          type="button"
+                                          disabled={done || ing.cartQty <= 1}
+                                          onClick={() =>
+                                            setCartQty(ing.id, ing.cartQty - 1)
+                                          }
+                                          className="inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                                          aria-label={`Decrease quantity for ${ing.name}`}
+                                        >
+                                          <Minus className="size-3.5" />
+                                        </button>
+                                        <span className="min-w-[1.75rem] text-center text-sm font-semibold tabular-nums">
+                                          {ing.cartQty}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          disabled={done || ing.cartQty >= 20}
+                                          onClick={() =>
+                                            setCartQty(ing.id, ing.cartQty + 1)
+                                          }
+                                          className="inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                                          aria-label={`Increase quantity for ${ing.name}`}
+                                        >
+                                          <Plus className="size-3.5" />
+                                        </button>
+                                      </div>
+                                      <span className="text-[11px] text-muted-foreground">
+                                        Qty for cart
                                       </span>
-                                      <ExternalLink className="size-3 opacity-70" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 gap-1.5"
-                                      nativeButton={false}
-                                      render={
-                                        <Link
-                                          href={`/local?ingredient=${encodeURIComponent(ing.name)}#local-stores`}
-                                        />
-                                      }
-                                    >
-                                      <MapPin className="size-3.5" />
-                                      Check Local
-                                    </Button>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="h-8 gap-1.5 bg-emerald-800 text-cream hover:bg-emerald-700"
+                                        onClick={() => openBuyOnline(ing)}
+                                      >
+                                        <ShoppingBag className="size-3.5" />
+                                        Buy Online
+                                        <span className="hidden text-[10px] opacity-80 sm:inline">
+                                          · {getAmazonStoreLabel()}
+                                        </span>
+                                        <ExternalLink className="size-3 opacity-70" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 gap-1.5"
+                                        nativeButton={false}
+                                        render={
+                                          <Link
+                                            href={`/local?ingredient=${encodeURIComponent(ing.name)}#local-stores`}
+                                          />
+                                        }
+                                      >
+                                        <MapPin className="size-3.5" />
+                                        Check Local
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </li>
+                              </li>
                             );
                           })}
                         </ul>
@@ -651,7 +844,7 @@ Ingredients:
                     <Button
                       type="button"
                       size="lg"
-                      className="h-11 w-full gap-2 bg-emerald-800 text-cream shadow-md hover:bg-emerald-700 sm:hidden"
+                      className="h-12 w-full gap-2.5 bg-primary text-base font-semibold shadow-lg sm:hidden"
                       disabled={
                         ingredients.length === 0 ||
                         addableIngredients.length === 0 ||
@@ -661,90 +854,90 @@ Ingredients:
                     >
                       {addingAll ? (
                         <>
-                          <Loader2 className="size-4 animate-spin" />
+                          <Loader2 className="size-5 animate-spin" />
                           Adding…
                         </>
                       ) : (
                         <>
-                          <ShoppingBag className="size-4" />
+                          <ShoppingBag className="size-5" />
                           Add All to Cart
-                          {addableIngredients.length > 0 && (
-                            <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold">
-                              {addableIngredients.length}
+                          {addableUnitCount > 0 && (
+                            <span className="rounded-lg bg-white/20 px-2 py-0.5 text-sm font-bold">
+                              {addableUnitCount}
                             </span>
                           )}
                         </>
                       )}
                     </Button>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <Button
-                        type="button"
-                        size="lg"
-                        className="h-11 w-full gap-2 shadow-md sm:w-auto"
-                        disabled={planning}
-                        onClick={() => void planRecipe()}
-                      >
-                        {planning ? (
-                          <>
-                            <Loader2 className="size-4 animate-spin" />
-                            Planning…
-                          </>
-                        ) : (
-                          <>
-                            <CalendarPlus className="size-4" />
-                            Plan This Recipe
-                            {timePreview && (
-                              <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
-                                ~{timePreview.total}m
-                              </span>
-                            )}
-                          </>
+                      <div className="min-w-0">
+                        <Button
+                          type="button"
+                          size="lg"
+                          className="h-11 w-full gap-2 shadow-md sm:w-auto"
+                          disabled={planning}
+                          onClick={() => void planRecipe()}
+                        >
+                          {planning ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" />
+                              Planning…
+                            </>
+                          ) : (
+                            <>
+                              <CalendarPlus className="size-4" />
+                              Plan This Recipe
+                              {timePreview && (
+                                <span className="rounded-md bg-white/20 px-1.5 py-0.5 text-xs font-semibold tabular-nums">
+                                  ~{timePreview.total}m
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </Button>
+                        {timePreview && (
+                          <p className="mt-2 text-xs text-emerald-900/75">
+                            Estimate: {timePreview.shop}m shopping +{" "}
+                            {timePreview.cook}m cooking + {timePreview.buffer}m
+                            buffer
+                          </p>
                         )}
-                      </Button>
-                      {timePreview && (
-                        <p className="mt-2 text-xs text-emerald-900/75">
-                          Estimate: {timePreview.shop}m shopping +{" "}
-                          {timePreview.cook}m cooking + {timePreview.buffer}m
-                          buffer
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="hidden gap-1.5 sm:inline-flex"
-                        disabled={
-                          ingredients.length === 0 ||
-                          addableIngredients.length === 0 ||
-                          addingAll
-                        }
-                        onClick={() => void addAllToCart()}
-                      >
-                        <ShoppingBag className="size-3.5" />
-                        Add All to Cart
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        nativeButton={false}
-                        render={<Link href="/cart" />}
-                      >
-                        View cart
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        nativeButton={false}
-                        render={<Link href="/local" />}
-                      >
-                        Browse Buy Local
-                      </Button>
-                    </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="hidden gap-1.5 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 sm:inline-flex"
+                          disabled={
+                            ingredients.length === 0 ||
+                            addableIngredients.length === 0 ||
+                            addingAll
+                          }
+                          onClick={() => void addAllToCart()}
+                        >
+                          <ShoppingBag className="size-3.5" />
+                          Add All
+                          {addableUnitCount > 0 ? ` (${addableUnitCount})` : ""}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          nativeButton={false}
+                          render={<Link href="/cart" />}
+                        >
+                          View cart
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          nativeButton={false}
+                          render={<Link href="/local" />}
+                        >
+                          Browse Buy Local
+                        </Button>
+                      </div>
                     </div>
                   </CardFooter>
                 </Card>

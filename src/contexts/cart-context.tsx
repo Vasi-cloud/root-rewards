@@ -8,7 +8,7 @@ interface CartContextValue {
   cart: CartItem[];
   /** True after the first localStorage read — avoid treating empty as “no cart”. */
   hydrated: boolean;
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -47,15 +47,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cart, hydrated]);
 
-  const addToCart = useCallback((product: Product) => {
+  const addToCart = useCallback((product: Product, quantity = 1) => {
+    const qty = Math.max(1, Math.min(99, Math.floor(quantity)));
     setCart((prev) => {
       const existing = prev.findIndex((item) => item.id === product.id);
       if (existing !== -1) {
         const updated = [...prev];
-        updated[existing] = { ...updated[existing], quantity: updated[existing].quantity + 1 };
+        updated[existing] = {
+          ...updated[existing],
+          quantity: Math.min(99, updated[existing].quantity + qty),
+        };
         return updated;
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: qty }];
     });
   }, []);
 

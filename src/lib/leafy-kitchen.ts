@@ -24,6 +24,8 @@ export type ShoppingIngredient = {
   /** pantry | produce | protein | dairy | other */
   aisle: "pantry" | "produce" | "protein" | "dairy" | "other";
   checked: boolean;
+  /** How many units to add to the Forest Buddies cart (default 1) */
+  cartQty: number;
 };
 
 export type RecipePlan = {
@@ -309,6 +311,7 @@ export function extractIngredientsFromRecipe(text: string): ShoppingIngredient[]
       unit,
       aisle: classifyAisle(name),
       checked: false,
+      cartQty: 1,
     });
   }
 
