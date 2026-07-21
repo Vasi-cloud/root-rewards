@@ -1,32 +1,44 @@
 "use client";
 
 import {
-  Bike,
+  ExternalLink,
+  HeartHandshake,
   Leaf,
   MapPin,
   Navigation,
+  ShoppingBag,
   Store,
-  HeartHandshake,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { LocalAvailabilityBadge } from "@/components/local/local-availability-badge";
-import { ProductPartnerLinks } from "@/components/product/product-partner-links";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useCart } from "@/contexts/cart-context";
 import {
   DISTANCE_OPTIONS_MI,
-  STOCK_SIMULATION_DISCLAIMER,
+  LOCAL_STOCK_DISCLAIMER,
   USER_LOCATION_OPTIONS,
+  checkInStoreUrl,
   distanceOptionLabel,
+  findNearbyRetailChains,
   formatDistance,
   getLocalListings,
   getNearbyMakers,
   pinPosition,
+  retailChainToNearbyStore,
+  type NearbyStore,
   type UserLocationOption,
 } from "@/lib/local-commerce";
 import { ensureDemoShops } from "@/lib/seller-storage";
@@ -36,7 +48,7 @@ export default function BuyLocalPage() {
     <Suspense
       fallback={
         <div className="mx-auto max-w-6xl px-4 py-14 text-muted-foreground">
-          Loading local makers…
+          Loading local stores…
         </div>
       }
     >
@@ -50,14 +62,20 @@ function BuyLocalPageInner() {
   const searchParams = useSearchParams();
   const cityParam = searchParams.get("city");
   const productParam = searchParams.get("product");
+  const storesSectionRef = useRef<HTMLElement>(null);
 
   const initialCity =
     USER_LOCATION_OPTIONS.find((l) => l.id === cityParam)?.id ??
     USER_LOCATION_OPTIONS[0].id;
 
   const [locationId, setLocationId] = useState(initialCity);
-  const [maxMiles, setMaxMiles] = useState<(typeof DISTANCE_OPTIONS_MI)[number]>(50);
+  const [maxMiles, setMaxMiles] = useState<(typeof DISTANCE_OPTIONS_MI)[number]>(25);
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [onlineProductId, setOnlineProductId] = useState<string | null>(null);
+  const [nearbyStores, setNearbyStores] = useState<NearbyStore[]>([]);
+  const [storesLoading, setStoresLoading] = useState(true);
+  const [placesEngine, setPlacesEngine] = useState<string>("mock");
+  const [focusProductName, setFocusProductName] = useState<string | null>(null);
 
   useEffect(() => {
     ensureDemoShops();
@@ -80,6 +98,7 @@ function BuyLocalPageInner() {
     () => getNearbyMakers(user, maxMiles),
     [user, maxMiles]
   );
+
   const listings = useMemo(() => {
     const all = getLocalListings(user, maxMiles);
     if (!productParam) return all;
@@ -92,11 +111,113 @@ function BuyLocalPageInner() {
     (l) => l.product.id === productParam
   )?.product.name;
 
+  const loadNearbyStores = useCallback(async () => {
+    setStoresLoading(true);
+    const retailFallback = findNearbyRetailChains(user, maxMiles, locationId)
+      .slice(0, 8)
+      .map((s) => retailChainToNearbyStore(s, user));
+
+    try {
+      const res = await fetch("/api/places/nearby", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locationId,
+          lat: user.lat,
+          lng: user.lng,
+          maxMiles,
+          limit: 8,
+          categoryHint: "grocery supermarket retail",
+          productNames: focusProductName
+            ? [focusProductName]
+            : ["eco household", "sustainable grocery"],
+          labels: ["Sainsbury's", "Tesco", "Waitrose"],
+        }),
+      });
+      const data = (await res.json()) as {
+        stores?: NearbyStore[];
+        engine?: string;
+        googleConfigured?: boolean;
+      };
+
+      const fromApi = data.stores ?? [];
+      setPlacesEngine(data.engine ?? "mock");
+
+      // Merge Places + UK retail pins; prefer closer unique names
+      const seen = new Set<string>();
+      const merged: NearbyStore[] = [];
+      for (const store of [...fromApi, ...retailFallback]) {
+        const key = store.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(store);
+      }
+      merged.sort((a, b) => a.distanceMi - b.distanceMi);
+      setNearbyStores(merged.slice(0, 10));
+    } catch {
+      setPlacesEngine("mock");
+      setNearbyStores(retailFallback);
+    } finally {
+      setStoresLoading(false);
+    }
+  }, [user, maxMiles, locationId, focusProductName]);
+
+  useEffect(() => {
+    void loadNearbyStores();
+  }, [loadNearbyStores]);
+
   function handleAdd(productId: string, product: (typeof listings)[0]["product"]) {
     addToCart(product);
     setAddedId(productId);
     window.setTimeout(() => setAddedId(null), 1200);
   }
+
+  function scrollToStores(productName?: string) {
+    if (productName) setFocusProductName(productName);
+    storesSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const mapPins = useMemo(() => {
+    const pins: Array<{
+      id: string;
+      name: string;
+      lat: number;
+      lng: number;
+      distanceMi: number;
+      kind: "you" | "store" | "maker";
+    }> = [
+      {
+        id: "you",
+        name: "You",
+        lat: user.lat,
+        lng: user.lng,
+        distanceMi: 0,
+        kind: "you",
+      },
+    ];
+    for (const s of nearbyStores) {
+      pins.push({
+        id: s.id,
+        name: s.name,
+        lat: s.lat,
+        lng: s.lng,
+        distanceMi: s.distanceMi,
+        kind: "store",
+      });
+    }
+    for (const { maker, distanceMi } of makers.slice(0, 4)) {
+      if (pins.some((p) => p.id === maker.id)) continue;
+      pins.push({
+        id: maker.id,
+        name: maker.name,
+        lat: maker.lat,
+        lng: maker.lng,
+        distanceMi,
+        kind: "maker",
+      });
+    }
+    return pins;
+  }, [user, nearbyStores, makers]);
 
   return (
     <div className="relative overflow-hidden">
@@ -113,173 +234,303 @@ function BuyLocalPageInner() {
             Buy Local
           </Badge>
         </div>
+
         <h1 className="font-heading max-w-2xl text-3xl font-semibold text-primary sm:text-5xl">
-          Keep good close to home
+          Find it nearby — then confirm in store
         </h1>
         <p className="mt-3 max-w-2xl text-muted-foreground sm:text-lg">
-          Discover eco makers near you — shorter miles, stronger communities,
-          and products with a face behind them. Pick a mock location below
-          (Maps / GPS can plug in later).
-        </p>
-        {highlightName && (
-          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2.5 text-sm text-emerald-950">
-            Showing makers that carry{" "}
-            <span className="font-semibold">{highlightName}</span> first — from
-            Ask Leafy vision / recommendations.
-          </p>
-        )}
-        <p className="mt-3 rounded-xl border border-amber-200/80 bg-amber-50/70 px-4 py-2.5 text-xs leading-relaxed text-amber-950 sm:text-sm">
-          {STOCK_SIMULATION_DISCLAIMER} Partner links (Amazon, Target, REI)
-          open search pages for comparison — they do not confirm real aisle
-          stock.
+          We show nearby retailers and makers so you can shop closer to home.
+          We do not have live inventory — always verify stock with the store
+          before you go.
         </p>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-5">
-          <div className="space-y-4 rounded-3xl border border-border/70 bg-white/85 p-5 shadow-sm lg:col-span-2 sm:p-6">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium" htmlFor="local-city">
-                Your area
-              </label>
-              <select
-                id="local-city"
-                value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {USER_LOCATION_OPTIONS.map((loc) => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.label} · {loc.region}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium">Show makers within</p>
-              <div className="flex flex-wrap gap-2">
-                {DISTANCE_OPTIONS_MI.map((mi) => (
-                  <button
-                    key={mi}
-                    type="button"
-                    onClick={() => setMaxMiles(mi)}
-                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                      maxMiles === mi
-                        ? "border-emerald-800 bg-emerald-800 text-white"
-                        : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:bg-emerald-100"
-                    }`}
-                  >
-                    {mi >= 500
-                      ? "Anywhere"
-                      : distanceOptionLabel(mi, user.country)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-950">
-              <p className="flex items-center gap-2 font-medium">
-                <Navigation className="size-4" />
-                Near {user.label}
-              </p>
-              <p className="mt-1 text-emerald-800/85">
-                {makers.length} maker{makers.length === 1 ? "" : "s"} ·{" "}
-                {listings.length} local listing
-                {listings.length === 1 ? "" : "s"} within{" "}
-                {maxMiles >= 500 ? "range" : `${maxMiles} miles`}.
-              </p>
-            </div>
-
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex gap-2">
-                <Bike className="mt-0.5 size-4 shrink-0 text-primary" />
-                Less shipping, more neighborhood resilience
-              </li>
-              <li className="flex gap-2">
-                <Leaf className="mt-0.5 size-4 shrink-0 text-primary" />
-                Meet the people behind eco products
-              </li>
-              <li className="flex gap-2">
-                <Store className="mt-0.5 size-4 shrink-0 text-primary" />
-                Pickup, workshops, and repair — not just parcels
-              </li>
-            </ul>
-          </div>
-
-          <LocalMapPlaceholder user={user} maxMiles={maxMiles} />
+        {/* Primary honest disclaimer */}
+        <div
+          role="status"
+          className="mt-5 flex gap-3 rounded-xl border border-amber-300/90 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm sm:items-center"
+        >
+          <Store className="mt-0.5 size-5 shrink-0 text-amber-800 sm:mt-0" />
+          <p className="font-medium leading-relaxed">{LOCAL_STOCK_DISCLAIMER}</p>
         </div>
 
-        <section className="mt-12">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800/70">
-                Nearby makers
-              </p>
-              <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
-                Local eco businesses
-              </h2>
-            </div>
+        {highlightName && (
+          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2.5 text-sm text-emerald-950">
+            Focusing on stores near matches for{" "}
+            <span className="font-semibold">{highlightName}</span>.
+          </p>
+        )}
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-5">
+          <Card className="border-border/70 bg-white/90 lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Navigation className="size-4 text-primary" />
+                Your area
+              </CardTitle>
+              <CardDescription>
+                Choose a city to see nearby stores and distance. Maps uses
+                Google Places when configured.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label
+                  className="mb-1.5 block text-sm font-medium"
+                  htmlFor="local-city"
+                >
+                  City
+                </label>
+                <select
+                  id="local-city"
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {USER_LOCATION_OPTIONS.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.label} · {loc.region}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium">Search within</p>
+                <div className="flex flex-wrap gap-2">
+                  {DISTANCE_OPTIONS_MI.map((mi) => (
+                    <button
+                      key={mi}
+                      type="button"
+                      onClick={() => setMaxMiles(mi)}
+                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        maxMiles === mi
+                          ? "border-emerald-800 bg-emerald-800 text-white"
+                          : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:bg-emerald-100"
+                      }`}
+                    >
+                      {mi >= 500
+                        ? "Anywhere"
+                        : distanceOptionLabel(mi, user.country)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-950">
+                <p className="font-medium">Near {user.label}</p>
+                <p className="mt-1 text-emerald-800/85">
+                  {storesLoading
+                    ? "Finding stores…"
+                    : `${nearbyStores.length} store${nearbyStores.length === 1 ? "" : "s"} · ${makers.length} maker${makers.length === 1 ? "" : "s"}`}
+                  {placesEngine === "hybrid" || placesEngine === "google-places"
+                    ? " · Google Maps"
+                    : " · map preview"}
+                </p>
+              </div>
+
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex gap-2">
+                  <Leaf className="mt-0.5 size-4 shrink-0 text-primary" />
+                  Buy online via partners, or check a store near you
+                </li>
+                <li className="flex gap-2">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+                  Distances are approximate from your selected city
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <LocalStoresMap
+            user={user}
+            pins={mapPins}
+            placesEngine={placesEngine}
+          />
+        </div>
+
+        {/* Nearby stores */}
+        <section ref={storesSectionRef} id="local-stores" className="mt-12 scroll-mt-24">
+          <div className="mb-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800/70">
+              Nearby stores
+            </p>
+            <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
+              Check stock in person
+            </h2>
+            <p className="mt-2 max-w-2xl text-muted-foreground">
+              Sainsbury’s, Tesco, Waitrose, and local makers — we show distance
+              and a link to confirm availability. We never claim real-time stock.
+            </p>
           </div>
 
-          {makers.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-border bg-card px-5 py-8 text-center text-muted-foreground">
-              No makers in this radius — try widening the distance or switching
-              cities.
-            </p>
+          {storesLoading ? (
+            <Card className="border-dashed">
+              <CardContent className="py-10 text-center text-muted-foreground">
+                Looking up nearby stores…
+              </CardContent>
+            </Card>
+          ) : nearbyStores.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-10 text-center text-muted-foreground">
+                No stores in this radius — try widening the distance or switching
+                cities.
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {makers.map(({ maker, distanceMi }) => (
-                <article
-                  key={maker.id}
-                  className="flex flex-col rounded-2xl border border-border/70 bg-card p-5 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-heading text-lg font-semibold text-primary">
-                      {maker.name}
-                    </h3>
-                    <Badge className="shrink-0 gap-1 bg-emerald-100 text-emerald-900">
-                      <MapPin className="size-3" />
-                      {formatDistance(distanceMi, user.country)}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{maker.city}</p>
-                  <p className="mt-3 flex-1 text-sm leading-relaxed text-foreground/85">
-                    {maker.blurb}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {maker.services.map((s) => (
-                      <Badge key={s} variant="outline" className="text-xs">
-                        {s}
+              {nearbyStores.map((store) => (
+                <Card key={store.id} className="border-border/70 bg-card">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-lg">{store.name}</CardTitle>
+                      <Badge className="shrink-0 gap-1 bg-emerald-100 text-emerald-900">
+                        <MapPin className="size-3" />
+                        {formatDistance(store.distanceMi, user.country)}
                       </Badge>
-                    ))}
-                  </div>
-                  {maker.shopSlug && (
+                    </div>
+                    <CardDescription>
+                      {store.address ?? store.city}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-sm leading-relaxed text-foreground/80">
+                      {store.blurb}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {store.openNow === true
+                        ? "Listed as open now — still confirm stock before visiting."
+                        : store.openNow === false
+                          ? "May be closed now — check hours on their site."
+                          : "Hours and stock not verified by Forest Buddies."}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="justify-stretch gap-2 border-t-0 bg-transparent pt-0">
                     <Button
-                      className="mt-4"
+                      className="flex-1"
+                      size="sm"
+                      nativeButton={false}
+                      render={
+                        <a
+                          href={checkInStoreUrl(store)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        />
+                      }
+                    >
+                      Check in-store
+                      <ExternalLink className="size-3.5" />
+                    </Button>
+                    <Button
                       variant="outline"
                       size="sm"
                       nativeButton={false}
-                      render={<Link href={`/shop/${maker.shopSlug}`} />}
+                      render={
+                        <a
+                          href={store.directionsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        />
+                      }
                     >
-                      Visit shop page
+                      Directions
                     </Button>
-                  )}
-                </article>
+                  </CardFooter>
+                </Card>
               ))}
             </div>
           )}
         </section>
 
+        {/* Eco makers */}
+        {makers.length > 0 && (
+          <section className="mt-14">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800/70">
+                Local makers
+              </p>
+              <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
+                Eco businesses near you
+              </h2>
+              <p className="mt-2 max-w-xl text-muted-foreground">
+                Independent makers — reach out to confirm pickup or stock.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {makers.map(({ maker, distanceMi }) => (
+                <Card key={maker.id} className="border-border/70">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle>{maker.name}</CardTitle>
+                      <Badge className="shrink-0 gap-1 bg-emerald-100 text-emerald-900">
+                        <MapPin className="size-3" />
+                        {formatDistance(distanceMi, user.country)}
+                      </Badge>
+                    </div>
+                    <CardDescription>{maker.city}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed text-foreground/85">
+                      {maker.blurb}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {maker.services.map((s) => (
+                        <Badge key={s} variant="outline" className="text-xs">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                  {(maker.shopSlug || maker.address) && (
+                    <CardFooter className="gap-2 border-t-0 bg-transparent">
+                      {maker.shopSlug && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          nativeButton={false}
+                          render={<Link href={`/shop/${maker.shopSlug}`} />}
+                        >
+                          Visit shop
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        nativeButton={false}
+                        render={
+                          <a
+                            href={checkInStoreUrl({
+                              name: maker.name,
+                              address: maker.address,
+                              city: maker.city,
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          />
+                        }
+                      >
+                        Check in-store
+                        <ExternalLink className="size-3.5" />
+                      </Button>
+                    </CardFooter>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Products */}
         <section className="mt-14">
           <div className="mb-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800/70">
               Shop nearby
             </p>
             <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
-              Local picks within range
+              Products — online or local
             </h2>
-            <p className="mt-2 max-w-xl text-muted-foreground">
-              Sorted by simulated availability, then distance — supporting these
-              listings keeps dollars and impact in your community.
+            <p className="mt-2 max-w-2xl text-muted-foreground">
+              Each product has two clear paths: buy through online partners, or
+              check nearby stores. Local stock is never guaranteed here.
             </p>
           </div>
 
@@ -289,178 +540,227 @@ function BuyLocalPageInner() {
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {listings.slice(0, 12).map(
-                ({ maker, product, distanceMi, availability }) => (
-                <article
-                  key={`${maker.id}-${product.id}`}
-                  className={`flex flex-col rounded-2xl border bg-white p-4 shadow-sm ${
-                    productParam === product.id
-                      ? "border-emerald-400 ring-2 ring-emerald-200"
-                      : "border-border/70"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge variant="outline">{product.category}</Badge>
-                    <span className="text-xs font-medium text-emerald-800">
-                      {formatDistance(distanceMi, user.country)} away
-                    </span>
-                  </div>
-                  {productParam === product.id && (
-                    <Badge className="mt-2 w-fit bg-emerald-800 text-white">
-                      From your photo match
-                    </Badge>
-                  )}
-                  <h3 className="font-heading mt-3 text-lg font-semibold text-primary">
-                    {product.name}
-                  </h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                    {product.description}
-                  </p>
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Store className="size-3.5 text-primary" />
-                    {maker.name}
-                  </p>
-                  <div className="mt-2">
-                    <LocalAvailabilityBadge
-                      availability={availability}
-                      showNote
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <ProductPartnerLinks product={product} />
-                  </div>
-                  <div className="mt-auto flex items-center justify-between gap-2 pt-4">
-                    <span className="font-heading text-xl font-semibold tabular-nums text-primary">
-                      ${product.price.toFixed(2)}
-                    </span>
-                    <Button
-                      size="sm"
-                      disabled={availability.status === "out_of_stock"}
-                      onClick={() => handleAdd(product.id, product)}
-                    >
-                      {availability.status === "out_of_stock"
-                        ? "Unavailable"
-                        : addedId === product.id
-                          ? "Added!"
-                          : availability.status === "pickup_only"
-                            ? "Reserve pickup"
-                            : "Add to cart"}
-                    </Button>
-                  </div>
-                </article>
-              )
-              )}
+              {listings.slice(0, 12).map(({ maker, product, distanceMi }) => {
+                const isOnlineOpen = onlineProductId === product.id;
+                return (
+                  <Card
+                    key={`${maker.id}-${product.id}`}
+                    className={`border bg-white ${
+                      productParam === product.id
+                        ? "border-emerald-400 ring-2 ring-emerald-200"
+                        : "border-border/70"
+                    }`}
+                  >
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline">{product.category}</Badge>
+                        <span className="text-xs font-medium text-emerald-800">
+                          Maker {formatDistance(distanceMi, user.country)} away
+                        </span>
+                      </div>
+                      {productParam === product.id && (
+                        <Badge className="mt-2 w-fit bg-emerald-800 text-white">
+                          From your photo match
+                        </Badge>
+                      )}
+                      <CardTitle className="mt-2 text-lg">{product.name}</CardTitle>
+                      <CardDescription className="line-clamp-2">
+                        {product.description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Store className="size-3.5 text-primary" />
+                        Listed with {maker.name}
+                      </p>
+                      <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                        Availability not verified. Use Buy Online for partners,
+                        or Check Local Stores to confirm in person.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          size="sm"
+                          variant={isOnlineOpen ? "default" : "outline"}
+                          className="w-full justify-center gap-2"
+                          onClick={() =>
+                            setOnlineProductId(isOnlineOpen ? null : product.id)
+                          }
+                        >
+                          <ShoppingBag className="size-3.5" />
+                          Buy Online
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full justify-center gap-2"
+                          onClick={() => scrollToStores(product.name)}
+                        >
+                          <MapPin className="size-3.5" />
+                          Check Local Stores
+                        </Button>
+                      </div>
+                      {isOnlineOpen && (
+                        <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                          <ProductPartnerLinks product={product} compact />
+                          <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/50 pt-3">
+                            <span className="font-heading text-lg font-semibold tabular-nums text-primary">
+                              ${product.price.toFixed(2)}
+                              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                on Forest Buddies
+                              </span>
+                            </span>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAdd(product.id, product)}
+                            >
+                              {addedId === product.id ? "Added!" : "Add to cart"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </section>
 
-        <div className="mt-14 rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-6 py-8 text-center sm:px-10">
-          <h2 className="font-heading text-2xl font-semibold text-emerald-950">
-            Every local choice plants roots
-          </h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm text-emerald-900/80 sm:text-base">
-            Buying nearby cuts freight emissions, funds makers you can meet, and
-            keeps eco businesses thriving on your block — not just in a warehouse.
-          </p>
-          <Button
-            className="mt-5"
-            nativeButton={false}
-            render={<Link href="/marketplace" />}
-          >
-            Browse full marketplace
-          </Button>
-        </div>
+        <Card className="mt-14 border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl text-emerald-950">
+              Shop closer, confirm first
+            </CardTitle>
+            <CardDescription className="mx-auto max-w-lg text-emerald-900/80">
+              Buying nearby can cut shipping miles — just remember that store
+              shelves change. Check in-store or on the retailer&apos;s site
+              before you make the trip.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="justify-center border-t-0 bg-transparent">
+            <Button
+              nativeButton={false}
+              render={<Link href="/marketplace" />}
+            >
+              Browse full marketplace
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );
 }
 
-function LocalMapPlaceholder({
+function LocalStoresMap({
   user,
-  maxMiles,
+  pins,
+  placesEngine,
 }: {
   user: UserLocationOption;
-  maxMiles: number;
+  pins: Array<{
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    distanceMi: number;
+    kind: "you" | "store" | "maker";
+  }>;
+  placesEngine: string;
 }) {
-  const nearby = getNearbyMakers(user, maxMiles);
-  const you = pinPosition(user, user.country);
+  const live =
+    placesEngine === "hybrid" ||
+    placesEngine === "google-places" ||
+    placesEngine === "forest-buddies";
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-[#dfece4] shadow-sm lg:col-span-3">
-      {/* Soft “map” terrain */}
-      <div
-        className="absolute inset-0 opacity-80"
-        style={{
-          backgroundImage: `
-            radial-gradient(ellipse 40% 30% at 20% 70%, rgba(149,213,178,0.55), transparent),
-            radial-gradient(ellipse 35% 25% at 75% 30%, rgba(125,211,252,0.35), transparent),
-            linear-gradient(160deg, #c5d9cc 0%, #e8f0ea 45%, #b8d4c4 100%)
-          `,
-        }}
-      />
-      <div
-        className="absolute inset-0 opacity-[0.15]"
-        style={{
-          backgroundImage:
-            "linear-gradient(#1b4332 1px, transparent 1px), linear-gradient(90deg, #1b4332 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-        }}
-      />
+    <Card className="overflow-hidden border-border/70 bg-[#dfece4] p-0 lg:col-span-3">
+      <div className="relative min-h-[280px] sm:min-h-[340px]">
+        <div
+          className="absolute inset-0 opacity-80"
+          style={{
+            backgroundImage: `
+              radial-gradient(ellipse 40% 30% at 20% 70%, rgba(149,213,178,0.55), transparent),
+              radial-gradient(ellipse 35% 25% at 75% 30%, rgba(125,211,252,0.35), transparent),
+              linear-gradient(160deg, #c5d9cc 0%, #e8f0ea 45%, #b8d4c4 100%)
+            `,
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.15]"
+          style={{
+            backgroundImage:
+              "linear-gradient(#1b4332 1px, transparent 1px), linear-gradient(90deg, #1b4332 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
+        />
 
-      <div className="relative flex min-h-[280px] flex-col p-4 sm:min-h-[340px] sm:p-5">
-        <div className="z-10 flex flex-wrap items-center justify-between gap-2">
-          <Badge className="gap-1 bg-cream/90 text-forest shadow-sm">
-            <MapPin className="size-3" />
-            Map preview (demo)
-          </Badge>
-          <span className="rounded-full bg-forest/70 px-2.5 py-1 text-[11px] text-cream backdrop-blur-sm">
-            Google Maps placeholder
-          </span>
-        </div>
-
-        <div className="relative mt-2 flex-1">
-          {/* You are here */}
-          <div
-            className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${you.left}%`, top: `${you.top}%` }}
-          >
-            <div className="flex flex-col items-center">
-              <span className="mb-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow">
-                You
-              </span>
-              <span className="relative flex size-4">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/40" />
-                <span className="relative inline-flex size-4 rounded-full border-2 border-cream bg-primary" />
-              </span>
-            </div>
+        <div className="relative flex h-full min-h-[280px] flex-col p-4 sm:min-h-[340px] sm:p-5">
+          <div className="z-10 flex flex-wrap items-center justify-between gap-2">
+            <Badge className="gap-1 bg-cream/90 text-forest shadow-sm">
+              <MapPin className="size-3" />
+              Nearby stores map
+            </Badge>
+            <span className="rounded-full bg-forest/70 px-2.5 py-1 text-[11px] text-cream backdrop-blur-sm">
+              {live ? "Google Places + local pins" : "Demo pins · enable Maps API for live results"}
+            </span>
           </div>
 
-          {nearby.map(({ maker, distanceMi }) => {
-            const pos = pinPosition(maker, user.country);
-            return (
-              <div
-                key={maker.id}
-                className="absolute z-10 -translate-x-1/2 -translate-y-full"
-                style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
-                title={`${maker.name} · ${formatDistance(distanceMi, user.country)}`}
-              >
-                <div className="flex flex-col items-center">
-                  <span className="mb-0.5 max-w-[7rem] truncate rounded-md bg-cream/95 px-1.5 py-0.5 text-[10px] font-medium text-forest shadow-sm">
-                    {maker.name.split(" ")[0]} ·{" "}
-                    {formatDistance(distanceMi, user.country)}
-                  </span>
-                  <MapPin className="size-6 fill-emerald-700 text-emerald-900 drop-shadow" />
+          <div className="relative mt-2 flex-1">
+            {pins.map((pin) => {
+              const pos = pinPosition(
+                { lat: pin.lat, lng: pin.lng },
+                user.country
+              );
+              if (pin.kind === "you") {
+                return (
+                  <div
+                    key={pin.id}
+                    className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                    style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
+                  >
+                    <div className="flex flex-col items-center">
+                      <span className="mb-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow">
+                        You
+                      </span>
+                      <span className="relative flex size-4">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/40" />
+                        <span className="relative inline-flex size-4 rounded-full border-2 border-cream bg-primary" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={pin.id}
+                  className="absolute z-10 -translate-x-1/2 -translate-y-full"
+                  style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
+                  title={`${pin.name} · ${formatDistance(pin.distanceMi, user.country)}`}
+                >
+                  <div className="flex flex-col items-center">
+                    <span className="mb-0.5 max-w-[7.5rem] truncate rounded-md bg-cream/95 px-1.5 py-0.5 text-[10px] font-medium text-forest shadow-sm">
+                      {pin.name.split(/[\s&]/)[0]} ·{" "}
+                      {formatDistance(pin.distanceMi, user.country)}
+                    </span>
+                    <MapPin
+                      className={`size-6 drop-shadow ${
+                        pin.kind === "store"
+                          ? "fill-sky-600 text-sky-900"
+                          : "fill-emerald-700 text-emerald-900"
+                      }`}
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        <p className="z-10 mt-auto pt-3 text-xs text-forest/70">
-          Pins are illustrative. Wire real Google Maps / Places when you are
-          ready — the distance logic already uses lat/lng.
-        </p>
+          <p className="z-10 mt-auto pt-3 text-xs text-forest/70">
+            Distances are approximate. Stock is never live — use Check in-store
+            to verify with the retailer.
+          </p>
+        </div>
       </div>
-    </div>
+    </Card>
   );
 }

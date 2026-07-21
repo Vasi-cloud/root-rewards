@@ -95,6 +95,7 @@ function toNearbyStore(
     placeId,
     mapsUrl,
     directionsUrl: googleMapsDirectionsUrl({ lat, lng, name }, from),
+    websiteUrl: place.websiteUri?.trim() || undefined,
   };
 }
 

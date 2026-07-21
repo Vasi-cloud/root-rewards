@@ -383,6 +383,176 @@ export interface LocalProductMatch {
 export const STOCK_SIMULATION_DISCLAIMER =
   "Local availability is simulated for this demo — live store inventory and real-time stock checks come later.";
 
+/** Clear shopper-facing notice for Buy Local (no live stock). */
+export const LOCAL_STOCK_DISCLAIMER =
+  "Product availability may vary. Please check directly with the store.";
+
+/** UK / US grocery & lifestyle chains for Buy Local (demo pins when Places is unset). */
+export type RetailChainStore = {
+  id: string;
+  name: string;
+  city: string;
+  address: string;
+  lat: number;
+  lng: number;
+  /** Official site for “Check in-store” */
+  websiteUrl: string;
+  locationIds: string[];
+};
+
+export const UK_RETAIL_CHAINS: RetailChainStore[] = [
+  {
+    id: "sainsburys-shoreditch",
+    name: "Sainsbury’s",
+    city: "London",
+    address: "420 Hackney Rd, London E2 7AP",
+    lat: 51.5302,
+    lng: -0.0698,
+    websiteUrl: "https://www.sainsburys.co.uk/gol-ui/groceries",
+    locationIds: ["london"],
+  },
+  {
+    id: "tesco-shoreditch",
+    name: "Tesco Extra",
+    city: "London",
+    address: "275 Old St, London EC1V 9LN",
+    lat: 51.5259,
+    lng: -0.0875,
+    websiteUrl: "https://www.tesco.com/groceries/",
+    locationIds: ["london"],
+  },
+  {
+    id: "waitrose-canary",
+    name: "Waitrose & Partners",
+    city: "London",
+    address: "Canada Place, London E14 5AH",
+    lat: 51.5045,
+    lng: -0.0185,
+    websiteUrl: "https://www.waitrose.com/",
+    locationIds: ["london"],
+  },
+  {
+    id: "sainsburys-nq",
+    name: "Sainsbury’s Local",
+    city: "Manchester",
+    address: "1 Piccadilly Gardens, Manchester M1 1RG",
+    lat: 53.4805,
+    lng: -2.2374,
+    websiteUrl: "https://www.sainsburys.co.uk/gol-ui/groceries",
+    locationIds: ["manchester"],
+  },
+  {
+    id: "tesco-manchester",
+    name: "Tesco Metro",
+    city: "Manchester",
+    address: "55 Princess St, Manchester M2 4EQ",
+    lat: 53.4789,
+    lng: -2.2426,
+    websiteUrl: "https://www.tesco.com/groceries/",
+    locationIds: ["manchester"],
+  },
+  {
+    id: "waitrose-bristol",
+    name: "Waitrose & Partners",
+    city: "Bristol",
+    address: "51 Queens Rd, Bristol BS8 1RE",
+    lat: 51.4578,
+    lng: -2.6079,
+    websiteUrl: "https://www.waitrose.com/",
+    locationIds: ["bristol"],
+  },
+  {
+    id: "sainsburys-bristol",
+    name: "Sainsbury’s",
+    city: "Bristol",
+    address: "Unit 1, Glass Wharf, Bristol BS2 0ZX",
+    lat: 51.4508,
+    lng: -2.5821,
+    websiteUrl: "https://www.sainsburys.co.uk/gol-ui/groceries",
+    locationIds: ["bristol"],
+  },
+  {
+    id: "tesco-edinburgh",
+    name: "Tesco",
+    city: "Edinburgh",
+    address: "26 Nicolson St, Edinburgh EH8 9DH",
+    lat: 55.9462,
+    lng: -3.1845,
+    websiteUrl: "https://www.tesco.com/groceries/",
+    locationIds: ["edinburgh"],
+  },
+  {
+    id: "waitrose-edinburgh",
+    name: "Waitrose & Partners",
+    city: "Edinburgh",
+    address: "38 Comely Bank Rd, Edinburgh EH4 1BT",
+    lat: 55.9589,
+    lng: -3.2155,
+    websiteUrl: "https://www.waitrose.com/",
+    locationIds: ["edinburgh"],
+  },
+];
+
+export function findNearbyRetailChains(
+  user: GeoPoint & { id?: string },
+  maxMiles: number,
+  locationId?: string
+): Array<RetailChainStore & { distanceMi: number }> {
+  return UK_RETAIL_CHAINS.map((store) => ({
+    ...store,
+    distanceMi: milesBetween(user, store),
+  }))
+    .filter((s) => {
+      if (s.distanceMi > maxMiles) return false;
+      if (locationId && s.locationIds.length > 0) {
+        return s.locationIds.includes(locationId) || s.distanceMi <= 15;
+      }
+      return true;
+    })
+    .sort((a, b) => a.distanceMi - b.distanceMi);
+}
+
+/** “Check in-store” — chain site when known, else Maps / Google search for the branch. */
+export function checkInStoreUrl(store: {
+  name: string;
+  address?: string;
+  city?: string;
+  mapsUrl?: string;
+  websiteUrl?: string;
+}): string {
+  if (store.websiteUrl) return store.websiteUrl;
+  if (store.mapsUrl) return store.mapsUrl;
+  if (store.address) {
+    return googleMapsSearchUrl(`${store.name} ${store.address}`);
+  }
+  if (store.city) {
+    return googleMapsSearchUrl(`${store.name} near ${store.city}`);
+  }
+  return googleMapsSearchUrl(store.name);
+}
+
+export function retailChainToNearbyStore(
+  store: RetailChainStore & { distanceMi: number },
+  from: GeoPoint
+): NearbyStore {
+  return {
+    id: store.id,
+    name: store.name,
+    city: store.city,
+    address: store.address,
+    distanceMi: store.distanceMi,
+    lat: store.lat,
+    lng: store.lng,
+    blurb: "Major retailer near you — confirm stock on their site or in-store.",
+    source: "google",
+    availabilityHint: LOCAL_STOCK_DISCLAIMER,
+    matchingProductNames: [],
+    mapsUrl: googleMapsSearchUrl(`${store.name} ${store.address}`),
+    directionsUrl: googleMapsDirectionsUrl(store, from),
+    websiteUrl: store.websiteUrl,
+  };
+}
+
 const AVAILABILITY_RANK: Record<LocalAvailabilityStatus, number> = {
   in_stock: 0,
   limited: 1,
@@ -810,6 +980,8 @@ export interface NearbyStore {
   placeId?: string;
   mapsUrl: string;
   directionsUrl: string;
+  /** Optional chain website for Check in-store */
+  websiteUrl?: string;
 }
 
 export function googleMapsSearchUrl(query: string): string {
@@ -887,8 +1059,24 @@ export function buildPlacesSearchQuery(input: {
   const product = input.productNames?.[0];
   const city = (input.cityLabel ?? "").split(/[\u2014-]/)[0]?.trim() ?? "";
   const focus = product ? `${product}` : `${label}`;
+  const hint = (input.categoryHint ?? "").toLowerCase();
+  const grocery =
+    hint.includes("grocery") ||
+    hint.includes("supermarket") ||
+    hint.includes("retail");
+
+  if (input.country === "gb" && grocery) {
+    return `Sainsbury's Tesco Waitrose supermarket grocery store near ${city} UK`
+      .replace(/\s+/g, " ")
+      .trim();
+  }
   if (input.country === "gb") {
     return `zero waste eco shop ${focus} near ${city} UK`
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  if (grocery) {
+    return `grocery supermarket Whole Foods Target near ${city}`
       .replace(/\s+/g, " ")
       .trim();
   }
