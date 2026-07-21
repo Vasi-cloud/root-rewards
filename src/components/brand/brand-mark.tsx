@@ -97,6 +97,10 @@ export function shouldShowShopTrademarkStrip(pathname: string | null): boolean {
     pathname === "/cart" ||
     pathname.startsWith("/cart/") ||
     pathname === "/local" ||
-    pathname.startsWith("/local/")
+    pathname.startsWith("/local/") ||
+    pathname === "/kitchen" ||
+    pathname.startsWith("/kitchen/") ||
+    pathname === "/assistant" ||
+    pathname.startsWith("/assistant/")
   );
 }

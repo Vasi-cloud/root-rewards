@@ -12,6 +12,7 @@ const footerLinks = {
   Shop: [
     { href: "/marketplace", label: "Marketplace" },
     { href: "/local", label: "Buy Local" },
+    { href: "/kitchen", label: "Leafy Kitchen" },
     { href: "/recommend", label: "Ask Leafy" },
     { href: "/shop", label: "Seller shops" },
     { href: "/about", label: "Our mission" },

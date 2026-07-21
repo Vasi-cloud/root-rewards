@@ -10,6 +10,7 @@ const navItems = [
   { href: "/", label: "Home" },
   { href: "/marketplace", label: "Marketplace" },
   { href: "/local", label: "Buy Local" },
+  { href: "/kitchen", label: "Kitchen" },
   { href: "/seller", label: "Sell" },
   { href: "/recommend", label: "Ask Leafy" },
   { href: "/affiliates", label: "Affiliates" },
@@ -22,7 +23,7 @@ const navItems = [
 const desktopPrimaryItems = [
   { href: "/marketplace", label: "Marketplace" },
   { href: "/local", label: "Buy Local" },
-  { href: "/seller", label: "Sell" },
+  { href: "/kitchen", label: "Kitchen" },
   { href: "/recommend", label: "Ask Leafy" },
   { href: "/membership", label: "Membership" },
   { href: "/about", label: "About" },

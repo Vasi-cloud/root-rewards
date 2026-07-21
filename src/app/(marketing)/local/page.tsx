@@ -62,6 +62,7 @@ function BuyLocalPageInner() {
   const searchParams = useSearchParams();
   const cityParam = searchParams.get("city");
   const productParam = searchParams.get("product");
+  const ingredientParam = searchParams.get("ingredient");
   const storesSectionRef = useRef<HTMLElement>(null);
 
   const initialCity =
@@ -86,6 +87,19 @@ function BuyLocalPageInner() {
       setLocationId(cityParam);
     }
   }, [cityParam]);
+
+  useEffect(() => {
+    if (ingredientParam?.trim()) {
+      setFocusProductName(ingredientParam.trim());
+      // Scroll to stores when arriving from Leafy Kitchen
+      window.setTimeout(() => {
+        storesSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 200);
+    }
+  }, [ingredientParam]);
 
   const user = useMemo(
     () =>
