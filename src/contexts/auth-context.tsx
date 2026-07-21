@@ -21,11 +21,17 @@ import {
   signInWithGoogle,
   signOutUser,
   subscribeToAuthState,
+  updateAuthProfile,
 } from "@/lib/firebase/auth";
 import {
   deactivateUserProfile,
   ensureUserProfile,
+  upsertUserProfile,
 } from "@/lib/firebase/firestore";
+import {
+  getProfileOverrides,
+  setProfileOverrides,
+} from "@/lib/profile-storage";
 import type { UserProfile } from "@/types";
 
 interface AuthContextValue {
@@ -42,6 +48,11 @@ interface AuthContextValue {
    * Intended for free-tier users (callers should gate).
    */
   deactivateAccount: () => Promise<void>;
+  /** Update display name (and optional https photo URL). Merges local overrides. */
+  updateProfileDetails: (input: {
+    displayName: string;
+    photoURL?: string | null;
+  }) => Promise<UserProfile>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -77,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await ensureUserProfile(nextUser);
+      const overrides = getProfileOverrides(nextUser.uid);
       const nextProfile =
         data ??
         ({
@@ -88,7 +100,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           accountStatus: "active",
         } satisfies UserProfile);
 
-      if (isDeactivatedProfile(nextProfile, nextUser.uid)) {
+      const merged: UserProfile = {
+        ...nextProfile,
+        displayName:
+          overrides.displayName?.trim() ||
+          nextProfile.displayName ||
+          nextUser.displayName,
+        photoURL:
+          overrides.photoPreview ||
+          nextProfile.photoURL ||
+          nextUser.photoURL,
+      };
+
+      if (isDeactivatedProfile(merged, nextUser.uid)) {
         setDeactivatedNotice();
         await signOutUser();
         setUser(null);
@@ -98,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(nextUser);
-      setProfile(nextProfile);
+      setProfile(merged);
       setLoading(false);
     });
     return unsubscribe;
@@ -144,6 +168,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   }, [user, profile?.displayName]);
 
+  const updateProfileDetails = useCallback(
+    async (input: { displayName: string; photoURL?: string | null }) => {
+      if (!user) {
+        throw new Error("You must be signed in to update your profile.");
+      }
+
+      const displayName = input.displayName.trim().slice(0, 120);
+      if (!displayName) {
+        throw new Error("Display name is required.");
+      }
+
+      // Only sync http(s) photo URLs to Auth/Firestore (data URLs are device-only)
+      const remotePhoto =
+        input.photoURL &&
+        /^https?:\/\//i.test(input.photoURL) &&
+        input.photoURL.length <= 2048
+          ? input.photoURL
+          : undefined;
+
+      const devicePhoto =
+        input.photoURL &&
+        (input.photoURL.startsWith("data:") || input.photoURL.startsWith("blob:"))
+          ? input.photoURL
+          : input.photoURL === null
+            ? null
+            : undefined;
+
+      setProfileOverrides(user.uid, {
+        displayName,
+        ...(devicePhoto !== undefined ? { photoPreview: devicePhoto } : {}),
+      });
+
+      try {
+        await updateAuthProfile({
+          displayName,
+          ...(remotePhoto ? { photoURL: remotePhoto } : {}),
+        });
+      } catch {
+        // Auth profile update optional in demo mode
+      }
+
+      const base: UserProfile = {
+        uid: user.uid,
+        email: user.email ?? profile?.email ?? null,
+        displayName,
+        photoURL:
+          devicePhoto ??
+          remotePhoto ??
+          profile?.photoURL ??
+          user.photoURL ??
+          null,
+        role: profile?.role ?? "customer",
+        affiliateCode: profile?.affiliateCode,
+        membershipTier: profile?.membershipTier,
+        accountStatus: profile?.accountStatus ?? "active",
+        createdAt: profile?.createdAt,
+      };
+
+      try {
+        await upsertUserProfile({
+          ...base,
+          photoURL: remotePhoto ?? (profile?.photoURL && /^https?:\/\//i.test(profile.photoURL) ? profile.photoURL : null),
+        });
+      } catch {
+        // Demo / offline: local overrides still apply
+      }
+
+      const overrides = getProfileOverrides(user.uid);
+      const next: UserProfile = {
+        ...base,
+        displayName: overrides.displayName ?? displayName,
+        photoURL: overrides.photoPreview ?? base.photoURL,
+      };
+      setProfile(next);
+      return next;
+    },
+    [user, profile]
+  );
+
   const value = useMemo(
     () => ({
       user,
@@ -155,6 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInGoogle,
       signOut,
       deactivateAccount,
+      updateProfileDetails,
     }),
     [
       user,
@@ -166,6 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInGoogle,
       signOut,
       deactivateAccount,
+      updateProfileDetails,
     ]
   );
 

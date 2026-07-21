@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/marketplace", label: "Marketplace" },
-  { href: "/seller", label: "Sell" },
   { href: "/local", label: "Buy Local" },
+  { href: "/seller", label: "Sell" },
   { href: "/recommend", label: "Ask Leafy" },
   { href: "/affiliates", label: "Affiliates" },
   { href: "/membership", label: "Membership" },
@@ -21,6 +21,7 @@ const navItems = [
 /** Compact top-bar links so the header never needs horizontal scroll */
 const desktopPrimaryItems = [
   { href: "/marketplace", label: "Marketplace" },
+  { href: "/local", label: "Buy Local" },
   { href: "/seller", label: "Sell" },
   { href: "/recommend", label: "Ask Leafy" },
   { href: "/membership", label: "Membership" },
@@ -50,10 +51,10 @@ export function MainNav({
             key={item.href}
             href={item.href}
             className={cn(
-              "rounded-lg px-2.5 py-2 text-sm font-medium transition-colors whitespace-nowrap",
+              "rounded-lg px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform] duration-200",
               isActive
                 ? "bg-primary/10 text-primary"
-                : "text-foreground/80 hover:bg-muted hover:text-primary"
+                : "text-foreground/80 hover:bg-muted hover:text-primary active:scale-[0.98]"
             )}
           >
             {item.label}

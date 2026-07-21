@@ -77,14 +77,14 @@ export function SiteHeader() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 overflow-hidden px-3 sm:h-16 sm:gap-3 sm:px-6">
         <Link
           href="/"
-          className="flex min-w-0 shrink items-center gap-1.5 font-heading text-base font-semibold text-primary sm:gap-2 sm:text-lg md:text-xl"
+          className="group flex min-w-0 shrink items-center gap-1.5 font-heading text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2 sm:text-lg md:text-xl"
           aria-label="Forest Buddies® home"
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground sm:size-9">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
             <Leaf className="size-4 sm:size-5" />
           </span>
           <BrandMark className="min-w-0" />
@@ -119,6 +119,15 @@ export function SiteHeader() {
                   className="px-2.5"
                 >
                   Dashboard
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={<Link href="/dashboard/settings" />}
+                  size="sm"
+                  variant="ghost"
+                  className="hidden px-2.5 xl:inline-flex"
+                >
+                  Settings
                 </Button>
                 <DashboardSignOut className="px-2.5" />
               </>
@@ -225,6 +234,14 @@ export function SiteHeader() {
                         className="w-full min-h-11"
                       >
                         Dashboard
+                      </Button>
+                      <Button
+                        nativeButton={false}
+                        render={<Link href="/dashboard/settings" />}
+                        variant="outline"
+                        className="w-full min-h-11"
+                      >
+                        Account settings
                       </Button>
                       <DashboardSignOut className="w-full min-h-11 justify-center" />
                     </div>

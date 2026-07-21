@@ -25,6 +25,7 @@ const footerLinks = {
   Account: [
     { href: "/login", label: "Sign in" },
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/settings", label: "Account settings" },
     { href: "/seller", label: "Seller hub" },
     { href: "/feedback", label: "Share feedback" },
   ],
@@ -73,7 +74,7 @@ export function SiteFooter({
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-primary-foreground/85 transition-colors hover:text-sage"
+                      className="text-sm text-primary-foreground/85 transition-colors duration-200 hover:text-sage"
                     >
                       {link.label}
                     </Link>

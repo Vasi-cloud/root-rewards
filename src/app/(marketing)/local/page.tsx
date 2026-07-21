@@ -235,13 +235,13 @@ function BuyLocalPageInner() {
           </Badge>
         </div>
 
-        <h1 className="font-heading max-w-2xl text-3xl font-semibold text-primary sm:text-5xl">
-          Find it nearby — then confirm in store
+        <h1 className="font-heading max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
+          Shop local, confirm in store
         </h1>
         <p className="mt-3 max-w-2xl text-muted-foreground sm:text-lg">
-          We show nearby retailers and makers so you can shop closer to home.
-          We do not have live inventory — always verify stock with the store
-          before you go.
+          Discover nearby retailers and makers — like a neighbourhood market,
+          with clear next steps. We don&apos;t track live stock, so every visit
+          starts with a quick check.
         </p>
 
         {/* Primary honest disclaimer */}
@@ -252,6 +252,26 @@ function BuyLocalPageInner() {
           <Store className="mt-0.5 size-5 shrink-0 text-amber-800 sm:mt-0" />
           <p className="font-medium leading-relaxed">{LOCAL_STOCK_DISCLAIMER}</p>
         </div>
+
+        {/* Section jump — Etsy-style local discovery */}
+        <nav
+          className="mt-6 flex flex-wrap gap-2"
+          aria-label="Buy Local sections"
+        >
+          {[
+            { href: "#local-stores", label: "Nearby stores" },
+            { href: "#local-makers", label: "Makers" },
+            { href: "#local-products", label: "Products" },
+          ].map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="rounded-full border border-emerald-200/90 bg-white/80 px-3.5 py-1.5 text-sm font-medium text-emerald-950 shadow-sm transition-all hover:border-emerald-400 hover:bg-emerald-50 active:scale-[0.98]"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
 
         {highlightName && (
           <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2.5 text-sm text-emerald-950">
@@ -364,22 +384,41 @@ function BuyLocalPageInner() {
           </div>
 
           {storesLoading ? (
-            <Card className="border-dashed">
-              <CardContent className="py-10 text-center text-muted-foreground">
-                Looking up nearby stores…
-              </CardContent>
-            </Card>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <Card key={i} className="border-border/50">
+                  <CardHeader>
+                    <div className="h-5 w-2/3 animate-pulse rounded bg-muted" />
+                    <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-muted" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-16 animate-pulse rounded-lg bg-muted/70" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : nearbyStores.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="py-10 text-center text-muted-foreground">
-                No stores in this radius — try widening the distance or switching
-                cities.
+            <Card className="border-dashed border-emerald-200/80 bg-emerald-50/30">
+              <CardContent className="flex flex-col items-center py-12 text-center">
+                <span className="mb-3 flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+                  <MapPin className="size-5" />
+                </span>
+                <p className="font-medium text-foreground">
+                  No stores in this radius
+                </p>
+                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                  Try widening the distance or switching cities — local options
+                  often appear within 25 miles.
+                </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {nearbyStores.map((store) => (
-                <Card key={store.id} className="border-border/70 bg-card">
+                <Card
+                  key={store.id}
+                  className="border-border/70 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md"
+                >
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle className="text-lg">{store.name}</CardTitle>
@@ -443,7 +482,7 @@ function BuyLocalPageInner() {
 
         {/* Eco makers */}
         {makers.length > 0 && (
-          <section className="mt-14">
+          <section id="local-makers" className="mt-14 scroll-mt-24">
             <div className="mb-5">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800/70">
                 Local makers
@@ -457,7 +496,10 @@ function BuyLocalPageInner() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {makers.map(({ maker, distanceMi }) => (
-                <Card key={maker.id} className="border-border/70">
+                <Card
+                  key={maker.id}
+                  className="border-border/70 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md"
+                >
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <CardTitle>{maker.name}</CardTitle>
@@ -520,24 +562,38 @@ function BuyLocalPageInner() {
         )}
 
         {/* Products */}
-        <section className="mt-14">
+        <section id="local-products" className="mt-14 scroll-mt-24">
           <div className="mb-5">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800/70">
               Shop nearby
             </p>
             <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
-              Products — online or local
+              Buy online or check locally
             </h2>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              Each product has two clear paths: buy through online partners, or
-              check nearby stores. Local stock is never guaranteed here.
+              Two clear paths per product — partner checkout when you need it
+              now, or nearby stores when you&apos;d rather shop in person.
             </p>
           </div>
 
           {listings.length === 0 ? (
-            <p className="text-muted-foreground">
-              Expand your radius to see local products.
-            </p>
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center py-12 text-center">
+                <ShoppingBag className="mb-3 size-8 text-muted-foreground/60" />
+                <p className="font-medium">No local products in range</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Expand your radius or browse the full marketplace.
+                </p>
+                <Button
+                  className="mt-4"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href="/marketplace" />}
+                >
+                  Browse marketplace
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {listings.slice(0, 12).map(({ maker, product, distanceMi }) => {
@@ -545,7 +601,7 @@ function BuyLocalPageInner() {
                 return (
                   <Card
                     key={`${maker.id}-${product.id}`}
-                    className={`border bg-white ${
+                    className={`border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                       productParam === product.id
                         ? "border-emerald-400 ring-2 ring-emerald-200"
                         : "border-border/70"
@@ -580,23 +636,22 @@ function BuyLocalPageInner() {
                       <div className="flex flex-col gap-2">
                         <Button
                           size="sm"
-                          variant={isOnlineOpen ? "default" : "outline"}
-                          className="w-full justify-center gap-2"
+                          className="w-full justify-center gap-2 shadow-sm transition-transform active:scale-[0.98]"
+                          onClick={() => scrollToStores(product.name)}
+                        >
+                          <MapPin className="size-3.5" />
+                          Check Local Stores
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={isOnlineOpen ? "secondary" : "outline"}
+                          className="w-full justify-center gap-2 transition-transform active:scale-[0.98]"
                           onClick={() =>
                             setOnlineProductId(isOnlineOpen ? null : product.id)
                           }
                         >
                           <ShoppingBag className="size-3.5" />
-                          Buy Online
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="w-full justify-center gap-2"
-                          onClick={() => scrollToStores(product.name)}
-                        >
-                          <MapPin className="size-3.5" />
-                          Check Local Stores
+                          {isOnlineOpen ? "Hide online options" : "Buy Online"}
                         </Button>
                       </div>
                       {isOnlineOpen && (

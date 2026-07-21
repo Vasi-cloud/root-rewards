@@ -34,14 +34,16 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-full flex-col overflow-x-hidden bg-cream">
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
           <Link
             href="/"
-            className="flex min-w-0 items-center gap-2 font-heading text-sm font-semibold text-primary sm:text-base"
+            className="group flex min-w-0 items-center gap-2 font-heading text-sm font-semibold text-primary sm:text-base"
             aria-label="Forest Buddies® home"
           >
-            <Leaf className="size-4 shrink-0" />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105">
+              <Leaf className="size-4" />
+            </span>
             <BrandMark />
           </Link>
           <nav className="hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 text-sm lg:flex">

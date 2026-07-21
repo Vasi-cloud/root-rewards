@@ -9,6 +9,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  updateProfile,
   User,
 } from "firebase/auth";
 
@@ -45,6 +46,19 @@ export async function signOutUser() {
   const auth = getFirebaseAuth();
   if (!auth) return;
   await signOut(auth);
+}
+
+/** Updates Firebase Auth display name / photo URL when Auth is configured. */
+export async function updateAuthProfile(input: {
+  displayName?: string | null;
+  photoURL?: string | null;
+}) {
+  const auth = getFirebaseAuth();
+  if (!auth?.currentUser) return;
+  await updateProfile(auth.currentUser, {
+    displayName: input.displayName ?? undefined,
+    photoURL: input.photoURL ?? undefined,
+  });
 }
 
 export function subscribeToAuthState(callback: (user: User | null) => void) {
