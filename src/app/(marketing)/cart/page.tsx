@@ -109,21 +109,32 @@ export default function CartPage() {
         </Button>
       </div>
 
-      {/* Trees impact — clear trust signal */}
-      <div className="mb-6 overflow-hidden rounded-2xl border border-emerald-300/80 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-5 py-4 sm:px-6 sm:py-5">
-        <div className="flex items-start gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream">
-            <TreePine className="size-5" />
+      {/* Trees impact — dynamic & exciting */}
+      <div className="mb-6 overflow-hidden rounded-2xl border border-emerald-300/80 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-5 py-5 sm:px-6 sm:py-6">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
+            <TreePine className="size-6" />
           </div>
-          <div className="min-w-0">
-            <p className="font-heading text-xl font-semibold tracking-tight text-emerald-950 sm:text-2xl">
-              This order will plant {treesEstimate} tree
-              {treesEstimate === 1 ? "" : "s"}
+          <div className="min-w-0 flex-1">
+            <p className="font-heading text-xl font-semibold leading-snug tracking-tight text-emerald-950 sm:text-2xl">
+              You&apos;ll plant {treesEstimate} tree
+              {treesEstimate === 1 ? "" : "s"} with this order 🌱
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-emerald-900/85">
-              Based on your {formatCartMoney(totalPrice)} subtotal (~
-              {co2Estimate} kg CO₂e at ${treeUnitPrice()}/tree). Confirm Trees
-              at checkout — every purchase helps plant trees.
+            <div className="mt-3 inline-flex items-baseline gap-2 rounded-xl border border-emerald-200/90 bg-white/70 px-3.5 py-2.5 shadow-xs">
+              <span className="font-heading text-2xl font-semibold tabular-nums text-emerald-900 sm:text-3xl">
+                {co2Estimate}
+              </span>
+              <span className="text-sm leading-tight text-emerald-900/85">
+                <span className="font-semibold">kg CO₂</span>
+                <span className="mt-0.5 block text-xs font-normal text-emerald-800/75">
+                  equivalent locked away
+                </span>
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-emerald-900/80">
+              Based on your {formatCartMoney(totalPrice)} subtotal at $
+              {treeUnitPrice()}/tree. Confirm Trees at checkout — every
+              purchase helps plant trees.
             </p>
           </div>
         </div>
@@ -132,9 +143,11 @@ export default function CartPage() {
       <div className="mb-6 flex gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3.5 text-sm text-muted-foreground">
         <Truck className="mt-0.5 size-5 shrink-0 text-primary" />
         <p>
-          <span className="font-medium text-foreground">Partner fulfilled</span>
+          <span className="font-medium text-foreground">
+            Partner dropship · usually 1–3 days
+          </span>
           {" — "}
-          eco partners ship straight to your door. One simple checkout here.
+          eco partners ship straight to your door. Tracking arrives by email.
         </p>
       </div>
 
@@ -255,18 +268,20 @@ export default function CartPage() {
           </span>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Shipping calculated at checkout · Partner dropship fulfillment
+          Partner dropship · usually 1–3 days · shipping confirmed at checkout
         </p>
 
-        <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3.5 py-3 text-sm text-emerald-950">
-          <TreePine className="size-4 shrink-0 text-emerald-800" />
-          <p className="font-medium">
-            This order will plant {treesEstimate} tree
-            {treesEstimate === 1 ? "" : "s"}
-            <span className="font-normal text-emerald-900/80">
-              {" "}
-              (~{co2Estimate} kg CO₂e)
-            </span>
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3.5 py-3.5 text-emerald-950">
+          <p className="flex items-center gap-2 text-sm font-semibold sm:text-base">
+            <TreePine className="size-4 shrink-0 text-emerald-800" />
+            You&apos;ll plant {treesEstimate} tree
+            {treesEstimate === 1 ? "" : "s"} with this order 🌱
+          </p>
+          <p className="mt-1.5 pl-6 text-sm text-emerald-900/85">
+            <span className="font-heading text-lg font-semibold tabular-nums text-emerald-900">
+              {co2Estimate} kg CO₂
+            </span>{" "}
+            equivalent
           </p>
         </div>
 
@@ -321,10 +336,9 @@ export default function CartPage() {
             {formatCartMoney(totalPrice)}
           </span>
         </div>
-        <p className="mb-2.5 flex items-center justify-center gap-1.5 text-xs font-medium text-emerald-900">
-          <TreePine className="size-3.5" />
-          This order will plant {treesEstimate} tree
-          {treesEstimate === 1 ? "" : "s"}
+        <p className="mb-2.5 text-center text-xs font-medium text-emerald-900">
+          You&apos;ll plant {treesEstimate} tree
+          {treesEstimate === 1 ? "" : "s"} · {co2Estimate} kg CO₂ 🌱
         </p>
         <div className="flex gap-2">
           <Button

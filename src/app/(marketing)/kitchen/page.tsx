@@ -609,9 +609,9 @@ Ingredients:
                           </>
                         )}
                       </Button>
-                      <p className="mt-2 text-center text-[11px] text-emerald-900/70">
-                        Adds quantities to your Forest Buddies cart · Buy Online
-                        stays available per item
+                      <p className="mt-2.5 text-center text-xs leading-relaxed text-emerald-900/80">
+                        Prefer Amazon? You can still buy individual items using
+                        the Buy Online buttons.
                       </p>
                     </div>
 
@@ -671,13 +671,13 @@ Ingredients:
                         </p>
                       )}
                   </CardHeader>
-                  <CardContent className="space-y-5">
+                  <CardContent className="space-y-6 sm:space-y-5">
                     {grouped.map(({ aisle, items }) => (
                       <div key={aisle}>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
                           {AISLE_LABELS[aisle]}
                         </p>
-                        <ul className="space-y-2">
+                        <ul className="space-y-3.5 sm:space-y-3">
                           {items.map((ing) => {
                             const inCart = cartIds.has(
                               kitchenIngredientCartId(ing)
@@ -687,16 +687,16 @@ Ingredients:
                               <li
                                 key={ing.id}
                                 className={cn(
-                                  "rounded-xl border border-border/60 bg-muted/15 p-3 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm",
+                                  "rounded-2xl border border-border/60 bg-muted/15 p-4 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm sm:rounded-xl sm:p-3.5",
                                   done && "bg-emerald-50/50 opacity-75"
                                 )}
                               >
-                                <div className="flex items-start gap-2">
+                                <div className="flex items-start gap-3">
                                   <button
                                     type="button"
                                     onClick={() => toggleChecked(ing.id)}
                                     className={cn(
-                                      "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
+                                      "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors sm:size-5",
                                       done
                                         ? "border-emerald-800 bg-emerald-800 text-cream"
                                         : "border-border bg-background hover:border-emerald-400"
@@ -709,16 +709,16 @@ Ingredients:
                                   >
                                     {done && (
                                       <Check
-                                        className="size-3"
+                                        className="size-3.5 sm:size-3"
                                         strokeWidth={3}
                                       />
                                     )}
                                   </button>
-                                  <div className="min-w-0 flex-1 space-y-2">
+                                  <div className="min-w-0 flex-1 space-y-3">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <p
                                         className={cn(
-                                          "text-sm font-medium text-foreground",
+                                          "text-base font-medium leading-snug text-foreground sm:text-sm",
                                           done && "line-through"
                                         )}
                                       >
@@ -736,19 +736,19 @@ Ingredients:
 
                                     {/* Qty stepper */}
                                     <div className="flex flex-wrap items-center gap-3">
-                                      <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5 shadow-xs">
+                                      <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1 shadow-xs sm:rounded-lg sm:p-0.5">
                                         <button
                                           type="button"
                                           disabled={done || ing.cartQty <= 1}
                                           onClick={() =>
                                             setCartQty(ing.id, ing.cartQty - 1)
                                           }
-                                          className="inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                                          className="inline-flex size-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
                                           aria-label={`Decrease quantity for ${ing.name}`}
                                         >
                                           <Minus className="size-3.5" />
                                         </button>
-                                        <span className="min-w-[1.75rem] text-center text-sm font-semibold tabular-nums">
+                                        <span className="min-w-[2rem] text-center text-base font-semibold tabular-nums sm:min-w-[1.75rem] sm:text-sm">
                                           {ing.cartQty}
                                         </span>
                                         <button
@@ -757,13 +757,13 @@ Ingredients:
                                           onClick={() =>
                                             setCartQty(ing.id, ing.cartQty + 1)
                                           }
-                                          className="inline-flex size-8 items-center justify-center rounded-md text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                                          className="inline-flex size-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
                                           aria-label={`Increase quantity for ${ing.name}`}
                                         >
                                           <Plus className="size-3.5" />
                                         </button>
                                       </div>
-                                      <span className="text-[11px] text-muted-foreground">
+                                      <span className="text-xs text-muted-foreground sm:text-[11px]">
                                         Qty ·{" "}
                                         {formatKitchenMoney(
                                           estimateIngredientLineTotal(ing)
@@ -771,16 +771,16 @@ Ingredients:
                                       </span>
                                     </div>
 
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-2">
                                       <Button
                                         type="button"
                                         size="sm"
-                                        className="h-8 gap-1.5 bg-emerald-800 text-cream hover:bg-emerald-700"
+                                        className="h-10 w-full gap-1.5 bg-emerald-800 text-cream hover:bg-emerald-700 sm:h-8 sm:w-auto"
                                         onClick={() => openBuyOnline(ing)}
                                       >
                                         <ShoppingBag className="size-3.5" />
                                         Buy Online
-                                        <span className="hidden text-[10px] opacity-80 sm:inline">
+                                        <span className="text-[10px] opacity-80 sm:inline">
                                           · {getAmazonStoreLabel()}
                                         </span>
                                         <ExternalLink className="size-3 opacity-70" />
@@ -788,7 +788,7 @@ Ingredients:
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="h-8 gap-1.5"
+                                        className="h-10 w-full gap-1.5 sm:h-8 sm:w-auto"
                                         nativeButton={false}
                                         render={
                                           <Link
