@@ -11,8 +11,15 @@ export type VehicleMakeId =
   | "toyota"
   | "honda"
   | "ford"
+  | "chevrolet"
+  | "nissan"
+  | "hyundai"
   | "volkswagen"
   | "bmw"
+  | "mercedes"
+  | "mazda"
+  | "subaru"
+  | "kia"
   | "tesla";
 
 export type VehicleDetails = {
@@ -21,6 +28,9 @@ export type VehicleDetails = {
   year: string;
   vin: string;
 };
+
+export const YEAR_MIN = 2000;
+export const YEAR_MAX = 2026;
 
 export type IdentifiedPart = {
   id: string;
@@ -64,27 +74,66 @@ export const VEHICLE_CATALOG: Record<
     label: "Toyota",
     models: [
       { id: "corolla", label: "Corolla" },
-      { id: "rav4", label: "RAV4" },
       { id: "camry", label: "Camry" },
+      { id: "rav4", label: "RAV4" },
       { id: "prius", label: "Prius" },
+      { id: "highlander", label: "Highlander" },
+      { id: "tacoma", label: "Tacoma" },
     ],
   },
   honda: {
     label: "Honda",
     models: [
       { id: "civic", label: "Civic" },
-      { id: "cr-v", label: "CR-V" },
       { id: "accord", label: "Accord" },
+      { id: "cr-v", label: "CR-V" },
+      { id: "hr-v", label: "HR-V" },
+      { id: "pilot", label: "Pilot" },
       { id: "fit", label: "Fit / Jazz" },
     ],
   },
   ford: {
     label: "Ford",
     models: [
-      { id: "focus", label: "Focus" },
-      { id: "escape", label: "Escape / Kuga" },
       { id: "f-150", label: "F-150" },
+      { id: "escape", label: "Escape / Kuga" },
+      { id: "explorer", label: "Explorer" },
+      { id: "focus", label: "Focus" },
       { id: "mustang", label: "Mustang" },
+      { id: "bronco", label: "Bronco" },
+    ],
+  },
+  chevrolet: {
+    label: "Chevrolet",
+    models: [
+      { id: "silverado", label: "Silverado" },
+      { id: "equinox", label: "Equinox" },
+      { id: "malibu", label: "Malibu" },
+      { id: "traverse", label: "Traverse" },
+      { id: "bolt", label: "Bolt EV" },
+      { id: "tahoe", label: "Tahoe" },
+    ],
+  },
+  nissan: {
+    label: "Nissan",
+    models: [
+      { id: "altima", label: "Altima" },
+      { id: "rogue", label: "Rogue / X-Trail" },
+      { id: "sentra", label: "Sentra" },
+      { id: "pathfinder", label: "Pathfinder" },
+      { id: "leaf", label: "Leaf" },
+      { id: "frontier", label: "Frontier" },
+    ],
+  },
+  hyundai: {
+    label: "Hyundai",
+    models: [
+      { id: "tucson", label: "Tucson" },
+      { id: "santa-fe", label: "Santa Fe" },
+      { id: "elantra", label: "Elantra" },
+      { id: "sonata", label: "Sonata" },
+      { id: "ioniq-5", label: "Ioniq 5" },
+      { id: "kona", label: "Kona" },
     ],
   },
   volkswagen: {
@@ -92,7 +141,9 @@ export const VEHICLE_CATALOG: Record<
     models: [
       { id: "golf", label: "Golf" },
       { id: "tiguan", label: "Tiguan" },
+      { id: "jetta", label: "Jetta" },
       { id: "passat", label: "Passat" },
+      { id: "atlas", label: "Atlas" },
       { id: "id4", label: "ID.4" },
     ],
   },
@@ -100,9 +151,55 @@ export const VEHICLE_CATALOG: Record<
     label: "BMW",
     models: [
       { id: "3-series", label: "3 Series" },
-      { id: "x3", label: "X3" },
       { id: "5-series", label: "5 Series" },
+      { id: "x3", label: "X3" },
+      { id: "x5", label: "X5" },
       { id: "i4", label: "i4" },
+      { id: "x1", label: "X1" },
+    ],
+  },
+  mercedes: {
+    label: "Mercedes-Benz",
+    models: [
+      { id: "c-class", label: "C-Class" },
+      { id: "e-class", label: "E-Class" },
+      { id: "gla", label: "GLA" },
+      { id: "glc", label: "GLC" },
+      { id: "a-class", label: "A-Class" },
+      { id: "eqb", label: "EQB" },
+    ],
+  },
+  mazda: {
+    label: "Mazda",
+    models: [
+      { id: "mazda3", label: "Mazda3" },
+      { id: "mazda6", label: "Mazda6" },
+      { id: "cx-5", label: "CX-5" },
+      { id: "cx-30", label: "CX-30" },
+      { id: "cx-50", label: "CX-50" },
+      { id: "mx-5", label: "MX-5 Miata" },
+    ],
+  },
+  subaru: {
+    label: "Subaru",
+    models: [
+      { id: "outback", label: "Outback" },
+      { id: "forester", label: "Forester" },
+      { id: "crosstrek", label: "Crosstrek" },
+      { id: "impreza", label: "Impreza" },
+      { id: "ascent", label: "Ascent" },
+      { id: "legacy", label: "Legacy" },
+    ],
+  },
+  kia: {
+    label: "Kia",
+    models: [
+      { id: "sportage", label: "Sportage" },
+      { id: "sorento", label: "Sorento" },
+      { id: "forte", label: "Forte / Cerato" },
+      { id: "telluride", label: "Telluride" },
+      { id: "ev6", label: "EV6" },
+      { id: "soul", label: "Soul" },
     ],
   },
   tesla: {
@@ -111,12 +208,22 @@ export const VEHICLE_CATALOG: Record<
       { id: "model-3", label: "Model 3" },
       { id: "model-y", label: "Model Y" },
       { id: "model-s", label: "Model S" },
+      { id: "model-x", label: "Model X" },
     ],
   },
 };
 
-export const YEAR_OPTIONS = Array.from({ length: 26 }, (_, i) =>
-  String(2026 - i)
+/** Newest → oldest, inclusive (2000–2026). */
+export const YEAR_OPTIONS = Array.from(
+  { length: YEAR_MAX - YEAR_MIN + 1 },
+  (_, i) => String(YEAR_MAX - i)
+);
+
+/** Stable A–Z order for Make dropdown. */
+export const VEHICLE_MAKE_IDS = (
+  Object.keys(VEHICLE_CATALOG) as VehicleMakeId[]
+).sort((a, b) =>
+  VEHICLE_CATALOG[a].label.localeCompare(VEHICLE_CATALOG[b].label)
 );
 
 export const PARTS_AI_DISCLAIMER =
@@ -235,7 +342,7 @@ export function mockIdentifyPart(input: {
       price: recycledPrice,
       sustainabilityScore: 94,
       ecoRank: 3,
-      badge: "Best for the planet",
+      badge: "Best eco choice",
       highlight: true,
       treesEstimate: treesForPrice(recycledPrice),
       amazonSearch: `${makeLabel} ${template.name} used recycled`,
@@ -249,8 +356,8 @@ export function mockIdentifyPart(input: {
       price: remanPrice,
       sustainabilityScore: 88,
       ecoRank: 2,
-      badge: "Recommended",
-      highlight: true,
+      badge: "Strong eco pick",
+      highlight: false,
       treesEstimate: treesForPrice(remanPrice),
       amazonSearch: `${makeLabel} ${template.name} remanufactured`,
     },
@@ -263,7 +370,7 @@ export function mockIdentifyPart(input: {
       price: newPrice,
       sustainabilityScore: 62,
       ecoRank: 1,
-      badge: "New",
+      badge: "Longest lifespan",
       highlight: false,
       treesEstimate: treesForPrice(newPrice),
       amazonSearch: `${makeLabel} ${template.name} OEM`,

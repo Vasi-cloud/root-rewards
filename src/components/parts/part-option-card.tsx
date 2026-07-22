@@ -12,13 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { formatCartMoney } from "@/lib/cart-impact";
 import {
   CONDITION_LABELS,
   type IdentifiedPart,
   type PartOption,
 } from "@/lib/leafy-parts";
-import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { cn } from "@/lib/utils";
 
 type PartOptionCardProps = {
@@ -36,12 +36,14 @@ export function PartOptionCard({
   onBuyOnline,
   added,
 }: PartOptionCardProps) {
+  const isBestEco = option.condition === "recycled";
+
   return (
     <Card
       className={cn(
         "overflow-hidden border-border/70 shadow-sm transition-shadow hover:shadow-md",
-        option.highlight &&
-          "border-emerald-400/80 bg-gradient-to-br from-emerald-50/90 via-card to-cream ring-1 ring-emerald-200/80"
+        isBestEco &&
+          "border-emerald-500/90 bg-gradient-to-br from-emerald-50 via-card to-cream ring-2 ring-emerald-300/70"
       )}
     >
       <CardHeader className="space-y-3 pb-3">
@@ -59,20 +61,18 @@ export function PartOptionCard({
           >
             {CONDITION_LABELS[option.condition]}
           </Badge>
-          {option.highlight && (
-            <Badge
-              variant="outline"
-              className="gap-1 border-emerald-300 bg-white/70 font-normal text-emerald-900"
-            >
-              <Leaf className="size-3" />
-              {option.badge}
-            </Badge>
-          )}
-          {!option.highlight && (
-            <Badge variant="outline" className="font-normal text-muted-foreground">
-              {option.badge}
-            </Badge>
-          )}
+          <Badge
+            variant="outline"
+            className={cn(
+              "gap-1 font-normal",
+              isBestEco
+                ? "border-emerald-400 bg-white/80 text-emerald-900"
+                : "text-muted-foreground"
+            )}
+          >
+            {isBestEco && <Leaf className="size-3" />}
+            {option.badge}
+          </Badge>
         </div>
         <div>
           <CardTitle className="font-heading text-lg leading-snug sm:text-xl">
@@ -87,9 +87,9 @@ export function PartOptionCard({
       <CardContent className="space-y-3 pb-3">
         <p className="text-xs text-muted-foreground">
           OEM ref{" "}
-          <span className="font-mono text-foreground">{identified.oemNumber}</span>
-          {" · "}
-          Eco score {option.sustainabilityScore}/100
+          <span className="font-mono text-foreground">
+            {identified.oemNumber}
+          </span>
         </p>
 
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -101,16 +101,14 @@ export function PartOptionCard({
               {formatCartMoney(option.price)}
             </p>
           </div>
-          <div className="flex items-start gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-3 py-2 text-sm text-emerald-950">
-            <TreePine className="mt-0.5 size-4 shrink-0 text-emerald-800" />
-            <p>
-              Ordering this part will plant{" "}
-              <span className="font-semibold">
-                {option.treesEstimate} tree
-                {option.treesEstimate === 1 ? "" : "s"}
-              </span>
-            </p>
-          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200/90 bg-emerald-50/80 px-3.5 py-3 text-sm text-emerald-950">
+          <TreePine className="size-5 shrink-0 text-emerald-800" />
+          <p className="font-medium leading-snug">
+            This order will plant {option.treesEstimate} tree
+            {option.treesEstimate === 1 ? "" : "s"}
+          </p>
         </div>
       </CardContent>
 

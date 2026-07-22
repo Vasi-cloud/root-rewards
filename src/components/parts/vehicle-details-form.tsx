@@ -3,8 +3,11 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  YEAR_MAX,
+  YEAR_MIN,
   YEAR_OPTIONS,
   VEHICLE_CATALOG,
+  VEHICLE_MAKE_IDS,
   modelsForMake,
   type VehicleDetails,
   type VehicleMakeId,
@@ -33,8 +36,8 @@ export function VehicleDetailsForm({
           Vehicle details
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Make, model, and year improve match quality. VIN is optional but
-          helpful.
+          Choose Make first — Model updates automatically. Years {YEAR_MIN}–
+          {YEAR_MAX}. VIN is optional.
         </p>
       </div>
 
@@ -57,7 +60,7 @@ export function VehicleDetailsForm({
             required
           >
             <option value="">Select make</option>
-            {(Object.keys(VEHICLE_CATALOG) as VehicleMakeId[]).map((id) => (
+            {VEHICLE_MAKE_IDS.map((id) => (
               <option key={id} value={id}>
                 {VEHICLE_CATALOG[id].label}
               </option>
@@ -69,6 +72,7 @@ export function VehicleDetailsForm({
           <Label htmlFor="parts-model">Model</Label>
           <select
             id="parts-model"
+            key={value.makeId || "no-make"}
             className={selectClass}
             disabled={disabled || !value.makeId}
             value={value.modelId}
@@ -125,7 +129,9 @@ export function VehicleDetailsForm({
           onChange={(e) =>
             onChange({
               ...value,
-              vin: e.target.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, ""),
+              vin: e.target.value
+                .toUpperCase()
+                .replace(/[^A-HJ-NPR-Z0-9]/g, ""),
             })
           }
           className="font-mono tracking-wide uppercase"

@@ -33,6 +33,7 @@ import {
 import { useCart } from "@/contexts/cart-context";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
+  formatVehicleLabel,
   mockIdentifyPart,
   partOptionToCartProduct,
   type PartIdentificationResult,
@@ -106,7 +107,7 @@ export default function LeafyPartsFinderPage() {
     setAddedIds((prev) => new Set(prev).add(option.id));
     showSuccess(
       `Added · ${option.name}`,
-      `Ordering this part will plant ${option.treesEstimate} tree${option.treesEstimate === 1 ? "" : "s"}.`,
+      `This order will plant ${option.treesEstimate} tree${option.treesEstimate === 1 ? "" : "s"}.`,
       {
         accent: "cart",
         action: { label: "View cart & checkout", href: "/cart" },
@@ -251,7 +252,7 @@ export default function LeafyPartsFinderPage() {
             </p>
             <p className="mx-auto mt-2 max-w-sm text-sm text-emerald-900/80">
               Matching shapes, labels, and fitment for{" "}
-              {vehicle.year || "your"} {vehicle.makeId || "vehicle"}.
+              {formatVehicleLabel(vehicle)}.
             </p>
             <div className="mx-auto mt-6 flex max-w-xs flex-col gap-2 text-left text-xs text-emerald-900/70">
               <p className="flex items-center gap-2">
@@ -272,7 +273,7 @@ export default function LeafyPartsFinderPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
-                  Identification result
+                  Your results
                 </p>
                 <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
                   {result.identified.name}
@@ -296,6 +297,24 @@ export default function LeafyPartsFinderPage() {
               </Button>
             </div>
 
+            {photos.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {photos.map((photo, i) => (
+                  <div
+                    key={photo.id}
+                    className="size-16 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted/30 sm:size-20"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.previewUrl}
+                      alt={`Uploaded photo ${i + 1}`}
+                      className="size-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
             <Card className="border-emerald-200/80 bg-white/90 shadow-sm">
               <CardContent className="space-y-2 pt-5 text-sm leading-relaxed text-foreground">
                 <p>{result.identified.summary}</p>
@@ -303,18 +322,19 @@ export default function LeafyPartsFinderPage() {
                   {result.identified.fitmentNote}
                 </p>
                 <p className="font-mono text-xs text-emerald-900">
-                  OEM {result.identified.oemNumber} · {result.identified.category}
+                  OEM {result.identified.oemNumber} ·{" "}
+                  {result.identified.category}
                 </p>
               </CardContent>
             </Card>
 
             <div>
               <h3 className="font-heading text-xl font-semibold text-foreground">
-                Sustainable replacements
+                3 replacement options
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Recycled and remanufactured options are listed first — each order
-                helps plant trees.
+                Recycled / Used is highlighted as the best eco choice. Each
+                option shows how many trees your order will plant.
               </p>
             </div>
 
