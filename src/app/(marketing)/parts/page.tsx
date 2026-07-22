@@ -32,8 +32,11 @@ import {
 } from "@/components/ui/card";
 import { useCart } from "@/contexts/cart-context";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
+import { formatCartMoney } from "@/lib/cart-impact";
 import {
+  CONDITION_LABELS,
   formatVehicleLabel,
+  inferPartKindFromPhotos,
   mockIdentifyPart,
   partOptionToCartProduct,
   type PartIdentificationResult,
@@ -85,12 +88,16 @@ export default function LeafyPartsFinderPage() {
     setResult(null);
     setAddedIds(new Set());
 
-    // Simulated AI latency — v1 uses mock identification only
-    await new Promise((r) => window.setTimeout(r, 1400));
+    const [{ kind, reason }] = await Promise.all([
+      inferPartKindFromPhotos(photos),
+      new Promise((r) => window.setTimeout(r, 1100)),
+    ]);
 
     const next = mockIdentifyPart({
       details: vehicle,
       photoCount: photos.length,
+      kind,
+      inferReason: reason,
     });
     setResult(next);
     setPhase("results");
@@ -105,9 +112,10 @@ export default function LeafyPartsFinderPage() {
     );
     addToCart(product, 1);
     setAddedIds((prev) => new Set(prev).add(option.id));
+    const condition = CONDITION_LABELS[option.condition];
     showSuccess(
-      `Added · ${option.name}`,
-      `This order will plant ${option.treesEstimate} tree${option.treesEstimate === 1 ? "" : "s"}.`,
+      `Added to cart · ${option.name}`,
+      `${condition} · ${formatCartMoney(option.price)} · qty 1. This order will plant ${option.treesEstimate} tree${option.treesEstimate === 1 ? "" : "s"}.`,
       {
         accent: "cart",
         action: { label: "View cart & checkout", href: "/cart" },

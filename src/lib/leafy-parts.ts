@@ -384,43 +384,335 @@ export const PARTS_AI_DISCLAIMER =
 export const PARTS_COMPAT_DISCLAIMER =
   "Confirm fitment with your VIN, OEM number, or a trusted mechanic — especially for safety-critical parts like brakes and steering.";
 
-const MOCK_PART_TEMPLATES: Omit<
-  IdentifiedPart,
-  "id" | "confidencePercent" | "fitmentNote"
->[] = [
-  {
+export type PartKind =
+  | "thermostat"
+  | "brake_pads"
+  | "air_filter"
+  | "cabin_filter"
+  | "alternator";
+
+export type PhotoHintInput = {
+  previewUrl: string;
+  name: string;
+};
+
+type PartTemplate = {
+  kind: PartKind;
+  name: string;
+  category: string;
+  summary: string;
+  basePrice: number;
+  /** Fallback OEM when make-specific map has no entry */
+  defaultOem: string;
+};
+
+const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
+  thermostat: {
+    kind: "thermostat",
+    name: "Coolant thermostat",
+    category: "Cooling",
+    summary:
+      "Round metal thermostat housing with a central wax-pellet / spring assembly — matches the circular metal part in your photos. Controls coolant flow to the radiator.",
+    basePrice: 34,
+    defaultOem: "82 00 277 070",
+  },
+  brake_pads: {
+    kind: "brake_pads",
     name: "Front brake pad set",
-    oemNumber: "04465-0R090",
     category: "Brakes",
     summary:
-      "Ceramic-style front pad set matching the wear pattern and backing plate shape in your photos.",
+      "Flat friction pads with backing plates — shape and wear pattern match a front brake pad set.",
+    basePrice: 48,
+    defaultOem: "77 01 207 822",
   },
-  {
+  air_filter: {
+    kind: "air_filter",
     name: "Engine air filter",
-    oemNumber: "17801-0V020",
     category: "Filters",
     summary:
-      "Panel air filter with the same pleat count and end-seal profile visible in your snaps.",
+      "Panel air filter with pleated media and foam end seals — typical engine intake filter cartridge.",
+    basePrice: 22,
+    defaultOem: "82 00 432 179",
   },
-  {
+  cabin_filter: {
+    kind: "cabin_filter",
     name: "Cabin pollen filter",
-    oemNumber: "87139-YZZ20",
     category: "Filters",
     summary:
-      "Cabin filter cartridge — size and carbon layer cues match common OEM replacements.",
+      "Cabin / pollen filter cartridge — size and layered media cues match HVAC cabin filters.",
+    basePrice: 19,
+    defaultOem: "27 27 7 508 237",
   },
-  {
+  alternator: {
+    kind: "alternator",
     name: "Alternator assembly",
-    oemNumber: "27060-0R040",
     category: "Electrical",
     summary:
-      "Reman-friendly alternator housing and pulley orientation consistent with your images.",
+      "Cylindrical alternator housing with pulley — reman-friendly electrical charging unit.",
+    basePrice: 189,
+    defaultOem: "77 11 135 588",
   },
-];
+};
+
+/** Plausible OEM-style refs per make for common parts (mock / demo). */
+const OEM_BY_MAKE: Partial<
+  Record<VehicleMakeId, Partial<Record<PartKind, string>>>
+> = {
+  renault: {
+    thermostat: "82 00 277 070",
+    brake_pads: "41 06 085 79R",
+    air_filter: "82 00 432 179",
+    cabin_filter: "27 27 7 508 237",
+    alternator: "77 11 135 588",
+  },
+  peugeot: {
+    thermostat: "1338.A6",
+    brake_pads: "4254.22",
+    air_filter: "1444.TJ",
+  },
+  citroen: {
+    thermostat: "1338.A6",
+    brake_pads: "4254.22",
+  },
+  volkswagen: {
+    thermostat: "03C 121 111",
+    brake_pads: "1K0 698 151",
+    air_filter: "1K0 129 620",
+  },
+  audi: {
+    thermostat: "06A 121 111",
+    brake_pads: "8E0 698 151",
+  },
+  ford: {
+    thermostat: "1 339 017",
+    brake_pads: "1 787 511",
+  },
+  toyota: {
+    thermostat: "90916-03100",
+    brake_pads: "04465-0R090",
+    air_filter: "17801-0V020",
+  },
+  honda: {
+    thermostat: "19301-PAA-A01",
+    brake_pads: "45022-S5A-J00",
+  },
+  bmw: {
+    thermostat: "11 53 7 547 415",
+    brake_pads: "34 11 6 857 827",
+  },
+};
 
 function treesForPrice(price: number): number {
   if (price <= 0) return 1;
   return Math.max(1, Math.min(8, Math.floor(price / 28) || 1));
+}
+
+function oemForMake(makeId: VehicleMakeId | "", kind: PartKind): string {
+  if (makeId && OEM_BY_MAKE[makeId]?.[kind]) {
+    return OEM_BY_MAKE[makeId]![kind]!;
+  }
+  return PART_TEMPLATES[kind].defaultOem;
+}
+
+function kindFromFilenames(photos: PhotoHintInput[]): PartKind | null {
+  const blob = photos.map((p) => p.name).join(" ").toLowerCase();
+  if (/thermo|coolant|wax.?pellet|stat/.test(blob)) return "thermostat";
+  if (/brake|pad|plaquette/.test(blob)) return "brake_pads";
+  if (/cabin|pollen|habitacle/.test(blob)) return "cabin_filter";
+  if (/air.?filter|filtre.?air/.test(blob)) return "air_filter";
+  if (/alternat|dynamo/.test(blob)) return "alternator";
+  return null;
+}
+
+type ImageSignals = {
+  metallicShare: number;
+  copperShare: number;
+  darkFlatShare: number;
+  lightPleatShare: number;
+  centerVsEdgeContrast: number;
+};
+
+async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return null;
+  }
+  try {
+    const img = await loadImage(url);
+    const size = 64;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, size, size);
+    const { data } = ctx.getImageData(0, 0, size, size);
+
+    let metallic = 0;
+    let copper = 0;
+    let darkFlat = 0;
+    let lightPleat = 0;
+    let centerLum = 0;
+    let edgeLum = 0;
+    let centerN = 0;
+    let edgeN = 0;
+    const total = size * size;
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const sat = max === 0 ? 0 : (max - min) / max;
+        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const dx = x - size / 2;
+        const dy = y - size / 2;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const isCenter = dist < size * 0.28;
+        const isEdge = dist > size * 0.38;
+
+        if (isCenter) {
+          centerLum += lum;
+          centerN++;
+        } else if (isEdge) {
+          edgeLum += lum;
+          edgeN++;
+        }
+
+        // Silver / steel thermostat body
+        if (sat < 0.18 && lum > 85 && lum < 210 && Math.abs(r - g) < 22) {
+          metallic++;
+        }
+        // Brass / copper flange tones common on thermostats
+        if (r > 120 && r > g + 15 && g > b + 5 && lum > 70 && lum < 200) {
+          copper++;
+        }
+        // Dark flat brake-pad like surface
+        if (lum < 70 && sat < 0.25) {
+          darkFlat++;
+        }
+        // Light paper / filter media
+        if (lum > 170 && sat < 0.2) {
+          lightPleat++;
+        }
+      }
+    }
+
+    return {
+      metallicShare: metallic / total,
+      copperShare: copper / total,
+      darkFlatShare: darkFlat / total,
+      lightPleatShare: lightPleat / total,
+      centerVsEdgeContrast:
+        centerN && edgeN
+          ? Math.abs(centerLum / centerN - edgeLum / edgeN) / 255
+          : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("image load failed"));
+    img.src = url;
+  });
+}
+
+/**
+ * Infer part kind from filenames + lightweight colour/shape cues in photos.
+ * Thermostats: round metal part with spring / metallic + copper tones.
+ */
+export async function inferPartKindFromPhotos(
+  photos: PhotoHintInput[]
+): Promise<{ kind: PartKind; reason: string }> {
+  const fromName = kindFromFilenames(photos);
+  if (fromName) {
+    return {
+      kind: fromName,
+      reason: "Matched keywords in your photo filenames.",
+    };
+  }
+
+  const samples = (
+    await Promise.all(photos.slice(0, 4).map((p) => sampleImageSignals(p.previewUrl)))
+  ).filter((s): s is ImageSignals => s != null);
+
+  if (samples.length === 0) {
+    return {
+      kind: "air_filter",
+      reason: "Defaulted to a common service part (no image signals).",
+    };
+  }
+
+  const avg = samples.reduce(
+    (acc, s) => ({
+      metallicShare: acc.metallicShare + s.metallicShare / samples.length,
+      copperShare: acc.copperShare + s.copperShare / samples.length,
+      darkFlatShare: acc.darkFlatShare + s.darkFlatShare / samples.length,
+      lightPleatShare: acc.lightPleatShare + s.lightPleatShare / samples.length,
+      centerVsEdgeContrast:
+        acc.centerVsEdgeContrast + s.centerVsEdgeContrast / samples.length,
+    }),
+    {
+      metallicShare: 0,
+      copperShare: 0,
+      darkFlatShare: 0,
+      lightPleatShare: 0,
+      centerVsEdgeContrast: 0,
+    }
+  );
+
+  // Round metal + spring thermostat: metallic/copper body, centre/edge contrast
+  const thermostatScore =
+    avg.metallicShare * 1.4 +
+    avg.copperShare * 1.8 +
+    avg.centerVsEdgeContrast * 1.2 -
+    avg.darkFlatShare * 0.4;
+
+  if (
+    thermostatScore > 0.22 ||
+    (avg.metallicShare > 0.18 && avg.centerVsEdgeContrast > 0.08) ||
+    (avg.copperShare > 0.08 && avg.metallicShare > 0.1)
+  ) {
+    return {
+      kind: "thermostat",
+      reason:
+        "Photos look like a round metal coolant thermostat (metallic body / spring area).",
+    };
+  }
+
+  if (avg.darkFlatShare > 0.42 && avg.metallicShare < 0.2) {
+    return {
+      kind: "brake_pads",
+      reason: "Dark flat friction surfaces suggest brake pads.",
+    };
+  }
+
+  if (avg.lightPleatShare > 0.35) {
+    return {
+      kind: "air_filter",
+      reason: "Light pleated media suggests an air or cabin filter.",
+    };
+  }
+
+  // Prefer thermostat over brake pads when somewhat metallic (user pain point)
+  if (avg.metallicShare > 0.12) {
+    return {
+      kind: "thermostat",
+      reason: "Metallic circular cues lean toward a coolant thermostat.",
+    };
+  }
+
+  return {
+    kind: "cabin_filter",
+    reason: "Closest match among common service parts.",
+  };
 }
 
 export function formatVehicleLabel(details: VehicleDetails): string {
@@ -440,92 +732,91 @@ export function modelsForMake(makeId: VehicleMakeId | ""): {
   return VEHICLE_CATALOG[makeId].models;
 }
 
-/** Deterministic mock ID from vehicle + photo count (feels consistent on re-submit). */
+/** Build mock identification from vehicle + inferred part kind (photo-aware). */
 export function mockIdentifyPart(input: {
   details: VehicleDetails;
   photoCount: number;
+  kind: PartKind;
+  inferReason?: string;
 }): PartIdentificationResult {
-  const { details, photoCount } = input;
-  const seed =
-    (details.makeId?.length ?? 0) +
-    (details.modelId?.length ?? 0) +
-    Number(details.year || 0) +
-    photoCount * 3 +
-    (details.vin.trim().length > 0 ? 5 : 0);
-
-  const template = MOCK_PART_TEMPLATES[seed % MOCK_PART_TEMPLATES.length];
+  const { details, photoCount, kind, inferReason } = input;
+  const template = PART_TEMPLATES[kind];
   const vehicleLabel = formatVehicleLabel(details);
   const makeLabel = details.makeId
     ? VEHICLE_CATALOG[details.makeId].label
     : "OEM";
+  const oemNumber = oemForMake(details.makeId, kind);
 
   const confidence = Math.min(
-    94,
-    72 + photoCount * 4 + (details.vin.trim().length >= 11 ? 6 : 0)
+    96,
+    74 +
+      photoCount * 5 +
+      (details.vin.trim().length >= 11 ? 6 : 0) +
+      (kind === "thermostat" ? 4 : 0)
   );
 
+  const displayName =
+    kind === "thermostat" ? "Thermostat / Coolant thermostat" : template.name;
+
   const identified: IdentifiedPart = {
-    id: `id-${template.oemNumber}-${seed}`,
-    name: template.name,
-    oemNumber: template.oemNumber,
+    id: `id-${kind}-${details.makeId || "gen"}-${oemNumber.replace(/\s/g, "")}`,
+    name: displayName,
+    oemNumber,
     category: template.category,
     confidencePercent: confidence,
-    summary: template.summary,
-    fitmentNote: `Likely fit for ${vehicleLabel}. Cross-check OEM ${template.oemNumber} before purchase.`,
+    summary: inferReason
+      ? `${template.summary} ${inferReason}`
+      : template.summary,
+    fitmentNote: `Matched to ${vehicleLabel}. Cross-check OEM ${oemNumber} (or equivalent aftermarket) before install.`,
   };
 
-  const basePrice =
-    template.category === "Brakes"
-      ? 48
-      : template.category === "Electrical"
-        ? 189
-        : 22;
-
+  const basePrice = template.basePrice;
   const recycledPrice = Math.round(basePrice * 0.55 * 100) / 100;
   const remanPrice = Math.round(basePrice * 0.78 * 100) / 100;
-  const newPrice = Math.round(basePrice * 1.15 * 100) / 100;
+  const newPrice = Math.round(basePrice * 1.12 * 100) / 100;
+
+  const shortName =
+    kind === "thermostat" ? "Coolant thermostat" : template.name;
 
   const options: PartOption[] = [
     {
       id: `opt-recycled-${identified.id}`,
       condition: "recycled",
-      name: `Recycled / used ${template.name}`,
-      description: `Tested take-back ${makeLabel} part — lowest impact when condition is sound. Includes basic warranty from partner yard.`,
+      name: shortName,
+      description: `Recycled / used ${shortName.toLowerCase()} for ${makeLabel} — tested take-back part with the lowest footprint when condition is sound.`,
       price: recycledPrice,
       sustainabilityScore: 94,
       ecoRank: 3,
       badge: "Best eco choice",
       highlight: true,
       treesEstimate: treesForPrice(recycledPrice),
-      amazonSearch: `${makeLabel} ${template.name} used recycled`,
+      amazonSearch: `${makeLabel} ${shortName} ${vehicleLabel}`,
     },
     {
       id: `opt-reman-${identified.id}`,
       condition: "remanufactured",
-      name: `Remanufactured ${template.name}`,
-      description:
-        "Factory-refurb core with new wear surfaces — strong eco choice with OEM-like performance.",
+      name: shortName,
+      description: `Remanufactured ${shortName.toLowerCase()} — refurbished core with new seal / wax element where applicable. Strong eco balance.`,
       price: remanPrice,
       sustainabilityScore: 88,
       ecoRank: 2,
       badge: "Strong eco pick",
       highlight: false,
       treesEstimate: treesForPrice(remanPrice),
-      amazonSearch: `${makeLabel} ${template.name} remanufactured`,
+      amazonSearch: `${makeLabel} ${shortName} remanufactured`,
     },
     {
       id: `opt-new-${identified.id}`,
       condition: "new",
-      name: `New OEM-spec ${template.name}`,
-      description:
-        "Brand-new aftermarket / OEM-spec unit when you need maximum lifespan or a warranty-first pick.",
+      name: shortName,
+      description: `Brand-new OEM-spec ${shortName.toLowerCase()} — best when you want maximum lifespan and a full parts warranty.`,
       price: newPrice,
       sustainabilityScore: 62,
       ecoRank: 1,
       badge: "Longest lifespan",
       highlight: false,
       treesEstimate: treesForPrice(newPrice),
-      amazonSearch: `${makeLabel} ${template.name} OEM`,
+      amazonSearch: `${makeLabel} ${shortName} OEM ${oemNumber}`,
     },
   ];
 
@@ -539,15 +830,22 @@ export function mockIdentifyPart(input: {
   };
 }
 
+export const CONDITION_LABELS: Record<PartCondition, string> = {
+  recycled: "Recycled / Used",
+  remanufactured: "Remanufactured",
+  new: "New",
+};
+
 export function partOptionToCartProduct(
   option: PartOption,
   identified: IdentifiedPart,
   vehicleLabel: string
 ): Product {
+  const conditionLabel = CONDITION_LABELS[option.condition];
   return {
-    id: `parts-${option.id}`,
-    name: option.name,
-    description: `${option.description} Fitment: ${vehicleLabel}. OEM ref ${identified.oemNumber}.`,
+    id: `parts-${identified.oemNumber.replace(/\s/g, "")}-${option.condition}`,
+    name: `${option.name} · ${conditionLabel}`,
+    description: `${option.description} Vehicle: ${vehicleLabel}. OEM ref ${identified.oemNumber}. Condition: ${conditionLabel}.`,
     price: option.price,
     imageUrl:
       "data:image/svg+xml," +
@@ -557,12 +855,6 @@ export function partOptionToCartProduct(
     category: "Auto Parts",
     sustainabilityScore: option.sustainabilityScore,
     affiliateCommissionPercent: 4,
-    availabilityNote: `${option.condition} · confirm compatibility before install`,
+    availabilityNote: `${conditionLabel} · qty 1 · confirm compatibility before install`,
   };
 }
-
-export const CONDITION_LABELS: Record<PartCondition, string> = {
-  recycled: "Recycled / Used",
-  remanufactured: "Remanufactured",
-  new: "New",
-};
