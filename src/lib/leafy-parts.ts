@@ -222,18 +222,22 @@ export function mockIdentifyPart(input: {
         ? 189
         : 22;
 
+  const recycledPrice = Math.round(basePrice * 0.55 * 100) / 100;
+  const remanPrice = Math.round(basePrice * 0.78 * 100) / 100;
+  const newPrice = Math.round(basePrice * 1.15 * 100) / 100;
+
   const options: PartOption[] = [
     {
       id: `opt-recycled-${identified.id}`,
       condition: "recycled",
       name: `Recycled / used ${template.name}`,
       description: `Tested take-back ${makeLabel} part — lowest impact when condition is sound. Includes basic warranty from partner yard.`,
-      price: Math.round(basePrice * 0.55 * 100) / 100,
+      price: recycledPrice,
       sustainabilityScore: 94,
       ecoRank: 3,
       badge: "Best for the planet",
       highlight: true,
-      treesEstimate: 0,
+      treesEstimate: treesForPrice(recycledPrice),
       amazonSearch: `${makeLabel} ${template.name} used recycled`,
     },
     {
@@ -242,12 +246,12 @@ export function mockIdentifyPart(input: {
       name: `Remanufactured ${template.name}`,
       description:
         "Factory-refurb core with new wear surfaces — strong eco choice with OEM-like performance.",
-      price: Math.round(basePrice * 0.78 * 100) / 100,
+      price: remanPrice,
       sustainabilityScore: 88,
       ecoRank: 2,
       badge: "Recommended",
       highlight: true,
-      treesEstimate: 0,
+      treesEstimate: treesForPrice(remanPrice),
       amazonSearch: `${makeLabel} ${template.name} remanufactured`,
     },
     {
@@ -256,20 +260,17 @@ export function mockIdentifyPart(input: {
       name: `New OEM-spec ${template.name}`,
       description:
         "Brand-new aftermarket / OEM-spec unit when you need maximum lifespan or a warranty-first pick.",
-      price: Math.round(basePrice * 1.15 * 100) / 100,
+      price: newPrice,
       sustainabilityScore: 62,
       ecoRank: 1,
       badge: "New",
       highlight: false,
-      treesEstimate: 0,
+      treesEstimate: treesForPrice(newPrice),
       amazonSearch: `${makeLabel} ${template.name} OEM`,
     },
-  ]
-    .map((opt) => ({
-      ...opt,
-      treesEstimate: treesForPrice(opt.price),
-    }))
-    .sort((a, b) => b.ecoRank - a.ecoRank);
+  ];
+
+  options.sort((a, b) => b.ecoRank - a.ecoRank);
 
   return {
     identified,
