@@ -36,7 +36,8 @@ export function VehicleDetailsForm({
           Vehicle details
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose Make first — Model updates automatically. Years {YEAR_MIN}–
+          Choose Make first — Model updates with that brand&apos;s cars
+          (including Renault, Peugeot, Audi, and more). Years {YEAR_MIN}–
           {YEAR_MAX}. VIN is optional.
         </p>
       </div>

@@ -20,7 +20,19 @@ export type VehicleMakeId =
   | "mazda"
   | "subaru"
   | "kia"
-  | "tesla";
+  | "tesla"
+  | "renault"
+  | "peugeot"
+  | "citroen"
+  | "audi"
+  | "skoda"
+  | "seat"
+  | "volvo"
+  | "land-rover"
+  | "jaguar"
+  | "fiat"
+  | "alfa-romeo"
+  | "dacia";
 
 export type VehicleDetails = {
   makeId: VehicleMakeId | "";
@@ -209,6 +221,142 @@ export const VEHICLE_CATALOG: Record<
       { id: "model-y", label: "Model Y" },
       { id: "model-s", label: "Model S" },
       { id: "model-x", label: "Model X" },
+    ],
+  },
+  renault: {
+    label: "Renault",
+    models: [
+      { id: "clio", label: "Clio" },
+      { id: "megane", label: "Mégane" },
+      { id: "captur", label: "Captur" },
+      { id: "kadjar", label: "Kadjar" },
+      { id: "scenic", label: "Scénic" },
+      { id: "arkana", label: "Arkana" },
+      { id: "austral", label: "Austral" },
+      { id: "zoe", label: "ZOE" },
+    ],
+  },
+  peugeot: {
+    label: "Peugeot",
+    models: [
+      { id: "208", label: "208" },
+      { id: "308", label: "308" },
+      { id: "2008", label: "2008" },
+      { id: "3008", label: "3008" },
+      { id: "5008", label: "5008" },
+      { id: "508", label: "508" },
+      { id: "e-208", label: "e-208" },
+    ],
+  },
+  citroen: {
+    label: "Citroën",
+    models: [
+      { id: "c3", label: "C3" },
+      { id: "c4", label: "C4" },
+      { id: "c5-aircross", label: "C5 Aircross" },
+      { id: "berlingo", label: "Berlingo" },
+      { id: "c3-aircross", label: "C3 Aircross" },
+      { id: "ami", label: "Ami" },
+    ],
+  },
+  audi: {
+    label: "Audi",
+    models: [
+      { id: "a3", label: "A3" },
+      { id: "a4", label: "A4" },
+      { id: "a6", label: "A6" },
+      { id: "q3", label: "Q3" },
+      { id: "q5", label: "Q5" },
+      { id: "q7", label: "Q7" },
+      { id: "e-tron", label: "Q4 e-tron" },
+    ],
+  },
+  skoda: {
+    label: "Škoda",
+    models: [
+      { id: "octavia", label: "Octavia" },
+      { id: "fabia", label: "Fabia" },
+      { id: "superb", label: "Superb" },
+      { id: "kodiaq", label: "Kodiaq" },
+      { id: "karoq", label: "Karoq" },
+      { id: "enyaq", label: "Enyaq" },
+    ],
+  },
+  seat: {
+    label: "SEAT",
+    models: [
+      { id: "ibiza", label: "Ibiza" },
+      { id: "leon", label: "León" },
+      { id: "ateca", label: "Ateca" },
+      { id: "arona", label: "Arona" },
+      { id: "tarraco", label: "Tarraco" },
+      { id: "born", label: "Born" },
+    ],
+  },
+  volvo: {
+    label: "Volvo",
+    models: [
+      { id: "xc40", label: "XC40" },
+      { id: "xc60", label: "XC60" },
+      { id: "xc90", label: "XC90" },
+      { id: "v60", label: "V60" },
+      { id: "s60", label: "S60" },
+      { id: "c40", label: "C40 Recharge" },
+    ],
+  },
+  "land-rover": {
+    label: "Land Rover",
+    models: [
+      { id: "defender", label: "Defender" },
+      { id: "discovery", label: "Discovery" },
+      { id: "discovery-sport", label: "Discovery Sport" },
+      { id: "range-rover", label: "Range Rover" },
+      { id: "range-rover-sport", label: "Range Rover Sport" },
+      { id: "range-rover-evoque", label: "Range Rover Evoque" },
+    ],
+  },
+  jaguar: {
+    label: "Jaguar",
+    models: [
+      { id: "xe", label: "XE" },
+      { id: "xf", label: "XF" },
+      { id: "f-pace", label: "F-PACE" },
+      { id: "e-pace", label: "E-PACE" },
+      { id: "i-pace", label: "I-PACE" },
+      { id: "f-type", label: "F-TYPE" },
+    ],
+  },
+  fiat: {
+    label: "Fiat",
+    models: [
+      { id: "500", label: "500" },
+      { id: "500x", label: "500X" },
+      { id: "panda", label: "Panda" },
+      { id: "tipo", label: "Tipo" },
+      { id: "punto", label: "Punto" },
+      { id: "doblo", label: "Doblo" },
+    ],
+  },
+  "alfa-romeo": {
+    label: "Alfa Romeo",
+    models: [
+      { id: "giulia", label: "Giulia" },
+      { id: "stelvio", label: "Stelvio" },
+      { id: "tonale", label: "Tonale" },
+      { id: "giulietta", label: "Giulietta" },
+      { id: "mito", label: "MiTo" },
+      { id: "junior", label: "Junior" },
+    ],
+  },
+  dacia: {
+    label: "Dacia",
+    models: [
+      { id: "sandero", label: "Sandero" },
+      { id: "duster", label: "Duster" },
+      { id: "jogger", label: "Jogger" },
+      { id: "spring", label: "Spring" },
+      { id: "logan", label: "Logan" },
+      { id: "bigster", label: "Bigster" },
     ],
   },
 };

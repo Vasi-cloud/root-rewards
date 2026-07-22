@@ -269,13 +269,21 @@ export default function LeafyPartsFinderPage() {
         )}
 
         {phase === "results" && result && (
-          <section ref={resultsRef} className="mt-12 scroll-mt-24 space-y-6">
+          <section
+            ref={resultsRef}
+            id="parts-results"
+            className="mt-12 scroll-mt-24 space-y-6 rounded-3xl border border-emerald-200/80 bg-gradient-to-b from-emerald-50/50 via-cream/40 to-transparent p-4 sm:p-6"
+            aria-labelledby="parts-results-heading"
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
-                  Your results
+                  Identification complete
                 </p>
-                <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
+                <h2
+                  id="parts-results-heading"
+                  className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl"
+                >
                   {result.identified.name}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
@@ -289,7 +297,7 @@ export default function LeafyPartsFinderPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-11 gap-2"
+                className="h-11 gap-2 bg-white/80"
                 onClick={resetSearch}
               >
                 <ArrowLeft className="size-4" />
@@ -315,7 +323,7 @@ export default function LeafyPartsFinderPage() {
               </div>
             )}
 
-            <Card className="border-emerald-200/80 bg-white/90 shadow-sm">
+            <Card className="border-emerald-200/80 bg-white/95 shadow-sm">
               <CardContent className="space-y-2 pt-5 text-sm leading-relaxed text-foreground">
                 <p>{result.identified.summary}</p>
                 <p className="text-muted-foreground">
@@ -330,15 +338,16 @@ export default function LeafyPartsFinderPage() {
 
             <div>
               <h3 className="font-heading text-xl font-semibold text-foreground">
-                3 replacement options
+                Choose a replacement
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Recycled / Used is highlighted as the best eco choice. Each
-                option shows how many trees your order will plant.
+                Three options — Recycled / Used (best eco choice),
+                Remanufactured, and New. Each includes price, Add to Cart, Buy
+                Online, and tree impact.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4" data-testid="parts-options">
               {result.options.map((option) => (
                 <PartOptionCard
                   key={option.id}
@@ -365,7 +374,7 @@ export default function LeafyPartsFinderPage() {
                 render={<Link href="/marketplace" />}
                 variant="outline"
                 size="lg"
-                className="h-12 flex-1"
+                className="h-12 flex-1 bg-white/80"
               >
                 Continue shopping
               </Button>
