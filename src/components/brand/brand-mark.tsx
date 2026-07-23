@@ -1,14 +1,15 @@
-import Link from "next/link";
-
 import { TrademarkRegLink } from "@/components/legal/trademark-reg-link";
 import { Badge } from "@/components/ui/badge";
 
 /** Canonical registered brand string for prominent display */
 export const BRAND_NAME_REGISTERED = "Forest Buddies®";
 
+/** Compact registered short form for narrow headers */
+export const BRAND_NAME_SHORT = "Forest®";
+
 /**
  * Nav wordmark with ®.
- * Mobile: "FB®" (clean, no overflow). sm+: "Forest Buddies®".
+ * Mobile: "Forest®" (clear, professional). sm+: "Forest Buddies®".
  */
 export function BrandMark({
   className = "",
@@ -27,7 +28,7 @@ export function BrandMark({
 
   return (
     <span className={`whitespace-nowrap tracking-tight ${className}`}>
-      <span className="sm:hidden">FB®</span>
+      <span className="sm:hidden">{BRAND_NAME_SHORT}</span>
       <span className="hidden sm:inline">{BRAND_NAME_REGISTERED}</span>
     </span>
   );
@@ -101,6 +102,10 @@ export function shouldShowShopTrademarkStrip(pathname: string | null): boolean {
     pathname === "/kitchen" ||
     pathname.startsWith("/kitchen/") ||
     pathname === "/assistant" ||
-    pathname.startsWith("/assistant/")
+    pathname.startsWith("/assistant/") ||
+    pathname === "/parts" ||
+    pathname.startsWith("/parts/") ||
+    pathname === "/leafy-parts" ||
+    pathname.startsWith("/leafy-parts/")
   );
 }

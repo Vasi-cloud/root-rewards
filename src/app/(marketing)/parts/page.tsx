@@ -151,8 +151,8 @@ export default function LeafyPartsFinderPage() {
     setAddedIds((prev) => new Set(prev).add(option.id));
     const condition = CONDITION_LABELS[option.condition];
     showSuccess(
-      `Added to cart · ${option.name}`,
-      `${condition} · ${formatCartMoney(option.price)} · qty 1. This order will plant ${option.treesEstimate} tree${option.treesEstimate === 1 ? "" : "s"}.`,
+      `Nice — added to your cart`,
+      `${option.name} (${condition}) · ${formatCartMoney(option.price)}. This order will plant ${option.treesEstimate} tree${option.treesEstimate === 1 ? "" : "s"}.`,
       {
         accent: "cart",
         action: { label: "View cart & checkout", href: "/cart" },
@@ -284,7 +284,7 @@ export default function LeafyPartsFinderPage() {
             {busy ? (
               <>
                 <Loader2 className="size-5 animate-spin" />
-                Analysing…
+                Leafy is analysing…
               </>
             ) : (
               <>
@@ -299,22 +299,24 @@ export default function LeafyPartsFinderPage() {
 
         {busy && (
           <div
-            className="mt-8 animate-[fb-fade-up_0.35s_ease-out] rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-5 py-12 text-center shadow-sm sm:mt-10 sm:px-8"
+            className="mt-8 animate-[fb-fade-up_0.35s_ease-out] rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-4 py-10 text-center shadow-sm sm:mt-10 sm:px-8 sm:py-12"
             aria-live="polite"
             aria-busy="true"
           >
-            <Loader2 className="mx-auto size-11 animate-spin text-emerald-800" />
-            <p className="font-heading mt-5 text-xl font-semibold text-emerald-950 sm:text-2xl">
+            <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-white/80 shadow-sm ring-1 ring-emerald-200/80">
+              <Loader2 className="size-8 animate-spin text-emerald-800" />
+            </div>
+            <p className="font-heading mt-5 text-xl font-semibold tracking-tight text-emerald-950 sm:text-2xl">
               Leafy is analysing your photos…
             </p>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-emerald-900/80">
+            <p className="mx-auto mt-2.5 max-w-sm px-1 text-sm leading-relaxed text-emerald-900/80">
               Matching shapes, colours, and fitment for{" "}
               <span className="font-medium text-emerald-950">
                 {formatVehicleLabel(vehicle)}
               </span>
               .
             </p>
-            <div className="mx-auto mt-7 flex max-w-xs flex-col gap-2.5 text-left text-xs text-emerald-900/75">
+            <div className="mx-auto mt-7 flex w-full max-w-sm flex-col gap-2 text-left text-xs text-emerald-900/75">
               {[
                 "Comparing part silhouettes",
                 "Checking OEM cross-references",
@@ -323,8 +325,9 @@ export default function LeafyPartsFinderPage() {
                 <p
                   key={label}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors",
-                    loadingStep === i && "bg-white/70 font-medium text-emerald-950"
+                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors",
+                    loadingStep === i &&
+                      "bg-white/80 font-medium text-emerald-950 shadow-xs"
                   )}
                 >
                   {i === 2 ? (
@@ -336,7 +339,7 @@ export default function LeafyPartsFinderPage() {
                 </p>
               ))}
             </div>
-            <p className="mx-auto mt-6 max-w-md text-[11px] leading-relaxed text-emerald-800/65">
+            <p className="mx-auto mt-6 max-w-md px-2 text-[11px] leading-relaxed text-emerald-800/65">
               {PARTS_MOCK_AI_NOTE}
             </p>
           </div>
@@ -346,17 +349,17 @@ export default function LeafyPartsFinderPage() {
           <section
             ref={resultsRef}
             id="parts-results"
-            className="mt-10 scroll-mt-24 space-y-5 rounded-3xl border border-emerald-200/80 bg-gradient-to-b from-emerald-50/60 via-cream/50 to-transparent p-4 sm:mt-12 sm:space-y-6 sm:p-6"
+            className="mt-10 scroll-mt-24 space-y-4 rounded-3xl border border-emerald-200/80 bg-gradient-to-b from-emerald-50/60 via-cream/50 to-transparent p-3.5 sm:mt-12 sm:space-y-6 sm:p-6"
             aria-labelledby="parts-results-heading"
           >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
                   Identification complete
                 </p>
                 <h2
                   id="parts-results-heading"
-                  className="font-heading mt-1 text-2xl font-semibold leading-tight text-primary sm:text-3xl"
+                  className="font-heading mt-1 text-[1.35rem] font-semibold leading-snug text-primary sm:text-3xl"
                 >
                   {result.identified.name}
                 </h2>
@@ -364,74 +367,75 @@ export default function LeafyPartsFinderPage() {
                   For {result.vehicleLabel}
                 </p>
               </div>
-              <div className="flex flex-col gap-2 sm:items-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full gap-2 bg-white/90 sm:w-auto"
-                  onClick={resetSearch}
-                >
-                  <ArrowLeft className="size-4" />
-                  New search
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full gap-2 bg-white/90 sm:w-auto sm:shrink-0"
+                onClick={resetSearch}
+              >
+                <ArrowLeft className="size-4" />
+                New search
+              </Button>
             </div>
 
             {/* Confidence + why it matched */}
-            <div className="rounded-2xl border border-emerald-200/80 bg-white/95 p-4 shadow-sm sm:p-5">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
+            <div className="rounded-2xl border border-emerald-200/80 bg-white/95 p-3.5 shadow-sm sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     Confidence score
                   </p>
-                  <p className="font-heading mt-0.5 text-3xl font-semibold tabular-nums text-emerald-900">
+                  <p className="font-heading mt-0.5 text-[1.75rem] font-semibold tabular-nums text-emerald-900 sm:text-3xl">
                     {confidence}%
                   </p>
                 </div>
                 <Badge
                   variant="outline"
-                  className="border-amber-300/80 bg-amber-50 font-normal text-amber-950"
+                  className="shrink-0 border-amber-300/80 bg-amber-50 text-[10px] font-normal text-amber-950 sm:text-xs"
                 >
                   Mock AI estimate
                 </Badge>
               </div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-emerald-100">
+              <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-emerald-100 sm:mt-3">
                 <div
                   className="h-full rounded-full bg-emerald-700 transition-all duration-700"
                   style={{ width: `${confidence}%` }}
                 />
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-foreground">
-                <span className="font-semibold text-emerald-900">
-                  Why it matched:{" "}
-                </span>
-                {result.identified.matchExplanation}
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {result.identified.summary}
-              </p>
-              <p className="mt-2 font-mono text-xs text-emerald-900">
-                OEM {result.identified.oemNumber} · {result.identified.category}
-              </p>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                {PARTS_MOCK_AI_NOTE}
-              </p>
+              <div className="mt-3.5 space-y-2.5 border-t border-emerald-100 pt-3.5">
+                <p className="text-sm leading-relaxed text-foreground">
+                  <span className="font-semibold text-emerald-900">
+                    Why it matched:{" "}
+                  </span>
+                  {result.identified.matchExplanation}
+                </p>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {result.identified.summary}
+                </p>
+                <p className="break-all font-mono text-xs text-emerald-900">
+                  OEM {result.identified.oemNumber} ·{" "}
+                  {result.identified.category}
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {PARTS_MOCK_AI_NOTE}
+                </p>
+              </div>
             </div>
 
             {/* Manual override */}
-            <div className="rounded-2xl border border-border/70 bg-white/80 p-4 sm:p-5">
+            <div className="rounded-2xl border border-border/70 bg-white/90 p-3.5 sm:p-5">
               <Label htmlFor="parts-override" className="text-sm font-medium">
                 Not quite right? Override part type
               </Label>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Pick another common part and Leafy will refresh options for your
                 vehicle.
               </p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <div className="mt-3.5 flex flex-col gap-2.5">
                 <select
                   id="parts-override"
                   key={result.identified.kind}
-                  className={selectClass}
+                  className={cn(selectClass, "min-h-12")}
                   defaultValue={result.identified.kind}
                   onChange={(e) =>
                     handleOverride(e.target.value as PartKind)
@@ -447,7 +451,7 @@ export default function LeafyPartsFinderPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-11 shrink-0 gap-2"
+                  className="h-11 w-full gap-2 sm:w-auto"
                   onClick={resetSearch}
                 >
                   <RefreshCw className="size-4" />
@@ -457,11 +461,11 @@ export default function LeafyPartsFinderPage() {
             </div>
 
             {photos.length > 0 && (
-              <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+              <div className="-mx-0.5 flex gap-2.5 overflow-x-auto px-0.5 pb-1 sm:gap-3">
                 {photos.map((photo, i) => (
                   <div
                     key={photo.id}
-                    className="size-[4.5rem] shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-muted/30 shadow-xs sm:size-24"
+                    className="size-[4.25rem] shrink-0 overflow-hidden rounded-2xl border border-border/70 bg-muted/30 shadow-xs sm:size-24"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -474,18 +478,18 @@ export default function LeafyPartsFinderPage() {
               </div>
             )}
 
-            <div>
-              <h3 className="font-heading text-xl font-semibold text-foreground">
+            <div className="pt-1">
+              <h3 className="font-heading text-lg font-semibold text-foreground sm:text-xl">
                 Choose a replacement
               </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Recycled / Used is the best eco choice. Each card shows price,
                 tree impact, Add to Cart, and Buy Online.
               </p>
             </div>
 
             <div
-              className="grid gap-4 sm:gap-5"
+              className="grid gap-3.5 sm:gap-5"
               data-testid="parts-options"
             >
               {result.options.map((option) => (
