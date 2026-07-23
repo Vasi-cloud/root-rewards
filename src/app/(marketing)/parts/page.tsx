@@ -504,7 +504,7 @@ export default function LeafyPartsFinderPage() {
               ))}
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:gap-3">
               <Button
                 nativeButton={false}
                 render={<Link href="/cart" />}

@@ -38,11 +38,11 @@ export default function DashboardLayout({
         <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
           <Link
             href="/"
-            className="group flex min-w-0 items-center gap-2 font-heading text-sm font-semibold text-primary sm:text-base"
+            className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary sm:text-lg"
             aria-label="Forest Buddies® home"
           >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105">
-              <Leaf className="size-4" />
+              <Leaf className="size-4" aria-hidden />
             </span>
             <BrandMark />
           </Link>
