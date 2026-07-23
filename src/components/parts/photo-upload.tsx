@@ -63,10 +63,10 @@ export function PhotoUpload({ photos, onChange, disabled }: PhotoUploadProps) {
       </div>
 
       {photos.length > 0 && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 sm:gap-3">
           {photos.map((photo, index) => (
             <li key={photo.id} className="min-w-0">
-              <div className="relative aspect-square overflow-hidden rounded-2xl border border-border/70 bg-muted/30 shadow-xs">
+              <div className="relative aspect-square overflow-hidden rounded-2xl border border-border/70 bg-muted/30 shadow-xs ring-1 ring-black/5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={photo.previewUrl}

@@ -1,8 +1,9 @@
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Info, ShieldCheck } from "lucide-react";
 
 import {
   PARTS_AI_DISCLAIMER,
   PARTS_COMPAT_DISCLAIMER,
+  PARTS_MOCK_AI_NOTE,
 } from "@/lib/leafy-parts";
 
 export function PartsDisclaimers({ className }: { className?: string }) {
@@ -14,6 +15,13 @@ export function PartsDisclaimers({ className }: { className?: string }) {
       }
     >
       <div className="flex gap-3">
+        <Info className="mt-0.5 size-4 shrink-0 text-amber-800" />
+        <p>
+          <span className="font-semibold">Mock AI for now.</span>{" "}
+          {PARTS_MOCK_AI_NOTE}
+        </p>
+      </div>
+      <div className="flex gap-3 border-t border-amber-200/80 pt-3">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-800" />
         <p>
           <span className="font-semibold">AI identification disclaimer.</span>{" "}

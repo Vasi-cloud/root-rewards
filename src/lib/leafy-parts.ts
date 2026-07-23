@@ -51,7 +51,10 @@ export type IdentifiedPart = {
   category: string;
   confidencePercent: number;
   summary: string;
+  /** Short plain-language reason for the match */
+  matchExplanation: string;
   fitmentNote: string;
+  kind: PartKind;
 };
 
 export type PartOption = {
@@ -384,12 +387,27 @@ export const PARTS_AI_DISCLAIMER =
 export const PARTS_COMPAT_DISCLAIMER =
   "Confirm fitment with your VIN, OEM number, or a trusted mechanic — especially for safety-critical parts like brakes and steering.";
 
+export const PARTS_MOCK_AI_NOTE =
+  "This is currently mock AI for demonstration. Real vision AI will be connected later — you can override the part type anytime.";
+
 export type PartKind =
   | "thermostat"
   | "brake_pads"
   | "air_filter"
   | "cabin_filter"
-  | "alternator";
+  | "alternator"
+  | "oxygen_sensor"
+  | "maf_sensor";
+
+export const PART_KIND_OPTIONS: { id: PartKind; label: string }[] = [
+  { id: "thermostat", label: "Thermostat / Coolant thermostat" },
+  { id: "brake_pads", label: "Front brake pad set" },
+  { id: "air_filter", label: "Engine air filter" },
+  { id: "cabin_filter", label: "Cabin pollen filter" },
+  { id: "alternator", label: "Alternator assembly" },
+  { id: "oxygen_sensor", label: "Oxygen / lambda sensor" },
+  { id: "maf_sensor", label: "MAF / air-flow sensor" },
+];
 
 export type PhotoHintInput = {
   previewUrl: string;
@@ -452,6 +470,24 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     basePrice: 189,
     defaultOem: "77 11 135 588",
   },
+  oxygen_sensor: {
+    kind: "oxygen_sensor",
+    name: "Oxygen / lambda sensor",
+    category: "Sensors",
+    summary:
+      "Threaded probe-style sensor with a wiring pigtail — typical oxygen (lambda) sensor used in the exhaust.",
+    basePrice: 56,
+    defaultOem: "77 00 107 095",
+  },
+  maf_sensor: {
+    kind: "maf_sensor",
+    name: "MAF / air-flow sensor",
+    category: "Sensors",
+    summary:
+      "Plastic sensor housing with an electrical connector — mass air-flow style unit for the intake tract.",
+    basePrice: 78,
+    defaultOem: "82 00 041 644",
+  },
 };
 
 /** Plausible OEM-style refs per make for common parts (mock / demo). */
@@ -464,41 +500,53 @@ const OEM_BY_MAKE: Partial<
     air_filter: "82 00 432 179",
     cabin_filter: "27 27 7 508 237",
     alternator: "77 11 135 588",
+    oxygen_sensor: "77 00 107 095",
+    maf_sensor: "82 00 041 644",
   },
   peugeot: {
     thermostat: "1338.A6",
     brake_pads: "4254.22",
     air_filter: "1444.TJ",
+    oxygen_sensor: "1628.KR",
+    maf_sensor: "1920.GW",
   },
   citroen: {
     thermostat: "1338.A6",
     brake_pads: "4254.22",
+    oxygen_sensor: "1628.KR",
   },
   volkswagen: {
     thermostat: "03C 121 111",
     brake_pads: "1K0 698 151",
     air_filter: "1K0 129 620",
+    oxygen_sensor: "03G 906 262",
+    maf_sensor: "06A 906 461",
   },
   audi: {
     thermostat: "06A 121 111",
     brake_pads: "8E0 698 151",
+    oxygen_sensor: "06A 906 262",
   },
   ford: {
     thermostat: "1 339 017",
     brake_pads: "1 787 511",
+    oxygen_sensor: "1 748 860",
   },
   toyota: {
     thermostat: "90916-03100",
     brake_pads: "04465-0R090",
     air_filter: "17801-0V020",
+    oxygen_sensor: "89465-0D090",
   },
   honda: {
     thermostat: "19301-PAA-A01",
     brake_pads: "45022-S5A-J00",
+    oxygen_sensor: "36531-PAA-A01",
   },
   bmw: {
     thermostat: "11 53 7 547 415",
     brake_pads: "34 11 6 857 827",
+    oxygen_sensor: "11 78 7 566 347",
   },
 };
 
@@ -516,11 +564,14 @@ function oemForMake(makeId: VehicleMakeId | "", kind: PartKind): string {
 
 function kindFromFilenames(photos: PhotoHintInput[]): PartKind | null {
   const blob = photos.map((p) => p.name).join(" ").toLowerCase();
-  if (/thermo|coolant|wax.?pellet|stat/.test(blob)) return "thermostat";
+  if (/thermo|coolant|wax.?pellet/.test(blob)) return "thermostat";
   if (/brake|pad|plaquette/.test(blob)) return "brake_pads";
   if (/cabin|pollen|habitacle/.test(blob)) return "cabin_filter";
+  if (/maf|mass.?air|air.?flow/.test(blob)) return "maf_sensor";
+  if (/o2|oxygen|lambda|sonde/.test(blob)) return "oxygen_sensor";
   if (/air.?filter|filtre.?air/.test(blob)) return "air_filter";
   if (/alternat|dynamo/.test(blob)) return "alternator";
+  if (/\bsensor\b/.test(blob)) return "oxygen_sensor";
   return null;
 }
 
@@ -530,6 +581,8 @@ type ImageSignals = {
   darkFlatShare: number;
   lightPleatShare: number;
   centerVsEdgeContrast: number;
+  blackPlasticShare: number;
+  connectorHueShare: number;
 };
 
 async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
@@ -538,7 +591,7 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
   }
   try {
     const img = await loadImage(url);
-    const size = 64;
+    const size = 72;
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
@@ -551,6 +604,8 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
     let copper = 0;
     let darkFlat = 0;
     let lightPleat = 0;
+    let blackPlastic = 0;
+    let connectorHue = 0;
     let centerLum = 0;
     let edgeLum = 0;
     let centerN = 0;
@@ -597,6 +652,14 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
         if (lum > 170 && sat < 0.2) {
           lightPleat++;
         }
+        // Matte black plastic housings (MAF / sensors)
+        if (lum < 55 && sat < 0.2) {
+          blackPlastic++;
+        }
+        // Coloured connector plastics (blue / green / teal)
+        if (sat > 0.25 && lum > 40 && lum < 180 && (b > r + 20 || g > r + 15)) {
+          connectorHue++;
+        }
       }
     }
 
@@ -605,6 +668,8 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
       copperShare: copper / total,
       darkFlatShare: darkFlat / total,
       lightPleatShare: lightPleat / total,
+      blackPlasticShare: blackPlastic / total,
+      connectorHueShare: connectorHue / total,
       centerVsEdgeContrast:
         centerN && edgeN
           ? Math.abs(centerLum / centerN - edgeLum / edgeN) / 255
@@ -624,29 +689,57 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+export type PartInference = {
+  kind: PartKind;
+  reason: string;
+  /** 0–1 relative strength of the winning score */
+  scoreStrength: number;
+};
+
+const MATCH_REASONS: Record<PartKind, string> = {
+  thermostat:
+    "Round metallic body with centre/spring contrast — typical coolant thermostat.",
+  brake_pads:
+    "Dark, flat friction surfaces with low shine — typical brake pad faces.",
+  air_filter:
+    "Light pleated media and soft edges — typical engine air filter.",
+  cabin_filter:
+    "Light layered filter media in a compact cartridge — cabin / pollen filter.",
+  alternator:
+    "Dense metal housing with cylindrical mass — alternator-style assembly.",
+  oxygen_sensor:
+    "Probe-like metal tip with wiring cues — oxygen / lambda sensor.",
+  maf_sensor:
+    "Dark plastic housing with connector colour — mass air-flow sensor.",
+};
+
 /**
  * Infer part kind from filenames + lightweight colour/shape cues in photos.
- * Thermostats: round metal part with spring / metallic + copper tones.
+ * Scores common parts (thermostat, pads, filters, sensors, alternator).
  */
 export async function inferPartKindFromPhotos(
   photos: PhotoHintInput[]
-): Promise<{ kind: PartKind; reason: string }> {
+): Promise<PartInference> {
   const fromName = kindFromFilenames(photos);
   if (fromName) {
     return {
       kind: fromName,
-      reason: "Matched keywords in your photo filenames.",
+      reason: `Filename cues matched “${PART_KIND_OPTIONS.find((o) => o.id === fromName)?.label ?? fromName}”.`,
+      scoreStrength: 0.92,
     };
   }
 
   const samples = (
-    await Promise.all(photos.slice(0, 4).map((p) => sampleImageSignals(p.previewUrl)))
+    await Promise.all(
+      photos.slice(0, 4).map((p) => sampleImageSignals(p.previewUrl))
+    )
   ).filter((s): s is ImageSignals => s != null);
 
   if (samples.length === 0) {
     return {
       kind: "air_filter",
-      reason: "Defaulted to a common service part (no image signals).",
+      reason: "Could not read image pixels — defaulted to a common service part.",
+      scoreStrength: 0.35,
     };
   }
 
@@ -656,6 +749,10 @@ export async function inferPartKindFromPhotos(
       copperShare: acc.copperShare + s.copperShare / samples.length,
       darkFlatShare: acc.darkFlatShare + s.darkFlatShare / samples.length,
       lightPleatShare: acc.lightPleatShare + s.lightPleatShare / samples.length,
+      blackPlasticShare:
+        acc.blackPlasticShare + s.blackPlasticShare / samples.length,
+      connectorHueShare:
+        acc.connectorHueShare + s.connectorHueShare / samples.length,
       centerVsEdgeContrast:
         acc.centerVsEdgeContrast + s.centerVsEdgeContrast / samples.length,
     }),
@@ -664,54 +761,73 @@ export async function inferPartKindFromPhotos(
       copperShare: 0,
       darkFlatShare: 0,
       lightPleatShare: 0,
+      blackPlasticShare: 0,
+      connectorHueShare: 0,
       centerVsEdgeContrast: 0,
     }
   );
 
-  // Round metal + spring thermostat: metallic/copper body, centre/edge contrast
-  const thermostatScore =
-    avg.metallicShare * 1.4 +
-    avg.copperShare * 1.8 +
-    avg.centerVsEdgeContrast * 1.2 -
-    avg.darkFlatShare * 0.4;
+  const scores: Record<PartKind, number> = {
+    thermostat:
+      avg.metallicShare * 1.5 +
+      avg.copperShare * 2.0 +
+      avg.centerVsEdgeContrast * 1.4 -
+      avg.darkFlatShare * 0.5 -
+      avg.lightPleatShare * 0.3,
+    brake_pads:
+      avg.darkFlatShare * 1.8 -
+      avg.metallicShare * 0.6 -
+      avg.lightPleatShare * 0.4 -
+      avg.connectorHueShare * 0.3,
+    air_filter:
+      avg.lightPleatShare * 1.9 -
+      avg.metallicShare * 0.5 -
+      avg.darkFlatShare * 0.3,
+    cabin_filter:
+      avg.lightPleatShare * 1.5 -
+      avg.metallicShare * 0.4 -
+      avg.copperShare * 0.2,
+    alternator:
+      avg.metallicShare * 1.1 +
+      avg.darkFlatShare * 0.4 -
+      avg.lightPleatShare * 0.5 -
+      avg.copperShare * 0.2,
+    oxygen_sensor:
+      avg.metallicShare * 0.9 +
+      avg.blackPlasticShare * 0.6 +
+      avg.connectorHueShare * 0.8 -
+      avg.lightPleatShare * 0.4,
+    maf_sensor:
+      avg.blackPlasticShare * 1.6 +
+      avg.connectorHueShare * 1.4 -
+      avg.lightPleatShare * 0.3 -
+      avg.copperShare * 0.2,
+  };
 
-  if (
-    thermostatScore > 0.22 ||
-    (avg.metallicShare > 0.18 && avg.centerVsEdgeContrast > 0.08) ||
-    (avg.copperShare > 0.08 && avg.metallicShare > 0.1)
-  ) {
-    return {
-      kind: "thermostat",
-      reason:
-        "Photos look like a round metal coolant thermostat (metallic body / spring area).",
-    };
+  let best: PartKind = "cabin_filter";
+  let bestScore = -Infinity;
+  let second = -Infinity;
+  for (const kind of Object.keys(scores) as PartKind[]) {
+    const s = scores[kind];
+    if (s > bestScore) {
+      second = bestScore;
+      bestScore = s;
+      best = kind;
+    } else if (s > second) {
+      second = s;
+    }
   }
 
-  if (avg.darkFlatShare > 0.42 && avg.metallicShare < 0.2) {
-    return {
-      kind: "brake_pads",
-      reason: "Dark flat friction surfaces suggest brake pads.",
-    };
-  }
-
-  if (avg.lightPleatShare > 0.35) {
-    return {
-      kind: "air_filter",
-      reason: "Light pleated media suggests an air or cabin filter.",
-    };
-  }
-
-  // Prefer thermostat over brake pads when somewhat metallic (user pain point)
-  if (avg.metallicShare > 0.12) {
-    return {
-      kind: "thermostat",
-      reason: "Metallic circular cues lean toward a coolant thermostat.",
-    };
-  }
+  const margin = bestScore - second;
+  const scoreStrength = Math.max(
+    0.35,
+    Math.min(0.95, 0.45 + bestScore * 0.35 + margin * 0.5)
+  );
 
   return {
-    kind: "cabin_filter",
-    reason: "Closest match among common service parts.",
+    kind: best,
+    reason: MATCH_REASONS[best],
+    scoreStrength,
   };
 }
 
@@ -738,8 +854,17 @@ export function mockIdentifyPart(input: {
   photoCount: number;
   kind: PartKind;
   inferReason?: string;
+  scoreStrength?: number;
+  overridden?: boolean;
 }): PartIdentificationResult {
-  const { details, photoCount, kind, inferReason } = input;
+  const {
+    details,
+    photoCount,
+    kind,
+    inferReason,
+    scoreStrength = 0.7,
+    overridden = false,
+  } = input;
   const template = PART_TEMPLATES[kind];
   const vehicleLabel = formatVehicleLabel(details);
   const makeLabel = details.makeId
@@ -748,15 +873,22 @@ export function mockIdentifyPart(input: {
   const oemNumber = oemForMake(details.makeId, kind);
 
   const confidence = Math.min(
-    96,
-    74 +
-      photoCount * 5 +
-      (details.vin.trim().length >= 11 ? 6 : 0) +
-      (kind === "thermostat" ? 4 : 0)
+    97,
+    Math.round(
+      58 +
+        scoreStrength * 28 +
+        photoCount * 4 +
+        (details.vin.trim().length >= 11 ? 5 : 0) +
+        (overridden ? 8 : 0)
+    )
   );
 
   const displayName =
-    kind === "thermostat" ? "Thermostat / Coolant thermostat" : template.name;
+    PART_KIND_OPTIONS.find((o) => o.id === kind)?.label ?? template.name;
+
+  const matchExplanation = overridden
+    ? `You selected this part type manually for ${vehicleLabel}.`
+    : (inferReason ?? MATCH_REASONS[kind]);
 
   const identified: IdentifiedPart = {
     id: `id-${kind}-${details.makeId || "gen"}-${oemNumber.replace(/\s/g, "")}`,
@@ -764,10 +896,10 @@ export function mockIdentifyPart(input: {
     oemNumber,
     category: template.category,
     confidencePercent: confidence,
-    summary: inferReason
-      ? `${template.summary} ${inferReason}`
-      : template.summary,
+    summary: template.summary,
+    matchExplanation,
     fitmentNote: `Matched to ${vehicleLabel}. Cross-check OEM ${oemNumber} (or equivalent aftermarket) before install.`,
+    kind,
   };
 
   const basePrice = template.basePrice;
@@ -775,15 +907,14 @@ export function mockIdentifyPart(input: {
   const remanPrice = Math.round(basePrice * 0.78 * 100) / 100;
   const newPrice = Math.round(basePrice * 1.12 * 100) / 100;
 
-  const shortName =
-    kind === "thermostat" ? "Coolant thermostat" : template.name;
+  const shortName = template.name;
 
   const options: PartOption[] = [
     {
       id: `opt-recycled-${identified.id}`,
       condition: "recycled",
       name: shortName,
-      description: `Recycled / used ${shortName.toLowerCase()} for ${makeLabel} — tested take-back part with the lowest footprint when condition is sound.`,
+      description: `Recycled / used option for ${makeLabel} — tested take-back part with the lowest footprint when condition is sound.`,
       price: recycledPrice,
       sustainabilityScore: 94,
       ecoRank: 3,
@@ -796,7 +927,8 @@ export function mockIdentifyPart(input: {
       id: `opt-reman-${identified.id}`,
       condition: "remanufactured",
       name: shortName,
-      description: `Remanufactured ${shortName.toLowerCase()} — refurbished core with new seal / wax element where applicable. Strong eco balance.`,
+      description:
+        "Remanufactured option — refurbished core with renewed wear parts. Strong eco balance and solid reliability.",
       price: remanPrice,
       sustainabilityScore: 88,
       ecoRank: 2,
@@ -809,7 +941,8 @@ export function mockIdentifyPart(input: {
       id: `opt-new-${identified.id}`,
       condition: "new",
       name: shortName,
-      description: `Brand-new OEM-spec ${shortName.toLowerCase()} — best when you want maximum lifespan and a full parts warranty.`,
+      description:
+        "Brand-new OEM-spec option — best when you want maximum lifespan and a full parts warranty.",
       price: newPrice,
       sustainabilityScore: 62,
       ecoRank: 1,

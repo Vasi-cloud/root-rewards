@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, ExternalLink, Leaf, ShoppingBag, TreePine } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  Leaf,
+  Loader2,
+  ShoppingBag,
+  TreePine,
+} from "lucide-react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,17 +45,26 @@ export function PartOptionCard({
   added,
 }: PartOptionCardProps) {
   const isBestEco = option.condition === "recycled";
+  const [adding, setAdding] = useState(false);
+
+  async function handleAdd() {
+    if (adding) return;
+    setAdding(true);
+    onAddToCart(option);
+    await new Promise((r) => window.setTimeout(r, 420));
+    setAdding(false);
+  }
 
   return (
     <Card
       className={cn(
-        "overflow-hidden border-border/60 bg-card shadow-sm",
+        "flex h-full flex-col overflow-hidden border-border/60 bg-card shadow-sm transition-[box-shadow,transform] duration-200 hover:shadow-md",
         isBestEco &&
-          "border-emerald-500 bg-gradient-to-br from-emerald-50/95 via-white to-cream shadow-md ring-2 ring-emerald-400/50"
+          "border-emerald-500 bg-gradient-to-br from-emerald-50/95 via-white to-cream shadow-md ring-2 ring-emerald-400/45"
       )}
     >
       <CardHeader className="gap-3 space-y-0 p-4 pb-3 sm:p-5 sm:pb-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-h-[1.75rem] flex-wrap items-center gap-2">
           <Badge
             className={cn(
               "rounded-lg px-2.5 py-1 text-xs font-semibold",
@@ -80,13 +97,13 @@ export function PartOptionCard({
           <CardTitle className="font-heading text-lg font-semibold leading-snug tracking-tight text-foreground sm:text-xl">
             {option.name}
           </CardTitle>
-          <CardDescription className="text-sm leading-relaxed text-muted-foreground">
+          <CardDescription className="min-h-[3.5rem] text-sm leading-relaxed text-muted-foreground sm:min-h-[4rem]">
             {option.description}
           </CardDescription>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 p-4 pt-0 sm:p-5 sm:pt-0">
+      <CardContent className="mt-auto space-y-3.5 p-4 pt-0 sm:space-y-4 sm:p-5 sm:pt-0">
         <p className="text-xs text-muted-foreground">
           OEM{" "}
           <span className="font-mono font-medium text-foreground">
@@ -94,45 +111,61 @@ export function PartOptionCard({
           </span>
         </p>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-          <div className="flex min-w-0 flex-1 flex-col justify-center rounded-2xl border border-border/60 bg-background/80 px-4 py-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col justify-center rounded-2xl border border-border/60 bg-background/90 px-4 py-3.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               Price
             </p>
-            <p className="font-heading mt-0.5 text-2xl font-semibold tabular-nums text-primary sm:text-3xl">
+            <p className="font-heading mt-0.5 text-2xl font-semibold tabular-nums text-primary sm:text-[1.75rem]">
               {formatCartMoney(option.price)}
             </p>
           </div>
 
           <div
             className={cn(
-              "flex min-w-0 flex-[1.2] items-center gap-3 rounded-2xl border px-4 py-3",
+              "flex items-center gap-3 rounded-2xl border px-3.5 py-3.5",
               isBestEco
-                ? "border-emerald-400/80 bg-emerald-100/80 text-emerald-950"
-                : "border-emerald-200 bg-emerald-50/70 text-emerald-950"
+                ? "border-emerald-400/90 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-950 shadow-sm"
+                : "border-emerald-200/90 bg-emerald-50/80 text-emerald-950"
             )}
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
               <TreePine className="size-5" />
             </span>
-            <p className="text-sm font-semibold leading-snug sm:text-base">
-              This order will plant {option.treesEstimate} tree
-              {option.treesEstimate === 1 ? "" : "s"}
-            </p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-800/70">
+                Tree impact
+              </p>
+              <p className="text-sm font-semibold leading-snug sm:text-[0.95rem]">
+                Plants {option.treesEstimate} tree
+                {option.treesEstimate === 1 ? "" : "s"}
+              </p>
+            </div>
           </div>
         </div>
       </CardContent>
 
-      <CardFooter className="flex flex-col gap-2.5 border-t border-border/50 bg-muted/20 p-4 sm:flex-row sm:p-5">
+      <CardFooter className="flex flex-col gap-2.5 border-t border-border/50 bg-muted/20 p-4 sm:flex-row sm:gap-3 sm:p-5">
         <Button
           type="button"
-          className="h-12 w-full gap-2 bg-emerald-800 text-base font-semibold text-cream hover:bg-emerald-900 sm:flex-1"
-          onClick={() => onAddToCart(option)}
+          className={cn(
+            "h-12 w-full gap-2 text-base font-semibold transition-all sm:flex-1",
+            added
+              ? "bg-emerald-700 text-cream hover:bg-emerald-800"
+              : "bg-emerald-800 text-cream hover:bg-emerald-900"
+          )}
+          onClick={() => void handleAdd()}
+          disabled={adding}
         >
-          {added ? (
+          {adding ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Adding…
+            </>
+          ) : added ? (
             <>
               <Check className="size-4" />
-              Added — add again?
+              Added to cart
             </>
           ) : (
             <>
@@ -144,8 +177,9 @@ export function PartOptionCard({
         <Button
           type="button"
           variant="outline"
-          className="h-12 w-full gap-1.5 bg-background text-base sm:flex-1"
+          className="h-12 w-full gap-1.5 bg-background text-base hover:border-emerald-300 sm:flex-1"
           onClick={() => onBuyOnline(option)}
+          disabled={adding}
         >
           Buy Online · {getAmazonStoreLabel()}
           <ExternalLink className="size-3.5 opacity-70" />
