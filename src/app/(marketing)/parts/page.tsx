@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { PartOptionCard } from "@/components/parts/part-option-card";
 import { PartsDisclaimers } from "@/components/parts/parts-disclaimers";
+import { PartsLocalRecyclers } from "@/components/parts/parts-local-recyclers";
 import { PartsSafetyWarning } from "@/components/parts/parts-safety-warning";
 import { PartsWrongIdFeedback } from "@/components/parts/parts-wrong-id-feedback";
 import { PhotoTips } from "@/components/parts/photo-tips";
@@ -594,6 +595,8 @@ export default function LeafyPartsFinderPage() {
                 />
               ))}
             </div>
+
+            <PartsLocalRecyclers partName={result.identified.name} />
 
             <div className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:gap-3">
               <Button

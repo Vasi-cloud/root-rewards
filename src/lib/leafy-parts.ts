@@ -175,7 +175,8 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Cooling",
     summary:
       "Round metal thermostat with a central wax-pellet / spring assembly — controls coolant flow to the radiator.",
-    basePrice: 34,
+    /** Typical new retail (GBP-style) — condition prices derive from this */
+    basePrice: 38,
     defaultOem: "82 00 277 070",
   },
   brake_pads_front: {
@@ -184,7 +185,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Brakes",
     summary:
       "Flat friction pads with backing plates — typical front axle brake pad set.",
-    basePrice: 48,
+    basePrice: 68,
     defaultOem: "77 01 207 822",
   },
   brake_pads_rear: {
@@ -193,7 +194,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Brakes",
     summary:
       "Compact flat friction pads — typical rear axle brake pad set (often smaller than front).",
-    basePrice: 42,
+    basePrice: 58,
     defaultOem: "77 01 208 114",
   },
   oil_filter: {
@@ -202,7 +203,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Filters",
     summary:
       "Cylindrical spin-on or cartridge oil filter — common service item for oil changes.",
-    basePrice: 14,
+    basePrice: 12,
     defaultOem: "82 00 432 598",
   },
   fuel_filter: {
@@ -211,7 +212,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Filters",
     summary:
       "In-line or cartridge fuel filter — typically a compact cylinder with hose fittings.",
-    basePrice: 18,
+    basePrice: 28,
     defaultOem: "82 00 167 542",
   },
   air_filter: {
@@ -220,7 +221,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Filters",
     summary:
       "Panel air filter with pleated media and foam end seals — engine intake filter cartridge.",
-    basePrice: 22,
+    basePrice: 18,
     defaultOem: "82 00 432 179",
   },
   cabin_filter: {
@@ -229,7 +230,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Filters",
     summary:
       "Cabin / pollen filter cartridge — layered media for HVAC air quality.",
-    basePrice: 19,
+    basePrice: 16,
     defaultOem: "27 27 7 508 237",
   },
   spark_plugs: {
@@ -238,7 +239,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Ignition",
     summary:
       "Threaded ceramic/metal spark plugs — ignition tips for petrol engines.",
-    basePrice: 28,
+    basePrice: 42,
     defaultOem: "77 00 274 175",
   },
   alternator: {
@@ -247,7 +248,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Electrical",
     summary:
       "Cylindrical alternator housing with pulley — charging unit for the battery.",
-    basePrice: 189,
+    basePrice: 255,
     defaultOem: "77 11 135 588",
   },
   starter_motor: {
@@ -256,7 +257,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Electrical",
     summary:
       "Compact cylindrical starter with gear nose — engages the flywheel to crank the engine.",
-    basePrice: 165,
+    basePrice: 220,
     defaultOem: "77 11 135 902",
   },
   radiator: {
@@ -265,7 +266,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Cooling",
     summary:
       "Large finned cooling core with plastic end tanks — engine coolant radiator.",
-    basePrice: 145,
+    basePrice: 185,
     defaultOem: "82 00 041 218",
   },
   water_pump: {
@@ -274,7 +275,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Cooling",
     summary:
       "Metal pump body with impeller / pulley flange — circulates engine coolant.",
-    basePrice: 72,
+    basePrice: 95,
     defaultOem: "77 01 474 714",
   },
   oxygen_sensor: {
@@ -283,7 +284,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Sensors",
     summary:
       "Threaded probe-style sensor with a wiring pigtail — exhaust oxygen (lambda) sensor.",
-    basePrice: 56,
+    basePrice: 82,
     defaultOem: "77 00 107 095",
   },
   abs_sensor: {
@@ -292,7 +293,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Sensors",
     summary:
       "Slim sensor with mounting tab and harness — ABS / wheel-speed pickup.",
-    basePrice: 38,
+    basePrice: 52,
     defaultOem: "47 91 015 57R",
   },
   temp_sensor: {
@@ -301,7 +302,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Sensors",
     summary:
       "Small threaded sensor with electrical connector — coolant temperature sender.",
-    basePrice: 24,
+    basePrice: 22,
     defaultOem: "82 00 167 288",
   },
   maf_sensor: {
@@ -310,7 +311,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Sensors",
     summary:
       "Plastic sensor housing with an electrical connector — mass air-flow unit.",
-    basePrice: 78,
+    basePrice: 110,
     defaultOem: "82 00 041 644",
   },
   wiper_blades: {
@@ -319,7 +320,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Body",
     summary:
       "Long rubber wiping edge on a metal / plastic frame — windscreen wiper blades.",
-    basePrice: 26,
+    basePrice: 28,
     defaultOem: "28 89 015 58R",
   },
   battery: {
@@ -328,7 +329,7 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     category: "Electrical",
     summary:
       "Rectangular case with top terminals — 12V lead-acid or AGM starter battery.",
-    basePrice: 110,
+    basePrice: 135,
     defaultOem: "77 11 135 001",
   },
 };
@@ -477,9 +478,30 @@ const OEM_BY_MAKE: Partial<
   },
 };
 
+/** Tree impact from order value — keep in sync across recycled / reman / new. */
 function treesForPrice(price: number): number {
   if (price <= 0) return 1;
   return Math.max(1, Math.min(8, Math.floor(price / 28) || 1));
+}
+
+/**
+ * Mock retail ladder from a typical *new* street price:
+ * - Recycled / used ≈ 35–40% (breaker / take-back)
+ * - Remanufactured ≈ 60–65% (refurbished core)
+ * - New ≈ full retail
+ */
+function pricesForConditions(newRetail: number): {
+  recycled: number;
+  remanufactured: number;
+  new: number;
+} {
+  const retail = Math.max(8, newRetail);
+  const money = (n: number) => Math.round(n * 100) / 100;
+  return {
+    new: money(retail),
+    remanufactured: money(Math.max(6, retail * 0.62)),
+    recycled: money(Math.max(4, retail * 0.38)),
+  };
 }
 
 function oemForMake(makeId: VehicleMakeId | "", kind: PartKind): string {
@@ -1260,11 +1282,7 @@ function buildPartIdentificationResult(input: {
     kind,
   };
 
-  const basePrice = template.basePrice;
-  const recycledPrice = Math.round(basePrice * 0.55 * 100) / 100;
-  const remanPrice = Math.round(basePrice * 0.78 * 100) / 100;
-  const newPrice = Math.round(basePrice * 1.12 * 100) / 100;
-
+  const prices = pricesForConditions(template.basePrice);
   const shortName = template.name;
 
   const options: PartOption[] = [
@@ -1272,13 +1290,13 @@ function buildPartIdentificationResult(input: {
       id: `opt-recycled-${identified.id}`,
       condition: "recycled",
       name: shortName,
-      description: `Recycled / used option for ${makeLabel} — tested take-back part with the lowest footprint when condition is sound.`,
-      price: recycledPrice,
+      description: `Recycled / used option for ${makeLabel} — tested take-back or breaker stock with the lowest footprint when condition is sound.`,
+      price: prices.recycled,
       sustainabilityScore: 94,
       ecoRank: 3,
       badge: "Best eco choice",
       highlight: true,
-      treesEstimate: treesForPrice(recycledPrice),
+      treesEstimate: treesForPrice(prices.recycled),
       amazonSearch: `${makeLabel} ${shortName} ${vehicleLabel}`,
     },
     {
@@ -1287,12 +1305,12 @@ function buildPartIdentificationResult(input: {
       name: shortName,
       description:
         "Remanufactured option — refurbished core with renewed wear parts. Strong eco balance and solid reliability.",
-      price: remanPrice,
+      price: prices.remanufactured,
       sustainabilityScore: 88,
       ecoRank: 2,
       badge: "Strong eco pick",
       highlight: false,
-      treesEstimate: treesForPrice(remanPrice),
+      treesEstimate: treesForPrice(prices.remanufactured),
       amazonSearch: `${makeLabel} ${shortName} remanufactured`,
     },
     {
@@ -1301,12 +1319,12 @@ function buildPartIdentificationResult(input: {
       name: shortName,
       description:
         "Brand-new OEM-spec option — best when you want maximum lifespan and a full parts warranty.",
-      price: newPrice,
+      price: prices.new,
       sustainabilityScore: 62,
       ecoRank: 1,
       badge: "Longest lifespan",
       highlight: false,
-      treesEstimate: treesForPrice(newPrice),
+      treesEstimate: treesForPrice(prices.new),
       amazonSearch: `${makeLabel} ${shortName} OEM ${oemNumber}`,
     },
   ];
