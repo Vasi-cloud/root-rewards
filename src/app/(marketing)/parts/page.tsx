@@ -51,6 +51,7 @@ import {
   identifyPartFromImages,
   isSafetyCriticalPart,
   partOptionToCartProduct,
+  partsConfidenceBadgeLabel,
   type PartIdentificationResult,
   type PartKind,
   type PartOption,
@@ -292,7 +293,7 @@ export default function LeafyPartsFinderPage() {
               Leafy Parts Finder
             </Badge>
             <Badge variant="outline" className="font-normal text-muted-foreground">
-              Mock AI · v1
+              {result?.isMockEstimate === false ? "Grok Vision" : "Mock AI · v1"}
             </Badge>
           </div>
           <PartsGarageLink />
@@ -548,9 +549,13 @@ export default function LeafyPartsFinderPage() {
                 </div>
                 <Badge
                   variant="outline"
-                  className="shrink-0 border-amber-300/80 bg-amber-50 text-[10px] font-normal text-amber-950 sm:text-xs"
+                  className={
+                    result.isMockEstimate
+                      ? "shrink-0 border-amber-300/80 bg-amber-50 text-[10px] font-normal text-amber-950 sm:text-xs"
+                      : "shrink-0 border-emerald-300/80 bg-emerald-50 text-[10px] font-normal text-emerald-950 sm:text-xs"
+                  }
                 >
-                  Mock AI estimate
+                  {partsConfidenceBadgeLabel(result.isMockEstimate)}
                 </Badge>
               </div>
               <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-emerald-100 sm:mt-3">
@@ -592,9 +597,19 @@ export default function LeafyPartsFinderPage() {
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   {result.identified.fitmentNote}
                 </p>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {PARTS_MOCK_AI_NOTE}
-                </p>
+                {result.isMockEstimate ? (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {PARTS_MOCK_AI_NOTE}
+                    {result.fallbackReason
+                      ? ` (${result.fallbackReason})`
+                      : ""}
+                  </p>
+                ) : (
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Identified with Grok Vision. Always double-check fitment
+                    before ordering or installing.
+                  </p>
+                )}
               </div>
             </div>
 

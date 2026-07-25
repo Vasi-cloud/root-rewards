@@ -1,9 +1,13 @@
 /**
  * Leafy Parts Finder — identification helpers + product mapping.
  *
- * Photos stay on-device. Call `identifyPartFromImages` from the UI —
- * that is the stable seam for swapping mock vision for a real API
- * (e.g. Grok Vision) later.
+ * ## Vision integration
+ * Call **`identifyPartFromImages`** from the UI only. That function:
+ * 1. Tries Grok Vision via `/api/parts/identify` when `XAI_API_KEY` is set
+ * 2. Falls back to the local mock pipeline (always works offline / without a key)
+ *
+ * Result cards, Garage, delivery estimates, and price comparison all consume
+ * the same `PartIdentificationResult` shape — do not bypass this entry point.
  */
 
 import type { Product } from "@/types";
@@ -13,6 +17,16 @@ import {
   formatVehicleLabel,
   type VehicleMakeId,
 } from "@/lib/leafy-parts-vehicle-catalog";
+import {
+  requestPartsVisionIdentify,
+  type PartsVisionEngine,
+  type PartsVisionSuccess,
+} from "@/lib/leafy-parts-vision";
+
+export {
+  partsConfidenceBadgeLabel,
+  type PartsVisionEngine,
+} from "@/lib/leafy-parts-vision";
 
 export type { VehicleMakeId, VehicleModel } from "@/lib/leafy-parts-vehicle-catalog";
 export {
@@ -82,6 +96,15 @@ export type PartIdentificationResult = {
   vehicleLabel: string;
   options: PartOption[];
   generatedAt: string;
+  /** Which vision path produced this result */
+  engine: PartsVisionEngine;
+  /**
+   * When true, UI should show “Mock AI estimate”.
+   * When false, show “AI confidence” (real Grok / vision score).
+   */
+  isMockEstimate: boolean;
+  /** Optional note when falling back from real vision to mock */
+  fallbackReason?: string;
 };
 
 export const MAX_PART_PHOTOS = 4;
@@ -1221,8 +1244,15 @@ export async function inferPartKindFromPhotos(
 /**
  * Public identification entry point for Leafy Parts Finder.
  *
- * UI code should only call this function. Internals can swap from mock
- * vision to a real API (Grok Vision, etc.) without changing callers.
+ * **UI must only call this function.** It always returns a full
+ * `PartIdentificationResult` (options, prices, delivery, trees, etc.) so
+ * Garage, cart, and cards stay unchanged when swapping mock ↔ Grok Vision.
+ *
+ * Flow:
+ * 1. Try real vision via `requestPartsVisionIdentify` → `/api/parts/identify`
+ *    (Grok when `XAI_API_KEY` is set).
+ * 2. On any miss / fallback flag / error → `mockIdentifyPartFromImages`
+ *    (current demo behaviour — fully working).
  */
 export async function identifyPartFromImages(
   input: IdentifyPartInput
@@ -1230,27 +1260,66 @@ export async function identifyPartFromImages(
   const partNumber =
     input.partNumber?.trim() || input.details.partNumber?.trim() || "";
 
+  // Manual override stays local (no vision network call).
+  if (input.kindOverride) {
+    return mockIdentifyPartFromImages({ ...input, partNumber });
+  }
+
   // ---------------------------------------------------------------------------
-  // REAL AI HOOK (not wired yet)
+  // REAL AI HOOK — Grok Vision / xAI (via /api/parts/identify)
   // ---------------------------------------------------------------------------
-  // When ready, replace the mock call below with something like:
+  // Implementation lives in:
+  //   - client:  requestPartsVisionIdentify()     → leafy-parts-vision.ts
+  //   - server:  identifyAutoPartWithGrokVision() → leafy-parts-vision-grok.ts
+  //   - route:   POST /api/parts/identify
   //
-  //   const apiResult = await fetch("/api/parts/identify", {
-  //     method: "POST",
-  //     body: JSON.stringify({
-  //       photoUrls: input.photos.map((p) => p.previewUrl),
-  //       partNumberPhotoUrl: input.partNumberPhoto?.previewUrl,
-  //       vehicle: input.details,
-  //       partNumber,
-  //       kindOverride: input.kindOverride,
-  //     }),
-  //   }).then((r) => r.json());
-  //   return mapVisionApiToResult(apiResult, input.details, partNumber);
-  //
-  // Keep returning PartIdentificationResult so the page / cards stay unchanged.
+  // When the API returns useClientMock (no key, error, etc.), we fall through
+  // to the mock pipeline below so the product never breaks.
   // ---------------------------------------------------------------------------
+  try {
+    const vision = await requestPartsVisionIdentify({ ...input, partNumber });
+    if (vision.ok) {
+      return mapGrokVisionToResult(vision, { ...input, partNumber });
+    }
+    const mock = await mockIdentifyPartFromImages({ ...input, partNumber });
+    return {
+      ...mock,
+      fallbackReason: vision.reason,
+    };
+  } catch {
+    // Network / unexpected — mock fallback
+  }
 
   return mockIdentifyPartFromImages({ ...input, partNumber });
+}
+
+/**
+ * Map a successful Grok Vision payload into the same result shape as mock.
+ * Keeps prices, delivery estimates, compare offers, Garage fields intact.
+ */
+function mapGrokVisionToResult(
+  vision: PartsVisionSuccess,
+  input: IdentifyPartInput & { partNumber: string }
+): PartIdentificationResult {
+  const photoCount =
+    input.photos.length + (input.partNumberPhoto ? 1 : 0);
+
+  return buildPartIdentificationResult({
+    details: input.details,
+    photoCount,
+    kind: vision.kind,
+    inferReason: vision.explanation,
+    scoreStrength: vision.confidence,
+    overridden: false,
+    userPartNumber: vision.oemNumber || input.partNumber,
+    partNumberMatchedKind: Boolean(vision.oemNumber || input.partNumber),
+    usedPartNumberPhoto: Boolean(input.partNumberPhoto),
+    engine: "grok-vision",
+    isMockEstimate: false,
+    confidenceOverride: Math.round(
+      Math.min(97, Math.max(40, vision.confidence * 100))
+    ),
+  });
 }
 
 /**
@@ -1350,6 +1419,8 @@ async function mockIdentifyPartFromImages(
     userPartNumber: partNumber,
     partNumberMatchedKind,
     usedPartNumberPhoto,
+    engine: "mock",
+    isMockEstimate: true,
   });
 }
 
@@ -1365,7 +1436,11 @@ export function mockIdentifyPart(input: {
   partNumberMatchedKind?: boolean;
   usedPartNumberPhoto?: boolean;
 }): PartIdentificationResult {
-  return buildPartIdentificationResult(input);
+  return buildPartIdentificationResult({
+    ...input,
+    engine: "mock",
+    isMockEstimate: true,
+  });
 }
 
 function buildPartIdentificationResult(input: {
@@ -1378,6 +1453,11 @@ function buildPartIdentificationResult(input: {
   userPartNumber?: string;
   partNumberMatchedKind?: boolean;
   usedPartNumberPhoto?: boolean;
+  engine?: PartsVisionEngine;
+  isMockEstimate?: boolean;
+  /** When set (real AI), use this instead of the mock confidence formula */
+  confidenceOverride?: number;
+  fallbackReason?: string;
 }): PartIdentificationResult {
   const {
     details,
@@ -1389,6 +1469,10 @@ function buildPartIdentificationResult(input: {
     userPartNumber = "",
     partNumberMatchedKind = false,
     usedPartNumberPhoto = false,
+    engine = "mock",
+    isMockEstimate = engine === "mock",
+    confidenceOverride,
+    fallbackReason,
   } = input;
   const template = PART_TEMPLATES[kind];
   const vehicleLabel = formatVehicleLabel(details);
@@ -1401,19 +1485,22 @@ function buildPartIdentificationResult(input: {
     ? formatUserPartNumber(userPartNumber)
     : catalogOem;
 
-  const confidence = Math.min(
-    97,
-    Math.round(
-      58 +
-        scoreStrength * 28 +
-        Math.min(photoCount, 5) * 4 +
-        (details.vin.trim().length >= 11 ? 5 : 0) +
-        (overridden ? 8 : 0) +
-        (oemFromUser ? 6 : 0) +
-        (partNumberMatchedKind ? 4 : 0) +
-        (usedPartNumberPhoto ? 3 : 0)
-    )
-  );
+  const confidence =
+    typeof confidenceOverride === "number"
+      ? Math.min(97, Math.max(1, Math.round(confidenceOverride)))
+      : Math.min(
+          97,
+          Math.round(
+            58 +
+              scoreStrength * 28 +
+              Math.min(photoCount, 5) * 4 +
+              (details.vin.trim().length >= 11 ? 5 : 0) +
+              (overridden ? 8 : 0) +
+              (oemFromUser ? 6 : 0) +
+              (partNumberMatchedKind ? 4 : 0) +
+              (usedPartNumberPhoto ? 3 : 0)
+          )
+        );
 
   const displayName =
     PART_KIND_OPTIONS.find((o) => o.id === kind)?.label ?? template.name;
@@ -1504,6 +1591,9 @@ function buildPartIdentificationResult(input: {
     vehicleLabel,
     options,
     generatedAt: new Date().toISOString(),
+    engine,
+    isMockEstimate,
+    fallbackReason,
   };
 }
 
