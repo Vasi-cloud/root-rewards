@@ -407,26 +407,28 @@ export type PartKind =
   | "temp_sensor"
   | "maf_sensor"
   | "wiper_blades"
-  | "battery";
+  | "battery"
+  | "fuel_filter";
 
 export const PART_KIND_OPTIONS: { id: PartKind; label: string }[] = [
   { id: "thermostat", label: "Thermostat / Coolant thermostat" },
   { id: "brake_pads_front", label: "Brake pads (front)" },
   { id: "brake_pads_rear", label: "Brake pads (rear)" },
   { id: "oil_filter", label: "Oil filter" },
-  { id: "air_filter", label: "Engine air filter" },
-  { id: "cabin_filter", label: "Cabin / pollen filter" },
+  { id: "air_filter", label: "Air filter" },
+  { id: "cabin_filter", label: "Cabin filter" },
+  { id: "fuel_filter", label: "Fuel filter" },
   { id: "spark_plugs", label: "Spark plugs" },
   { id: "alternator", label: "Alternator" },
   { id: "starter_motor", label: "Starter motor" },
   { id: "radiator", label: "Radiator" },
   { id: "water_pump", label: "Water pump" },
-  { id: "oxygen_sensor", label: "Oxygen / lambda sensor" },
-  { id: "abs_sensor", label: "ABS wheel-speed sensor" },
-  { id: "temp_sensor", label: "Coolant temperature sensor" },
+  { id: "oxygen_sensor", label: "Oxygen sensor" },
+  { id: "abs_sensor", label: "ABS sensor" },
+  { id: "temp_sensor", label: "Temperature sensor" },
   { id: "maf_sensor", label: "MAF / air-flow sensor" },
   { id: "wiper_blades", label: "Wiper blades" },
-  { id: "battery", label: "Car battery" },
+  { id: "battery", label: "Battery" },
 ];
 
 export type PhotoHintInput = {
@@ -480,6 +482,15 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
       "Cylindrical spin-on or cartridge oil filter — common service item for oil changes.",
     basePrice: 14,
     defaultOem: "82 00 432 598",
+  },
+  fuel_filter: {
+    kind: "fuel_filter",
+    name: "Fuel filter",
+    category: "Filters",
+    summary:
+      "In-line or cartridge fuel filter — typically a compact cylinder with hose fittings.",
+    basePrice: 18,
+    defaultOem: "82 00 167 542",
   },
   air_filter: {
     kind: "air_filter",
@@ -609,6 +620,7 @@ const OEM_BY_MAKE: Partial<
     brake_pads_front: "41 06 085 79R",
     brake_pads_rear: "44 06 047 72R",
     oil_filter: "82 00 432 598",
+    fuel_filter: "82 00 167 542",
     air_filter: "82 00 432 179",
     cabin_filter: "27 27 7 508 237",
     spark_plugs: "77 00 274 175",
@@ -691,6 +703,8 @@ function kindFromFilenames(photos: PhotoHintInput[]): PartKind | null {
   if (/front.*brake|brake.*front|brake|pad|plaquette/.test(blob))
     return "brake_pads_front";
   if (/oil.?filter|filtre.?huile/.test(blob)) return "oil_filter";
+  if (/fuel.?filter|filtre.?carburant|filtre.?essence/.test(blob))
+    return "fuel_filter";
   if (/cabin|pollen|habitacle/.test(blob)) return "cabin_filter";
   if (/air.?filter|filtre.?air/.test(blob)) return "air_filter";
   if (/spark|bougie|plug/.test(blob)) return "spark_plugs";
@@ -720,6 +734,12 @@ type ImageSignals = {
   rubberShare: number;
   yellowShare: number;
   elongatedShare: number;
+  /** Round flange / spring housing (thermostat-like). */
+  circularityShare: number;
+  /** Compact cylinder profile (oil / fuel filter). */
+  cylindricalShare: number;
+  /** Flat rectangular panel (brake pad / panel filter). */
+  flatPanelShare: number;
 };
 
 async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
@@ -750,7 +770,18 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
     let edgeLum = 0;
     let centerN = 0;
     let edgeN = 0;
+    let ringContent = 0;
+    let ringSlots = 0;
+    let cornerContent = 0;
+    let cornerSlots = 0;
+    let midBandContent = 0;
+    let midBandSlots = 0;
+    let contentPixels = 0;
+    const colHits = new Array(size).fill(0);
+    const rowHits = new Array(size).fill(0);
     const total = size * size;
+    const cx = size / 2;
+    const cy = size / 2;
 
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
@@ -762,11 +793,13 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
         const min = Math.min(r, g, b);
         const sat = max === 0 ? 0 : (max - min) / max;
         const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        const dx = x - size / 2;
-        const dy = y - size / 2;
+        const dx = x - cx;
+        const dy = y - cy;
         const dist = Math.sqrt(dx * dx + dy * dy);
+        const normDist = dist / (size / 2);
         const isCenter = dist < size * 0.28;
         const isEdge = dist > size * 0.38;
+        const isContent = lum < 200 || sat > 0.12;
 
         if (isCenter) {
           centerLum += lum;
@@ -806,8 +839,87 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
         if (Math.abs(dx) > Math.abs(dy) * 1.4 && lum < 140) {
           elongated++;
         }
+
+        // Annular ring — thermostat flange / spring housing
+        if (normDist > 0.22 && normDist < 0.55) {
+          ringSlots++;
+          if (isContent) ringContent++;
+        }
+
+        // Corner fill — high for rectangles, low for round parts
+        if (
+          (x < size * 0.18 || x > size * 0.82) &&
+          (y < size * 0.18 || y > size * 0.82)
+        ) {
+          cornerSlots++;
+          if (isContent) cornerContent++;
+        }
+
+        // Horizontal mid-band — strong for side-on cylinders
+        if (y > size * 0.32 && y < size * 0.68) {
+          midBandSlots++;
+          if (isContent) midBandContent++;
+        }
+
+        if (isContent) {
+          contentPixels++;
+          colHits[x] += 1;
+          rowHits[y] += 1;
+        }
       }
     }
+
+    let contentCols = 0;
+    let contentRows = 0;
+    for (const h of colHits) if (h > size * 0.12) contentCols += 1;
+    for (const h of rowHits) if (h > size * 0.12) contentRows += 1;
+
+    const centerAvg = centerN ? centerLum / centerN : 128;
+    const edgeAvg = edgeN ? edgeLum / edgeN : 128;
+    const contrast = Math.abs(centerAvg - edgeAvg) / 255;
+    const ringDensity = ringSlots ? ringContent / ringSlots : 0;
+    const cornerDensity = cornerSlots ? cornerContent / cornerSlots : 0;
+    const midBandDensity = midBandSlots ? midBandContent / midBandSlots : 0;
+    const fillRatio = contentPixels / total;
+    const aspect = contentRows > 0 ? contentCols / contentRows : 1;
+
+    // Round thermostat: dense ring, sparse corners, strong centre vs rim
+    const circularityShare = Math.max(
+      0,
+      Math.min(
+        1,
+        ringDensity * 1.1 +
+          (1 - cornerDensity) * 0.5 +
+          contrast * 0.85 -
+          Math.abs(aspect - 1) * 0.3
+      )
+    );
+
+    // Spin-on / cartridge filter: mid-band body, metallic, lower spring contrast
+    const cylindricalShare = Math.max(
+      0,
+      Math.min(
+        1,
+        midBandDensity * 0.8 +
+          metallic / total +
+          (1 - contrast) * 0.4 +
+          (aspect > 0.75 && aspect < 1.45 ? 0.22 : 0) -
+          cornerDensity * 0.18
+      )
+    );
+
+    // Flat pad / panel: corner content, not round
+    const flatPanelShare = Math.max(
+      0,
+      Math.min(
+        1,
+        cornerDensity * 0.85 +
+          fillRatio * 0.3 +
+          (aspect > 1.12 || aspect < 0.88 ? 0.28 : 0.08) +
+          (1 - ringDensity) * 0.3 -
+          contrast * 0.15
+      )
+    );
 
     return {
       metallicShare: metallic / total,
@@ -819,10 +931,10 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
       rubberShare: rubber / total,
       yellowShare: yellow / total,
       elongatedShare: elongated / total,
-      centerVsEdgeContrast:
-        centerN && edgeN
-          ? Math.abs(centerLum / centerN - edgeLum / edgeN) / 255
-          : 0,
+      centerVsEdgeContrast: contrast,
+      circularityShare,
+      cylindricalShare,
+      flatPanelShare,
     };
   } catch {
     return null;
@@ -854,6 +966,8 @@ const MATCH_REASONS: Record<PartKind, string> = {
     "Compact dark flat pads — typical rear brake pad set.",
   oil_filter:
     "Compact cylindrical metal can — typical spin-on oil filter.",
+  fuel_filter:
+    "Compact cylinder with darker housing cues — typical in-line fuel filter.",
   air_filter:
     "Light pleated media and soft edges — typical engine air filter.",
   cabin_filter:
@@ -925,6 +1039,9 @@ export async function inferPartKindFromPhotos(
       yellowShare: acc.yellowShare + s.yellowShare / n,
       elongatedShare: acc.elongatedShare + s.elongatedShare / n,
       centerVsEdgeContrast: acc.centerVsEdgeContrast + s.centerVsEdgeContrast / n,
+      circularityShare: acc.circularityShare + s.circularityShare / n,
+      cylindricalShare: acc.cylindricalShare + s.cylindricalShare / n,
+      flatPanelShare: acc.flatPanelShare + s.flatPanelShare / n,
     }),
     {
       metallicShare: 0,
@@ -937,94 +1054,132 @@ export async function inferPartKindFromPhotos(
       yellowShare: 0,
       elongatedShare: 0,
       centerVsEdgeContrast: 0,
+      circularityShare: 0,
+      cylindricalShare: 0,
+      flatPanelShare: 0,
     }
   );
 
   const scores: Record<PartKind, number> = {
+    // Round metal + spring / wax capsule contrast
     thermostat:
-      avg.metallicShare * 1.5 +
-      avg.copperShare * 2.1 +
-      avg.centerVsEdgeContrast * 1.5 -
-      avg.darkFlatShare * 0.5 -
+      avg.circularityShare * 2.1 +
+      avg.metallicShare * 1.15 +
+      avg.copperShare * 1.7 +
+      avg.centerVsEdgeContrast * 1.35 -
+      avg.flatPanelShare * 0.7 -
       avg.lightPleatShare * 0.35,
+    // Flat rectangular friction faces
     brake_pads_front:
-      avg.darkFlatShare * 1.9 -
-      avg.metallicShare * 0.55 -
+      avg.flatPanelShare * 1.45 +
+      avg.darkFlatShare * 1.7 -
+      avg.circularityShare * 0.85 -
+      avg.cylindricalShare * 0.35 -
       avg.lightPleatShare * 0.4 -
-      avg.connectorHueShare * 0.3,
+      avg.connectorHueShare * 0.25,
     brake_pads_rear:
-      avg.darkFlatShare * 1.55 -
-      avg.metallicShare * 0.5 -
-      avg.lightPleatShare * 0.35 -
+      avg.flatPanelShare * 1.25 +
+      avg.darkFlatShare * 1.45 -
+      avg.circularityShare * 0.75 -
+      avg.metallicShare * 0.35 -
       avg.elongatedShare * 0.2,
+    // Cylindrical metal can
     oil_filter:
-      avg.metallicShare * 1.05 +
-      avg.blackPlasticShare * 0.35 -
+      avg.cylindricalShare * 1.85 +
+      avg.metallicShare * 1.15 +
+      avg.blackPlasticShare * 0.25 -
+      avg.circularityShare * 0.45 -
       avg.lightPleatShare * 0.45 -
-      avg.elongatedShare * 0.25,
+      avg.flatPanelShare * 0.3,
+    // Compact cylinder, often darker plastic / metal
+    fuel_filter:
+      avg.cylindricalShare * 1.55 +
+      avg.blackPlasticShare * 0.85 +
+      avg.metallicShare * 0.55 +
+      avg.darkFlatShare * 0.35 -
+      avg.circularityShare * 0.4 -
+      avg.lightPleatShare * 0.4 -
+      avg.flatPanelShare * 0.25,
+    // Light pleated panel
     air_filter:
-      avg.lightPleatShare * 2.0 -
+      avg.lightPleatShare * 1.85 +
+      avg.flatPanelShare * 0.75 -
       avg.metallicShare * 0.5 -
-      avg.darkFlatShare * 0.3,
+      avg.circularityShare * 0.35 -
+      avg.darkFlatShare * 0.25,
     cabin_filter:
-      avg.lightPleatShare * 1.55 -
+      avg.lightPleatShare * 1.45 +
+      avg.flatPanelShare * 0.6 -
       avg.metallicShare * 0.4 -
       avg.copperShare * 0.2,
     spark_plugs:
       avg.metallicShare * 0.7 +
       avg.copperShare * 0.55 +
       avg.centerVsEdgeContrast * 0.4 -
-      avg.elongatedShare * 0.3 -
+      avg.elongatedShare * 0.25 -
+      avg.flatPanelShare * 0.25 -
       avg.lightPleatShare * 0.4,
     alternator:
-      avg.metallicShare * 1.15 +
-      avg.darkFlatShare * 0.35 -
+      avg.metallicShare * 1.1 +
+      avg.cylindricalShare * 0.65 +
+      avg.darkFlatShare * 0.3 -
       avg.lightPleatShare * 0.5 -
-      avg.copperShare * 0.15,
+      avg.circularityShare * 0.2,
     starter_motor:
-      avg.metallicShare * 1.05 +
-      avg.darkFlatShare * 0.45 -
+      avg.metallicShare * 1.0 +
+      avg.cylindricalShare * 0.55 +
+      avg.darkFlatShare * 0.4 -
       avg.lightPleatShare * 0.45 -
       avg.yellowShare * 0.2,
     radiator:
-      avg.elongatedShare * 1.4 +
-      avg.metallicShare * 0.55 +
-      avg.blackPlasticShare * 0.35 -
-      avg.copperShare * 0.15,
+      avg.elongatedShare * 1.35 +
+      avg.flatPanelShare * 0.55 +
+      avg.metallicShare * 0.5 +
+      avg.blackPlasticShare * 0.3 -
+      avg.circularityShare * 0.25,
     water_pump:
-      avg.metallicShare * 1.2 +
-      avg.copperShare * 0.45 -
+      avg.metallicShare * 1.1 +
+      avg.circularityShare * 0.55 +
+      avg.copperShare * 0.4 -
       avg.lightPleatShare * 0.4 -
       avg.yellowShare * 0.15,
     oxygen_sensor:
-      avg.metallicShare * 0.95 +
-      avg.blackPlasticShare * 0.55 +
-      avg.connectorHueShare * 0.85 -
+      avg.metallicShare * 0.9 +
+      avg.blackPlasticShare * 0.5 +
+      avg.connectorHueShare * 0.85 +
+      avg.elongatedShare * 0.35 -
+      avg.flatPanelShare * 0.3 -
       avg.lightPleatShare * 0.4,
     abs_sensor:
       avg.blackPlasticShare * 0.9 +
       avg.connectorHueShare * 0.75 +
-      avg.metallicShare * 0.35 -
+      avg.metallicShare * 0.35 +
+      avg.elongatedShare * 0.25 -
       avg.lightPleatShare * 0.35,
     temp_sensor:
       avg.metallicShare * 0.65 +
       avg.connectorHueShare * 0.9 +
       avg.copperShare * 0.35 -
-      avg.elongatedShare * 0.25,
+      avg.elongatedShare * 0.2 -
+      avg.flatPanelShare * 0.2,
     maf_sensor:
-      avg.blackPlasticShare * 1.65 +
-      avg.connectorHueShare * 1.45 -
+      avg.blackPlasticShare * 1.55 +
+      avg.connectorHueShare * 1.4 +
+      avg.flatPanelShare * 0.25 -
       avg.lightPleatShare * 0.3 -
       avg.copperShare * 0.2,
     wiper_blades:
       avg.rubberShare * 1.7 +
-      avg.elongatedShare * 1.35 -
+      avg.elongatedShare * 1.4 -
+      avg.circularityShare * 0.4 -
       avg.lightPleatShare * 0.35 -
       avg.copperShare * 0.25,
     battery:
-      avg.blackPlasticShare * 0.9 +
-      avg.yellowShare * 1.6 +
-      avg.elongatedShare * 0.35 -
+      avg.blackPlasticShare * 0.85 +
+      avg.yellowShare * 1.55 +
+      avg.flatPanelShare * 0.55 +
+      avg.elongatedShare * 0.25 -
+      avg.circularityShare * 0.3 -
       avg.copperShare * 0.15,
   };
 

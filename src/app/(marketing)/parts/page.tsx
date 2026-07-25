@@ -142,11 +142,11 @@ export default function LeafyPartsFinderPage() {
     setAddedIds((prev) => new Set(prev).add(option.id));
     const condition = CONDITION_LABELS[option.condition];
     showSuccess(
-      `Nice — added to your cart`,
+      "Added to cart",
       `${option.name} (${condition}) · ${formatCartMoney(option.price)}. This order will plant ${option.treesEstimate} tree${option.treesEstimate === 1 ? "" : "s"}.`,
       {
         accent: "cart",
-        action: { label: "View cart & checkout", href: "/cart" },
+        action: { label: "View cart", href: "/cart" },
       }
     );
   }
@@ -480,7 +480,7 @@ export default function LeafyPartsFinderPage() {
             </div>
 
             <div
-              className="grid gap-3.5 sm:gap-5"
+              className="grid gap-3 sm:gap-5"
               data-testid="parts-options"
             >
               {result.options.map((option) => (
