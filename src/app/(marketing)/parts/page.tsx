@@ -575,8 +575,8 @@ export default function LeafyPartsFinderPage() {
                 Choose a replacement
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Recycled / Used is the best eco choice. Each card shows price,
-                tree impact, Add to Cart, and Buy Online.
+                Recycled / Used first, then remanufactured, then new — each with
+                price and tree impact.
               </p>
             </div>
 
@@ -596,9 +596,12 @@ export default function LeafyPartsFinderPage() {
               ))}
             </div>
 
-            <PartsLocalRecyclers partName={result.identified.name} />
+            <PartsLocalRecyclers
+              className="mt-1"
+              partName={result.identified.name}
+            />
 
-            <div className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:gap-3">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
               <Button
                 nativeButton={false}
                 render={<Link href="/cart" />}
