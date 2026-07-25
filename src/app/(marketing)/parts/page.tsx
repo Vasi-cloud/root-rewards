@@ -16,6 +16,9 @@ import { useEffect, useRef, useState } from "react";
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { PartOptionCard } from "@/components/parts/part-option-card";
 import { PartsDisclaimers } from "@/components/parts/parts-disclaimers";
+import { PartsSafetyWarning } from "@/components/parts/parts-safety-warning";
+import { PartsWrongIdFeedback } from "@/components/parts/parts-wrong-id-feedback";
+import { PhotoTips } from "@/components/parts/photo-tips";
 import {
   PhotoUpload,
   type PartPhoto,
@@ -41,12 +44,21 @@ import {
   PARTS_MOCK_AI_NOTE,
   formatVehicleLabel,
   identifyPartFromImages,
+  isSafetyCriticalPart,
   partOptionToCartProduct,
   type PartIdentificationResult,
   type PartKind,
   type PartOption,
   type VehicleDetails,
 } from "@/lib/leafy-parts";
+import {
+  clearSavedVehicleProfile,
+  loadSavedVehicleProfile,
+  saveVehicleProfile,
+  savedProfileToVehicleDetails,
+  vehicleMatchesSavedProfile,
+  type SavedVehicleProfile,
+} from "@/lib/leafy-parts-vehicle-profile";
 import { cn } from "@/lib/utils";
 
 type Phase = "form" | "identifying" | "results";
@@ -70,11 +82,25 @@ export default function LeafyPartsFinderPage() {
 
   const [photos, setPhotos] = useState<PartPhoto[]>([]);
   const [vehicle, setVehicle] = useState<VehicleDetails>(EMPTY_VEHICLE);
+  const [savedProfile, setSavedProfile] = useState<SavedVehicleProfile | null>(
+    null
+  );
   const [phase, setPhase] = useState<Phase>("form");
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<PartIdentificationResult | null>(null);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [loadingStep, setLoadingStep] = useState(0);
+
+  useEffect(() => {
+    const saved = loadSavedVehicleProfile();
+    if (!saved) return;
+    setSavedProfile(saved);
+    setVehicle((prev) =>
+      prev.makeId
+        ? prev
+        : savedProfileToVehicleDetails(saved, prev.partNumber)
+    );
+  }, []);
 
   useEffect(() => {
     if (phase === "results" && result) {
@@ -173,8 +199,34 @@ export default function LeafyPartsFinderPage() {
     }, 50);
   }
 
+  function handleSaveVehicle() {
+    const saved = saveVehicleProfile(vehicle);
+    if (!saved) {
+      setFormError("Select make, model, and year before saving your vehicle.");
+      return;
+    }
+    setFormError(null);
+    setSavedProfile(saved);
+    showSuccess(
+      "Vehicle saved",
+      `${formatVehicleLabel(vehicle)} will be pre-filled next time you visit Leafy Parts.`
+    );
+  }
+
+  function handleClearSavedVehicle() {
+    clearSavedVehicleProfile();
+    setSavedProfile(null);
+    showSuccess(
+      "Saved vehicle cleared",
+      "Your default vehicle was removed from this device."
+    );
+  }
+
   const busy = phase === "identifying";
   const confidence = result?.identified.confidencePercent ?? 0;
+  const safetyCritical = result
+    ? isSafetyCriticalPart(result.identified.kind)
+    : false;
 
   return (
     <div className="relative overflow-hidden">
@@ -235,7 +287,8 @@ export default function LeafyPartsFinderPage() {
                 work best.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <CardContent className="space-y-3 p-4 pt-0 sm:space-y-4 sm:p-6 sm:pt-0">
+              <PhotoTips />
               <PhotoUpload
                 photos={photos}
                 onChange={setPhotos}
@@ -260,6 +313,13 @@ export default function LeafyPartsFinderPage() {
                 value={vehicle}
                 onChange={setVehicle}
                 disabled={busy}
+                hasSavedProfile={Boolean(savedProfile)}
+                matchesSavedProfile={vehicleMatchesSavedProfile(
+                  vehicle,
+                  savedProfile
+                )}
+                onSaveVehicle={handleSaveVehicle}
+                onClearSavedVehicle={handleClearSavedVehicle}
               />
             </CardContent>
           </Card>
@@ -442,6 +502,10 @@ export default function LeafyPartsFinderPage() {
               </div>
             </div>
 
+            {safetyCritical && (
+              <PartsSafetyWarning partLabel={result.identified.name} />
+            )}
+
             {/* Manual override */}
             <div className="rounded-2xl border border-border/70 bg-white/90 p-3.5 sm:p-5">
               <Label htmlFor="parts-override" className="text-sm font-medium">
@@ -479,6 +543,13 @@ export default function LeafyPartsFinderPage() {
                 </Button>
               </div>
             </div>
+
+            <PartsWrongIdFeedback
+              key={result.identified.id}
+              partName={result.identified.name}
+              vehicleLabel={result.vehicleLabel}
+              kind={result.identified.kind}
+            />
 
             {photos.length > 0 && (
               <div className="-mx-0.5 flex gap-2.5 overflow-x-auto px-0.5 pb-1 sm:gap-3">

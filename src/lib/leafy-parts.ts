@@ -125,6 +125,21 @@ export const PART_KIND_OPTIONS: { id: PartKind; label: string }[] = [
   { id: "battery", label: "Battery" },
 ];
 
+/** Parts where a wrong fit can affect braking, stability, or visibility. */
+export const SAFETY_CRITICAL_PART_KINDS: readonly PartKind[] = [
+  "brake_pads_front",
+  "brake_pads_rear",
+  "abs_sensor",
+  "wiper_blades",
+];
+
+export const PARTS_SAFETY_WARNING =
+  "This looks like a safety-critical part. Always double-check fitment with a qualified mechanic or official OEM / parts catalogue before ordering or installing. Do not rely on photo identification alone for brakes, ABS, or related systems.";
+
+export function isSafetyCriticalPart(kind: PartKind): boolean {
+  return (SAFETY_CRITICAL_PART_KINDS as readonly string[]).includes(kind);
+}
+
 export type PhotoHintInput = {
   previewUrl: string;
   name: string;

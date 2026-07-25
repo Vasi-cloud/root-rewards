@@ -1,5 +1,8 @@
 "use client";
 
+import { BookmarkCheck, BookmarkX, Car } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -7,6 +10,7 @@ import {
   YEAR_MIN,
   VEHICLE_CATALOG,
   VEHICLE_MAKE_IDS,
+  formatVehicleLabel,
   modelsForMake,
   yearsForModel,
   type VehicleDetails,
@@ -20,15 +24,28 @@ type VehicleDetailsFormProps = {
   value: VehicleDetails;
   onChange: (next: VehicleDetails) => void;
   disabled?: boolean;
+  /** True when a profile is stored on this device */
+  hasSavedProfile?: boolean;
+  /** True when the form matches the saved profile */
+  matchesSavedProfile?: boolean;
+  onSaveVehicle?: () => void;
+  onClearSavedVehicle?: () => void;
 };
 
 export function VehicleDetailsForm({
   value,
   onChange,
   disabled,
+  hasSavedProfile,
+  matchesSavedProfile,
+  onSaveVehicle,
+  onClearSavedVehicle,
 }: VehicleDetailsFormProps) {
   const models = modelsForMake(value.makeId);
   const yearOptions = yearsForModel(value.makeId, value.modelId);
+  const canSave = Boolean(
+    value.makeId && value.modelId && value.year && onSaveVehicle
+  );
 
   return (
     <div className="space-y-4">
@@ -179,6 +196,54 @@ export function VehicleDetailsForm({
           />
         </div>
       </div>
+
+      {(onSaveVehicle || onClearSavedVehicle) && (
+        <div className="rounded-2xl border border-border/60 bg-muted/25 px-3.5 py-3 sm:px-4 sm:py-3.5">
+          <div className="flex gap-2.5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800/10 text-emerald-900">
+              <Car className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">
+                Default vehicle on this device
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                {hasSavedProfile
+                  ? matchesSavedProfile
+                    ? `Saved: ${formatVehicleLabel(value)}. We’ll pre-fill this next time.`
+                    : "You have a saved vehicle — save again to update it, or clear it below."
+                  : "Save Make / Model / Year (and VIN if added) to skip re-entering them."}
+              </p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                {onSaveVehicle && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 gap-2 bg-background"
+                    disabled={disabled || !canSave || matchesSavedProfile}
+                    onClick={onSaveVehicle}
+                  >
+                    <BookmarkCheck className="size-4" />
+                    {matchesSavedProfile ? "Saved" : "Save this vehicle"}
+                  </Button>
+                )}
+                {hasSavedProfile && onClearSavedVehicle && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 gap-2 text-muted-foreground hover:text-foreground"
+                    disabled={disabled}
+                    onClick={onClearSavedVehicle}
+                  >
+                    <BookmarkX className="size-4" />
+                    Clear saved vehicle
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
