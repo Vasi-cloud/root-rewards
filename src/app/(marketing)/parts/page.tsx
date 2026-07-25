@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  Check,
   Cog,
   Leaf,
   Loader2,
@@ -9,6 +10,7 @@ import {
   Search,
   Sparkles,
   TreePine,
+  Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -16,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { PartOptionCard } from "@/components/parts/part-option-card";
 import { PartsDisclaimers } from "@/components/parts/parts-disclaimers";
+import { PartsGarageLink } from "@/components/parts/parts-garage-link";
 import { PartNumberPhotoUpload } from "@/components/parts/part-number-photo-upload";
 import { PartsLocalRecyclers } from "@/components/parts/parts-local-recyclers";
 import { PartsSafetyWarning } from "@/components/parts/parts-safety-warning";
@@ -53,6 +56,11 @@ import {
   type PartOption,
   type VehicleDetails,
 } from "@/lib/leafy-parts";
+import {
+  findMatchingGarageItem,
+  savePartToGarage,
+  subscribeGarage,
+} from "@/lib/leafy-parts-garage";
 import {
   clearSavedVehicleProfile,
   loadSavedVehicleProfile,
@@ -95,6 +103,7 @@ export default function LeafyPartsFinderPage() {
   const [result, setResult] = useState<PartIdentificationResult | null>(null);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [loadingStep, setLoadingStep] = useState(0);
+  const [inGarage, setInGarage] = useState(false);
 
   useEffect(() => {
     const saved = loadSavedVehicleProfile();
@@ -112,6 +121,22 @@ export default function LeafyPartsFinderPage() {
       resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [phase, result]);
+
+  useEffect(() => {
+    if (!result) {
+      setInGarage(false);
+      return;
+    }
+    const refresh = () => {
+      setInGarage(
+        Boolean(
+          findMatchingGarageItem(result.identified, result.vehicleLabel)
+        )
+      );
+    };
+    refresh();
+    return subscribeGarage(refresh);
+  }, [result]);
 
   useEffect(() => {
     if (phase !== "identifying") {
@@ -228,6 +253,23 @@ export default function LeafyPartsFinderPage() {
     );
   }
 
+  function handleSaveToGarage() {
+    if (!result) return;
+    savePartToGarage({
+      identified: result.identified,
+      details: vehicle,
+      vehicleLabel: result.vehicleLabel,
+    });
+    setInGarage(true);
+    showSuccess(
+      "Saved to Garage",
+      `${result.identified.name} for ${result.vehicleLabel} is in My Garage.`,
+      {
+        action: { label: "Open Garage", href: "/parts/garage" },
+      }
+    );
+  }
+
   const busy = phase === "identifying";
   const confidence = result?.identified.confidencePercent ?? 0;
   const safetyCritical = result
@@ -242,15 +284,18 @@ export default function LeafyPartsFinderPage() {
       />
 
       <div className="relative mx-auto max-w-3xl px-4 py-8 pb-16 sm:px-6 sm:py-12">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <MarketplaceBrandBadge />
-          <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
-            <Cog className="size-3.5" />
-            Leafy Parts Finder
-          </Badge>
-          <Badge variant="outline" className="font-normal text-muted-foreground">
-            Mock AI · v1
-          </Badge>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <MarketplaceBrandBadge />
+            <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
+              <Cog className="size-3.5" />
+              Leafy Parts Finder
+            </Badge>
+            <Badge variant="outline" className="font-normal text-muted-foreground">
+              Mock AI · v1
+            </Badge>
+          </div>
+          <PartsGarageLink />
         </div>
 
         <h1 className="font-heading max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
@@ -439,16 +484,52 @@ export default function LeafyPartsFinderPage() {
                   For {result.vehicleLabel}
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full gap-2 bg-white/90 sm:w-auto sm:shrink-0"
-                onClick={resetSearch}
-              >
-                <ArrowLeft className="size-4" />
-                New search
-              </Button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row">
+                <Button
+                  type="button"
+                  className={cn(
+                    "h-11 w-full gap-2 sm:w-auto",
+                    inGarage
+                      ? "bg-emerald-700 text-cream hover:bg-emerald-700"
+                      : "bg-emerald-800 text-cream hover:bg-emerald-900"
+                  )}
+                  disabled={inGarage}
+                  onClick={handleSaveToGarage}
+                >
+                  {inGarage ? (
+                    <>
+                      <Check className="size-4" />
+                      Saved to Garage
+                    </>
+                  ) : (
+                    <>
+                      <Warehouse className="size-4" />
+                      Save to Garage
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full gap-2 bg-white/90 sm:w-auto"
+                  onClick={resetSearch}
+                >
+                  <ArrowLeft className="size-4" />
+                  New search
+                </Button>
+              </div>
             </div>
+            {inGarage && (
+              <p className="text-sm text-muted-foreground">
+                In your Garage —{" "}
+                <Link
+                  href="/parts/garage"
+                  className="font-medium text-emerald-800 underline-offset-2 hover:underline"
+                >
+                  open My Garage
+                </Link>
+              </p>
+            )}
 
             {safetyCritical && (
               <PartsSafetyWarning partLabel={result.identified.name} />
