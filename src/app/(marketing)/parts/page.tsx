@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { PartOptionCard } from "@/components/parts/part-option-card";
 import { PartsDisclaimers } from "@/components/parts/parts-disclaimers";
+import { PartNumberPhotoUpload } from "@/components/parts/part-number-photo-upload";
 import { PartsLocalRecyclers } from "@/components/parts/parts-local-recyclers";
 import { PartsSafetyWarning } from "@/components/parts/parts-safety-warning";
 import { PartsWrongIdFeedback } from "@/components/parts/parts-wrong-id-feedback";
@@ -82,6 +83,9 @@ export default function LeafyPartsFinderPage() {
   const formRef = useRef<HTMLFormElement>(null);
 
   const [photos, setPhotos] = useState<PartPhoto[]>([]);
+  const [partNumberPhoto, setPartNumberPhoto] = useState<PartPhoto | null>(
+    null
+  );
   const [vehicle, setVehicle] = useState<VehicleDetails>(EMPTY_VEHICLE);
   const [savedProfile, setSavedProfile] = useState<SavedVehicleProfile | null>(
     null
@@ -143,6 +147,7 @@ export default function LeafyPartsFinderPage() {
         photos,
         details: vehicle,
         partNumber: vehicle.partNumber,
+        partNumberPhoto,
         kindOverride,
       }),
     ]);
@@ -284,8 +289,8 @@ export default function LeafyPartsFinderPage() {
                 1. Upload photos
               </CardTitle>
               <CardDescription>
-                Clear shots of the part number, connectors, and overall shape
-                work best.
+                Main photos of the part first. Optionally add a separate
+                close-up of the OEM / part number below.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 p-4 pt-0 sm:space-y-4 sm:p-6 sm:pt-0">
@@ -293,6 +298,11 @@ export default function LeafyPartsFinderPage() {
               <PhotoUpload
                 photos={photos}
                 onChange={setPhotos}
+                disabled={busy}
+              />
+              <PartNumberPhotoUpload
+                photo={partNumberPhoto}
+                onChange={setPartNumberPhoto}
                 disabled={busy}
               />
             </CardContent>
@@ -440,6 +450,10 @@ export default function LeafyPartsFinderPage() {
               </Button>
             </div>
 
+            {safetyCritical && (
+              <PartsSafetyWarning partLabel={result.identified.name} />
+            )}
+
             {/* Confidence + why it matched */}
             <div className="rounded-2xl border border-emerald-200/80 bg-white/95 p-3.5 shadow-sm sm:p-5">
               <div className="flex items-start justify-between gap-3">
@@ -503,10 +517,6 @@ export default function LeafyPartsFinderPage() {
               </div>
             </div>
 
-            {safetyCritical && (
-              <PartsSafetyWarning partLabel={result.identified.name} />
-            )}
-
             {/* Manual override */}
             <div className="rounded-2xl border border-border/70 bg-white/90 p-3.5 sm:p-5">
               <Label htmlFor="parts-override" className="text-sm font-medium">
@@ -552,7 +562,7 @@ export default function LeafyPartsFinderPage() {
               kind={result.identified.kind}
             />
 
-            {photos.length > 0 && (
+            {(photos.length > 0 || partNumberPhoto) && (
               <div className="-mx-0.5 flex gap-2.5 overflow-x-auto px-0.5 pb-1 sm:gap-3">
                 {photos.map((photo, i) => (
                   <div
@@ -567,6 +577,19 @@ export default function LeafyPartsFinderPage() {
                     />
                   </div>
                 ))}
+                {partNumberPhoto && (
+                  <div className="relative size-[4.25rem] shrink-0 overflow-hidden rounded-2xl border-2 border-emerald-500/70 bg-muted/30 shadow-xs sm:size-24">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={partNumberPhoto.previewUrl}
+                      alt="Part number photo"
+                      className="size-full object-cover"
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-emerald-900/85 px-1 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-cream">
+                      Part no.
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

@@ -134,7 +134,7 @@ export const SAFETY_CRITICAL_PART_KINDS: readonly PartKind[] = [
 ];
 
 export const PARTS_SAFETY_WARNING =
-  "This looks like a safety-critical part. Always double-check fitment with a qualified mechanic or official OEM / parts catalogue before ordering or installing. Do not rely on photo identification alone for brakes, ABS, or related systems.";
+  "This identification is for guidance only. For brakes, ABS, and other safety-related parts, a wrong fit can be dangerous. Always confirm the exact part against your vehicle with a trusted mechanic or official OEM / parts sources before you buy or install.";
 
 export function isSafetyCriticalPart(kind: PartKind): boolean {
   return (SAFETY_CRITICAL_PART_KINDS as readonly string[]).includes(kind);
@@ -154,6 +154,11 @@ export type IdentifyPartInput = {
    * boost confidence and prefer this number in results.
    */
   partNumber?: string;
+  /**
+   * Optional close-up of the stamped / printed part number.
+   * Used to improve mock matching (and later real OCR / vision).
+   */
+  partNumberPhoto?: PhotoHintInput | null;
   /** When set, skip vision and build results for this part type */
   kindOverride?: PartKind;
 };
@@ -590,6 +595,70 @@ function kindFromPartNumber(
 function formatUserPartNumber(raw: string): string {
   const trimmed = raw.trim().replace(/\s+/g, " ");
   return trimmed.length > 0 ? trimmed.toUpperCase() : trimmed;
+}
+
+/** Pull OEM-like tokens from a filename (mock stand-in for OCR). */
+function oemHintsFromFilename(name: string): string[] {
+  const base = name.replace(/\.[a-z0-9]+$/i, "");
+  const chunks = base.match(/[A-Za-z0-9][A-Za-z0-9.\-_ ]{3,}/g) ?? [];
+  return chunks
+    .map((c) => c.trim())
+    .filter((c) => normalizePartNumber(c).length >= 5)
+    .slice(0, 4);
+}
+
+type PartNumberPhotoCue = {
+  /** Kind inferred from the part-number close-up alone */
+  inference: PartInference | null;
+  /** True when the close-up looks like a readable label plate */
+  labelBoost: boolean;
+};
+
+/**
+ * MOCK: use a dedicated part-number close-up (filename / OEM cues) before
+ * falling back to general shape matching on the main photos.
+ */
+async function inferFromPartNumberPhoto(
+  photo: PhotoHintInput,
+  makeId: VehicleMakeId | ""
+): Promise<PartNumberPhotoCue> {
+  const fromName = kindFromFilenames([photo]);
+  if (fromName) {
+    const label =
+      PART_KIND_OPTIONS.find((o) => o.id === fromName)?.label ?? fromName;
+    return {
+      inference: {
+        kind: fromName,
+        reason: `Part-number photo filename cues matched “${label}”.`,
+        scoreStrength: 0.95,
+      },
+      labelBoost: true,
+    };
+  }
+
+  for (const hint of oemHintsFromFilename(photo.name)) {
+    const fromOem = kindFromPartNumber(hint, makeId);
+    if (fromOem) {
+      const label =
+        PART_KIND_OPTIONS.find((o) => o.id === fromOem)?.label ?? fromOem;
+      return {
+        inference: {
+          kind: fromOem,
+          reason: `Part-number photo suggested OEM-style ref “${formatUserPartNumber(hint)}” for ${label}.`,
+          scoreStrength: 0.93,
+        },
+        labelBoost: true,
+      };
+    }
+  }
+
+  const signals = await sampleImageSignals(photo.previewUrl);
+  const labelBoost = Boolean(
+    signals &&
+      (signals.lightPleatShare > 0.12 || signals.centerVsEdgeContrast > 0.18)
+  );
+
+  return { inference: null, labelBoost };
 }
 
 function kindFromFilenames(photos: PhotoHintInput[]): PartKind | null {
@@ -1128,6 +1197,7 @@ export async function identifyPartFromImages(
   //     method: "POST",
   //     body: JSON.stringify({
   //       photoUrls: input.photos.map((p) => p.previewUrl),
+  //       partNumberPhotoUrl: input.partNumberPhoto?.previewUrl,
   //       vehicle: input.details,
   //       partNumber,
   //       kindOverride: input.kindOverride,
@@ -1148,10 +1218,11 @@ export async function identifyPartFromImages(
 async function mockIdentifyPartFromImages(
   input: IdentifyPartInput & { partNumber: string }
 ): Promise<PartIdentificationResult> {
-  const { photos, details, kindOverride, partNumber } = input;
+  const { photos, details, kindOverride, partNumber, partNumberPhoto } = input;
 
-  let inference: PartInference;
+  let inference: PartInference | null = null;
   let partNumberMatchedKind = false;
+  let usedPartNumberPhoto = false;
 
   if (kindOverride) {
     inference = {
@@ -1174,27 +1245,69 @@ async function mockIdentifyPartFromImages(
         scoreStrength: 0.94,
       };
     } else {
-      // MOCK: filename + lightweight colour / shape scoring
-      inference = await inferPartKindFromPhotos(photos);
+      let labelBoost = false;
+
+      if (partNumberPhoto) {
+        const cue = await inferFromPartNumberPhoto(
+          partNumberPhoto,
+          details.makeId
+        );
+        labelBoost = cue.labelBoost;
+        if (cue.inference) {
+          usedPartNumberPhoto = true;
+          partNumberMatchedKind = true;
+          inference = cue.inference;
+        }
+      }
+
+      if (!inference) {
+        // MOCK: main photos — filename + colour / shape scoring
+        // Prefer part-number close-up first in the stack when present
+        const visionPhotos = partNumberPhoto
+          ? [partNumberPhoto, ...photos]
+          : photos;
+        inference = await inferPartKindFromPhotos(visionPhotos);
+        if (partNumberPhoto) {
+          usedPartNumberPhoto = true;
+          inference = {
+            ...inference,
+            reason: labelBoost
+              ? `${inference.reason} Your part-number close-up looked like a clear label plate and sharpened the match.`
+              : `${inference.reason} Your part-number photo was included to improve the match.`,
+            scoreStrength: Math.min(
+              0.97,
+              inference.scoreStrength + (labelBoost ? 0.1 : 0.06)
+            ),
+          };
+        }
+      }
+
       if (partNumber) {
         inference = {
           ...inference,
-          reason: `${inference.reason} Your part number “${formatUserPartNumber(partNumber)}” was kept for fitment.`,
-          scoreStrength: Math.min(0.97, inference.scoreStrength + 0.08),
+          reason: `${inference.reason} Typed part number “${formatUserPartNumber(partNumber)}” was kept for fitment.`,
+          scoreStrength: Math.min(0.97, inference.scoreStrength + 0.06),
         };
       }
     }
   }
 
+  if (!inference) {
+    inference = await inferPartKindFromPhotos(photos);
+  }
+
+  const photoCount = photos.length + (partNumberPhoto ? 1 : 0);
+
   return buildPartIdentificationResult({
     details,
-    photoCount: photos.length,
+    photoCount,
     kind: inference.kind,
     inferReason: inference.reason,
     scoreStrength: inference.scoreStrength,
     overridden: Boolean(kindOverride),
     userPartNumber: partNumber,
     partNumberMatchedKind,
+    usedPartNumberPhoto,
   });
 }
 
@@ -1208,6 +1321,7 @@ export function mockIdentifyPart(input: {
   overridden?: boolean;
   userPartNumber?: string;
   partNumberMatchedKind?: boolean;
+  usedPartNumberPhoto?: boolean;
 }): PartIdentificationResult {
   return buildPartIdentificationResult(input);
 }
@@ -1221,6 +1335,7 @@ function buildPartIdentificationResult(input: {
   overridden?: boolean;
   userPartNumber?: string;
   partNumberMatchedKind?: boolean;
+  usedPartNumberPhoto?: boolean;
 }): PartIdentificationResult {
   const {
     details,
@@ -1231,6 +1346,7 @@ function buildPartIdentificationResult(input: {
     overridden = false,
     userPartNumber = "",
     partNumberMatchedKind = false,
+    usedPartNumberPhoto = false,
   } = input;
   const template = PART_TEMPLATES[kind];
   const vehicleLabel = formatVehicleLabel(details);
@@ -1248,11 +1364,12 @@ function buildPartIdentificationResult(input: {
     Math.round(
       58 +
         scoreStrength * 28 +
-        photoCount * 4 +
+        Math.min(photoCount, 5) * 4 +
         (details.vin.trim().length >= 11 ? 5 : 0) +
         (overridden ? 8 : 0) +
         (oemFromUser ? 6 : 0) +
-        (partNumberMatchedKind ? 4 : 0)
+        (partNumberMatchedKind ? 4 : 0) +
+        (usedPartNumberPhoto ? 3 : 0)
     )
   );
 

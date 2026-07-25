@@ -22,7 +22,7 @@ const TIPS: { title: string; detail: string }[] = [
   {
     title: "Show connectors & numbers",
     detail:
-      "Get close so stamped or printed OEM numbers, barcodes, and electrical connectors are sharp and readable.",
+      "Get close so stamped or printed OEM numbers, barcodes, and electrical connectors are sharp and readable. You can also add a separate optional part-number photo below.",
   },
   {
     title: "Clean if you can",
