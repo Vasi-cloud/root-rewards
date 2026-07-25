@@ -162,6 +162,34 @@ export function PartOptionCard({
             </p>
           </div>
         </div>
+
+        {option.compareOffers.length > 0 && (
+          <div className="rounded-xl border border-border/50 bg-muted/25 px-3 py-2.5 sm:rounded-2xl sm:px-3.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Other offers
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Example prices · approximate
+              </p>
+            </div>
+            <ul className="mt-2 divide-y divide-border/50">
+              {option.compareOffers.map((offer) => (
+                <li
+                  key={offer.source}
+                  className="flex items-center justify-between gap-3 py-1.5 text-sm first:pt-0 last:pb-0"
+                >
+                  <span className="truncate text-muted-foreground">
+                    {offer.source}
+                  </span>
+                  <span className="shrink-0 font-medium tabular-nums text-foreground">
+                    {formatCartMoney(offer.price)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="flex flex-col gap-2 border-t border-border/50 bg-muted/20 px-3.5 py-3.5 sm:flex-row sm:gap-3 sm:p-5">

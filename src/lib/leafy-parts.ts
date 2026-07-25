@@ -52,6 +52,12 @@ export type IdentifiedPart = {
   kind: PartKind;
 };
 
+/** Mock affiliate / retailer price row for comparison UI */
+export type PartPriceOffer = {
+  source: string;
+  price: number;
+};
+
 export type PartOption = {
   id: string;
   condition: PartCondition;
@@ -66,6 +72,8 @@ export type PartOption = {
   treesEstimate: number;
   /** Short delivery label, e.g. "Usually 1–3 days" */
   deliveryEstimate: string;
+  /** Mock alternative retailer prices (approximate / demo) */
+  compareOffers: PartPriceOffer[];
   amazonSearch: string;
 };
 
@@ -510,6 +518,37 @@ function pricesForConditions(newRetail: number): {
     remanufactured: money(Math.max(6, retail * 0.62)),
     recycled: money(Math.max(4, retail * 0.38)),
   };
+}
+
+const money2 = (n: number) => Math.round(Math.max(3, n) * 100) / 100;
+
+/**
+ * MOCK affiliate / retailer alternatives around our Forest Buddies price.
+ * For demo comparison only — not live marketplace quotes.
+ */
+function mockCompareOffers(
+  fbPrice: number,
+  condition: PartCondition
+): PartPriceOffer[] {
+  if (condition === "recycled") {
+    return [
+      { source: "Amazon", price: money2(fbPrice * 1.12) },
+      { source: "eBay", price: money2(fbPrice * 0.94) },
+      { source: "Local parts", price: money2(fbPrice * 0.88) },
+    ];
+  }
+  if (condition === "remanufactured") {
+    return [
+      { source: "Amazon", price: money2(fbPrice * 1.06) },
+      { source: "eBay", price: money2(fbPrice * 0.98) },
+      { source: "Other retailers", price: money2(fbPrice * 1.1) },
+    ];
+  }
+  return [
+    { source: "Amazon", price: money2(fbPrice * 1.04) },
+    { source: "eBay", price: money2(fbPrice * 1.08) },
+    { source: "Other retailers", price: money2(fbPrice * 0.97) },
+  ];
 }
 
 function oemForMake(makeId: VehicleMakeId | "", kind: PartKind): string {
@@ -1421,6 +1460,7 @@ function buildPartIdentificationResult(input: {
       highlight: true,
       treesEstimate: treesForPrice(prices.recycled),
       deliveryEstimate: recycledDelivery.label,
+      compareOffers: mockCompareOffers(prices.recycled, "recycled"),
       amazonSearch: `${makeLabel} ${shortName} ${vehicleLabel}`,
     },
     {
@@ -1436,6 +1476,7 @@ function buildPartIdentificationResult(input: {
       highlight: false,
       treesEstimate: treesForPrice(prices.remanufactured),
       deliveryEstimate: remanDelivery.label,
+      compareOffers: mockCompareOffers(prices.remanufactured, "remanufactured"),
       amazonSearch: `${makeLabel} ${shortName} remanufactured`,
     },
     {
@@ -1451,6 +1492,7 @@ function buildPartIdentificationResult(input: {
       highlight: false,
       treesEstimate: treesForPrice(prices.new),
       deliveryEstimate: newDelivery.label,
+      compareOffers: mockCompareOffers(prices.new, "new"),
       amazonSearch: `${makeLabel} ${shortName} OEM ${oemNumber}`,
     },
   ];
