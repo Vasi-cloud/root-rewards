@@ -1,53 +1,47 @@
 /**
- * Leafy Parts Finder — vehicle part ID helpers + mock results (v1).
- * Photos stay on-device; identification is placeholder until a real vision API.
+ * Leafy Parts Finder — identification helpers + product mapping.
+ *
+ * Photos stay on-device. Call `identifyPartFromImages` from the UI —
+ * that is the stable seam for swapping mock vision for a real API
+ * (e.g. Grok Vision) later.
  */
 
 import type { Product } from "@/types";
+import {
+  VEHICLE_CATALOG,
+  formatVehicleLabel,
+  type VehicleMakeId,
+} from "@/lib/leafy-parts-vehicle-catalog";
+
+export type { VehicleMakeId, VehicleModel } from "@/lib/leafy-parts-vehicle-catalog";
+export {
+  YEAR_MIN,
+  YEAR_MAX,
+  YEAR_OPTIONS,
+  VEHICLE_CATALOG,
+  VEHICLE_MAKE_IDS,
+  modelsForMake,
+  yearsForModel,
+  formatVehicleLabel,
+} from "@/lib/leafy-parts-vehicle-catalog";
 
 export type PartCondition = "recycled" | "remanufactured" | "new";
-
-export type VehicleMakeId =
-  | "toyota"
-  | "honda"
-  | "ford"
-  | "chevrolet"
-  | "nissan"
-  | "hyundai"
-  | "volkswagen"
-  | "bmw"
-  | "mercedes"
-  | "mazda"
-  | "subaru"
-  | "kia"
-  | "tesla"
-  | "renault"
-  | "peugeot"
-  | "citroen"
-  | "audi"
-  | "skoda"
-  | "seat"
-  | "volvo"
-  | "land-rover"
-  | "jaguar"
-  | "fiat"
-  | "alfa-romeo"
-  | "dacia";
 
 export type VehicleDetails = {
   makeId: VehicleMakeId | "";
   modelId: string;
   year: string;
   vin: string;
+  /** Optional OEM / aftermarket part number typed by the user */
+  partNumber: string;
 };
-
-export const YEAR_MIN = 2000;
-export const YEAR_MAX = 2026;
 
 export type IdentifiedPart = {
   id: string;
   name: string;
   oemNumber: string;
+  /** True when the displayed OEM came from the user's part-number field */
+  oemFromUser: boolean;
   category: string;
   confidencePercent: number;
   summary: string;
@@ -80,306 +74,6 @@ export type PartIdentificationResult = {
 };
 
 export const MAX_PART_PHOTOS = 4;
-
-export const VEHICLE_CATALOG: Record<
-  VehicleMakeId,
-  { label: string; models: { id: string; label: string }[] }
-> = {
-  toyota: {
-    label: "Toyota",
-    models: [
-      { id: "corolla", label: "Corolla" },
-      { id: "camry", label: "Camry" },
-      { id: "rav4", label: "RAV4" },
-      { id: "prius", label: "Prius" },
-      { id: "highlander", label: "Highlander" },
-      { id: "tacoma", label: "Tacoma" },
-    ],
-  },
-  honda: {
-    label: "Honda",
-    models: [
-      { id: "civic", label: "Civic" },
-      { id: "accord", label: "Accord" },
-      { id: "cr-v", label: "CR-V" },
-      { id: "hr-v", label: "HR-V" },
-      { id: "pilot", label: "Pilot" },
-      { id: "fit", label: "Fit / Jazz" },
-    ],
-  },
-  ford: {
-    label: "Ford",
-    models: [
-      { id: "f-150", label: "F-150" },
-      { id: "escape", label: "Escape / Kuga" },
-      { id: "explorer", label: "Explorer" },
-      { id: "focus", label: "Focus" },
-      { id: "mustang", label: "Mustang" },
-      { id: "bronco", label: "Bronco" },
-    ],
-  },
-  chevrolet: {
-    label: "Chevrolet",
-    models: [
-      { id: "silverado", label: "Silverado" },
-      { id: "equinox", label: "Equinox" },
-      { id: "malibu", label: "Malibu" },
-      { id: "traverse", label: "Traverse" },
-      { id: "bolt", label: "Bolt EV" },
-      { id: "tahoe", label: "Tahoe" },
-    ],
-  },
-  nissan: {
-    label: "Nissan",
-    models: [
-      { id: "altima", label: "Altima" },
-      { id: "rogue", label: "Rogue / X-Trail" },
-      { id: "sentra", label: "Sentra" },
-      { id: "pathfinder", label: "Pathfinder" },
-      { id: "leaf", label: "Leaf" },
-      { id: "frontier", label: "Frontier" },
-    ],
-  },
-  hyundai: {
-    label: "Hyundai",
-    models: [
-      { id: "tucson", label: "Tucson" },
-      { id: "santa-fe", label: "Santa Fe" },
-      { id: "elantra", label: "Elantra" },
-      { id: "sonata", label: "Sonata" },
-      { id: "ioniq-5", label: "Ioniq 5" },
-      { id: "kona", label: "Kona" },
-    ],
-  },
-  volkswagen: {
-    label: "Volkswagen",
-    models: [
-      { id: "golf", label: "Golf" },
-      { id: "tiguan", label: "Tiguan" },
-      { id: "jetta", label: "Jetta" },
-      { id: "passat", label: "Passat" },
-      { id: "atlas", label: "Atlas" },
-      { id: "id4", label: "ID.4" },
-    ],
-  },
-  bmw: {
-    label: "BMW",
-    models: [
-      { id: "3-series", label: "3 Series" },
-      { id: "5-series", label: "5 Series" },
-      { id: "x3", label: "X3" },
-      { id: "x5", label: "X5" },
-      { id: "i4", label: "i4" },
-      { id: "x1", label: "X1" },
-    ],
-  },
-  mercedes: {
-    label: "Mercedes-Benz",
-    models: [
-      { id: "c-class", label: "C-Class" },
-      { id: "e-class", label: "E-Class" },
-      { id: "gla", label: "GLA" },
-      { id: "glc", label: "GLC" },
-      { id: "a-class", label: "A-Class" },
-      { id: "eqb", label: "EQB" },
-    ],
-  },
-  mazda: {
-    label: "Mazda",
-    models: [
-      { id: "mazda3", label: "Mazda3" },
-      { id: "mazda6", label: "Mazda6" },
-      { id: "cx-5", label: "CX-5" },
-      { id: "cx-30", label: "CX-30" },
-      { id: "cx-50", label: "CX-50" },
-      { id: "mx-5", label: "MX-5 Miata" },
-    ],
-  },
-  subaru: {
-    label: "Subaru",
-    models: [
-      { id: "outback", label: "Outback" },
-      { id: "forester", label: "Forester" },
-      { id: "crosstrek", label: "Crosstrek" },
-      { id: "impreza", label: "Impreza" },
-      { id: "ascent", label: "Ascent" },
-      { id: "legacy", label: "Legacy" },
-    ],
-  },
-  kia: {
-    label: "Kia",
-    models: [
-      { id: "sportage", label: "Sportage" },
-      { id: "sorento", label: "Sorento" },
-      { id: "forte", label: "Forte / Cerato" },
-      { id: "telluride", label: "Telluride" },
-      { id: "ev6", label: "EV6" },
-      { id: "soul", label: "Soul" },
-    ],
-  },
-  tesla: {
-    label: "Tesla",
-    models: [
-      { id: "model-3", label: "Model 3" },
-      { id: "model-y", label: "Model Y" },
-      { id: "model-s", label: "Model S" },
-      { id: "model-x", label: "Model X" },
-    ],
-  },
-  renault: {
-    label: "Renault",
-    models: [
-      { id: "clio", label: "Clio" },
-      { id: "twingo", label: "Twingo" },
-      { id: "megane", label: "Megane" },
-      { id: "scenic", label: "Scenic" },
-      { id: "megane-scenic", label: "Megane Scenic" },
-      { id: "captur", label: "Captur" },
-      { id: "kadjar", label: "Kadjar" },
-      { id: "arkana", label: "Arkana" },
-      { id: "austral", label: "Austral" },
-      { id: "koleos", label: "Koleos" },
-      { id: "talisman", label: "Talisman" },
-      { id: "zoe", label: "Zoe" },
-    ],
-  },
-  peugeot: {
-    label: "Peugeot",
-    models: [
-      { id: "208", label: "208" },
-      { id: "308", label: "308" },
-      { id: "2008", label: "2008" },
-      { id: "3008", label: "3008" },
-      { id: "5008", label: "5008" },
-      { id: "508", label: "508" },
-      { id: "e-208", label: "e-208" },
-    ],
-  },
-  citroen: {
-    label: "Citroën",
-    models: [
-      { id: "c3", label: "C3" },
-      { id: "c4", label: "C4" },
-      { id: "c5-aircross", label: "C5 Aircross" },
-      { id: "berlingo", label: "Berlingo" },
-      { id: "c3-aircross", label: "C3 Aircross" },
-      { id: "ami", label: "Ami" },
-    ],
-  },
-  audi: {
-    label: "Audi",
-    models: [
-      { id: "a3", label: "A3" },
-      { id: "a4", label: "A4" },
-      { id: "a6", label: "A6" },
-      { id: "q3", label: "Q3" },
-      { id: "q5", label: "Q5" },
-      { id: "q7", label: "Q7" },
-      { id: "e-tron", label: "Q4 e-tron" },
-    ],
-  },
-  skoda: {
-    label: "Škoda",
-    models: [
-      { id: "octavia", label: "Octavia" },
-      { id: "fabia", label: "Fabia" },
-      { id: "superb", label: "Superb" },
-      { id: "kodiaq", label: "Kodiaq" },
-      { id: "karoq", label: "Karoq" },
-      { id: "enyaq", label: "Enyaq" },
-    ],
-  },
-  seat: {
-    label: "SEAT",
-    models: [
-      { id: "ibiza", label: "Ibiza" },
-      { id: "leon", label: "León" },
-      { id: "ateca", label: "Ateca" },
-      { id: "arona", label: "Arona" },
-      { id: "tarraco", label: "Tarraco" },
-      { id: "born", label: "Born" },
-    ],
-  },
-  volvo: {
-    label: "Volvo",
-    models: [
-      { id: "xc40", label: "XC40" },
-      { id: "xc60", label: "XC60" },
-      { id: "xc90", label: "XC90" },
-      { id: "v60", label: "V60" },
-      { id: "s60", label: "S60" },
-      { id: "c40", label: "C40 Recharge" },
-    ],
-  },
-  "land-rover": {
-    label: "Land Rover",
-    models: [
-      { id: "defender", label: "Defender" },
-      { id: "discovery", label: "Discovery" },
-      { id: "discovery-sport", label: "Discovery Sport" },
-      { id: "range-rover", label: "Range Rover" },
-      { id: "range-rover-sport", label: "Range Rover Sport" },
-      { id: "range-rover-evoque", label: "Range Rover Evoque" },
-    ],
-  },
-  jaguar: {
-    label: "Jaguar",
-    models: [
-      { id: "xe", label: "XE" },
-      { id: "xf", label: "XF" },
-      { id: "f-pace", label: "F-PACE" },
-      { id: "e-pace", label: "E-PACE" },
-      { id: "i-pace", label: "I-PACE" },
-      { id: "f-type", label: "F-TYPE" },
-    ],
-  },
-  fiat: {
-    label: "Fiat",
-    models: [
-      { id: "500", label: "500" },
-      { id: "500x", label: "500X" },
-      { id: "panda", label: "Panda" },
-      { id: "tipo", label: "Tipo" },
-      { id: "punto", label: "Punto" },
-      { id: "doblo", label: "Doblo" },
-    ],
-  },
-  "alfa-romeo": {
-    label: "Alfa Romeo",
-    models: [
-      { id: "giulia", label: "Giulia" },
-      { id: "stelvio", label: "Stelvio" },
-      { id: "tonale", label: "Tonale" },
-      { id: "giulietta", label: "Giulietta" },
-      { id: "mito", label: "MiTo" },
-      { id: "junior", label: "Junior" },
-    ],
-  },
-  dacia: {
-    label: "Dacia",
-    models: [
-      { id: "sandero", label: "Sandero" },
-      { id: "duster", label: "Duster" },
-      { id: "jogger", label: "Jogger" },
-      { id: "spring", label: "Spring" },
-      { id: "logan", label: "Logan" },
-      { id: "bigster", label: "Bigster" },
-    ],
-  },
-};
-
-/** Newest → oldest, inclusive (2000–2026). */
-export const YEAR_OPTIONS = Array.from(
-  { length: YEAR_MAX - YEAR_MIN + 1 },
-  (_, i) => String(YEAR_MAX - i)
-);
-
-/** Stable A–Z order for Make dropdown. */
-export const VEHICLE_MAKE_IDS = (
-  Object.keys(VEHICLE_CATALOG) as VehicleMakeId[]
-).sort((a, b) =>
-  VEHICLE_CATALOG[a].label.localeCompare(VEHICLE_CATALOG[b].label)
-);
 
 export const PARTS_AI_DISCLAIMER =
   "Leafy’s photo identification is helpful but not 100% accurate. Always double-check part numbers and vehicle compatibility before ordering.";
@@ -434,6 +128,19 @@ export const PART_KIND_OPTIONS: { id: PartKind; label: string }[] = [
 export type PhotoHintInput = {
   previewUrl: string;
   name: string;
+};
+
+/** Stable input contract for Leafy Parts identification (UI → lib). */
+export type IdentifyPartInput = {
+  photos: PhotoHintInput[];
+  details: VehicleDetails;
+  /**
+   * Optional OEM / part number. When set, mock (and later real AI) can
+   * boost confidence and prefer this number in results.
+   */
+  partNumber?: string;
+  /** When set, skip vision and build results for this part type */
+  kindOverride?: PartKind;
 };
 
 type PartTemplate = {
@@ -633,40 +340,78 @@ const OEM_BY_MAKE: Partial<
   peugeot: {
     thermostat: "1338.A6",
     brake_pads_front: "4254.22",
+    brake_pads_rear: "4254.34",
     oil_filter: "1109.AK",
+    fuel_filter: "1567.C6",
     air_filter: "1444.TJ",
+    cabin_filter: "6447.TF",
     oxygen_sensor: "1628.KR",
     maf_sensor: "1920.GW",
   },
   citroen: {
     thermostat: "1338.A6",
     brake_pads_front: "4254.22",
+    oil_filter: "1109.AK",
+    air_filter: "1444.TJ",
     oxygen_sensor: "1628.KR",
+  },
+  dacia: {
+    thermostat: "82 00 277 070",
+    oil_filter: "82 00 432 598",
+    air_filter: "82 00 432 179",
+    cabin_filter: "27 27 7 508 237",
+    brake_pads_front: "41 06 085 79R",
   },
   volkswagen: {
     thermostat: "03C 121 111",
     brake_pads_front: "1K0 698 151",
+    brake_pads_rear: "1K0 698 451",
     air_filter: "1K0 129 620",
+    cabin_filter: "1K0 819 644",
     oil_filter: "03C 115 561",
+    fuel_filter: "1K0 127 401",
     oxygen_sensor: "03G 906 262",
     maf_sensor: "06A 906 461",
   },
   audi: {
     thermostat: "06A 121 111",
     brake_pads_front: "8E0 698 151",
+    oil_filter: "06J 115 403",
+    air_filter: "8K0 133 843",
     oxygen_sensor: "06A 906 262",
+  },
+  skoda: {
+    thermostat: "03C 121 111",
+    brake_pads_front: "1K0 698 151",
+    oil_filter: "03C 115 561",
+    air_filter: "1K0 129 620",
+    cabin_filter: "1K0 819 644",
+  },
+  seat: {
+    thermostat: "03C 121 111",
+    brake_pads_front: "1K0 698 151",
+    oil_filter: "03C 115 561",
+    air_filter: "1K0 129 620",
+  },
+  cupra: {
+    oil_filter: "03C 115 561",
+    brake_pads_front: "1K0 698 151",
+    cabin_filter: "1K0 819 644",
   },
   ford: {
     thermostat: "1 339 017",
     brake_pads_front: "1 787 511",
     oxygen_sensor: "1 748 860",
     oil_filter: "1 719 437",
+    air_filter: "1 488 805",
+    cabin_filter: "1 704 079",
   },
   toyota: {
     thermostat: "90916-03100",
     brake_pads_front: "04465-0R090",
     air_filter: "17801-0V020",
     oil_filter: "90915-YZZD4",
+    cabin_filter: "87139-YZZ08",
     oxygen_sensor: "89465-0D090",
   },
   honda: {
@@ -674,12 +419,46 @@ const OEM_BY_MAKE: Partial<
     brake_pads_front: "45022-S5A-J00",
     oxygen_sensor: "36531-PAA-A01",
     oil_filter: "15400-PLM-A02",
+    air_filter: "17220-RNA-A00",
   },
   bmw: {
     thermostat: "11 53 7 547 415",
     brake_pads_front: "34 11 6 857 827",
     oxygen_sensor: "11 78 7 566 347",
     oil_filter: "11 42 7 566 327",
+    cabin_filter: "64 31 9 224 380",
+  },
+  mercedes: {
+    thermostat: "A 271 200 00 15",
+    brake_pads_front: "A 000 420 13 00",
+    oil_filter: "A 271 180 00 09",
+    cabin_filter: "A 212 830 03 18",
+  },
+  opel: {
+    thermostat: "13 38 06",
+    oil_filter: "56 50 359",
+    air_filter: "58 36 023",
+    brake_pads_front: "16 05 980",
+  },
+  mini: {
+    oil_filter: "11 42 7 566 327",
+    brake_pads_front: "34 11 6 857 827",
+    cabin_filter: "64 31 9 224 380",
+  },
+  porsche: {
+    oil_filter: "958 107 222 00",
+    brake_pads_front: "958 351 939 11",
+    cabin_filter: "958 573 737 00",
+  },
+  suzuki: {
+    oil_filter: "16510-67J10",
+    air_filter: "13780-63J00",
+    brake_pads_front: "55810-65J00",
+  },
+  volvo: {
+    oil_filter: "31330049",
+    cabin_filter: "31471203",
+    brake_pads_front: "31471334",
   },
 };
 
@@ -693,6 +472,87 @@ function oemForMake(makeId: VehicleMakeId | "", kind: PartKind): string {
     return OEM_BY_MAKE[makeId]![kind]!;
   }
   return PART_TEMPLATES[kind].defaultOem;
+}
+
+/** Normalise OEM / part numbers for comparison (strip spaces, dashes, dots). */
+export function normalizePartNumber(value: string): string {
+  return value.trim().toUpperCase().replace(/[\s.\-_\/]/g, "");
+}
+
+/**
+ * MOCK helper — map a typed OEM / part number to a part kind when it matches
+ * known catalog refs (or loose keyword cues). Returns null if unknown.
+ */
+function kindFromPartNumber(
+  partNumber: string,
+  makeId: VehicleMakeId | ""
+): PartKind | null {
+  const normalized = normalizePartNumber(partNumber);
+  if (normalized.length < 4) return null;
+
+  const tryMatch = (oem: string) => {
+    const n = normalizePartNumber(oem);
+    return (
+      n.length >= 4 &&
+      (normalized === n ||
+        normalized.includes(n) ||
+        n.includes(normalized))
+    );
+  };
+
+  // Prefer make-specific OEM map first
+  if (makeId && OEM_BY_MAKE[makeId]) {
+    for (const [kind, oem] of Object.entries(OEM_BY_MAKE[makeId]!) as [
+      PartKind,
+      string,
+    ][]) {
+      if (tryMatch(oem)) return kind;
+    }
+  }
+
+  // Any make in the catalog
+  for (const makeMap of Object.values(OEM_BY_MAKE)) {
+    if (!makeMap) continue;
+    for (const [kind, oem] of Object.entries(makeMap) as [PartKind, string][]) {
+      if (tryMatch(oem)) return kind;
+    }
+  }
+
+  // Template defaults
+  for (const template of Object.values(PART_TEMPLATES)) {
+    if (tryMatch(template.defaultOem)) return template.kind;
+  }
+
+  // Loose keyword cues in free-typed numbers / notes
+  const lower = partNumber.toLowerCase();
+  if (/thermo|thermostat/.test(lower)) return "thermostat";
+  if (/brake.?pad|plaquette/.test(lower)) {
+    return /rear|arriere|arrière/.test(lower)
+      ? "brake_pads_rear"
+      : "brake_pads_front";
+  }
+  if (/oil.?filter|filtre.?huile/.test(lower)) return "oil_filter";
+  if (/fuel.?filter|filtre.?carburant/.test(lower)) return "fuel_filter";
+  if (/cabin|pollen|habitacle/.test(lower)) return "cabin_filter";
+  if (/air.?filter|filtre.?air/.test(lower)) return "air_filter";
+  if (/spark|bougie/.test(lower)) return "spark_plugs";
+  if (/alternat/.test(lower)) return "alternator";
+  if (/starter|demarreur|démarreur/.test(lower)) return "starter_motor";
+  if (/radiator|radiateur/.test(lower)) return "radiator";
+  if (/water.?pump|pompe.?eau/.test(lower)) return "water_pump";
+  if (/oxygen|lambda|o2/.test(lower)) return "oxygen_sensor";
+  if (/\babs\b/.test(lower)) return "abs_sensor";
+  if (/temp.?sensor|coolant.?temp/.test(lower)) return "temp_sensor";
+  if (/\bmaf\b|air.?flow/.test(lower)) return "maf_sensor";
+  if (/wiper|balai/.test(lower)) return "wiper_blades";
+  if (/battery|batterie/.test(lower)) return "battery";
+
+  return null;
+}
+
+function formatUserPartNumber(raw: string): string {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  return trimmed.length > 0 ? trimmed.toUpperCase() : trimmed;
 }
 
 function kindFromFilenames(photos: PhotoHintInput[]): PartKind | null {
@@ -1213,57 +1073,95 @@ export async function inferPartKindFromPhotos(
 /**
  * Public identification entry point for Leafy Parts Finder.
  *
- * Today this runs the mock vision pipeline. Later, swap the body to call a
- * real vision API and map the response into PartIdentificationResult —
- * keep the same function signature so the UI does not need to change.
+ * UI code should only call this function. Internals can swap from mock
+ * vision to a real API (Grok Vision, etc.) without changing callers.
  */
-export async function identifyPartFromImages(input: {
-  photos: PhotoHintInput[];
-  details: VehicleDetails;
-  /** When set, skip vision and build results for this part type */
-  kindOverride?: PartKind;
-}): Promise<PartIdentificationResult> {
-  const { photos, details, kindOverride } = input;
+export async function identifyPartFromImages(
+  input: IdentifyPartInput
+): Promise<PartIdentificationResult> {
+  const partNumber =
+    input.partNumber?.trim() || input.details.partNumber?.trim() || "";
 
-  // --- Future: replace this block with a real vision API call ---
-  // const apiResult = await fetch('/api/parts/identify', { ... })
-  // return mapVisionApiToResult(apiResult, details)
-  const inference = kindOverride
-    ? {
-        kind: kindOverride,
-        reason: "",
-        scoreStrength: 0.9,
+  // ---------------------------------------------------------------------------
+  // REAL AI HOOK (not wired yet)
+  // ---------------------------------------------------------------------------
+  // When ready, replace the mock call below with something like:
+  //
+  //   const apiResult = await fetch("/api/parts/identify", {
+  //     method: "POST",
+  //     body: JSON.stringify({
+  //       photoUrls: input.photos.map((p) => p.previewUrl),
+  //       vehicle: input.details,
+  //       partNumber,
+  //       kindOverride: input.kindOverride,
+  //     }),
+  //   }).then((r) => r.json());
+  //   return mapVisionApiToResult(apiResult, input.details, partNumber);
+  //
+  // Keep returning PartIdentificationResult so the page / cards stay unchanged.
+  // ---------------------------------------------------------------------------
+
+  return mockIdentifyPartFromImages({ ...input, partNumber });
+}
+
+/**
+ * TEMPORARY MOCK PIPELINE — demo vision + OEM cues until real AI ships.
+ * Do not call from UI; use `identifyPartFromImages` instead.
+ */
+async function mockIdentifyPartFromImages(
+  input: IdentifyPartInput & { partNumber: string }
+): Promise<PartIdentificationResult> {
+  const { photos, details, kindOverride, partNumber } = input;
+
+  let inference: PartInference;
+  let partNumberMatchedKind = false;
+
+  if (kindOverride) {
+    inference = {
+      kind: kindOverride,
+      reason: "",
+      scoreStrength: 0.9,
+    };
+  } else {
+    const fromOem = partNumber
+      ? kindFromPartNumber(partNumber, details.makeId)
+      : null;
+
+    if (fromOem) {
+      partNumberMatchedKind = true;
+      const label =
+        PART_KIND_OPTIONS.find((o) => o.id === fromOem)?.label ?? fromOem;
+      inference = {
+        kind: fromOem,
+        reason: `Part number “${formatUserPartNumber(partNumber)}” matched catalog cues for ${label}.`,
+        scoreStrength: 0.94,
+      };
+    } else {
+      // MOCK: filename + lightweight colour / shape scoring
+      inference = await inferPartKindFromPhotos(photos);
+      if (partNumber) {
+        inference = {
+          ...inference,
+          reason: `${inference.reason} Your part number “${formatUserPartNumber(partNumber)}” was kept for fitment.`,
+          scoreStrength: Math.min(0.97, inference.scoreStrength + 0.08),
+        };
       }
-    : await inferPartKindFromPhotos(photos);
+    }
+  }
 
-  return mockIdentifyPart({
+  return buildPartIdentificationResult({
     details,
     photoCount: photos.length,
     kind: inference.kind,
     inferReason: inference.reason,
     scoreStrength: inference.scoreStrength,
     overridden: Boolean(kindOverride),
+    userPartNumber: partNumber,
+    partNumberMatchedKind,
   });
 }
 
-export function formatVehicleLabel(details: VehicleDetails): string {
-  if (!details.makeId) return "your vehicle";
-  const make = VEHICLE_CATALOG[details.makeId];
-  const model =
-    make.models.find((m) => m.id === details.modelId)?.label ?? "model";
-  const year = details.year || "year";
-  return `${year} ${make.label} ${model}`;
-}
-
-export function modelsForMake(makeId: VehicleMakeId | ""): {
-  id: string;
-  label: string;
-}[] {
-  if (!makeId) return [];
-  return VEHICLE_CATALOG[makeId].models;
-}
-
-/** Build mock identification from vehicle + inferred part kind (photo-aware). */
+/** Build identification result cards from inferred / overridden part kind. */
 export function mockIdentifyPart(input: {
   details: VehicleDetails;
   photoCount: number;
@@ -1271,6 +1169,21 @@ export function mockIdentifyPart(input: {
   inferReason?: string;
   scoreStrength?: number;
   overridden?: boolean;
+  userPartNumber?: string;
+  partNumberMatchedKind?: boolean;
+}): PartIdentificationResult {
+  return buildPartIdentificationResult(input);
+}
+
+function buildPartIdentificationResult(input: {
+  details: VehicleDetails;
+  photoCount: number;
+  kind: PartKind;
+  inferReason?: string;
+  scoreStrength?: number;
+  overridden?: boolean;
+  userPartNumber?: string;
+  partNumberMatchedKind?: boolean;
 }): PartIdentificationResult {
   const {
     details,
@@ -1279,13 +1192,19 @@ export function mockIdentifyPart(input: {
     inferReason,
     scoreStrength = 0.7,
     overridden = false,
+    userPartNumber = "",
+    partNumberMatchedKind = false,
   } = input;
   const template = PART_TEMPLATES[kind];
   const vehicleLabel = formatVehicleLabel(details);
   const makeLabel = details.makeId
     ? VEHICLE_CATALOG[details.makeId].label
     : "OEM";
-  const oemNumber = oemForMake(details.makeId, kind);
+  const catalogOem = oemForMake(details.makeId, kind);
+  const oemFromUser = normalizePartNumber(userPartNumber).length >= 4;
+  const oemNumber = oemFromUser
+    ? formatUserPartNumber(userPartNumber)
+    : catalogOem;
 
   const confidence = Math.min(
     97,
@@ -1294,26 +1213,35 @@ export function mockIdentifyPart(input: {
         scoreStrength * 28 +
         photoCount * 4 +
         (details.vin.trim().length >= 11 ? 5 : 0) +
-        (overridden ? 8 : 0)
+        (overridden ? 8 : 0) +
+        (oemFromUser ? 6 : 0) +
+        (partNumberMatchedKind ? 4 : 0)
     )
   );
 
   const displayName =
     PART_KIND_OPTIONS.find((o) => o.id === kind)?.label ?? template.name;
 
-  const matchExplanation = overridden
+  let matchExplanation = overridden
     ? `You selected this part type manually for ${vehicleLabel}.`
     : (inferReason ?? MATCH_REASONS[kind]);
 
+  if (overridden && oemFromUser) {
+    matchExplanation = `You selected this part type manually for ${vehicleLabel}. Part number “${oemNumber}” is shown on the results.`;
+  }
+
   const identified: IdentifiedPart = {
-    id: `id-${kind}-${details.makeId || "gen"}-${oemNumber.replace(/\s/g, "")}`,
+    id: `id-${kind}-${details.makeId || "gen"}-${normalizePartNumber(oemNumber) || "na"}`,
     name: displayName,
     oemNumber,
+    oemFromUser,
     category: template.category,
     confidencePercent: confidence,
     summary: template.summary,
     matchExplanation,
-    fitmentNote: `Matched to ${vehicleLabel}. Cross-check OEM ${oemNumber} (or equivalent aftermarket) before install.`,
+    fitmentNote: oemFromUser
+      ? `Matched to ${vehicleLabel}. Using your part number ${oemNumber} — confirm it against the vehicle before install.`
+      : `Matched to ${vehicleLabel}. Cross-check OEM ${oemNumber} (or equivalent aftermarket) before install.`,
     kind,
   };
 

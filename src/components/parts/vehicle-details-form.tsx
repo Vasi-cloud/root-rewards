@@ -5,10 +5,10 @@ import { Label } from "@/components/ui/label";
 import {
   YEAR_MAX,
   YEAR_MIN,
-  YEAR_OPTIONS,
   VEHICLE_CATALOG,
   VEHICLE_MAKE_IDS,
   modelsForMake,
+  yearsForModel,
   type VehicleDetails,
   type VehicleMakeId,
 } from "@/lib/leafy-parts";
@@ -28,6 +28,7 @@ export function VehicleDetailsForm({
   disabled,
 }: VehicleDetailsFormProps) {
   const models = modelsForMake(value.makeId);
+  const yearOptions = yearsForModel(value.makeId, value.modelId);
 
   return (
     <div className="space-y-4">
@@ -36,9 +37,9 @@ export function VehicleDetailsForm({
           Vehicle details
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose Make first — Model updates with that brand&apos;s cars
-          (including Renault, Peugeot, Audi, and more). Years {YEAR_MIN}–
-          {YEAR_MAX}. VIN is optional.
+          Choose Make first — Model and Year update for that brand (strong EU
+          coverage: Renault, Peugeot, Citroën, Dacia, VW, Škoda, SEAT, Audi,
+          BMW, Mercedes-Benz, and more). Catalog years {YEAR_MIN}–{YEAR_MAX}.
         </p>
       </div>
 
@@ -56,6 +57,7 @@ export function VehicleDetailsForm({
                 ...value,
                 makeId,
                 modelId: "",
+                year: "",
               });
             }}
             required
@@ -77,9 +79,16 @@ export function VehicleDetailsForm({
             className={selectClass}
             disabled={disabled || !value.makeId}
             value={value.modelId}
-            onChange={(e) =>
-              onChange({ ...value, modelId: e.target.value })
-            }
+            onChange={(e) => {
+              const modelId = e.target.value;
+              const years = yearsForModel(value.makeId, modelId);
+              const yearStillValid = years.includes(value.year);
+              onChange({
+                ...value,
+                modelId,
+                year: yearStillValid ? value.year : "",
+              });
+            }}
             required
           >
             <option value="">
@@ -97,14 +106,17 @@ export function VehicleDetailsForm({
           <Label htmlFor="parts-year">Year</Label>
           <select
             id="parts-year"
+            key={`${value.makeId}-${value.modelId || "no-model"}`}
             className={selectClass}
-            disabled={disabled}
+            disabled={disabled || !value.modelId}
             value={value.year}
             onChange={(e) => onChange({ ...value, year: e.target.value })}
             required
           >
-            <option value="">Select year</option>
-            {YEAR_OPTIONS.map((y) => (
+            <option value="">
+              {value.modelId ? "Select year" : "Choose model first"}
+            </option>
+            {yearOptions.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
@@ -113,30 +125,59 @@ export function VehicleDetailsForm({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="parts-vin">
-          VIN{" "}
-          <span className="font-normal text-muted-foreground">(optional)</span>
-        </Label>
-        <Input
-          id="parts-vin"
-          name="vin"
-          autoComplete="off"
-          spellCheck={false}
-          maxLength={17}
-          placeholder="17-character VIN"
-          disabled={disabled}
-          value={value.vin}
-          onChange={(e) =>
-            onChange({
-              ...value,
-              vin: e.target.value
-                .toUpperCase()
-                .replace(/[^A-HJ-NPR-Z0-9]/g, ""),
-            })
-          }
-          className="font-mono tracking-wide uppercase"
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="parts-oem">
+            OEM / part number{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="parts-oem"
+            name="partNumber"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="e.g. 82 00 277 070"
+            disabled={disabled}
+            value={value.partNumber}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                partNumber: e.target.value.slice(0, 48),
+              })
+            }
+            className="font-mono tracking-wide uppercase"
+          />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Photos stay the main method. A part number improves matching and
+            appears clearly on results.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="parts-vin">
+            VIN{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="parts-vin"
+            name="vin"
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={17}
+            placeholder="17-character VIN"
+            disabled={disabled}
+            value={value.vin}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                vin: e.target.value
+                  .toUpperCase()
+                  .replace(/[^A-HJ-NPR-Z0-9]/g, ""),
+              })
+            }
+            className="font-mono tracking-wide uppercase"
+          />
+        </div>
       </div>
     </div>
   );

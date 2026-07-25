@@ -105,7 +105,7 @@ export function PartOptionCard({
 
       <CardContent className="mt-auto space-y-3 px-3.5 pb-3.5 pt-0 sm:space-y-4 sm:p-5 sm:pt-0">
         <p className="break-all text-[11px] text-muted-foreground sm:text-xs">
-          OEM{" "}
+          {identified.oemFromUser ? "Your part no." : "OEM"}{" "}
           <span className="font-mono font-medium text-foreground">
             {identified.oemNumber}
           </span>

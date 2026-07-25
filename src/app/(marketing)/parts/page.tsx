@@ -56,6 +56,7 @@ const EMPTY_VEHICLE: VehicleDetails = {
   modelId: "",
   year: "",
   vin: "",
+  partNumber: "",
 };
 
 const selectClass =
@@ -114,6 +115,7 @@ export default function LeafyPartsFinderPage() {
       identifyPartFromImages({
         photos,
         details: vehicle,
+        partNumber: vehicle.partNumber,
         kindOverride,
       }),
     ]);
@@ -247,6 +249,11 @@ export default function LeafyPartsFinderPage() {
               <CardTitle className="font-heading text-xl">
                 2. Your vehicle
               </CardTitle>
+              <CardDescription>
+                Make → Model → Year cascades with realistic production years.
+                Add an OEM / part number if you have it — photos remain the
+                main identification method.
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <VehicleDetailsForm
@@ -305,6 +312,9 @@ export default function LeafyPartsFinderPage() {
               <span className="font-medium text-emerald-950">
                 {formatVehicleLabel(vehicle)}
               </span>
+              {vehicle.partNumber.trim()
+                ? `, using part number ${vehicle.partNumber.trim().toUpperCase()}`
+                : ""}
               .
             </p>
             <div className="mx-auto mt-7 flex w-full max-w-sm flex-col gap-2 text-left text-xs text-emerald-900/75">
@@ -403,9 +413,28 @@ export default function LeafyPartsFinderPage() {
                 <p className="text-sm leading-relaxed text-muted-foreground">
                   {result.identified.summary}
                 </p>
-                <p className="break-all font-mono text-xs text-emerald-900">
-                  OEM {result.identified.oemNumber} ·{" "}
-                  {result.identified.category}
+                <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+                  <p className="break-all font-mono text-xs font-medium text-emerald-900 sm:text-sm">
+                    {result.identified.oemFromUser ? "Your part no." : "OEM"}{" "}
+                    {result.identified.oemNumber}
+                  </p>
+                  <span className="hidden text-muted-foreground sm:inline">
+                    ·
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    {result.identified.category}
+                  </p>
+                  {result.identified.oemFromUser && (
+                    <Badge
+                      variant="outline"
+                      className="w-fit border-emerald-300/80 bg-emerald-50/80 text-[10px] font-normal text-emerald-950"
+                    >
+                      From your entry
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {result.identified.fitmentNote}
                 </p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   {PARTS_MOCK_AI_NOTE}
