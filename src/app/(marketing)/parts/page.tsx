@@ -40,8 +40,7 @@ import {
   PART_KIND_OPTIONS,
   PARTS_MOCK_AI_NOTE,
   formatVehicleLabel,
-  inferPartKindFromPhotos,
-  mockIdentifyPart,
+  identifyPartFromImages,
   partOptionToCartProduct,
   type PartIdentificationResult,
   type PartKind,
@@ -109,24 +108,16 @@ export default function LeafyPartsFinderPage() {
     setResult(null);
     setAddedIds(new Set());
 
-    const inference = kindOverride
-      ? {
-          kind: kindOverride,
-          reason: "",
-          scoreStrength: 0.88,
-        }
-      : await inferPartKindFromPhotos(photos);
+    // Artificial pause so the loading state is readable; real API latency will replace this.
+    const [, next] = await Promise.all([
+      new Promise((r) => window.setTimeout(r, kindOverride ? 650 : 1300)),
+      identifyPartFromImages({
+        photos,
+        details: vehicle,
+        kindOverride,
+      }),
+    ]);
 
-    await new Promise((r) => window.setTimeout(r, kindOverride ? 600 : 1200));
-
-    const next = mockIdentifyPart({
-      details: vehicle,
-      photoCount: photos.length,
-      kind: inference.kind,
-      inferReason: inference.reason,
-      scoreStrength: inference.scoreStrength,
-      overridden: Boolean(kindOverride),
-    });
     setResult(next);
     setPhase("results");
   }
@@ -310,7 +301,7 @@ export default function LeafyPartsFinderPage() {
               Leafy is analysing your photos…
             </p>
             <p className="mx-auto mt-2.5 max-w-sm px-1 text-sm leading-relaxed text-emerald-900/80">
-              Matching shapes, colours, and fitment for{" "}
+              Comparing shapes, springs, filters, and connectors for{" "}
               <span className="font-medium text-emerald-950">
                 {formatVehicleLabel(vehicle)}
               </span>
@@ -318,9 +309,9 @@ export default function LeafyPartsFinderPage() {
             </p>
             <div className="mx-auto mt-7 flex w-full max-w-sm flex-col gap-2 text-left text-xs text-emerald-900/75">
               {[
-                "Comparing part silhouettes",
-                "Checking OEM cross-references",
-                "Ranking sustainable options",
+                "Reading colour & silhouette cues",
+                "Matching against common part types",
+                "Ranking recycled & reman options",
               ].map((label, i) => (
                 <p
                   key={label}

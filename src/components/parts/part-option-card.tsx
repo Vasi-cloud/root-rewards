@@ -97,7 +97,7 @@ export function PartOptionCard({
           <CardTitle className="font-heading text-lg font-semibold leading-snug tracking-tight text-foreground sm:text-xl">
             {option.name}
           </CardTitle>
-          <CardDescription className="min-h-[3.5rem] text-sm leading-relaxed text-muted-foreground sm:min-h-[4rem]">
+          <CardDescription className="line-clamp-3 min-h-[3.75rem] text-sm leading-relaxed text-muted-foreground sm:min-h-[4.25rem]">
             {option.description}
           </CardDescription>
         </div>

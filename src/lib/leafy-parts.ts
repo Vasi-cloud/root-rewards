@@ -392,21 +392,41 @@ export const PARTS_MOCK_AI_NOTE =
 
 export type PartKind =
   | "thermostat"
-  | "brake_pads"
+  | "brake_pads_front"
+  | "brake_pads_rear"
+  | "oil_filter"
   | "air_filter"
   | "cabin_filter"
+  | "spark_plugs"
   | "alternator"
+  | "starter_motor"
+  | "radiator"
+  | "water_pump"
   | "oxygen_sensor"
-  | "maf_sensor";
+  | "abs_sensor"
+  | "temp_sensor"
+  | "maf_sensor"
+  | "wiper_blades"
+  | "battery";
 
 export const PART_KIND_OPTIONS: { id: PartKind; label: string }[] = [
   { id: "thermostat", label: "Thermostat / Coolant thermostat" },
-  { id: "brake_pads", label: "Front brake pad set" },
+  { id: "brake_pads_front", label: "Brake pads (front)" },
+  { id: "brake_pads_rear", label: "Brake pads (rear)" },
+  { id: "oil_filter", label: "Oil filter" },
   { id: "air_filter", label: "Engine air filter" },
-  { id: "cabin_filter", label: "Cabin pollen filter" },
-  { id: "alternator", label: "Alternator assembly" },
+  { id: "cabin_filter", label: "Cabin / pollen filter" },
+  { id: "spark_plugs", label: "Spark plugs" },
+  { id: "alternator", label: "Alternator" },
+  { id: "starter_motor", label: "Starter motor" },
+  { id: "radiator", label: "Radiator" },
+  { id: "water_pump", label: "Water pump" },
   { id: "oxygen_sensor", label: "Oxygen / lambda sensor" },
+  { id: "abs_sensor", label: "ABS wheel-speed sensor" },
+  { id: "temp_sensor", label: "Coolant temperature sensor" },
   { id: "maf_sensor", label: "MAF / air-flow sensor" },
+  { id: "wiper_blades", label: "Wiper blades" },
+  { id: "battery", label: "Car battery" },
 ];
 
 export type PhotoHintInput = {
@@ -430,25 +450,43 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     name: "Coolant thermostat",
     category: "Cooling",
     summary:
-      "Round metal thermostat housing with a central wax-pellet / spring assembly — matches the circular metal part in your photos. Controls coolant flow to the radiator.",
+      "Round metal thermostat with a central wax-pellet / spring assembly — controls coolant flow to the radiator.",
     basePrice: 34,
     defaultOem: "82 00 277 070",
   },
-  brake_pads: {
-    kind: "brake_pads",
+  brake_pads_front: {
+    kind: "brake_pads_front",
     name: "Front brake pad set",
     category: "Brakes",
     summary:
-      "Flat friction pads with backing plates — shape and wear pattern match a front brake pad set.",
+      "Flat friction pads with backing plates — typical front axle brake pad set.",
     basePrice: 48,
     defaultOem: "77 01 207 822",
+  },
+  brake_pads_rear: {
+    kind: "brake_pads_rear",
+    name: "Rear brake pad set",
+    category: "Brakes",
+    summary:
+      "Compact flat friction pads — typical rear axle brake pad set (often smaller than front).",
+    basePrice: 42,
+    defaultOem: "77 01 208 114",
+  },
+  oil_filter: {
+    kind: "oil_filter",
+    name: "Oil filter",
+    category: "Filters",
+    summary:
+      "Cylindrical spin-on or cartridge oil filter — common service item for oil changes.",
+    basePrice: 14,
+    defaultOem: "82 00 432 598",
   },
   air_filter: {
     kind: "air_filter",
     name: "Engine air filter",
     category: "Filters",
     summary:
-      "Panel air filter with pleated media and foam end seals — typical engine intake filter cartridge.",
+      "Panel air filter with pleated media and foam end seals — engine intake filter cartridge.",
     basePrice: 22,
     defaultOem: "82 00 432 179",
   },
@@ -457,36 +495,108 @@ const PART_TEMPLATES: Record<PartKind, PartTemplate> = {
     name: "Cabin pollen filter",
     category: "Filters",
     summary:
-      "Cabin / pollen filter cartridge — size and layered media cues match HVAC cabin filters.",
+      "Cabin / pollen filter cartridge — layered media for HVAC air quality.",
     basePrice: 19,
     defaultOem: "27 27 7 508 237",
   },
+  spark_plugs: {
+    kind: "spark_plugs",
+    name: "Spark plugs (set)",
+    category: "Ignition",
+    summary:
+      "Threaded ceramic/metal spark plugs — ignition tips for petrol engines.",
+    basePrice: 28,
+    defaultOem: "77 00 274 175",
+  },
   alternator: {
     kind: "alternator",
-    name: "Alternator assembly",
+    name: "Alternator",
     category: "Electrical",
     summary:
-      "Cylindrical alternator housing with pulley — reman-friendly electrical charging unit.",
+      "Cylindrical alternator housing with pulley — charging unit for the battery.",
     basePrice: 189,
     defaultOem: "77 11 135 588",
+  },
+  starter_motor: {
+    kind: "starter_motor",
+    name: "Starter motor",
+    category: "Electrical",
+    summary:
+      "Compact cylindrical starter with gear nose — engages the flywheel to crank the engine.",
+    basePrice: 165,
+    defaultOem: "77 11 135 902",
+  },
+  radiator: {
+    kind: "radiator",
+    name: "Radiator",
+    category: "Cooling",
+    summary:
+      "Large finned cooling core with plastic end tanks — engine coolant radiator.",
+    basePrice: 145,
+    defaultOem: "82 00 041 218",
+  },
+  water_pump: {
+    kind: "water_pump",
+    name: "Water pump",
+    category: "Cooling",
+    summary:
+      "Metal pump body with impeller / pulley flange — circulates engine coolant.",
+    basePrice: 72,
+    defaultOem: "77 01 474 714",
   },
   oxygen_sensor: {
     kind: "oxygen_sensor",
     name: "Oxygen / lambda sensor",
     category: "Sensors",
     summary:
-      "Threaded probe-style sensor with a wiring pigtail — typical oxygen (lambda) sensor used in the exhaust.",
+      "Threaded probe-style sensor with a wiring pigtail — exhaust oxygen (lambda) sensor.",
     basePrice: 56,
     defaultOem: "77 00 107 095",
+  },
+  abs_sensor: {
+    kind: "abs_sensor",
+    name: "ABS wheel-speed sensor",
+    category: "Sensors",
+    summary:
+      "Slim sensor with mounting tab and harness — ABS / wheel-speed pickup.",
+    basePrice: 38,
+    defaultOem: "47 91 015 57R",
+  },
+  temp_sensor: {
+    kind: "temp_sensor",
+    name: "Coolant temperature sensor",
+    category: "Sensors",
+    summary:
+      "Small threaded sensor with electrical connector — coolant temperature sender.",
+    basePrice: 24,
+    defaultOem: "82 00 167 288",
   },
   maf_sensor: {
     kind: "maf_sensor",
     name: "MAF / air-flow sensor",
     category: "Sensors",
     summary:
-      "Plastic sensor housing with an electrical connector — mass air-flow style unit for the intake tract.",
+      "Plastic sensor housing with an electrical connector — mass air-flow unit.",
     basePrice: 78,
     defaultOem: "82 00 041 644",
+  },
+  wiper_blades: {
+    kind: "wiper_blades",
+    name: "Wiper blades",
+    category: "Body",
+    summary:
+      "Long rubber wiping edge on a metal / plastic frame — windscreen wiper blades.",
+    basePrice: 26,
+    defaultOem: "28 89 015 58R",
+  },
+  battery: {
+    kind: "battery",
+    name: "Car battery",
+    category: "Electrical",
+    summary:
+      "Rectangular case with top terminals — 12V lead-acid or AGM starter battery.",
+    basePrice: 110,
+    defaultOem: "77 11 135 001",
   },
 };
 
@@ -496,57 +606,68 @@ const OEM_BY_MAKE: Partial<
 > = {
   renault: {
     thermostat: "82 00 277 070",
-    brake_pads: "41 06 085 79R",
+    brake_pads_front: "41 06 085 79R",
+    brake_pads_rear: "44 06 047 72R",
+    oil_filter: "82 00 432 598",
     air_filter: "82 00 432 179",
     cabin_filter: "27 27 7 508 237",
+    spark_plugs: "77 00 274 175",
     alternator: "77 11 135 588",
+    starter_motor: "77 11 135 902",
     oxygen_sensor: "77 00 107 095",
     maf_sensor: "82 00 041 644",
+    battery: "77 11 135 001",
   },
   peugeot: {
     thermostat: "1338.A6",
-    brake_pads: "4254.22",
+    brake_pads_front: "4254.22",
+    oil_filter: "1109.AK",
     air_filter: "1444.TJ",
     oxygen_sensor: "1628.KR",
     maf_sensor: "1920.GW",
   },
   citroen: {
     thermostat: "1338.A6",
-    brake_pads: "4254.22",
+    brake_pads_front: "4254.22",
     oxygen_sensor: "1628.KR",
   },
   volkswagen: {
     thermostat: "03C 121 111",
-    brake_pads: "1K0 698 151",
+    brake_pads_front: "1K0 698 151",
     air_filter: "1K0 129 620",
+    oil_filter: "03C 115 561",
     oxygen_sensor: "03G 906 262",
     maf_sensor: "06A 906 461",
   },
   audi: {
     thermostat: "06A 121 111",
-    brake_pads: "8E0 698 151",
+    brake_pads_front: "8E0 698 151",
     oxygen_sensor: "06A 906 262",
   },
   ford: {
     thermostat: "1 339 017",
-    brake_pads: "1 787 511",
+    brake_pads_front: "1 787 511",
     oxygen_sensor: "1 748 860",
+    oil_filter: "1 719 437",
   },
   toyota: {
     thermostat: "90916-03100",
-    brake_pads: "04465-0R090",
+    brake_pads_front: "04465-0R090",
     air_filter: "17801-0V020",
+    oil_filter: "90915-YZZD4",
     oxygen_sensor: "89465-0D090",
   },
   honda: {
     thermostat: "19301-PAA-A01",
-    brake_pads: "45022-S5A-J00",
+    brake_pads_front: "45022-S5A-J00",
     oxygen_sensor: "36531-PAA-A01",
+    oil_filter: "15400-PLM-A02",
   },
   bmw: {
     thermostat: "11 53 7 547 415",
-    brake_pads: "34 11 6 857 827",
+    brake_pads_front: "34 11 6 857 827",
     oxygen_sensor: "11 78 7 566 347",
+    oil_filter: "11 42 7 566 327",
   },
 };
 
@@ -564,13 +685,26 @@ function oemForMake(makeId: VehicleMakeId | "", kind: PartKind): string {
 
 function kindFromFilenames(photos: PhotoHintInput[]): PartKind | null {
   const blob = photos.map((p) => p.name).join(" ").toLowerCase();
-  if (/thermo|coolant|wax.?pellet/.test(blob)) return "thermostat";
-  if (/brake|pad|plaquette/.test(blob)) return "brake_pads";
+  if (/thermo|wax.?pellet/.test(blob)) return "thermostat";
+  if (/rear.*brake|brake.*rear|plaquette.?arriere/.test(blob))
+    return "brake_pads_rear";
+  if (/front.*brake|brake.*front|brake|pad|plaquette/.test(blob))
+    return "brake_pads_front";
+  if (/oil.?filter|filtre.?huile/.test(blob)) return "oil_filter";
   if (/cabin|pollen|habitacle/.test(blob)) return "cabin_filter";
-  if (/maf|mass.?air|air.?flow/.test(blob)) return "maf_sensor";
-  if (/o2|oxygen|lambda|sonde/.test(blob)) return "oxygen_sensor";
   if (/air.?filter|filtre.?air/.test(blob)) return "air_filter";
+  if (/spark|bougie|plug/.test(blob)) return "spark_plugs";
   if (/alternat|dynamo/.test(blob)) return "alternator";
+  if (/starter|demarreur|démarreur/.test(blob)) return "starter_motor";
+  if (/radiator|radiateur/.test(blob)) return "radiator";
+  if (/water.?pump|pompe.?eau/.test(blob)) return "water_pump";
+  if (/maf|mass.?air|air.?flow/.test(blob)) return "maf_sensor";
+  if (/o2|oxygen|lambda|sonde.?lambda/.test(blob)) return "oxygen_sensor";
+  if (/abs|wheel.?speed/.test(blob)) return "abs_sensor";
+  if (/temp.?sensor|coolant.?temp|cts/.test(blob)) return "temp_sensor";
+  if (/wiper|balai|essuie/.test(blob)) return "wiper_blades";
+  if (/battery|batterie|accu/.test(blob)) return "battery";
+  if (/coolant/.test(blob)) return "thermostat";
   if (/\bsensor\b/.test(blob)) return "oxygen_sensor";
   return null;
 }
@@ -583,6 +717,9 @@ type ImageSignals = {
   centerVsEdgeContrast: number;
   blackPlasticShare: number;
   connectorHueShare: number;
+  rubberShare: number;
+  yellowShare: number;
+  elongatedShare: number;
 };
 
 async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
@@ -606,6 +743,9 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
     let lightPleat = 0;
     let blackPlastic = 0;
     let connectorHue = 0;
+    let rubber = 0;
+    let yellow = 0;
+    let elongated = 0;
     let centerLum = 0;
     let edgeLum = 0;
     let centerN = 0;
@@ -636,29 +776,35 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
           edgeN++;
         }
 
-        // Silver / steel thermostat body
         if (sat < 0.18 && lum > 85 && lum < 210 && Math.abs(r - g) < 22) {
           metallic++;
         }
-        // Brass / copper flange tones common on thermostats
         if (r > 120 && r > g + 15 && g > b + 5 && lum > 70 && lum < 200) {
           copper++;
         }
-        // Dark flat brake-pad like surface
         if (lum < 70 && sat < 0.25) {
           darkFlat++;
         }
-        // Light paper / filter media
         if (lum > 170 && sat < 0.2) {
           lightPleat++;
         }
-        // Matte black plastic housings (MAF / sensors)
         if (lum < 55 && sat < 0.2) {
           blackPlastic++;
         }
-        // Coloured connector plastics (blue / green / teal)
         if (sat > 0.25 && lum > 40 && lum < 180 && (b > r + 20 || g > r + 15)) {
           connectorHue++;
+        }
+        // Dark rubber / wiper edge
+        if (lum < 45 && sat < 0.15) {
+          rubber++;
+        }
+        // Battery case yellows / labels
+        if (r > 160 && g > 130 && b < 100 && sat > 0.25) {
+          yellow++;
+        }
+        // Elongated horizontal structures (wipers, radiator fins)
+        if (Math.abs(dx) > Math.abs(dy) * 1.4 && lum < 140) {
+          elongated++;
         }
       }
     }
@@ -670,6 +816,9 @@ async function sampleImageSignals(url: string): Promise<ImageSignals | null> {
       lightPleatShare: lightPleat / total,
       blackPlasticShare: blackPlastic / total,
       connectorHueShare: connectorHue / total,
+      rubberShare: rubber / total,
+      yellowShare: yellow / total,
+      elongatedShare: elongated / total,
       centerVsEdgeContrast:
         centerN && edgeN
           ? Math.abs(centerLum / centerN - edgeLum / edgeN) / 255
@@ -699,23 +848,43 @@ export type PartInference = {
 const MATCH_REASONS: Record<PartKind, string> = {
   thermostat:
     "Round metallic body with centre/spring contrast — typical coolant thermostat.",
-  brake_pads:
-    "Dark, flat friction surfaces with low shine — typical brake pad faces.",
+  brake_pads_front:
+    "Dark, flat friction surfaces — typical front brake pad faces.",
+  brake_pads_rear:
+    "Compact dark flat pads — typical rear brake pad set.",
+  oil_filter:
+    "Compact cylindrical metal can — typical spin-on oil filter.",
   air_filter:
     "Light pleated media and soft edges — typical engine air filter.",
   cabin_filter:
     "Light layered filter media in a compact cartridge — cabin / pollen filter.",
+  spark_plugs:
+    "Small threaded ceramic tips — spark plug set cues.",
   alternator:
     "Dense metal housing with cylindrical mass — alternator-style assembly.",
+  starter_motor:
+    "Compact metal cylinder with gear nose cues — starter motor.",
+  radiator:
+    "Wide finned / elongated cooling core — radiator assembly.",
+  water_pump:
+    "Metal pump body with flange / impeller cues — water pump.",
   oxygen_sensor:
     "Probe-like metal tip with wiring cues — oxygen / lambda sensor.",
+  abs_sensor:
+    "Slim sensor body with harness cues — ABS wheel-speed sensor.",
+  temp_sensor:
+    "Small threaded sensor with connector — coolant temperature sensor.",
   maf_sensor:
     "Dark plastic housing with connector colour — mass air-flow sensor.",
+  wiper_blades:
+    "Long dark rubber edge on a slim frame — wiper blade.",
+  battery:
+    "Rectangular case with yellow/label tones — 12V car battery.",
 };
 
 /**
- * Infer part kind from filenames + lightweight colour/shape cues in photos.
- * Scores common parts (thermostat, pads, filters, sensors, alternator).
+ * Mock vision inference from filenames + lightweight colour/shape cues.
+ * Swap this internals when wiring a real vision model.
  */
 export async function inferPartKindFromPhotos(
   photos: PhotoHintInput[]
@@ -743,18 +912,19 @@ export async function inferPartKindFromPhotos(
     };
   }
 
+  const n = samples.length;
   const avg = samples.reduce(
     (acc, s) => ({
-      metallicShare: acc.metallicShare + s.metallicShare / samples.length,
-      copperShare: acc.copperShare + s.copperShare / samples.length,
-      darkFlatShare: acc.darkFlatShare + s.darkFlatShare / samples.length,
-      lightPleatShare: acc.lightPleatShare + s.lightPleatShare / samples.length,
-      blackPlasticShare:
-        acc.blackPlasticShare + s.blackPlasticShare / samples.length,
-      connectorHueShare:
-        acc.connectorHueShare + s.connectorHueShare / samples.length,
-      centerVsEdgeContrast:
-        acc.centerVsEdgeContrast + s.centerVsEdgeContrast / samples.length,
+      metallicShare: acc.metallicShare + s.metallicShare / n,
+      copperShare: acc.copperShare + s.copperShare / n,
+      darkFlatShare: acc.darkFlatShare + s.darkFlatShare / n,
+      lightPleatShare: acc.lightPleatShare + s.lightPleatShare / n,
+      blackPlasticShare: acc.blackPlasticShare + s.blackPlasticShare / n,
+      connectorHueShare: acc.connectorHueShare + s.connectorHueShare / n,
+      rubberShare: acc.rubberShare + s.rubberShare / n,
+      yellowShare: acc.yellowShare + s.yellowShare / n,
+      elongatedShare: acc.elongatedShare + s.elongatedShare / n,
+      centerVsEdgeContrast: acc.centerVsEdgeContrast + s.centerVsEdgeContrast / n,
     }),
     {
       metallicShare: 0,
@@ -763,6 +933,9 @@ export async function inferPartKindFromPhotos(
       lightPleatShare: 0,
       blackPlasticShare: 0,
       connectorHueShare: 0,
+      rubberShare: 0,
+      yellowShare: 0,
+      elongatedShare: 0,
       centerVsEdgeContrast: 0,
     }
   );
@@ -770,38 +943,89 @@ export async function inferPartKindFromPhotos(
   const scores: Record<PartKind, number> = {
     thermostat:
       avg.metallicShare * 1.5 +
-      avg.copperShare * 2.0 +
-      avg.centerVsEdgeContrast * 1.4 -
+      avg.copperShare * 2.1 +
+      avg.centerVsEdgeContrast * 1.5 -
       avg.darkFlatShare * 0.5 -
-      avg.lightPleatShare * 0.3,
-    brake_pads:
-      avg.darkFlatShare * 1.8 -
-      avg.metallicShare * 0.6 -
+      avg.lightPleatShare * 0.35,
+    brake_pads_front:
+      avg.darkFlatShare * 1.9 -
+      avg.metallicShare * 0.55 -
       avg.lightPleatShare * 0.4 -
       avg.connectorHueShare * 0.3,
+    brake_pads_rear:
+      avg.darkFlatShare * 1.55 -
+      avg.metallicShare * 0.5 -
+      avg.lightPleatShare * 0.35 -
+      avg.elongatedShare * 0.2,
+    oil_filter:
+      avg.metallicShare * 1.05 +
+      avg.blackPlasticShare * 0.35 -
+      avg.lightPleatShare * 0.45 -
+      avg.elongatedShare * 0.25,
     air_filter:
-      avg.lightPleatShare * 1.9 -
+      avg.lightPleatShare * 2.0 -
       avg.metallicShare * 0.5 -
       avg.darkFlatShare * 0.3,
     cabin_filter:
-      avg.lightPleatShare * 1.5 -
+      avg.lightPleatShare * 1.55 -
       avg.metallicShare * 0.4 -
       avg.copperShare * 0.2,
-    alternator:
-      avg.metallicShare * 1.1 +
-      avg.darkFlatShare * 0.4 -
-      avg.lightPleatShare * 0.5 -
-      avg.copperShare * 0.2,
-    oxygen_sensor:
-      avg.metallicShare * 0.9 +
-      avg.blackPlasticShare * 0.6 +
-      avg.connectorHueShare * 0.8 -
+    spark_plugs:
+      avg.metallicShare * 0.7 +
+      avg.copperShare * 0.55 +
+      avg.centerVsEdgeContrast * 0.4 -
+      avg.elongatedShare * 0.3 -
       avg.lightPleatShare * 0.4,
+    alternator:
+      avg.metallicShare * 1.15 +
+      avg.darkFlatShare * 0.35 -
+      avg.lightPleatShare * 0.5 -
+      avg.copperShare * 0.15,
+    starter_motor:
+      avg.metallicShare * 1.05 +
+      avg.darkFlatShare * 0.45 -
+      avg.lightPleatShare * 0.45 -
+      avg.yellowShare * 0.2,
+    radiator:
+      avg.elongatedShare * 1.4 +
+      avg.metallicShare * 0.55 +
+      avg.blackPlasticShare * 0.35 -
+      avg.copperShare * 0.15,
+    water_pump:
+      avg.metallicShare * 1.2 +
+      avg.copperShare * 0.45 -
+      avg.lightPleatShare * 0.4 -
+      avg.yellowShare * 0.15,
+    oxygen_sensor:
+      avg.metallicShare * 0.95 +
+      avg.blackPlasticShare * 0.55 +
+      avg.connectorHueShare * 0.85 -
+      avg.lightPleatShare * 0.4,
+    abs_sensor:
+      avg.blackPlasticShare * 0.9 +
+      avg.connectorHueShare * 0.75 +
+      avg.metallicShare * 0.35 -
+      avg.lightPleatShare * 0.35,
+    temp_sensor:
+      avg.metallicShare * 0.65 +
+      avg.connectorHueShare * 0.9 +
+      avg.copperShare * 0.35 -
+      avg.elongatedShare * 0.25,
     maf_sensor:
-      avg.blackPlasticShare * 1.6 +
-      avg.connectorHueShare * 1.4 -
+      avg.blackPlasticShare * 1.65 +
+      avg.connectorHueShare * 1.45 -
       avg.lightPleatShare * 0.3 -
       avg.copperShare * 0.2,
+    wiper_blades:
+      avg.rubberShare * 1.7 +
+      avg.elongatedShare * 1.35 -
+      avg.lightPleatShare * 0.35 -
+      avg.copperShare * 0.25,
+    battery:
+      avg.blackPlasticShare * 0.9 +
+      avg.yellowShare * 1.6 +
+      avg.elongatedShare * 0.35 -
+      avg.copperShare * 0.15,
   };
 
   let best: PartKind = "cabin_filter";
@@ -829,6 +1053,42 @@ export async function inferPartKindFromPhotos(
     reason: MATCH_REASONS[best],
     scoreStrength,
   };
+}
+
+/**
+ * Public identification entry point for Leafy Parts Finder.
+ *
+ * Today this runs the mock vision pipeline. Later, swap the body to call a
+ * real vision API and map the response into PartIdentificationResult —
+ * keep the same function signature so the UI does not need to change.
+ */
+export async function identifyPartFromImages(input: {
+  photos: PhotoHintInput[];
+  details: VehicleDetails;
+  /** When set, skip vision and build results for this part type */
+  kindOverride?: PartKind;
+}): Promise<PartIdentificationResult> {
+  const { photos, details, kindOverride } = input;
+
+  // --- Future: replace this block with a real vision API call ---
+  // const apiResult = await fetch('/api/parts/identify', { ... })
+  // return mapVisionApiToResult(apiResult, details)
+  const inference = kindOverride
+    ? {
+        kind: kindOverride,
+        reason: "",
+        scoreStrength: 0.9,
+      }
+    : await inferPartKindFromPhotos(photos);
+
+  return mockIdentifyPart({
+    details,
+    photoCount: photos.length,
+    kind: inference.kind,
+    inferReason: inference.reason,
+    scoreStrength: inference.scoreStrength,
+    overridden: Boolean(kindOverride),
+  });
 }
 
 export function formatVehicleLabel(details: VehicleDetails): string {
