@@ -25,6 +25,7 @@ import {
 
 export {
   partsConfidenceBadgeLabel,
+  partsConfidenceSourceNote,
   type PartsVisionEngine,
 } from "@/lib/leafy-parts-vision";
 

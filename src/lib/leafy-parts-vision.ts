@@ -175,5 +175,12 @@ function clamp01(n: number): number {
 
 /** UI badge copy for the confidence card. */
 export function partsConfidenceBadgeLabel(isMockEstimate: boolean): string {
-  return isMockEstimate ? "Mock AI estimate" : "AI confidence";
+  return isMockEstimate ? "Mock AI estimate" : "Grok Vision AI";
+}
+
+/** Short secondary line under the confidence score. */
+export function partsConfidenceSourceNote(isMockEstimate: boolean): string {
+  return isMockEstimate
+    ? "Using demo/mock identification"
+    : "Powered by Grok Vision";
 }

@@ -52,6 +52,7 @@ import {
   isSafetyCriticalPart,
   partOptionToCartProduct,
   partsConfidenceBadgeLabel,
+  partsConfidenceSourceNote,
   type PartIdentificationResult,
   type PartKind,
   type PartOption,
@@ -546,13 +547,22 @@ export default function LeafyPartsFinderPage() {
                   <p className="font-heading mt-0.5 text-[1.75rem] font-semibold tabular-nums text-emerald-900 sm:text-3xl">
                     {confidence}%
                   </p>
+                  <p
+                    className={
+                      result.isMockEstimate
+                        ? "mt-1 text-xs text-amber-900/80"
+                        : "mt-1 text-xs text-emerald-800/85"
+                    }
+                  >
+                    {partsConfidenceSourceNote(result.isMockEstimate)}
+                  </p>
                 </div>
                 <Badge
                   variant="outline"
                   className={
                     result.isMockEstimate
-                      ? "shrink-0 border-amber-300/80 bg-amber-50 text-[10px] font-normal text-amber-950 sm:text-xs"
-                      : "shrink-0 border-emerald-300/80 bg-emerald-50 text-[10px] font-normal text-emerald-950 sm:text-xs"
+                      ? "shrink-0 border-amber-300/80 bg-amber-50 text-[10px] font-semibold text-amber-950 sm:text-xs"
+                      : "shrink-0 border-emerald-400/90 bg-emerald-50 text-[10px] font-semibold text-emerald-950 sm:text-xs"
                   }
                 >
                   {partsConfidenceBadgeLabel(result.isMockEstimate)}
