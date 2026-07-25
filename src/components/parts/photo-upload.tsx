@@ -53,8 +53,7 @@ export function PhotoUpload({ photos, onChange, disabled }: PhotoUploadProps) {
         <div>
           <Label htmlFor="part-photos">Photos of the part</Label>
           <p className="mt-1 text-xs text-muted-foreground">
-            Add up to {MAX_PART_PHOTOS} photos. Thumbnails appear below — tap ×
-            to remove any shot.
+            Up to {MAX_PART_PHOTOS} photos. Tap × on a thumbnail to remove.
           </p>
         </div>
         <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium tabular-nums text-emerald-900">

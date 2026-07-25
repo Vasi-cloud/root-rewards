@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, MessageCircleWarning } from "lucide-react";
+import { Check, Loader2, MessageCircleWarning } from "lucide-react";
 import { useState } from "react";
 
+import { useAppToast } from "@/components/ui/app-toast";
 import { Button } from "@/components/ui/button";
 import { submitFeedback } from "@/lib/feedback-storage";
 import { cn } from "@/lib/utils";
@@ -20,34 +21,45 @@ export function PartsWrongIdFeedback({
   kind,
   className,
 }: PartsWrongIdFeedbackProps) {
+  const { showSuccess } = useAppToast();
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  function handleReport() {
-    if (sent) return;
+  async function handleReport() {
+    if (sent || sending) return;
+    setSending(true);
     submitFeedback({
       category: "issue",
       message: `Leafy Parts Finder: wrong identification. Suggested “${partName}” (${kind}) for ${vehicleLabel}.`,
       pagePath: "/parts",
     });
+    await new Promise((r) => window.setTimeout(r, 380));
+    setSending(false);
     setSent(true);
+    showSuccess(
+      "Feedback sent",
+      "Thanks — we've noted this ID looked wrong."
+    );
   }
 
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/70 bg-white/90 px-3.5 py-3.5 sm:px-5 sm:py-4",
+        "rounded-2xl border border-border/70 bg-white/95 px-3.5 py-3.5 shadow-sm sm:px-5 sm:py-4",
         className
       )}
     >
       {sent ? (
         <p
-          className="flex items-start gap-2.5 text-sm leading-relaxed text-emerald-900"
+          className="flex items-start gap-2.5 animate-[fb-fade-up_0.3s_ease-out] text-sm leading-relaxed text-emerald-900"
           role="status"
         >
-          <Check className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+          <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <Check className="size-3.5" />
+          </span>
           <span>
-            Thanks — we&apos;ve noted that this identification looked wrong.
-            Your feedback helps Leafy get sharper over time.
+            Thanks — we&apos;ve noted this ID looked wrong. Your feedback helps
+            Leafy improve.
           </span>
         </p>
       ) : (
@@ -57,18 +69,27 @@ export function PartsWrongIdFeedback({
               Not the right part?
             </p>
             <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-              Tell us if Leafy misidentified this — you can still override the
-              part type above.
+              Report a mis-ID — you can still override the part type above.
             </p>
           </div>
           <Button
             type="button"
             variant="outline"
-            className="h-10 w-full shrink-0 gap-2 bg-background sm:w-auto"
-            onClick={handleReport}
+            className="h-10 w-full shrink-0 gap-2 bg-background transition-all active:scale-[0.98] sm:w-auto"
+            onClick={() => void handleReport()}
+            disabled={sending}
           >
-            <MessageCircleWarning className="size-4" />
-            Report wrong ID
+            {sending ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Sending…
+              </>
+            ) : (
+              <>
+                <MessageCircleWarning className="size-4" />
+                Report wrong ID
+              </>
+            )}
           </Button>
         </div>
       )}

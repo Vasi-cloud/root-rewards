@@ -49,7 +49,7 @@ export function PartOptionCard({
   const [adding, setAdding] = useState(false);
 
   async function handleAdd() {
-    if (adding) return;
+    if (adding || added) return;
     setAdding(true);
     onAddToCart(option);
     await new Promise((r) => window.setTimeout(r, 420));
@@ -59,7 +59,7 @@ export function PartOptionCard({
   return (
     <Card
       className={cn(
-        "flex h-full flex-col overflow-hidden border-border/60 bg-card shadow-sm transition-[box-shadow,transform] duration-200 hover:shadow-md",
+        "flex h-full flex-col overflow-hidden border-border/70 bg-card shadow-sm transition-[box-shadow,transform,border-color] duration-200 hover:shadow-md",
         isBestEco &&
           "border-emerald-500 bg-gradient-to-br from-emerald-50/95 via-white to-cream shadow-md ring-2 ring-emerald-400/45"
       )}
@@ -104,7 +104,7 @@ export function PartOptionCard({
         </div>
       </CardHeader>
 
-      <CardContent className="mt-auto space-y-3 px-3.5 pb-3.5 pt-0 sm:space-y-4 sm:p-5 sm:pt-0">
+      <CardContent className="mt-auto space-y-2.5 px-3.5 pb-3.5 pt-0 sm:space-y-3.5 sm:p-5 sm:pt-0">
         <p className="break-all text-[11px] text-muted-foreground sm:text-xs">
           {identified.oemFromUser ? "Your part no." : "OEM"}{" "}
           <span className="font-mono font-medium text-foreground">
@@ -113,7 +113,7 @@ export function PartOptionCard({
         </p>
 
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
-          <div className="flex flex-col justify-center rounded-xl border border-border/60 bg-background/90 px-3 py-3 sm:rounded-2xl sm:px-4 sm:py-3.5">
+          <div className="flex flex-col justify-center rounded-xl border border-border/60 bg-background/90 px-2.5 py-2.5 sm:rounded-2xl sm:px-4 sm:py-3.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground sm:text-[11px]">
               Price
             </p>
@@ -124,14 +124,14 @@ export function PartOptionCard({
 
           <div
             className={cn(
-              "flex items-center gap-2 rounded-xl border px-2.5 py-3 sm:gap-3 sm:rounded-2xl sm:px-3.5 sm:py-3.5",
+              "flex items-center gap-2 rounded-xl border px-2 py-2.5 sm:gap-3 sm:rounded-2xl sm:px-3.5 sm:py-3.5",
               isBestEco
                 ? "border-emerald-400/90 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-950 shadow-sm"
                 : "border-emerald-200/90 bg-emerald-50/80 text-emerald-950"
             )}
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm sm:size-11">
-              <TreePine className="size-4 sm:size-5" />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm sm:size-11">
+              <TreePine className="size-3.5 sm:size-5" />
             </span>
             <div className="min-w-0">
               <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-emerald-800/70 sm:text-[10px]">
@@ -151,11 +151,11 @@ export function PartOptionCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200/80 bg-sky-50/70 px-3 py-2.5 text-sky-950 sm:rounded-2xl sm:px-3.5">
-          <Truck className="size-4 shrink-0 text-sky-800" aria-hidden />
+        <div className="flex items-start gap-2.5 rounded-xl border border-sky-200/80 bg-sky-50/70 px-2.5 py-2.5 text-sky-950 sm:items-center sm:rounded-2xl sm:px-3.5">
+          <Truck className="mt-0.5 size-4 shrink-0 text-sky-800 sm:mt-0" aria-hidden />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-800/70">
-              Estimated delivery
+              Delivery
             </p>
             <p className="text-sm font-semibold leading-snug">
               {option.deliveryEstimate}
@@ -164,8 +164,8 @@ export function PartOptionCard({
         </div>
 
         {option.compareOffers.length > 0 && (
-          <div className="rounded-xl border border-border/50 bg-muted/25 px-3 py-2.5 sm:rounded-2xl sm:px-3.5">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+          <div className="rounded-xl border border-border/50 bg-muted/25 px-2.5 py-2.5 sm:rounded-2xl sm:px-3.5">
+            <div className="flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-2">
               <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Other offers
               </p>
@@ -173,11 +173,11 @@ export function PartOptionCard({
                 Example prices · approximate
               </p>
             </div>
-            <ul className="mt-2 divide-y divide-border/50">
+            <ul className="mt-1.5 divide-y divide-border/50 sm:mt-2">
               {option.compareOffers.map((offer) => (
                 <li
                   key={offer.source}
-                  className="flex items-center justify-between gap-3 py-1.5 text-sm first:pt-0 last:pb-0"
+                  className="flex items-center justify-between gap-2 py-1.5 text-[13px] first:pt-0 last:pb-0 sm:gap-3 sm:text-sm"
                 >
                   <span className="truncate text-muted-foreground">
                     {offer.source}
@@ -192,13 +192,13 @@ export function PartOptionCard({
         )}
       </CardContent>
 
-      <CardFooter className="flex flex-col gap-2 border-t border-border/50 bg-muted/20 px-3.5 py-3.5 sm:flex-row sm:gap-3 sm:p-5">
+      <CardFooter className="flex flex-col gap-2 border-t border-border/50 bg-muted/20 px-3.5 py-3 sm:flex-row sm:gap-3 sm:p-5">
         <Button
           type="button"
           className={cn(
-            "h-11 w-full gap-2 text-[15px] font-semibold transition-all sm:h-12 sm:flex-1 sm:text-base",
+            "h-11 w-full gap-2 text-[15px] font-semibold transition-all active:scale-[0.98] sm:h-12 sm:flex-1 sm:text-base",
             added
-              ? "bg-emerald-700 text-cream hover:bg-emerald-700"
+              ? "bg-emerald-700 text-cream shadow-sm ring-2 ring-emerald-400/40 hover:bg-emerald-700"
               : "bg-emerald-800 text-cream hover:bg-emerald-900"
           )}
           onClick={() => void handleAdd()}
@@ -225,7 +225,7 @@ export function PartOptionCard({
         <Button
           type="button"
           variant="outline"
-          className="h-11 w-full gap-1.5 bg-background text-[15px] hover:border-emerald-300 sm:h-12 sm:flex-1 sm:text-base"
+          className="h-11 w-full gap-1.5 bg-background text-[15px] transition-all hover:border-emerald-300 active:scale-[0.98] sm:h-12 sm:flex-1 sm:text-base"
           onClick={() => onBuyOnline(option)}
           disabled={adding}
         >

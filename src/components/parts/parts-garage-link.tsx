@@ -55,14 +55,14 @@ export function PartsGarageLink({
       variant="outline"
       size="sm"
       className={cn(
-        "h-9 gap-1.5 border-emerald-200/90 bg-white/80 text-emerald-950 hover:border-emerald-300",
+        "h-9 shrink-0 gap-1.5 border-emerald-200/90 bg-white/90 px-2.5 text-emerald-950 shadow-xs transition-all hover:border-emerald-300 hover:bg-emerald-50/80 active:scale-[0.98] sm:px-3",
         className
       )}
     >
       <Warehouse className="size-3.5" />
       Garage
       {count > 0 ? (
-        <span className="rounded-md bg-emerald-800 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-cream">
+        <span className="min-w-[1.25rem] rounded-md bg-emerald-800 px-1.5 py-0.5 text-center text-[10px] font-semibold tabular-nums text-cream">
           {count}
         </span>
       ) : null}

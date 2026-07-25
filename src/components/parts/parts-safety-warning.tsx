@@ -42,7 +42,7 @@ export function PartsSafetyWarning({
           <p className="text-sm leading-relaxed text-red-950/90">
             {PARTS_SAFETY_WARNING}
           </p>
-          <p className="rounded-xl border border-red-300/80 bg-white/80 px-3 py-2 text-sm font-medium leading-relaxed text-red-950">
+          <p className="rounded-xl border border-red-300/80 bg-white/85 px-3 py-2 text-sm font-medium leading-relaxed text-red-950 shadow-xs">
             Always verify fitment with a trusted mechanic or official OEM /
             parts catalogue before ordering or installing.
           </p>

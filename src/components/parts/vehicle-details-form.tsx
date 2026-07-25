@@ -54,9 +54,8 @@ export function VehicleDetailsForm({
           Vehicle details
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose Make first — Model and Year update for that brand (strong EU
-          coverage: Renault, Peugeot, Citroën, Dacia, VW, Škoda, SEAT, Audi,
-          BMW, Mercedes-Benz, and more). Catalog years {YEAR_MIN}–{YEAR_MAX}.
+          Choose Make first — Model and Year update for that brand. Strong EU
+          coverage (Renault, VW, BMW, and more). Years {YEAR_MIN}–{YEAR_MAX}.
         </p>
       </div>
 
@@ -165,8 +164,8 @@ export function VehicleDetailsForm({
             className="font-mono tracking-wide uppercase"
           />
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Photos stay the main method. A part number improves matching and
-            appears clearly on results.
+            Photos stay primary. A part number improves matching and shows on
+            results.
           </p>
         </div>
 
@@ -198,7 +197,7 @@ export function VehicleDetailsForm({
       </div>
 
       {(onSaveVehicle || onClearSavedVehicle) && (
-        <div className="rounded-2xl border border-border/60 bg-muted/25 px-3.5 py-3 sm:px-4 sm:py-3.5">
+        <div className="rounded-2xl border border-border/70 bg-muted/25 px-3.5 py-3 shadow-xs sm:px-4 sm:py-3.5">
           <div className="flex gap-2.5">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800/10 text-emerald-900">
               <Car className="size-4" />
@@ -210,16 +209,16 @@ export function VehicleDetailsForm({
               <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                 {hasSavedProfile
                   ? matchesSavedProfile
-                    ? `Saved: ${formatVehicleLabel(value)}. We’ll pre-fill this next time.`
-                    : "You have a saved vehicle — save again to update it, or clear it below."
-                  : "Save Make / Model / Year (and VIN if added) to skip re-entering them."}
+                    ? `Saved: ${formatVehicleLabel(value)}. Pre-filled next visit.`
+                    : "Saved vehicle on file — save again to update, or clear below."
+                  : "Save Make / Model / Year (and VIN) to skip re-entering them."}
               </p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 {onSaveVehicle && (
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 gap-2 bg-background"
+                    className="h-10 gap-2 bg-background transition-all active:scale-[0.98]"
                     disabled={disabled || !canSave || matchesSavedProfile}
                     onClick={onSaveVehicle}
                   >
@@ -231,7 +230,7 @@ export function VehicleDetailsForm({
                   <Button
                     type="button"
                     variant="ghost"
-                    className="h-10 gap-2 text-muted-foreground hover:text-foreground"
+                    className="h-10 gap-2 text-muted-foreground transition-all hover:text-foreground active:scale-[0.98]"
                     disabled={disabled}
                     onClick={onClearSavedVehicle}
                   >

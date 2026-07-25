@@ -106,6 +106,7 @@ export default function LeafyPartsFinderPage() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [loadingStep, setLoadingStep] = useState(0);
   const [inGarage, setInGarage] = useState(false);
+  const [savingGarage, setSavingGarage] = useState(false);
 
   useEffect(() => {
     const saved = loadSavedVehicleProfile();
@@ -255,14 +256,17 @@ export default function LeafyPartsFinderPage() {
     );
   }
 
-  function handleSaveToGarage() {
-    if (!result) return;
+  async function handleSaveToGarage() {
+    if (!result || inGarage || savingGarage) return;
+    setSavingGarage(true);
     savePartToGarage({
       identified: result.identified,
       details: vehicle,
       vehicleLabel: result.vehicleLabel,
     });
+    await new Promise((r) => window.setTimeout(r, 380));
     setInGarage(true);
+    setSavingGarage(false);
     showSuccess(
       "Saved to Garage",
       `${result.identified.name} for ${result.vehicleLabel} is in My Garage.`,
@@ -285,15 +289,19 @@ export default function LeafyPartsFinderPage() {
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-3xl px-4 py-8 pb-16 sm:px-6 sm:py-12">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="relative mx-auto max-w-3xl px-4 py-7 pb-16 sm:px-6 sm:py-12">
+        <div className="mb-3 flex items-start justify-between gap-2 sm:items-center sm:gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <MarketplaceBrandBadge />
             <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
               <Cog className="size-3.5" />
-              Leafy Parts Finder
+              <span className="sm:hidden">Parts</span>
+              <span className="hidden sm:inline">Leafy Parts Finder</span>
             </Badge>
-            <Badge variant="outline" className="font-normal text-muted-foreground">
+            <Badge
+              variant="outline"
+              className="font-normal text-muted-foreground"
+            >
               {result?.isMockEstimate === false ? "Grok Vision" : "Mock AI · v1"}
             </Badge>
           </div>
@@ -303,11 +311,11 @@ export default function LeafyPartsFinderPage() {
         <h1 className="font-heading max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
           Leafy Parts Finder
         </h1>
-        <p className="mt-3 max-w-2xl text-base text-muted-foreground sm:text-lg">
+        <p className="mt-2.5 max-w-2xl text-base text-muted-foreground sm:mt-3 sm:text-lg">
           Snap the old part. Find the right replacement. Plant a tree.
         </p>
 
-        <div className="mt-5 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/90 p-3.5 shadow-sm sm:p-4">
+        <div className="mt-4 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/95 p-3.5 shadow-sm sm:mt-5 sm:p-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
             <Leaf className="size-5" />
           </span>
@@ -316,8 +324,8 @@ export default function LeafyPartsFinderPage() {
               Leafy says
             </p>
             <p className="mt-0.5 text-sm leading-relaxed text-foreground">
-              We&apos;ll prioritise recycled and remanufactured options first —
-              good for your wallet and the forest.
+              Recycled and remanufactured options first — better for your wallet
+              and the forest.
             </p>
           </div>
         </div>
@@ -330,14 +338,14 @@ export default function LeafyPartsFinderPage() {
             phase === "results" && "opacity-90"
           )}
         >
-          <Card className="border-border/70 shadow-sm">
+          <Card className="border-border/70 bg-white/95 shadow-sm">
             <CardHeader className="space-y-1.5 p-4 sm:p-6">
               <CardTitle className="font-heading text-xl">
                 1. Upload photos
               </CardTitle>
               <CardDescription>
-                Main photos of the part first. Optionally add a separate
-                close-up of the OEM / part number below.
+                Main part photos first. Optionally add a close-up of the OEM /
+                part number below.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 p-4 pt-0 sm:space-y-4 sm:p-6 sm:pt-0">
@@ -355,15 +363,14 @@ export default function LeafyPartsFinderPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 shadow-sm">
+          <Card className="border-border/70 bg-white/95 shadow-sm">
             <CardHeader className="space-y-1.5 p-4 pb-2 sm:p-6 sm:pb-2">
               <CardTitle className="font-heading text-xl">
                 2. Your vehicle
               </CardTitle>
               <CardDescription>
-                Make → Model → Year cascades with realistic production years.
-                Add an OEM / part number if you have it — photos remain the
-                main identification method.
+                Make → Model → Year with realistic ranges. Add an OEM / part
+                number if you have one — photos stay primary.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
@@ -394,7 +401,7 @@ export default function LeafyPartsFinderPage() {
           <Button
             type="submit"
             size="lg"
-            className="h-14 w-full gap-2.5 bg-emerald-800 text-base font-semibold text-cream shadow-lg shadow-emerald-900/20 hover:bg-emerald-900 sm:text-lg"
+            className="h-14 w-full gap-2.5 bg-emerald-800 text-base font-semibold text-cream shadow-lg shadow-emerald-900/20 transition-all hover:bg-emerald-900 active:scale-[0.99] sm:text-lg"
             disabled={busy}
           >
             {busy ? (
@@ -468,10 +475,10 @@ export default function LeafyPartsFinderPage() {
           <section
             ref={resultsRef}
             id="parts-results"
-            className="mt-10 scroll-mt-24 space-y-4 rounded-3xl border border-emerald-200/80 bg-gradient-to-b from-emerald-50/60 via-cream/50 to-transparent p-3.5 sm:mt-12 sm:space-y-6 sm:p-6"
+            className="mt-9 scroll-mt-24 animate-[fb-fade-up_0.35s_ease-out] space-y-3.5 rounded-3xl border border-emerald-200/80 bg-gradient-to-b from-emerald-50/60 via-cream/50 to-transparent p-3 sm:mt-12 sm:space-y-6 sm:p-6"
             aria-labelledby="parts-results-heading"
           >
-            <div className="flex flex-col gap-3.5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
                   Identification complete
@@ -482,7 +489,7 @@ export default function LeafyPartsFinderPage() {
                 >
                   {result.identified.name}
                 </h2>
-                <p className="mt-1.5 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground sm:mt-1.5">
                   For {result.vehicleLabel}
                 </p>
               </div>
@@ -490,15 +497,20 @@ export default function LeafyPartsFinderPage() {
                 <Button
                   type="button"
                   className={cn(
-                    "h-11 w-full gap-2 sm:w-auto",
+                    "h-11 w-full gap-2 transition-all active:scale-[0.98] sm:w-auto",
                     inGarage
-                      ? "bg-emerald-700 text-cream hover:bg-emerald-700"
+                      ? "bg-emerald-700 text-cream shadow-sm ring-2 ring-emerald-400/35 hover:bg-emerald-700"
                       : "bg-emerald-800 text-cream hover:bg-emerald-900"
                   )}
-                  disabled={inGarage}
-                  onClick={handleSaveToGarage}
+                  disabled={inGarage || savingGarage}
+                  onClick={() => void handleSaveToGarage()}
                 >
-                  {inGarage ? (
+                  {savingGarage ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : inGarage ? (
                     <>
                       <Check className="size-4" />
                       Saved to Garage
@@ -513,7 +525,7 @@ export default function LeafyPartsFinderPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-11 w-full gap-2 bg-white/90 sm:w-auto"
+                  className="h-11 w-full gap-2 bg-white/90 transition-all active:scale-[0.98] sm:w-auto"
                   onClick={resetSearch}
                 >
                   <ArrowLeft className="size-4" />
@@ -538,7 +550,14 @@ export default function LeafyPartsFinderPage() {
             )}
 
             {/* Confidence + why it matched */}
-            <div className="rounded-2xl border border-emerald-200/80 bg-white/95 p-3.5 shadow-sm sm:p-5">
+            <div
+              className={cn(
+                "rounded-2xl border bg-white/95 p-3.5 shadow-sm sm:p-5",
+                result.isMockEstimate
+                  ? "border-amber-200/90"
+                  : "border-emerald-300/90 shadow-md ring-1 ring-emerald-400/25"
+              )}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
@@ -551,9 +570,12 @@ export default function LeafyPartsFinderPage() {
                     className={
                       result.isMockEstimate
                         ? "mt-1 text-xs text-amber-900/80"
-                        : "mt-1 text-xs text-emerald-800/85"
+                        : "mt-1 flex items-center gap-1 text-xs font-medium text-emerald-800/90"
                     }
                   >
+                    {!result.isMockEstimate && (
+                      <Sparkles className="size-3 shrink-0 text-emerald-700" />
+                    )}
                     {partsConfidenceSourceNote(result.isMockEstimate)}
                   </p>
                 </div>
@@ -561,20 +583,28 @@ export default function LeafyPartsFinderPage() {
                   variant="outline"
                   className={
                     result.isMockEstimate
-                      ? "shrink-0 border-amber-300/80 bg-amber-50 text-[10px] font-semibold text-amber-950 sm:text-xs"
-                      : "shrink-0 border-emerald-400/90 bg-emerald-50 text-[10px] font-semibold text-emerald-950 sm:text-xs"
+                      ? "shrink-0 border-amber-300/90 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-950 sm:text-xs"
+                      : "shrink-0 gap-1 border-emerald-500/70 bg-gradient-to-r from-emerald-50 to-sky-50/80 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-emerald-950 shadow-xs sm:text-xs"
                   }
                 >
+                  {!result.isMockEstimate && (
+                    <Sparkles className="size-3 text-emerald-700" />
+                  )}
                   {partsConfidenceBadgeLabel(result.isMockEstimate)}
                 </Badge>
               </div>
               <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-emerald-100 sm:mt-3">
                 <div
-                  className="h-full rounded-full bg-emerald-700 transition-all duration-700"
+                  className={cn(
+                    "h-full rounded-full transition-all duration-700",
+                    result.isMockEstimate
+                      ? "bg-amber-600/85"
+                      : "bg-gradient-to-r from-emerald-700 to-emerald-500"
+                  )}
                   style={{ width: `${confidence}%` }}
                 />
               </div>
-              <div className="mt-3.5 space-y-2.5 border-t border-emerald-100 pt-3.5">
+              <div className="mt-3.5 space-y-2 border-t border-emerald-100 pt-3.5 sm:space-y-2.5">
                 <p className="text-sm leading-relaxed text-foreground">
                   <span className="font-semibold text-emerald-900">
                     Why it matched:{" "}
@@ -616,21 +646,20 @@ export default function LeafyPartsFinderPage() {
                   </p>
                 ) : (
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Identified with Grok Vision. Always double-check fitment
-                    before ordering or installing.
+                    Identified with Grok Vision. Double-check fitment before
+                    ordering or installing.
                   </p>
                 )}
               </div>
             </div>
 
             {/* Manual override */}
-            <div className="rounded-2xl border border-border/70 bg-white/90 p-3.5 sm:p-5">
+            <div className="rounded-2xl border border-border/70 bg-white/95 p-3.5 shadow-sm sm:p-5">
               <Label htmlFor="parts-override" className="text-sm font-medium">
                 Not quite right? Override part type
               </Label>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Pick another common part and Leafy will refresh options for your
-                vehicle.
+                Pick another common part to refresh options for this vehicle.
               </p>
               <div className="mt-3.5 flex flex-col gap-2.5">
                 <select
@@ -699,13 +728,13 @@ export default function LeafyPartsFinderPage() {
               </div>
             )}
 
-            <div className="pt-1">
+            <div className="pt-0.5 sm:pt-1">
               <h3 className="font-heading text-lg font-semibold text-foreground sm:text-xl">
                 Choose a replacement
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Recycled / Used first, then remanufactured, then new — each with
-                price and tree impact.
+                Recycled first, then remanufactured, then new — with price and
+                tree impact.
               </p>
             </div>
 
@@ -726,16 +755,16 @@ export default function LeafyPartsFinderPage() {
             </div>
 
             <PartsLocalRecyclers
-              className="mt-1"
+              className="mt-0.5"
               partName={result.identified.name}
             />
 
-            <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <Button
                 nativeButton={false}
                 render={<Link href="/cart" />}
                 size="lg"
-                className="h-12 flex-1 bg-emerald-800 text-cream hover:bg-emerald-900"
+                className="h-12 flex-1 bg-emerald-800 text-cream transition-all hover:bg-emerald-900 active:scale-[0.99]"
               >
                 View cart
               </Button>
@@ -744,7 +773,7 @@ export default function LeafyPartsFinderPage() {
                 render={<Link href="/marketplace" />}
                 variant="outline"
                 size="lg"
-                className="h-12 flex-1 bg-white/80"
+                className="h-12 flex-1 bg-white/90 transition-all active:scale-[0.99]"
               >
                 Continue shopping
               </Button>

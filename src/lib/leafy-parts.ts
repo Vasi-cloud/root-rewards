@@ -101,7 +101,7 @@ export type PartIdentificationResult = {
   engine: PartsVisionEngine;
   /**
    * When true, UI should show “Mock AI estimate”.
-   * When false, show “AI confidence” (real Grok / vision score).
+   * When false, show “Grok Vision AI” (real vision score).
    */
   isMockEstimate: boolean;
   /** Optional note when falling back from real vision to mock */
@@ -111,13 +111,13 @@ export type PartIdentificationResult = {
 export const MAX_PART_PHOTOS = 4;
 
 export const PARTS_AI_DISCLAIMER =
-  "Leafy’s photo identification is helpful but not 100% accurate. Always double-check part numbers and vehicle compatibility before ordering.";
+  "Photo ID is helpful but not 100% accurate. Always double-check part numbers and vehicle compatibility before ordering.";
 
 export const PARTS_COMPAT_DISCLAIMER =
-  "Confirm fitment with your VIN, OEM number, or a trusted mechanic — especially for safety-critical parts like brakes and steering.";
+  "Confirm fitment with your VIN, OEM number, or a trusted mechanic — especially for brakes and other safety-critical parts.";
 
 export const PARTS_MOCK_AI_NOTE =
-  "This is currently mock AI for demonstration. Real vision AI will be connected later — you can override the part type anytime.";
+  "Demo/mock AI for now. You can override the part type anytime; real vision AI connects when configured.";
 
 export type PartKind =
   | "thermostat"

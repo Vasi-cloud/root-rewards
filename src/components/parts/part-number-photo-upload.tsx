@@ -34,7 +34,7 @@ export function PartNumberPhotoUpload({
   }
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-muted/20 px-3.5 py-3.5 sm:px-4">
+    <div className="rounded-2xl border border-border/70 bg-muted/20 px-3.5 py-3.5 shadow-xs sm:px-4">
       <div className="flex items-start gap-2.5">
         <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-800/10 text-emerald-900">
           <Hash className="size-3.5" />
@@ -44,8 +44,8 @@ export function PartNumberPhotoUpload({
             Optional: Photo of the part number
           </Label>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            A sharp close-up of the stamped or printed OEM number helps Leafy
-            match more accurately. Main part photos stay the primary method.
+            Sharp close-up of the stamped OEM number helps matching. Main photos
+            stay primary.
           </p>
 
           {photo ? (

@@ -54,13 +54,13 @@ export function PhotoTips({ className, defaultOpen = false }: PhotoTipsProps) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-cream/40 to-white",
+        "overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/90 via-cream/40 to-white shadow-xs",
         className
       )}
     >
       <button
         type="button"
-        className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-emerald-50/70 sm:items-center sm:px-4"
+        className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-emerald-50/70 active:bg-emerald-50/90 sm:items-center sm:px-4"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((v) => !v)}
