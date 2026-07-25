@@ -20,6 +20,10 @@ import {
   formatCartMoney,
 } from "@/lib/cart-impact";
 import {
+  deliveryEstimateForCart,
+  deliveryEstimateForProduct,
+} from "@/lib/delivery-estimates";
+import {
   CAUSES,
   dollarsToUnits,
   emptyCauseSelection,
@@ -334,6 +338,7 @@ export default function CheckoutPage() {
 
   const treesEstimate = estimateTreesFromSubtotal(totalPrice);
   const co2Estimate = estimateCo2FromTrees(treesEstimate);
+  const delivery = deliveryEstimateForCart(cart);
 
   function buyOnAmazon(item: (typeof cart)[number]) {
     const { url } = recordPartnerOutboundClick({
@@ -355,7 +360,7 @@ export default function CheckoutPage() {
             {t("checkout.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-            Simple, secure checkout · partner dropship delivery
+            Simple, secure checkout · {delivery.summary}
           </p>
         </div>
       </div>
@@ -399,6 +404,10 @@ export default function CheckoutPage() {
                         ? `${item.rentalDuration}-day rental`
                         : `Qty ${item.quantity} · ${formatCartMoney(item.price)} each`}
                     </div>
+                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-sky-900">
+                      <Truck className="size-3.5 shrink-0 opacity-80" />
+                      {deliveryEstimateForProduct(item).label}
+                    </p>
                     <button
                       type="button"
                       onClick={() => buyOnAmazon(item)}
@@ -578,12 +587,17 @@ export default function CheckoutPage() {
               <h2 className="font-heading mb-2 text-xl font-semibold sm:text-2xl">
                 Shipping details
               </h2>
-              <div className="mb-5 flex gap-2.5 rounded-xl border border-border/70 bg-muted/40 px-3.5 py-3 text-sm text-muted-foreground">
-                <Truck className="mt-0.5 size-4 shrink-0 text-primary" />
-                <p>
-                  Eco partners fulfill and ship your order directly (dropship).
-                  You get one simple checkout here — tracking arrives by email.
-                </p>
+              <div className="mb-5 flex gap-2.5 rounded-xl border border-sky-200/80 bg-sky-50/60 px-3.5 py-3 text-sm text-sky-950">
+                <Truck className="mt-0.5 size-4 shrink-0 text-sky-800" />
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">
+                    {delivery.summary}
+                  </p>
+                  <p className="mt-0.5 text-muted-foreground">
+                    {delivery.detail} One checkout here — partners ship
+                    directly to your door.
+                  </p>
+                </div>
               </div>
 
               <div className="grid gap-5">

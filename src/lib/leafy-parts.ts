@@ -7,6 +7,7 @@
  */
 
 import type { Product } from "@/types";
+import { deliveryEstimateForPartCondition } from "@/lib/delivery-estimates";
 import {
   VEHICLE_CATALOG,
   formatVehicleLabel,
@@ -63,6 +64,8 @@ export type PartOption = {
   badge: string;
   highlight: boolean;
   treesEstimate: number;
+  /** Short delivery label, e.g. "Usually 1–3 days" */
+  deliveryEstimate: string;
   amazonSearch: string;
 };
 
@@ -1401,6 +1404,9 @@ function buildPartIdentificationResult(input: {
 
   const prices = pricesForConditions(template.basePrice);
   const shortName = template.name;
+  const recycledDelivery = deliveryEstimateForPartCondition("recycled");
+  const remanDelivery = deliveryEstimateForPartCondition("remanufactured");
+  const newDelivery = deliveryEstimateForPartCondition("new");
 
   const options: PartOption[] = [
     {
@@ -1414,6 +1420,7 @@ function buildPartIdentificationResult(input: {
       badge: "Best eco choice",
       highlight: true,
       treesEstimate: treesForPrice(prices.recycled),
+      deliveryEstimate: recycledDelivery.label,
       amazonSearch: `${makeLabel} ${shortName} ${vehicleLabel}`,
     },
     {
@@ -1428,6 +1435,7 @@ function buildPartIdentificationResult(input: {
       badge: "Strong eco pick",
       highlight: false,
       treesEstimate: treesForPrice(prices.remanufactured),
+      deliveryEstimate: remanDelivery.label,
       amazonSearch: `${makeLabel} ${shortName} remanufactured`,
     },
     {
@@ -1442,6 +1450,7 @@ function buildPartIdentificationResult(input: {
       badge: "Longest lifespan",
       highlight: false,
       treesEstimate: treesForPrice(prices.new),
+      deliveryEstimate: newDelivery.label,
       amazonSearch: `${makeLabel} ${shortName} OEM ${oemNumber}`,
     },
   ];
@@ -1468,6 +1477,7 @@ export function partOptionToCartProduct(
   vehicleLabel: string
 ): Product {
   const conditionLabel = CONDITION_LABELS[option.condition];
+  const delivery = deliveryEstimateForPartCondition(option.condition);
   return {
     id: `parts-${identified.oemNumber.replace(/\s/g, "")}-${option.condition}`,
     name: `${option.name} · ${conditionLabel}`,
@@ -1481,6 +1491,6 @@ export function partOptionToCartProduct(
     category: "Auto Parts",
     sustainabilityScore: option.sustainabilityScore,
     affiliateCommissionPercent: 4,
-    availabilityNote: `${conditionLabel} · qty 1 · confirm compatibility before install`,
+    availabilityNote: `${conditionLabel} · ${delivery.label} · confirm compatibility before install`,
   };
 }

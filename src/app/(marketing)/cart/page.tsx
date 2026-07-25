@@ -27,6 +27,10 @@ import {
   formatCartMoney,
   treeUnitPrice,
 } from "@/lib/cart-impact";
+import {
+  deliveryEstimateForCart,
+  deliveryEstimateForProduct,
+} from "@/lib/delivery-estimates";
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, totalPrice, totalItems } =
@@ -34,6 +38,7 @@ export default function CartPage() {
 
   const treesEstimate = estimateTreesFromSubtotal(totalPrice);
   const co2Estimate = estimateCo2FromTrees(treesEstimate);
+  const delivery = deliveryEstimateForCart(cart);
 
   if (cart.length === 0) {
     return (
@@ -140,15 +145,12 @@ export default function CartPage() {
         </div>
       </div>
 
-      <div className="mb-6 flex gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3.5 text-sm text-muted-foreground">
-        <Truck className="mt-0.5 size-5 shrink-0 text-primary" />
-        <p>
-          <span className="font-medium text-foreground">
-            Partner dropship · usually 1–3 days
-          </span>
-          {" — "}
-          eco partners ship straight to your door. Tracking arrives by email.
-        </p>
+      <div className="mb-6 flex gap-3 rounded-2xl border border-sky-200/80 bg-sky-50/50 px-4 py-3.5 text-sm text-sky-950">
+        <Truck className="mt-0.5 size-5 shrink-0 text-sky-800" />
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">{delivery.summary}</p>
+          <p className="mt-0.5 text-muted-foreground">{delivery.detail}</p>
+        </div>
       </div>
 
       <div className="space-y-3 sm:space-y-4">
@@ -193,6 +195,10 @@ export default function CartPage() {
                   `${formatCartMoney(item.price)} each · ${item.category}`
                 )}
               </div>
+              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-sky-900">
+                <Truck className="size-3.5 shrink-0 opacity-80" />
+                {deliveryEstimateForProduct(item).label}
+              </p>
               <Button
                 type="button"
                 size="sm"
@@ -268,7 +274,7 @@ export default function CartPage() {
           </span>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Partner dropship · usually 1–3 days · shipping confirmed at checkout
+          {delivery.summary} · confirmed at checkout
         </p>
 
         <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3.5 py-3.5 text-emerald-950">

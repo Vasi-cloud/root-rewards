@@ -7,6 +7,7 @@ import {
   Loader2,
   ShoppingBag,
   TreePine,
+  Truck,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -147,6 +148,18 @@ export function PartOptionCard({
                 </span>
               </p>
             </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 rounded-xl border border-sky-200/80 bg-sky-50/70 px-3 py-2.5 text-sky-950 sm:rounded-2xl sm:px-3.5">
+          <Truck className="size-4 shrink-0 text-sky-800" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-800/70">
+              Estimated delivery
+            </p>
+            <p className="text-sm font-semibold leading-snug">
+              {option.deliveryEstimate}
+            </p>
           </div>
         </div>
       </CardContent>
