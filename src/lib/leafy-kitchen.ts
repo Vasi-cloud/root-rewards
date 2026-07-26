@@ -1038,7 +1038,14 @@ export function formatShoppingListPlainText(input: {
   title: string;
   servings: number;
   ingredients: ShoppingIngredient[];
+  /** Optional method / instructions block */
+  method?: string | null;
+  recipeText?: string;
 }): string {
+  const method =
+    input.method?.trim() ||
+    (input.recipeText ? extractRecipeMethod(input.recipeText) : null);
+
   const lines = [
     input.title,
     `Servings: ${input.servings}`,
@@ -1050,10 +1057,48 @@ export function formatShoppingListPlainText(input: {
       if (ing.checked) return `☑ ${label}`;
       return `☐ ${label}`;
     }),
-    "",
-    "Planned with Forest Buddies® Leafy Kitchen",
   ];
+
+  if (method) {
+    lines.push("", "Method", method);
+  }
+
+  lines.push("", "Created with Forest Buddies® Leafy Kitchen");
   return lines.join("\n");
+}
+
+/** Safe filename for a downloaded shopping list .txt */
+export function shoppingListDownloadFilename(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return slug
+    ? `leafy-${slug}.txt`
+    : "leafy-shopping-list.txt";
+}
+
+/** Trigger a browser download of the shopping list as .txt */
+export function downloadShoppingListText(input: {
+  title: string;
+  servings: number;
+  ingredients: ShoppingIngredient[];
+  method?: string | null;
+  recipeText?: string;
+}): void {
+  if (typeof window === "undefined") return;
+  const text = formatShoppingListPlainText(input);
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = shoppingListDownloadFilename(input.title);
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** Stable cart id for a kitchen ingredient (dedupe across recipes). */

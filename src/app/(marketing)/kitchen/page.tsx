@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ClipboardCopy,
   Clock,
+  Download,
   ExternalLink,
   Leaf,
   Loader2,
@@ -53,6 +54,7 @@ import {
   estimateIngredientLineTotal,
   estimateShoppingListTotal,
   extractIngredientsFromRecipe,
+  downloadShoppingListText,
   formatIngredientLabel,
   formatKitchenMoney,
   formatShoppingListPlainText,
@@ -431,6 +433,7 @@ function KitchenAssistantPageInner() {
       title: livePlan?.title ?? "Shopping list",
       servings,
       ingredients,
+      recipeText,
     });
     try {
       await navigator.clipboard.writeText(text);
@@ -438,9 +441,24 @@ function KitchenAssistantPageInner() {
     } catch {
       showSuccess(
         "Copy ready",
-        "Your browser blocked clipboard access — try Print list instead."
+        "Your browser blocked clipboard access — try Download or Print instead."
       );
     }
+  }
+
+  function handleDownloadList() {
+    if (ingredients.length === 0) return;
+    const title = livePlan?.title ?? "Shopping list";
+    downloadShoppingListText({
+      title,
+      servings,
+      ingredients,
+      recipeText,
+    });
+    showSuccess(
+      "Download started",
+      `Saved as a text file for “${title}”.`
+    );
   }
 
   function handlePrintList() {
@@ -973,6 +991,16 @@ Ingredients:
                         >
                           <ClipboardCopy className="size-3.5" />
                           Share
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 bg-white"
+                          onClick={handleDownloadList}
+                        >
+                          <Download className="size-3.5" />
+                          Download
                         </Button>
                         <Button
                           type="button"
