@@ -395,10 +395,16 @@ export type RetailChainStore = {
   address: string;
   lat: number;
   lng: number;
-  /** Official site for “Check in-store” */
+  /** Chain homepage / groceries hub */
   websiteUrl: string;
+  /** Prefer store-finder / locator for Check in-store */
+  storeFinderUrl: string;
   locationIds: string[];
 };
+
+const SAINSBURYS_FINDER = "https://stores.sainsburys.co.uk/";
+const TESCO_FINDER = "https://www.tesco.com/store-locator/uk";
+const WAITROSE_FINDER = "https://www.waitrose.com/ecom/shop/findastore";
 
 export const UK_RETAIL_CHAINS: RetailChainStore[] = [
   {
@@ -409,6 +415,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 51.5302,
     lng: -0.0698,
     websiteUrl: "https://www.sainsburys.co.uk/gol-ui/groceries",
+    storeFinderUrl: SAINSBURYS_FINDER,
     locationIds: ["london"],
   },
   {
@@ -419,6 +426,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 51.5259,
     lng: -0.0875,
     websiteUrl: "https://www.tesco.com/groceries/",
+    storeFinderUrl: TESCO_FINDER,
     locationIds: ["london"],
   },
   {
@@ -429,6 +437,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 51.5045,
     lng: -0.0185,
     websiteUrl: "https://www.waitrose.com/",
+    storeFinderUrl: WAITROSE_FINDER,
     locationIds: ["london"],
   },
   {
@@ -439,6 +448,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 53.4805,
     lng: -2.2374,
     websiteUrl: "https://www.sainsburys.co.uk/gol-ui/groceries",
+    storeFinderUrl: SAINSBURYS_FINDER,
     locationIds: ["manchester"],
   },
   {
@@ -449,6 +459,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 53.4789,
     lng: -2.2426,
     websiteUrl: "https://www.tesco.com/groceries/",
+    storeFinderUrl: TESCO_FINDER,
     locationIds: ["manchester"],
   },
   {
@@ -459,6 +470,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 51.4578,
     lng: -2.6079,
     websiteUrl: "https://www.waitrose.com/",
+    storeFinderUrl: WAITROSE_FINDER,
     locationIds: ["bristol"],
   },
   {
@@ -469,6 +481,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 51.4508,
     lng: -2.5821,
     websiteUrl: "https://www.sainsburys.co.uk/gol-ui/groceries",
+    storeFinderUrl: SAINSBURYS_FINDER,
     locationIds: ["bristol"],
   },
   {
@@ -479,6 +492,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 55.9462,
     lng: -3.1845,
     websiteUrl: "https://www.tesco.com/groceries/",
+    storeFinderUrl: TESCO_FINDER,
     locationIds: ["edinburgh"],
   },
   {
@@ -489,6 +503,7 @@ export const UK_RETAIL_CHAINS: RetailChainStore[] = [
     lat: 55.9589,
     lng: -3.2155,
     websiteUrl: "https://www.waitrose.com/",
+    storeFinderUrl: WAITROSE_FINDER,
     locationIds: ["edinburgh"],
   },
 ];
@@ -512,23 +527,93 @@ export function findNearbyRetailChains(
     .sort((a, b) => a.distanceMi - b.distanceMi);
 }
 
-/** “Check in-store” — chain site when known, else Maps / Google search for the branch. */
-export function checkInStoreUrl(store: {
+type StoreLinkInput = {
   name: string;
   address?: string;
   city?: string;
   mapsUrl?: string;
   websiteUrl?: string;
-}): string {
-  if (store.websiteUrl) return store.websiteUrl;
-  if (store.mapsUrl) return store.mapsUrl;
+  storeFinderUrl?: string;
+};
+
+/** Infer a retailer store-finder URL from the brand name when not set explicitly. */
+export function inferRetailerStoreFinderUrl(
+  store: Pick<StoreLinkInput, "name" | "city" | "address">
+): string | null {
+  const name = store.name.toLowerCase();
+  const query = [store.city, store.address].filter(Boolean).join(" ").trim();
+  const withQ = (base: string) => {
+    if (!query) return base;
+    try {
+      const url = new URL(base);
+      url.searchParams.set("q", query);
+      return url.toString();
+    } catch {
+      return base;
+    }
+  };
+
+  if (name.includes("sainsbury")) return withQ(SAINSBURYS_FINDER);
+  if (name.includes("tesco")) return withQ(TESCO_FINDER);
+  if (name.includes("waitrose")) return withQ(WAITROSE_FINDER);
+  if (name.includes("asda")) {
+    return withQ("https://storelocator.asda.com/");
+  }
+  if (name.includes("aldi")) {
+    return withQ("https://www.aldi.co.uk/store-finder");
+  }
+  if (name.includes("lidl")) {
+    return withQ("https://www.lidl.co.uk/find-my-store");
+  }
+  if (name.includes("whole foods")) {
+    return withQ("https://www.wholefoodsmarket.com/stores");
+  }
+  return null;
+}
+
+/**
+ * “Check in-store” — prefer retailer store-finder / locator, then Maps branch search.
+ * Never claims live stock.
+ */
+export function checkInStoreUrl(store: StoreLinkInput): string {
+  if (store.storeFinderUrl) {
+    const query = [store.city, store.address].filter(Boolean).join(" ").trim();
+    if (query) {
+      try {
+        const url = new URL(store.storeFinderUrl);
+        if (!url.searchParams.has("q")) url.searchParams.set("q", query);
+        return url.toString();
+      } catch {
+        return store.storeFinderUrl;
+      }
+    }
+    return store.storeFinderUrl;
+  }
+
+  const inferred = inferRetailerStoreFinderUrl(store);
+  if (inferred) return inferred;
+
   if (store.address) {
     return googleMapsSearchUrl(`${store.name} ${store.address}`);
   }
   if (store.city) {
-    return googleMapsSearchUrl(`${store.name} near ${store.city}`);
+    return googleMapsSearchUrl(`${store.name} store near ${store.city}`);
   }
+  if (store.mapsUrl) return store.mapsUrl;
+  if (store.websiteUrl) return store.websiteUrl;
   return googleMapsSearchUrl(store.name);
+}
+
+/** Chain homepage / groceries hub when distinct from the check-in finder. */
+export function visitWebsiteUrl(store: StoreLinkInput): string | null {
+  const checkIn = checkInStoreUrl(store);
+  if (store.websiteUrl && store.websiteUrl !== checkIn) {
+    return store.websiteUrl;
+  }
+  if (store.mapsUrl && store.mapsUrl !== checkIn) {
+    return store.mapsUrl;
+  }
+  return store.websiteUrl ?? null;
 }
 
 export function retailChainToNearbyStore(
@@ -550,6 +635,7 @@ export function retailChainToNearbyStore(
     mapsUrl: googleMapsSearchUrl(`${store.name} ${store.address}`),
     directionsUrl: googleMapsDirectionsUrl(store, from),
     websiteUrl: store.websiteUrl,
+    storeFinderUrl: store.storeFinderUrl,
   };
 }
 
@@ -980,8 +1066,10 @@ export interface NearbyStore {
   placeId?: string;
   mapsUrl: string;
   directionsUrl: string;
-  /** Optional chain website for Check in-store */
+  /** Chain homepage / groceries hub */
   websiteUrl?: string;
+  /** Retailer store-finder / locator (preferred for Check in-store) */
+  storeFinderUrl?: string;
 }
 
 /** Shopper-facing store category for Buy Local cards. */
