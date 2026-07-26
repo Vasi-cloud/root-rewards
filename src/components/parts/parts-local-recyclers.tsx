@@ -2,6 +2,7 @@ import { ArrowRight, Recycle } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { partsLocalHref } from "@/lib/local-commerce";
 import { cn } from "@/lib/utils";
 
 type PartsLocalRecyclersProps = {
@@ -10,7 +11,7 @@ type PartsLocalRecyclersProps = {
 };
 
 /**
- * Compact eco alternative — Buy Local for now; later can deep-link breakers search.
+ * Compact eco alternative — deep-links Buy Local with a parts/recycler context.
  */
 export function PartsLocalRecyclers({
   partName,
@@ -46,9 +47,9 @@ export function PartsLocalRecyclers({
       </div>
       <Button
         nativeButton={false}
-        render={<Link href="/local" />}
+        render={<Link href={partsLocalHref(partName)} />}
         variant="outline"
-        className="h-10 w-full shrink-0 gap-2 border-emerald-300/90 bg-white/95 text-emerald-950 transition-all hover:border-emerald-400 active:scale-[0.98] sm:w-auto"
+        className="h-11 w-full shrink-0 gap-2 border-emerald-300/90 bg-white/95 text-emerald-950 transition-all hover:border-emerald-400 active:scale-[0.98] sm:h-10 sm:w-auto"
       >
         Find local recyclers
         <ArrowRight className="size-3.5 opacity-70" />

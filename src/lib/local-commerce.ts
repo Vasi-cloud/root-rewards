@@ -984,6 +984,48 @@ export interface NearbyStore {
   websiteUrl?: string;
 }
 
+/** Shopper-facing store category for Buy Local cards. */
+export type NearbyStoreType = {
+  id: string;
+  label: string;
+};
+
+/** Infer a simple store type from name/blurb — display only, not inventory. */
+export function inferNearbyStoreType(
+  store: Pick<NearbyStore, "name" | "blurb" | "source">
+): NearbyStoreType {
+  const text = `${store.name} ${store.blurb}`.toLowerCase();
+  if (
+    /recycl|breaker|scrap|salvage|auto.?part|wrecker|junkyard/.test(text)
+  ) {
+    return { id: "recycler", label: "Recycler / breaker" };
+  }
+  if (
+    /sainsbury|tesco|waitrose|supermarket|grocery|whole foods|aldi|asda|lidl|metro|extra|trader joe|safeway/.test(
+      text
+    )
+  ) {
+    return { id: "grocery", label: "Grocery" };
+  }
+  if (/pharmacy|boots|chemist|cvs|walgreens/.test(text)) {
+    return { id: "pharmacy", label: "Pharmacy" };
+  }
+  if (/hardware|home depot|lowe|tool|diy|b&q/.test(text)) {
+    return { id: "hardware", label: "Hardware" };
+  }
+  if (store.source === "forest-buddies") {
+    return { id: "maker", label: "Local maker" };
+  }
+  return { id: "retail", label: "Retail store" };
+}
+
+/** Deep-link from Leafy Parts Finder to Buy Local recyclers view. */
+export function partsLocalHref(partName?: string): string {
+  const params = new URLSearchParams({ from: "parts" });
+  if (partName?.trim()) params.set("part", partName.trim());
+  return `/local?${params.toString()}#local-stores`;
+}
+
 export function googleMapsSearchUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
