@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { HomeLeafyFeatures } from "@/components/home/home-leafy-features";
+import { HomeTrustStrip } from "@/components/home/home-trust-strip";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 import { Button } from "@/components/ui/button";
 import { CAUSES } from "@/lib/causes";
@@ -122,44 +124,48 @@ export default function HomePage() {
               className="animate-fb-fade-up mt-3 max-w-md text-sm leading-relaxed text-cream/80 sm:mt-5 sm:max-w-xl sm:text-lg"
               style={{ animationDelay: "220ms" }}
             >
-              A sustainable marketplace where every purchase can plant trees,
-              protect oceans, and lift eco brands—and you.
+              A sustainable marketplace with Leafy helpers for cooking, parts,
+              local shopping, and smarter eco finds.
             </p>
             <div
-              className="animate-fb-fade-up mt-6 flex w-full max-w-sm flex-col gap-2 sm:mt-8 sm:max-w-none sm:flex-row sm:flex-wrap sm:gap-3"
+              className="animate-fb-fade-up mt-6 flex w-full max-w-sm flex-col gap-2.5 sm:mt-8 sm:max-w-none sm:flex-row sm:flex-wrap sm:gap-3"
               style={{ animationDelay: "320ms" }}
             >
               <Button
                 nativeButton={false}
                 render={<Link href="/marketplace" />}
                 size="lg"
-                className="min-h-11 w-full gap-2 bg-cream text-forest hover:bg-cream/90 sm:w-auto"
+                className="min-h-12 w-full gap-2 bg-cream text-forest hover:bg-cream/90 sm:min-h-11 sm:w-auto"
               >
                 Shop eco finds
                 <ArrowRight className="size-4" />
               </Button>
               <Button
                 nativeButton={false}
-                render={<Link href="/seller" />}
+                render={<Link href="#leafy-tools" />}
                 size="lg"
                 variant="outline"
-                className="min-h-11 w-full border-cream/40 bg-transparent text-cream hover:bg-cream/10 sm:w-auto"
+                className="min-h-12 w-full border-cream/40 bg-transparent text-cream hover:bg-cream/10 sm:min-h-11 sm:w-auto"
               >
-                Become a seller
+                Explore Leafy tools
               </Button>
               <Button
                 nativeButton={false}
-                render={<Link href="/affiliates" />}
+                render={<Link href="/seller" />}
                 size="lg"
                 variant="ghost"
-                className="min-h-11 w-full text-sage hover:bg-cream/10 hover:text-cream sm:w-auto"
+                className="min-h-12 w-full text-sage hover:bg-cream/10 hover:text-cream sm:min-h-11 sm:w-auto"
               >
-                Join as affiliate
+                Become a seller
               </Button>
             </div>
           </div>
         </div>
       </section>
+
+      <HomeTrustStrip />
+
+      <HomeLeafyFeatures />
 
       {/* How it works */}
       <section className="relative overflow-hidden bg-cream px-4 py-14 sm:px-6 sm:py-24">
@@ -194,7 +200,7 @@ export default function HomePage() {
                     render={<Link href={item.href} />}
                     variant="outline"
                     size="sm"
-                    className="mt-4 gap-1.5"
+                    className="mt-4 h-11 gap-1.5 sm:h-8"
                   >
                     <Store className="size-3.5" />
                     {item.cta ?? "Learn more"}
@@ -255,14 +261,14 @@ export default function HomePage() {
               nativeButton={false}
               render={<Link href="/marketplace" />}
               variant="outline"
-              className="gap-2 self-start sm:self-auto"
+              className="h-11 gap-2 self-start sm:h-9 sm:self-auto"
             >
               Browse marketplace
               <ArrowRight className="size-4" />
             </Button>
           </div>
 
-          <div className="mt-12 grid gap-10 sm:grid-cols-3">
+          <div className="mt-10 grid gap-8 sm:mt-12 sm:grid-cols-3 sm:gap-10">
             {FEATURED.map((product) => (
               <article key={product.name} className="group">
                 <div className="mb-5 flex aspect-[4/3] items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 via-sage/30 to-gold/20 transition-transform duration-500 group-hover:scale-[1.02]">
@@ -283,7 +289,7 @@ export default function HomePage() {
                   </span>
                   <Link
                     href="/marketplace"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline sm:min-h-0"
                   >
                     Shop
                     <ArrowRight className="size-3.5" />
@@ -334,7 +340,7 @@ export default function HomePage() {
               nativeButton={false}
               render={<Link href="/marketplace" />}
               size="lg"
-              className="gap-2"
+              className="h-12 gap-2 sm:h-11"
             >
               Shop & choose a cause
               <ArrowRight className="size-4" />
@@ -360,22 +366,31 @@ export default function HomePage() {
             Whether you shop, sell, or share—Forest Buddies® turns everyday
             choices into forest-sized hope.
           </p>
-          <div className="mx-auto mt-6 flex w-full max-w-sm flex-col gap-2 sm:mt-10 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-3">
+          <div className="mx-auto mt-6 flex w-full max-w-sm flex-col gap-2.5 sm:mt-10 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-3">
             <Button
               nativeButton={false}
               render={<Link href="/marketplace" />}
               size="lg"
-              className="min-h-11 w-full gap-2 bg-cream text-forest hover:bg-cream/90 sm:w-auto"
+              className="min-h-12 w-full gap-2 bg-cream text-forest hover:bg-cream/90 sm:min-h-11 sm:w-auto"
             >
               <ShoppingBag className="size-4" />
               Shop now
             </Button>
             <Button
               nativeButton={false}
+              render={<Link href="#leafy-tools" />}
+              size="lg"
+              variant="outline"
+              className="min-h-12 w-full gap-2 border-cream/35 bg-transparent text-cream hover:bg-cream/10 sm:min-h-11 sm:w-auto"
+            >
+              Explore Leafy tools
+            </Button>
+            <Button
+              nativeButton={false}
               render={<Link href="/seller" />}
               size="lg"
               variant="outline"
-              className="min-h-11 w-full gap-2 border-cream/35 bg-transparent text-cream hover:bg-cream/10 sm:w-auto"
+              className="min-h-12 w-full gap-2 border-cream/35 bg-transparent text-cream hover:bg-cream/10 sm:min-h-11 sm:w-auto"
             >
               <Store className="size-4" />
               Become a seller
@@ -385,7 +400,7 @@ export default function HomePage() {
               render={<Link href="/affiliates" />}
               size="lg"
               variant="outline"
-              className="min-h-11 w-full gap-2 border-cream/35 bg-transparent text-cream hover:bg-cream/10 sm:w-auto"
+              className="min-h-12 w-full gap-2 border-cream/35 bg-transparent text-cream hover:bg-cream/10 sm:min-h-11 sm:w-auto"
             >
               <Users className="size-4" />
               Join as affiliate

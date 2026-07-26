@@ -176,19 +176,19 @@ export function SiteHeader() {
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="flex w-[min(100vw-1.5rem,20rem)] max-w-full flex-col overflow-hidden"
+              className="flex w-[min(100vw-1rem,22rem)] max-w-full flex-col overflow-hidden px-4 sm:px-6"
             >
-              <SheetHeader className="shrink-0">
-                <SheetTitle className="font-heading">
+              <SheetHeader className="shrink-0 space-y-1 pb-1 text-left">
+                <SheetTitle className="font-heading text-lg text-primary">
                   Forest Buddies®
                 </SheetTitle>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Shop kindly · Leafy tools · Local &amp; eco
+                </p>
               </SheetHeader>
-              <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pb-4">
-                <MainNav
-                  variant="full"
-                  className="flex-col items-stretch [&>a]:px-3 [&>a]:py-2.5"
-                />
-                <div className="mt-auto flex flex-col gap-2 border-t border-border pt-4">
+              <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-5">
+                <MainNav variant="full" />
+                <div className="mt-auto flex flex-col gap-2.5 border-t border-border pt-4">
                   <label
                     className="text-xs font-medium text-muted-foreground"
                     htmlFor="lang-switcher-mobile"
