@@ -79,7 +79,7 @@ function migrateSavedItem(raw: unknown): SavedKitchenList | null {
         /method|directions|instructions|steps/i.test(item.recipeText))
   );
 
-  let saveKind: KitchenSaveKind =
+  const saveKind: KitchenSaveKind =
     item.saveKind === "list" ||
     item.saveKind === "recipe" ||
     item.saveKind === "both"
