@@ -47,7 +47,7 @@ export function LocalStoresMap({
 
   return (
     <Card className="overflow-hidden border-border/70 bg-[#dfece4] p-0 lg:col-span-3">
-      <div className="relative min-h-[300px] sm:min-h-[360px]">
+      <div className="relative min-h-[320px] sm:min-h-[380px]">
         <div
           className="absolute inset-0 opacity-80"
           style={{
@@ -69,7 +69,7 @@ export function LocalStoresMap({
           aria-hidden
         />
 
-        <div className="relative flex h-full min-h-[300px] flex-col p-3 sm:min-h-[360px] sm:p-5">
+        <div className="relative flex h-full min-h-[320px] flex-col gap-1 p-3.5 sm:min-h-[380px] sm:gap-0 sm:p-5">
           <div className="z-10 flex flex-wrap items-center justify-between gap-2">
             <Badge className="gap-1 bg-cream/90 text-forest shadow-sm">
               <MapPin className="size-3" />

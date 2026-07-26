@@ -120,6 +120,39 @@ export interface LocalMaker {
   hoursHint?: string;
 }
 
+/** Shopper-facing maker category for Buy Local cards. */
+export type LocalMakerType = {
+  id: string;
+  label: string;
+};
+
+/** Infer a simple maker type from tags/services — display only. */
+export function inferMakerType(
+  maker: Pick<LocalMaker, "name" | "blurb" | "tags" | "services">
+): LocalMakerType {
+  const text =
+    `${maker.name} ${maker.blurb} ${maker.tags.join(" ")} ${maker.services.join(" ")}`.toLowerCase();
+  if (/refill|zero.?waste|byo|package.?free|jar/.test(text)) {
+    return { id: "refill", label: "Refill" };
+  }
+  if (/apothecary|skincare|beauty|soap|balm/.test(text)) {
+    return { id: "apothecary", label: "Apothecary" };
+  }
+  if (/co-?op|collective/.test(text)) {
+    return { id: "coop", label: "Co-op" };
+  }
+  if (/studio|lantern|solar|workshop|trail/.test(text)) {
+    return { id: "studio", label: "Studio" };
+  }
+  if (/repair|recycled|ocean|circular/.test(text)) {
+    return { id: "circular", label: "Circular" };
+  }
+  if (/producer|farm|provisions|kitchen|handmade|market|goods/.test(text)) {
+    return { id: "producer", label: "Producer" };
+  }
+  return { id: "maker", label: "Maker" };
+}
+
 /** Eco makers with realistic neighborhood coordinates near demo cities. */
 export const LOCAL_MAKERS: LocalMaker[] = [
   {

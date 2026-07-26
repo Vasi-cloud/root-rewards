@@ -2,6 +2,7 @@
 
 import {
   ChefHat,
+  Heart,
   HeartHandshake,
   Leaf,
   MapPin,
@@ -16,6 +17,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { LocalEmptyState } from "@/components/local/local-empty-state";
 import { LocalMakerCard } from "@/components/local/local-maker-card";
 import {
   LocalStoreCard,
@@ -50,6 +52,12 @@ import {
   retailChainToNearbyStore,
   type NearbyStore,
 } from "@/lib/local-commerce";
+import {
+  getLocalFavourites,
+  subscribeLocalFavourites,
+  toggleLocalFavourite,
+  type LocalFavourite,
+} from "@/lib/local-favourites";
 import { ensureDemoShops } from "@/lib/seller-storage";
 import { cn } from "@/lib/utils";
 
@@ -98,9 +106,18 @@ function BuyLocalPageInner() {
   const [contextMode, setContextMode] = useState<"kitchen" | "parts" | "product" | null>(
     null
   );
+  const [favourites, setFavourites] = useState<LocalFavourite[]>([]);
+  const [showFavouritesOnly, setShowFavouritesOnly] = useState(false);
 
   useEffect(() => {
     ensureDemoShops();
+  }, []);
+
+  useEffect(() => {
+    setFavourites(getLocalFavourites());
+    return subscribeLocalFavourites(() => {
+      setFavourites(getLocalFavourites());
+    });
   }, []);
 
   useEffect(() => {
@@ -157,6 +174,31 @@ function BuyLocalPageInner() {
     () => getNearbyMakers(user, maxMiles),
     [user, maxMiles]
   );
+
+  const favouriteStoreIds = useMemo(
+    () =>
+      new Set(
+        favourites.filter((f) => f.kind === "store").map((f) => f.id)
+      ),
+    [favourites]
+  );
+  const favouriteMakerIds = useMemo(
+    () =>
+      new Set(
+        favourites.filter((f) => f.kind === "maker").map((f) => f.id)
+      ),
+    [favourites]
+  );
+
+  const visibleStores = useMemo(() => {
+    if (!showFavouritesOnly) return nearbyStores;
+    return nearbyStores.filter((s) => favouriteStoreIds.has(s.id));
+  }, [nearbyStores, showFavouritesOnly, favouriteStoreIds]);
+
+  const visibleMakers = useMemo(() => {
+    if (!showFavouritesOnly) return makers;
+    return makers.filter(({ maker }) => favouriteMakerIds.has(maker.id));
+  }, [makers, showFavouritesOnly, favouriteMakerIds]);
 
   const listings = useMemo(() => {
     const all = getLocalListings(user, maxMiles);
@@ -260,6 +302,30 @@ function BuyLocalPageInner() {
     router.replace("/local", { scroll: false });
   }
 
+  function handleToggleStoreFavourite(store: NearbyStore) {
+    const { saved } = toggleLocalFavourite({
+      kind: "store",
+      id: store.id,
+      name: store.name,
+    });
+    showSuccess(
+      saved ? "Saved to favourites" : "Removed from favourites",
+      store.name
+    );
+  }
+
+  function handleToggleMakerFavourite(makerId: string, makerName: string) {
+    const { saved } = toggleLocalFavourite({
+      kind: "maker",
+      id: makerId,
+      name: makerName,
+    });
+    showSuccess(
+      saved ? "Saved to favourites" : "Removed from favourites",
+      makerName
+    );
+  }
+
   const hasContext =
     contextMode != null || Boolean(focusProductName || highlightName);
 
@@ -267,14 +333,20 @@ function BuyLocalPageInner() {
     {
       href: "#local-stores",
       label: "Stores",
-      count: storesLoading ? null : nearbyStores.length,
+      count: storesLoading ? null : visibleStores.length,
       icon: Store,
     },
     {
       href: "#local-makers",
       label: "Makers",
-      count: makers.length,
+      count: visibleMakers.length,
       icon: HeartHandshake,
+    },
+    {
+      href: "#local-favourites",
+      label: "Saved",
+      count: favourites.length,
+      icon: Heart,
     },
     {
       href: "#local-products",
@@ -296,7 +368,7 @@ function BuyLocalPageInner() {
       },
     ];
     let markerIndex = 1;
-    for (const s of nearbyStores) {
+    for (const s of visibleStores) {
       pins.push({
         id: s.id,
         name: s.name,
@@ -307,7 +379,7 @@ function BuyLocalPageInner() {
         markerIndex: markerIndex++,
       });
     }
-    for (const { maker, distanceMi } of makers.slice(0, 4)) {
+    for (const { maker, distanceMi } of visibleMakers.slice(0, 4)) {
       if (pins.some((p) => p.id === maker.id)) continue;
       pins.push({
         id: maker.id,
@@ -320,7 +392,7 @@ function BuyLocalPageInner() {
       });
     }
     return pins;
-  }, [user, nearbyStores, makers]);
+  }, [user, visibleStores, visibleMakers]);
 
   const markerIndexById = useMemo(() => {
     const map = new Map<string, number>();
@@ -344,7 +416,7 @@ function BuyLocalPageInner() {
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-6xl px-3.5 py-8 sm:px-6 sm:py-14">
+      <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-14">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <MarketplaceBrandBadge />
           <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
@@ -562,7 +634,7 @@ function BuyLocalPageInner() {
                       type="button"
                       onClick={() => setMaxMiles(mi)}
                       className={cn(
-                        "min-h-10 rounded-full border px-3.5 py-2 text-sm font-medium transition-all duration-200 active:scale-[0.98] sm:min-h-0 sm:px-3 sm:py-1.5",
+                        "min-h-11 rounded-full border px-3.5 py-2.5 text-sm font-medium transition-all duration-200 active:scale-[0.98] sm:min-h-0 sm:px-3 sm:py-1.5",
                         maxMiles === mi
                           ? "border-emerald-800 bg-emerald-800 text-white shadow-sm"
                           : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-sm"
@@ -576,6 +648,47 @@ function BuyLocalPageInner() {
                 </div>
               </div>
 
+              <div>
+                <p className="mb-2 text-sm font-medium">Show</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowFavouritesOnly(false)}
+                    className={cn(
+                      "min-h-11 rounded-full border px-3.5 py-2.5 text-sm font-medium transition-all active:scale-[0.98] sm:min-h-0 sm:py-1.5",
+                      !showFavouritesOnly
+                        ? "border-emerald-800 bg-emerald-800 text-white shadow-sm"
+                        : "border-emerald-200 bg-white text-emerald-950 hover:bg-emerald-50"
+                    )}
+                  >
+                    All nearby
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowFavouritesOnly(true)}
+                    className={cn(
+                      "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3.5 py-2.5 text-sm font-medium transition-all active:scale-[0.98] sm:min-h-0 sm:py-1.5",
+                      showFavouritesOnly
+                        ? "border-rose-700 bg-rose-700 text-white shadow-sm"
+                        : "border-rose-200 bg-white text-rose-900 hover:bg-rose-50"
+                    )}
+                  >
+                    <Heart
+                      className={cn(
+                        "size-3.5",
+                        showFavouritesOnly && "fill-current"
+                      )}
+                    />
+                    Favourites
+                    {favourites.length > 0 && (
+                      <span className="tabular-nums opacity-90">
+                        ({favourites.length})
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 py-3 text-sm text-emerald-950 sm:px-4">
                 <p className="font-medium">Near {user.label}</p>
                 <p className="mt-1 text-emerald-800/85">
@@ -586,7 +699,7 @@ function BuyLocalPageInner() {
                         Finding stores…
                       </span>
                     )
-                    : `${nearbyStores.length} store${nearbyStores.length === 1 ? "" : "s"} · ${makers.length} maker${makers.length === 1 ? "" : "s"} · ${listings.length} product${listings.length === 1 ? "" : "s"}`}
+                    : `${visibleStores.length} store${visibleStores.length === 1 ? "" : "s"} · ${visibleMakers.length} maker${visibleMakers.length === 1 ? "" : "s"}${showFavouritesOnly ? " saved nearby" : ""} · ${listings.length} product${listings.length === 1 ? "" : "s"}`}
                   {placesEngine === "hybrid" || placesEngine === "google-places"
                     ? " · Google Maps"
                     : " · map preview"}
@@ -636,16 +749,17 @@ function BuyLocalPageInner() {
                   : "Grocery chains and local shops with distance, store type, and clear next steps. We never claim real-time stock."}
               </p>
             </div>
-            {!storesLoading && nearbyStores.length > 0 && (
+            {!storesLoading && visibleStores.length > 0 && (
               <Badge className="bg-emerald-800/10 font-normal text-emerald-900">
-                {nearbyStores.length} nearby
+                {visibleStores.length}{" "}
+                {showFavouritesOnly ? "saved nearby" : "nearby"}
               </Badge>
             )}
           </div>
 
           {storesLoading ? (
             <div
-              className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
+              className="grid gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
               aria-busy="true"
               aria-label="Loading nearby stores"
             >
@@ -653,54 +767,51 @@ function BuyLocalPageInner() {
                 <LocalStoreCardSkeleton key={i} />
               ))}
             </div>
-          ) : nearbyStores.length === 0 ? (
-            <Card className="border-dashed border-emerald-200/80 bg-emerald-50/30">
-              <CardContent className="flex flex-col items-center px-3.5 py-10 text-center sm:py-12">
-                <span className="mb-3 flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
-                  <MapPin className="size-5" />
-                </span>
-                <p className="font-medium text-foreground">
-                  No stores in this radius
-                </p>
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Try widening the distance or switching cities
-                  {focusProductName
-                    ? `, or browse all local options without the “${focusProductName}” focus`
-                    : ""}
-                  .
-                </p>
-                <div className="mt-4 flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
-                  {maxMiles < 50 && (
-                    <Button
-                      type="button"
-                      className="h-11 sm:h-9"
-                      onClick={() => setMaxMiles(50)}
-                    >
-                      Expand to {distanceOptionLabel(50, user.country)}
-                    </Button>
-                  )}
-                  {hasContext && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 sm:h-9"
-                      onClick={clearContext}
-                    >
-                      Browse all local options
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          ) : visibleStores.length === 0 ? (
+            <LocalEmptyState
+              icon={showFavouritesOnly ? Heart : MapPin}
+              title={
+                showFavouritesOnly
+                  ? "No saved stores nearby"
+                  : "No stores in this radius"
+              }
+              description={
+                showFavouritesOnly
+                  ? favourites.some((f) => f.kind === "store")
+                    ? "You’ve saved stores, but none are in this city or distance. Widen the radius, switch cities, or show all nearby."
+                    : "Tap the heart on a store card to save it here for quick access next time."
+                  : `Nothing matched near ${user.label} within your current distance${focusProductName ? ` for “${focusProductName}”` : ""}. Try a wider search or another city — local options often appear within 25–50 miles.`
+              }
+              country={user.country}
+              currentCityId={locationId}
+              maxMiles={maxMiles}
+              onExpandRadius={(mi) => setMaxMiles(mi)}
+              onSelectCity={setLocationId}
+              secondaryAction={
+                showFavouritesOnly
+                  ? {
+                      label: "Show all nearby stores",
+                      onClick: () => setShowFavouritesOnly(false),
+                    }
+                  : hasContext
+                    ? {
+                        label: "Browse all local options",
+                        onClick: clearContext,
+                      }
+                    : undefined
+              }
+            />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-              {nearbyStores.map((store) => (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleStores.map((store) => (
                 <LocalStoreCard
                   key={store.id}
                   store={store}
                   country={user.country}
                   focusLabel={focusProductName}
                   markerIndex={markerIndexById.get(store.id)}
+                  saved={favouriteStoreIds.has(store.id)}
+                  onToggleFavourite={() => handleToggleStoreFavourite(store)}
                 />
               ))}
             </div>
@@ -726,39 +837,45 @@ function BuyLocalPageInner() {
                 as big stores — confirm pickup or inventory before you go.
               </p>
             </div>
-            {makers.length > 0 && (
+            {visibleMakers.length > 0 && (
               <Badge className="bg-emerald-800/10 font-normal text-emerald-900">
-                {makers.length} nearby
+                {visibleMakers.length}{" "}
+                {showFavouritesOnly ? "saved nearby" : "nearby"}
               </Badge>
             )}
           </div>
-          {makers.length === 0 ? (
-            <Card className="border-dashed border-emerald-200/80 bg-emerald-50/30">
-              <CardContent className="flex flex-col items-center px-3.5 py-10 text-center sm:py-12">
-                <span className="mb-3 flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
-                  <HeartHandshake className="size-5" />
-                </span>
-                <p className="font-medium text-foreground">
-                  No makers in this radius
-                </p>
-                <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Widen your search distance or check Stores and Products above
-                  for other local options.
-                </p>
-                {maxMiles < 50 && (
-                  <Button
-                    type="button"
-                    className="mt-4 h-11 sm:h-9"
-                    onClick={() => setMaxMiles(50)}
-                  >
-                    Expand to {distanceOptionLabel(50, user.country)}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+          {visibleMakers.length === 0 ? (
+            <LocalEmptyState
+              icon={showFavouritesOnly ? Heart : HeartHandshake}
+              title={
+                showFavouritesOnly
+                  ? "No saved makers nearby"
+                  : "No makers in this radius"
+              }
+              description={
+                showFavouritesOnly
+                  ? favourites.some((f) => f.kind === "maker")
+                    ? "Your saved makers aren’t in this city or distance. Widen the search, try another city, or show all nearby."
+                    : "Tap the heart on a maker card to save refill shops, studios, and producers you like."
+                  : `No independent makers near ${user.label} right now. Widen the distance or pick another city — makers often show up alongside the store list.`
+              }
+              country={user.country}
+              currentCityId={locationId}
+              maxMiles={maxMiles}
+              onExpandRadius={(mi) => setMaxMiles(mi)}
+              onSelectCity={setLocationId}
+              secondaryAction={
+                showFavouritesOnly
+                  ? {
+                      label: "Show all nearby makers",
+                      onClick: () => setShowFavouritesOnly(false),
+                    }
+                  : undefined
+              }
+            />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-              {makers.map(({ maker, distanceMi }) => (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleMakers.map(({ maker, distanceMi }) => (
                 <LocalMakerCard
                   key={maker.id}
                   maker={maker}
@@ -766,8 +883,140 @@ function BuyLocalPageInner() {
                   country={user.country}
                   from={user}
                   markerIndex={markerIndexById.get(maker.id)}
+                  saved={favouriteMakerIds.has(maker.id)}
+                  onToggleFavourite={() =>
+                    handleToggleMakerFavourite(maker.id, maker.name)
+                  }
                 />
               ))}
+            </div>
+          )}
+        </section>
+
+        {/* Saved favourites overview */}
+        <section
+          id="local-favourites"
+          className="mt-12 scroll-mt-24 sm:mt-14"
+        >
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-5">
+            <div className="max-w-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-800/70">
+                Saved
+              </p>
+              <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
+                Your favourites
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+                Stores and makers you heart — kept on this device for quick
+                revisits. Filter above to show only favourites nearby.
+              </p>
+            </div>
+            {favourites.length > 0 && (
+              <Badge className="bg-rose-100 font-normal text-rose-900">
+                {favourites.length} saved
+              </Badge>
+            )}
+          </div>
+
+          {favourites.length === 0 ? (
+            <LocalEmptyState
+              icon={Heart}
+              title="No favourites yet"
+              description="Tap the heart on any store or maker card to save it. Your list stays on this device — handy when you shop the same neighbourhood again."
+              country={user.country}
+              currentCityId={locationId}
+              maxMiles={maxMiles}
+              secondaryAction={{
+                label: "Browse stores nearby",
+                onClick: () => {
+                  setShowFavouritesOnly(false);
+                  storesSectionRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                },
+              }}
+            />
+          ) : (
+            <div className="space-y-3">
+              <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {favourites.map((fav) => {
+                  const inRange =
+                    fav.kind === "store"
+                      ? nearbyStores.some((s) => s.id === fav.id)
+                      : makers.some((m) => m.maker.id === fav.id);
+                  return (
+                    <li
+                      key={`${fav.kind}-${fav.id}`}
+                      className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-border/70 bg-white px-3.5 py-3 shadow-xs"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                          {fav.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {fav.kind === "store" ? "Store" : "Maker"}
+                          {inRange
+                            ? " · nearby now"
+                            : " · outside current filters"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-11 px-3 text-xs sm:h-8"
+                          onClick={() => {
+                            setShowFavouritesOnly(true);
+                            if (!inRange && maxMiles < 100) setMaxMiles(100);
+                            const target =
+                              fav.kind === "store"
+                                ? storesSectionRef
+                                : makersSectionRef;
+                            window.setTimeout(() => {
+                              target.current?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              });
+                              handleSelectPin(fav.id);
+                            }, 50);
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-11 text-rose-700 sm:size-9"
+                          aria-label={`Remove ${fav.name} from favourites`}
+                          onClick={() => {
+                            toggleLocalFavourite({
+                              kind: fav.kind,
+                              id: fav.id,
+                              name: fav.name,
+                            });
+                            showSuccess("Removed from favourites", fav.name);
+                          }}
+                        >
+                          <Heart className="size-4 fill-current" />
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              {!showFavouritesOnly && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full sm:h-9 sm:w-auto"
+                  onClick={() => setShowFavouritesOnly(true)}
+                >
+                  <Heart className="size-3.5" />
+                  Show only favourites nearby
+                </Button>
+              )}
             </div>
           )}
         </section>
