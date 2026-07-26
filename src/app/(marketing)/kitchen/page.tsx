@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  BookmarkCheck,
+  BookMarked,
   CalendarPlus,
   Check,
   ChefHat,
@@ -18,9 +20,12 @@ import {
   Wand2,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { KitchenDietaryNotes } from "@/components/kitchen/kitchen-dietary-notes";
+import { KitchenSavedLink } from "@/components/kitchen/kitchen-saved-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,8 +44,8 @@ import {
   AISLE_LABELS,
   SAMPLE_RECIPES,
   buildRecipePlan,
+  detectDietaryNotes,
   estimateIngredientLineTotal,
-  estimateShopMinutes,
   estimateShoppingListTotal,
   extractIngredientsFromRecipe,
   formatIngredientLabel,
@@ -48,29 +53,47 @@ import {
   groupByAisle,
   ingredientToCartProduct,
   kitchenIngredientCartId,
+  kitchenLocalHref,
   type ShoppingIngredient,
 } from "@/lib/leafy-kitchen";
+import {
+  findMatchingSavedList,
+  getSavedKitchenList,
+  saveKitchenList,
+  subscribeSavedKitchenLists,
+} from "@/lib/leafy-kitchen-saved";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "extracting" | "ready";
 
-function peekCookMinutes(text: string, sampleId: string | null): number {
-  const sample = SAMPLE_RECIPES.find((s) => s.id === sampleId);
-  if (sample) return sample.cookMinutes;
-  const m = text.match(/(\d+)\s*min/i);
-  return m ? Number(m[1]) : 25;
+export default function KitchenAssistantPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl px-4 py-14 text-muted-foreground">
+          Loading Leafy Kitchen…
+        </div>
+      }
+    >
+      <KitchenAssistantPageInner />
+    </Suspense>
+  );
 }
 
-export default function KitchenAssistantPage() {
+function KitchenAssistantPageInner() {
   const { showSuccess } = useAppToast();
   const { cart, addToCart, totalItems, totalPrice } = useCart();
+  const searchParams = useSearchParams();
   const resultsRef = useRef<HTMLElement>(null);
+  const openedSavedRef = useRef<string | null>(null);
 
   const [recipeText, setRecipeText] = useState("");
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [ingredients, setIngredients] = useState<ShoppingIngredient[]>([]);
   const [addingAll, setAddingAll] = useState(false);
+  const [savingList, setSavingList] = useState(false);
+  const [listSaved, setListSaved] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [recipeCollapsed, setRecipeCollapsed] = useState(false);
   const [leafyTip, setLeafyTip] = useState(
@@ -114,6 +137,11 @@ export default function KitchenAssistantPage() {
     });
   }, [ingredients, recipeText, selectedSampleId]);
 
+  const dietaryNotes = useMemo(
+    () => detectDietaryNotes(ingredients),
+    [ingredients]
+  );
+
   const timePreview = useMemo(() => {
     if (!livePlan) return null;
     const { shopMinutes: shop, cookMinutes: cook, prepBufferMinutes: buffer, totalMinutes: total } =
@@ -142,6 +170,52 @@ export default function KitchenAssistantPage() {
     }
   }, [phase, ingredients.length]);
 
+  useEffect(() => {
+    const savedId = searchParams.get("saved");
+    if (!savedId || openedSavedRef.current === savedId) return;
+    const item = getSavedKitchenList(savedId);
+    if (!item) return;
+    openedSavedRef.current = savedId;
+    setRecipeText(item.recipeText);
+    setSelectedSampleId(item.sampleId);
+    setIngredients(
+      item.ingredients.map((i) => ({
+        ...i,
+        checked: false,
+        cartQty: i.cartQty || 1,
+      }))
+    );
+    setPhase("ready");
+    setRecipeCollapsed(true);
+    setConfirmClear(false);
+    setListSaved(true);
+    setLeafyTip(`Reopened “${item.title}” from My Kitchen.`);
+    showSuccess("List reopened", `“${item.title}” is ready to shop.`);
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/kitchen");
+    }
+  }, [searchParams, showSuccess]);
+
+  useEffect(() => {
+    if (ingredients.length === 0) {
+      setListSaved(false);
+      return;
+    }
+    const title = livePlan?.title ?? "Saved shopping list";
+    const refresh = () => {
+      setListSaved(
+        Boolean(
+          findMatchingSavedList(
+            title,
+            ingredients.map((i) => i.name)
+          )
+        )
+      );
+    };
+    refresh();
+    return subscribeSavedKitchenLists(refresh);
+  }, [ingredients, livePlan?.title]);
+
   async function runExtract(textOverride?: string, sampleId?: string | null) {
     const text = (textOverride ?? recipeText).trim();
     const sid = sampleId !== undefined ? sampleId : selectedSampleId;
@@ -154,6 +228,7 @@ export default function KitchenAssistantPage() {
 
     setPhase("extracting");
     setLeafyTip("Reading your recipe… sorting quantities and aisles…");
+    setListSaved(false);
 
     await new Promise((r) => window.setTimeout(r, 650));
 
@@ -170,16 +245,41 @@ export default function KitchenAssistantPage() {
         "Hmm, I couldn’t find clear ingredient lines. Try listing them under “Ingredients:” or pick a sample."
       );
     } else {
-      const shop = estimateShopMinutes(parsed.length);
-      const cook = peekCookMinutes(text, sid);
+      const sample = SAMPLE_RECIPES.find((s) => s.id === sid);
+      const plan = buildRecipePlan({
+        recipeText: text,
+        ingredients: parsed,
+        sampleCookMinutes: sample?.cookMinutes,
+      });
       setLeafyTip(
-        `Found ${parsed.length} ingredients · about ${shop + cook + 10} min end-to-end. Shop, check local, then plan your cook.`
+        `Found ${parsed.length} ingredients · about ${plan.totalMinutes} min end-to-end. Shop, check local, then plan your cook.`
       );
       showSuccess(
         "Shopping list ready",
         `${parsed.length} ingredients sorted by aisle.`
       );
     }
+  }
+
+  async function handleSaveList() {
+    if (ingredients.length === 0 || savingList) return;
+    setSavingList(true);
+    const title = livePlan?.title ?? "Saved shopping list";
+    const saved = saveKitchenList({
+      title,
+      recipeText,
+      ingredients,
+      sampleId: selectedSampleId,
+    });
+    await new Promise((r) => window.setTimeout(r, 320));
+    setListSaved(true);
+    setSavingList(false);
+    showSuccess(
+      "Saved to My Kitchen",
+      `“${saved.title}” is stored on this device.`,
+      { action: { label: "View saved", href: "/kitchen/saved" } }
+    );
+    setLeafyTip(`Saved “${saved.title}” — reopen anytime from My Kitchen.`);
   }
 
   function loadSample(id: string) {
@@ -287,22 +387,28 @@ export default function KitchenAssistantPage() {
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <MarketplaceBrandBadge />
-          <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
-            <ChefHat className="size-3.5" />
-            Leafy Kitchen
-          </Badge>
-          <Badge variant="outline" className="font-normal text-muted-foreground">
-            Shop &amp; Cook helper
-          </Badge>
+      <div className="relative mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-12">
+        <div className="mb-3 flex items-start justify-between gap-2 sm:items-center">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+            <MarketplaceBrandBadge />
+            <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
+              <ChefHat className="size-3.5" />
+              Leafy Kitchen
+            </Badge>
+            <Badge
+              variant="outline"
+              className="font-normal text-muted-foreground"
+            >
+              Shop &amp; Cook
+            </Badge>
+          </div>
+          <KitchenSavedLink />
         </div>
 
         <h1 className="font-heading max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
           From recipe to basket — with Leafy
         </h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground sm:text-lg">
+        <p className="mt-2.5 max-w-2xl text-muted-foreground sm:mt-3 sm:text-lg">
           Pick a sample or paste a recipe. Leafy builds your shopping list,
           then helps you buy online, check local stores, and plan cook time.
         </p>
@@ -519,8 +625,8 @@ Ingredients:
               <>
                 <Card className="border-emerald-200/80 bg-white shadow-md ring-1 ring-emerald-900/5">
                   <CardHeader className="space-y-4 pb-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                      <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
                           Step 1
                         </p>
@@ -528,14 +634,43 @@ Ingredients:
                           Shopping list
                         </CardTitle>
                         <CardDescription className="mt-1">
-                          {checkedCount}/{ingredients.length} checked · grouped
-                          by aisle
+                          {checkedCount}/{ingredients.length} checked · by aisle
                         </CardDescription>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge className="bg-emerald-800 text-cream">
                           {ingredients.length} items
                         </Badge>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className={cn(
+                            "h-8 gap-1.5 transition-all active:scale-[0.98]",
+                            listSaved
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                              : "bg-white"
+                          )}
+                          disabled={savingList || listSaved}
+                          onClick={() => void handleSaveList()}
+                        >
+                          {savingList ? (
+                            <>
+                              <Loader2 className="size-3.5 animate-spin" />
+                              Saving…
+                            </>
+                          ) : listSaved ? (
+                            <>
+                              <BookmarkCheck className="size-3.5" />
+                              Saved
+                            </>
+                          ) : (
+                            <>
+                              <BookMarked className="size-3.5" />
+                              Save list
+                            </>
+                          )}
+                        </Button>
                         {!confirmClear ? (
                           <Button
                             type="button"
@@ -545,27 +680,27 @@ Ingredients:
                             onClick={() => setConfirmClear(true)}
                           >
                             <Trash2 className="size-3.5" />
-                            Clear list
+                            Clear
                           </Button>
                         ) : null}
                       </div>
                     </div>
 
                     {/* Estimated cost + hero Add All */}
-                    <div className="rounded-2xl border-2 border-emerald-700/25 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/30 p-4 shadow-sm sm:p-5">
+                    <div className="rounded-2xl border-2 border-emerald-700/25 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/30 p-3.5 shadow-sm sm:p-5">
                       <div className="flex flex-wrap items-end justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
                             Estimated basket
                           </p>
-                          <p className="font-heading mt-1 text-3xl font-semibold tabular-nums text-emerald-950 sm:text-4xl">
+                          <p className="font-heading mt-1 text-[1.75rem] font-semibold tabular-nums text-emerald-950 sm:text-4xl">
                             {formatKitchenMoney(
                               addableTotal > 0 ? addableTotal : listTotalAll
                             )}
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {addableTotal > 0
-                              ? `${addableIngredients.length} ready to add · illustrative prices`
+                              ? `${addableIngredients.length} ready to add · illustrative`
                               : "Illustrative prices · confirm at checkout"}
                           </p>
                         </div>
@@ -582,7 +717,7 @@ Ingredients:
                       <Button
                         type="button"
                         size="lg"
-                        className="mt-4 h-16 w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg shadow-emerald-900/25 ring-2 ring-emerald-700/20 hover:bg-emerald-900 hover:shadow-xl sm:h-[4.25rem] sm:text-lg"
+                        className="mt-3.5 h-[3.75rem] w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg shadow-emerald-900/25 ring-2 ring-emerald-700/20 transition-all hover:bg-emerald-900 hover:shadow-xl active:scale-[0.99] sm:mt-4 sm:h-[4.25rem] sm:text-lg"
                         disabled={
                           ingredients.length === 0 ||
                           addableIngredients.length === 0 ||
@@ -602,18 +737,26 @@ Ingredients:
                               Add All to Cart
                             </span>
                             {addableTotal > 0 && (
-                              <span className="font-heading text-xl font-semibold tabular-nums tracking-tight sm:text-2xl">
+                              <span className="font-heading text-lg font-semibold tabular-nums tracking-tight sm:text-2xl">
                                 {formatKitchenMoney(addableTotal)}
                               </span>
                             )}
                           </>
                         )}
                       </Button>
-                      <p className="mt-2.5 text-center text-xs leading-relaxed text-emerald-900/80">
-                        Prefer Amazon? You can still buy individual items using
-                        the Buy Online buttons.
+                      <p className="mt-2 text-center text-[11px] leading-relaxed text-emerald-900/80 sm:mt-2.5 sm:text-xs">
+                        Prefer Amazon? Use Buy Online on any item. Or{" "}
+                        <Link
+                          href="/kitchen/saved"
+                          className="font-medium underline-offset-2 hover:underline"
+                        >
+                          view saved lists
+                        </Link>
+                        .
                       </p>
                     </div>
+
+                    <KitchenDietaryNotes notes={dietaryNotes} />
 
                     {confirmClear && (
                       <div
@@ -671,13 +814,13 @@ Ingredients:
                         </p>
                       )}
                   </CardHeader>
-                  <CardContent className="space-y-6 sm:space-y-5">
+                  <CardContent className="space-y-5 px-3.5 sm:space-y-5 sm:px-6">
                     {grouped.map(({ aisle, items }) => (
                       <div key={aisle}>
-                        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                        <p className="mb-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70 sm:mb-3">
                           {AISLE_LABELS[aisle]}
                         </p>
-                        <ul className="space-y-3.5 sm:space-y-3">
+                        <ul className="space-y-3">
                           {items.map((ing) => {
                             const inCart = cartIds.has(
                               kitchenIngredientCartId(ing)
@@ -687,11 +830,11 @@ Ingredients:
                               <li
                                 key={ing.id}
                                 className={cn(
-                                  "rounded-2xl border border-border/60 bg-muted/15 p-4 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm sm:rounded-xl sm:p-3.5",
+                                  "rounded-2xl border border-border/70 bg-muted/15 p-3.5 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm sm:rounded-xl sm:p-3.5",
                                   done && "bg-emerald-50/50 opacity-75"
                                 )}
                               >
-                                <div className="flex items-start gap-3">
+                                <div className="flex items-start gap-2.5 sm:gap-3">
                                   <button
                                     type="button"
                                     onClick={() => toggleChecked(ing.id)}
@@ -714,11 +857,11 @@ Ingredients:
                                       />
                                     )}
                                   </button>
-                                  <div className="min-w-0 flex-1 space-y-3">
+                                  <div className="min-w-0 flex-1 space-y-2.5 sm:space-y-3">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <p
                                         className={cn(
-                                          "text-base font-medium leading-snug text-foreground sm:text-sm",
+                                          "text-[15px] font-medium leading-snug text-foreground sm:text-sm",
                                           done && "line-through"
                                         )}
                                       >
@@ -734,8 +877,7 @@ Ingredients:
                                       )}
                                     </div>
 
-                                    {/* Qty stepper */}
-                                    <div className="flex flex-wrap items-center gap-3">
+                                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
                                       <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1 shadow-xs sm:rounded-lg sm:p-0.5">
                                         <button
                                           type="button"
@@ -743,12 +885,12 @@ Ingredients:
                                           onClick={() =>
                                             setCartQty(ing.id, ing.cartQty - 1)
                                           }
-                                          className="inline-flex size-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
+                                          className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
                                           aria-label={`Decrease quantity for ${ing.name}`}
                                         >
                                           <Minus className="size-3.5" />
                                         </button>
-                                        <span className="min-w-[2rem] text-center text-base font-semibold tabular-nums sm:min-w-[1.75rem] sm:text-sm">
+                                        <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums sm:min-w-[1.75rem]">
                                           {ing.cartQty}
                                         </span>
                                         <button
@@ -757,13 +899,13 @@ Ingredients:
                                           onClick={() =>
                                             setCartQty(ing.id, ing.cartQty + 1)
                                           }
-                                          className="inline-flex size-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
+                                          className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
                                           aria-label={`Increase quantity for ${ing.name}`}
                                         >
                                           <Plus className="size-3.5" />
                                         </button>
                                       </div>
-                                      <span className="text-xs text-muted-foreground sm:text-[11px]">
+                                      <span className="text-xs text-muted-foreground">
                                         Qty ·{" "}
                                         {formatKitchenMoney(
                                           estimateIngredientLineTotal(ing)
@@ -771,16 +913,16 @@ Ingredients:
                                       </span>
                                     </div>
 
-                                    <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-2">
+                                    <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:flex-wrap">
                                       <Button
                                         type="button"
                                         size="sm"
-                                        className="h-10 w-full gap-1.5 bg-emerald-800 text-cream hover:bg-emerald-700 sm:h-8 sm:w-auto"
+                                        className="h-10 w-full gap-1.5 bg-emerald-800 text-cream transition-all hover:bg-emerald-700 active:scale-[0.98] sm:h-8 sm:w-auto"
                                         onClick={() => openBuyOnline(ing)}
                                       >
                                         <ShoppingBag className="size-3.5" />
                                         Buy Online
-                                        <span className="text-[10px] opacity-80 sm:inline">
+                                        <span className="text-[10px] opacity-80">
                                           · {getAmazonStoreLabel()}
                                         </span>
                                         <ExternalLink className="size-3 opacity-70" />
@@ -788,11 +930,12 @@ Ingredients:
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        className="h-10 w-full gap-1.5 sm:h-8 sm:w-auto"
+                                        className="h-10 w-full gap-1.5 border-emerald-200/90 bg-white transition-all active:scale-[0.98] sm:h-8 sm:w-auto"
                                         nativeButton={false}
                                         render={
                                           <Link
-                                            href={`/local?ingredient=${encodeURIComponent(ing.name)}#local-stores`}
+                                            href={kitchenLocalHref(ing.name)}
+                                            aria-label={`Check local stores for ${ing.name}`}
                                           />
                                         }
                                       >
@@ -809,11 +952,11 @@ Ingredients:
                       </div>
                     ))}
                   </CardContent>
-                  <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-emerald-50/40">
+                  <CardFooter className="flex flex-col items-stretch gap-2.5 border-t bg-emerald-50/40 px-3.5 py-3.5 sm:gap-3 sm:px-6 sm:py-4">
                     <Button
                       type="button"
                       size="lg"
-                      className="h-14 w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg sm:hidden"
+                      className="h-14 w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg transition-all active:scale-[0.99] sm:hidden"
                       disabled={
                         ingredients.length === 0 ||
                         addableIngredients.length === 0 ||
@@ -840,11 +983,11 @@ Ingredients:
                         </>
                       )}
                     </Button>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                       <Button
                         type="button"
                         size="sm"
-                        className="hidden gap-1.5 bg-emerald-800 text-cream shadow-sm hover:bg-emerald-900 sm:inline-flex"
+                        className="col-span-2 hidden gap-1.5 bg-emerald-800 text-cream shadow-sm hover:bg-emerald-900 sm:inline-flex sm:col-span-1"
                         disabled={
                           ingredients.length === 0 ||
                           addableIngredients.length === 0 ||
@@ -854,33 +997,41 @@ Ingredients:
                       >
                         <ShoppingBag className="size-3.5" />
                         {addableTotal > 0
-                          ? `Add All to Cart (${formatKitchenMoney(addableTotal)})`
+                          ? `Add All (${formatKitchenMoney(addableTotal)})`
                           : "Add All to Cart"}
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="shrink-0"
+                        className="h-10 sm:h-8"
                         nativeButton={false}
                         render={<Link href="/cart" />}
                       >
                         {totalItems > 0
-                          ? `View cart (${totalItems}) · ${formatKitchenMoney(totalPrice)}`
+                          ? `Cart (${totalItems})`
                           : "View cart"}
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="shrink-0"
+                        className="h-10 sm:h-8"
                         nativeButton={false}
-                        render={<Link href="/local" />}
+                        render={
+                          <Link
+                            href={
+                              ingredients[0]
+                                ? kitchenLocalHref(ingredients[0].name)
+                                : "/local"
+                            }
+                          />
+                        }
                       >
-                        Browse Buy Local
+                        Buy Local
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="shrink-0"
+                        className="col-span-2 h-10 sm:col-span-1 sm:h-8"
                         nativeButton={false}
                         render={<a href="#cook-plan" />}
                       >
@@ -927,31 +1078,33 @@ Ingredients:
                           />
                         ))}
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                         {timePreview.segments.map((seg) => (
                           <div
                             key={seg.key}
-                            className="rounded-xl border border-emerald-200/70 bg-white/80 px-2 py-2.5 text-center"
+                            className="rounded-xl border border-emerald-200/70 bg-white/80 px-1.5 py-2.5 text-center sm:px-2"
                           >
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-[10px] text-muted-foreground sm:text-[11px]">
                               {seg.label}
                             </p>
-                            <p className="font-heading text-lg font-semibold tabular-nums text-emerald-950">
+                            <p className="font-heading text-base font-semibold tabular-nums text-emerald-950 sm:text-lg">
                               {seg.minutes}
                               <span className="text-xs font-medium">m</span>
                             </p>
                           </div>
                         ))}
                       </div>
-                      <p className="text-sm text-emerald-950/90">{livePlan.summary}</p>
+                      <p className="text-sm leading-relaxed text-emerald-950/90">
+                        {livePlan.summary}
+                      </p>
                       <p className="rounded-lg border border-dashed border-emerald-300/80 bg-white/60 px-3 py-2 text-xs text-emerald-900/80">
-                        Google Calendar opens a draft event (template link).
-                        Full sync is on the roadmap.
+                        Google Calendar opens a draft event. Full sync is on the
+                        roadmap.
                       </p>
                     </CardContent>
-                    <CardFooter className="flex flex-wrap gap-2 border-t-0 bg-transparent">
+                    <CardFooter className="flex flex-col gap-2 border-t-0 bg-transparent sm:flex-row sm:flex-wrap">
                       <Button
-                        className="gap-2 shadow-md"
+                        className="h-11 w-full gap-2 shadow-md sm:h-9 sm:w-auto"
                         nativeButton={false}
                         render={
                           <a
@@ -968,8 +1121,17 @@ Ingredients:
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-11 w-full sm:h-8 sm:w-auto"
                         nativeButton={false}
-                        render={<Link href="/local" />}
+                        render={
+                          <Link
+                            href={
+                              ingredients[0]
+                                ? kitchenLocalHref(ingredients[0].name)
+                                : "/local"
+                            }
+                          />
+                        }
                       >
                         Find ingredients nearby
                       </Button>

@@ -129,13 +129,79 @@ Method:
 ];
 
 const UNIT_PATTERN =
-  "(?:cups?|cup|tbsp|tablespoons?|tsp|teaspoons?|ml|l|litres?|liters?|g|grams?|kg|oz|ounces?|lb|lbs|pounds?|cloves?|bunch(?:es)?|handfuls?|slices?|pinch(?:es)?|cans?|packets?|packs?)";
+  "(?:cups?|tbsp|tbsps?|tablespoons?|tsp|tsps?|teaspoons?|ml|l|litres?|liters?|g|grams?|kg|oz|ounces?|lb|lbs|pounds?|cloves?|bunch(?:es)?|handfuls?|slices?|pinch(?:es)?|cans?|tins?|packets?|packs?|fillets?|pieces?|sprigs?)";
 
-const QTY_LINE =
-  new RegExp(
-    `^[-*•]?\\s*(?:(\\d+[\\/\\d.]*(?:\\s*-\\s*\\d+[\\/\\d.]*)?)\\s*(${UNIT_PATTERN})?\\s+)?(.+)$`,
-    "i"
-  );
+/** Quantity token: 2, 1/2, 1½, 1 1/2, 2-3, 2–3 */
+const QTY_TOKEN =
+  "(?:\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?(?:\\s*[-–]\\s*(?:\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:\\.\\d+)?))?)";
+
+const QTY_LINE = new RegExp(
+  `^[-*•]?\\s*(?:(${QTY_TOKEN})\\s*(${UNIT_PATTERN})?\\s+)?(.+)$`,
+  "i"
+);
+
+const UNICODE_FRACTIONS: Record<string, string> = {
+  "½": "1/2",
+  "⅓": "1/3",
+  "⅔": "2/3",
+  "¼": "1/4",
+  "¾": "3/4",
+  "⅛": "1/8",
+  "⅜": "3/8",
+  "⅝": "5/8",
+  "⅞": "7/8",
+};
+
+const UNIT_NORMALIZE: Record<string, string> = {
+  tablespoon: "tbsp",
+  tablespoons: "tbsp",
+  tbsps: "tbsp",
+  teaspoon: "tsp",
+  teaspoons: "tsp",
+  tsps: "tsp",
+  cup: "cup",
+  cups: "cups",
+  gram: "g",
+  grams: "g",
+  litre: "l",
+  litres: "l",
+  liter: "l",
+  liters: "l",
+  ounce: "oz",
+  ounces: "oz",
+  pound: "lb",
+  pounds: "lb",
+  lbs: "lb",
+  clove: "clove",
+  cloves: "cloves",
+  handful: "handful",
+  handfuls: "handful",
+  pinch: "pinch",
+  pinches: "pinch",
+  bunch: "bunch",
+  bunches: "bunches",
+  fillet: "fillet",
+  fillets: "fillets",
+  tin: "tin",
+  tins: "tins",
+  can: "can",
+  cans: "cans",
+};
+
+function normalizeFractions(text: string): string {
+  let out = text;
+  for (const [glyph, ascii] of Object.entries(UNICODE_FRACTIONS)) {
+    out = out.split(glyph).join(ascii);
+  }
+  // "1½" style already handled; also "1 ½" after unicode swap → "1 1/2"
+  return out.replace(/(\d)\s+(\d+\/\d+)/g, "$1 $2");
+}
+
+function normalizeUnit(unit: string | null): string | null {
+  if (!unit) return null;
+  const key = unit.toLowerCase().trim();
+  return UNIT_NORMALIZE[key] ?? key;
+}
 
 const PRODUCE = [
   "spinach",
@@ -204,13 +270,107 @@ function classifyAisle(name: string): ShoppingIngredient["aisle"] {
   return "other";
 }
 
+const METHOD_START =
+  /^(method|directions|instructions|steps|preparation|how to|procedure|cooking|to make|make it)\b/i;
+const INGREDIENTS_START =
+  /^(ingredients?|you(?:'| wi)?ll need|shopping list|what you need)\b[:\s]*/i;
+
 function cleanIngredientName(raw: string): string {
   return raw
     .replace(/\([^)]*\)/g, "")
-    .replace(/\b(to taste|optional|fresh|rinsed|cubed|sliced|minced|crushed|trimmed|halved|chopped|diced)\b/gi, "")
+    .replace(
+      /\b(optional|fresh|rinsed|cubed|sliced|minced|crushed|trimmed|halved|chopped|diced|roughly|finely|thinly|large|small|medium|ripe|organic|sea|cracked|dried|ground|baby)\b/gi,
+      ""
+    )
     .replace(/,.*$/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+type ParsedLine = {
+  quantity: string | null;
+  unit: string | null;
+  name: string;
+  raw: string;
+};
+
+/**
+ * Parse a single ingredient line into qty / unit / name.
+ * Handles “2 tbsp”, “1/2 cup”, “a handful of…”, “to taste”, trailing handfuls.
+ */
+export function parseIngredientLine(line: string): ParsedLine | null {
+  let cleaned = normalizeFractions(line.replace(/^[-*•]\s*/, "").trim());
+  cleaned = cleaned.replace(/^\d+[\).]\s*/, "").trim();
+  if (!cleaned || cleaned.length < 2) return null;
+  if (/^(serves?|about|prep|cook|total|yield|ingredients?)\b/i.test(cleaned)) {
+    return null;
+  }
+  if (METHOD_START.test(cleaned)) return null;
+
+  const raw = cleaned;
+  let quantity: string | null = null;
+  let unit: string | null = null;
+  let namePart = cleaned;
+
+  // “Salt and black pepper to taste” / “…, to taste”
+  if (/\bto\s+taste\b/i.test(cleaned)) {
+    namePart = cleaned
+      .replace(/,?\s*to\s+taste\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    quantity = "to taste";
+    const name = cleanIngredientName(namePart) || namePart;
+    return { quantity, unit: null, name: name || "seasoning", raw };
+  }
+
+  // Trailing vague qty: “Fresh parsley, a small handful”
+  const trailingVague = cleaned.match(
+    /^(.+?),\s*(?:a\s+)?((?:small|large|heaped)\s+)?(handful|pinch|dash|splash|sprinkle)\s*$/i
+  );
+  if (trailingVague) {
+    const size = trailingVague[2]?.trim();
+    const vague = trailingVague[3].toLowerCase();
+    quantity = size ? `${size} ${vague}`.replace(/\s+/g, " ") : vague;
+    unit = null;
+    namePart = trailingVague[1];
+    const name = cleanIngredientName(namePart) || namePart;
+    return { quantity, unit, name, raw };
+  }
+
+  // Leading vague: “a handful of dill”, “Pinch of cinnamon”, “Handful of fresh dill”
+  const leadingVague = cleaned.match(
+    /^(?:a\s+|an\s+)?((?:small|large|heaped)\s+)?(handful|pinch|dash|splash|sprinkle)\s+(?:of\s+)?(.+)$/i
+  );
+  if (leadingVague) {
+    const size = leadingVague[1]?.trim();
+    const vague = leadingVague[2].toLowerCase();
+    quantity = size ? `${size} ${vague}`.replace(/\s+/g, " ") : vague;
+    namePart = leadingVague[3];
+    const name = cleanIngredientName(namePart) || namePart;
+    return { quantity, unit: null, name, raw };
+  }
+
+  // “about 140g …” without leading count — keep as name-focused
+  const match = cleaned.match(QTY_LINE);
+  if (match?.[1]) {
+    quantity = match[1].replace(/\s*[-–]\s*/g, "–").replace(/\s+/g, " ").trim();
+    unit = normalizeUnit(match[2] ?? null);
+    namePart = match[3]?.trim() ?? cleaned;
+  } else {
+    namePart = cleaned;
+  }
+
+  // “2 x salmon fillets” / “2x eggs”
+  const timesForm = namePart.match(/^x\s+(.+)$/i);
+  if (timesForm && quantity) {
+    namePart = timesForm[1];
+  }
+
+  let name = cleanIngredientName(namePart) || namePart;
+  // If unit was swallowed into name (rare), leave as-is
+  if (name.length < 2) name = namePart.trim();
+
+  return { quantity, unit, name, raw };
 }
 
 function extractTitle(text: string): string {
@@ -223,15 +383,26 @@ function extractTitle(text: string): string {
 }
 
 function extractCookMinutes(text: string, fallback: number): number {
-  const hour = text.match(/(\d+)\s*(?:hours?|hrs?)\b/i);
-  if (hour) return Number(hour[1]) * 60;
+  // Prefer header-style timings over method step durations.
+  const header = text.split(/\r?\n/).slice(0, 6).join("\n");
+  const about = header.match(
+    /(?:about|approx(?:imately)?|ready in)\s*(\d+)\s*min/i
+  );
+  if (about) return Number(about[1]);
+  const servesLine = header.match(
+    /(?:serves?\s+\d+\s*[·•|,]\s*)(?:about\s*)?(\d+)\s*min/i
+  );
+  if (servesLine) return Number(servesLine[1]);
+  const active = header.match(/(\d+)\s*min(?:utes?)?\s*active/i);
+  if (active) return Number(active[1]);
+
   const range = text.match(
-    /(?:about|approx(?:imately)?|cook(?:ing)?(?:\s+time)?|ready in)?\s*(\d+)\s*(?:–|-|to)\s*(\d+)\s*min/i
+    /(?:about|approx(?:imately)?|cook(?:ing)?(?:\s+time)?|ready in)\s*(\d+)\s*(?:–|-|to)\s*(\d+)\s*min/i
   );
   if (range) {
     return Math.round((Number(range[1]) + Number(range[2])) / 2);
   }
-  const single = text.match(/(\d+)\s*min(?:utes?)?/i);
+  const single = header.match(/(\d+)\s*min(?:utes?)?/i);
   if (single) return Number(single[1]);
   return fallback;
 }
@@ -240,11 +411,6 @@ function extractServings(text: string): number | null {
   const m = text.match(/serves?\s+(\d+)/i);
   return m ? Number(m[1]) : null;
 }
-
-const METHOD_START =
-  /^(method|directions|instructions|steps|preparation|how to|procedure|cooking|to make|make it)\b/i;
-const INGREDIENTS_START =
-  /^(ingredients?|you(?:'| wi)?ll need|shopping list|what you need)\b[:\s]*/i;
 
 /** Common grocery names for free-text auto-detect when lists are messy. */
 const COMMON_INGREDIENTS = [
@@ -466,27 +632,19 @@ export function extractIngredientsFromRecipe(text: string): ShoppingIngredient[]
   const ingredients: ShoppingIngredient[] = [];
 
   for (const rawLine of collected) {
-    const cleaned = rawLine.replace(/^\d+[\).]\s*/, "").trim();
-    if (!cleaned || cleaned.length < 2) continue;
-    if (/^(serves?|about|prep|cook|total|yield)\b/i.test(cleaned)) continue;
-    if (METHOD_START.test(cleaned)) continue;
-
-    const match = cleaned.match(QTY_LINE);
-    const quantity = match?.[1]?.trim() ?? null;
-    const unit = match?.[2]?.trim().toLowerCase() ?? null;
-    const namePart = match?.[3]?.trim() ?? cleaned;
-    const name = cleanIngredientName(namePart) || namePart;
-    const key = name.toLowerCase();
-    if (seen.has(key) || name.length < 2) continue;
+    const parsed = parseIngredientLine(rawLine);
+    if (!parsed) continue;
+    const key = parsed.name.toLowerCase();
+    if (seen.has(key) || parsed.name.length < 2) continue;
     seen.add(key);
 
     ingredients.push({
       id: `ing-${ingredients.length + 1}-${key.replace(/\s+/g, "-").slice(0, 24)}`,
-      raw: cleaned,
-      name,
-      quantity,
-      unit,
-      aisle: classifyAisle(name),
+      raw: parsed.raw,
+      name: parsed.name,
+      quantity: parsed.quantity,
+      unit: parsed.unit,
+      aisle: classifyAisle(parsed.name),
       checked: false,
       cartQty: 1,
     });
@@ -505,11 +663,33 @@ export function extractIngredientsFromRecipe(text: string): ShoppingIngredient[]
 }
 
 export function formatIngredientLabel(ing: ShoppingIngredient): string {
+  if (ing.quantity === "to taste") {
+    return `${ing.name} (to taste)`;
+  }
   if (ing.quantity && ing.unit) {
     return `${ing.quantity} ${ing.unit} ${ing.name}`;
   }
-  if (ing.quantity) return `${ing.quantity} ${ing.name}`;
+  if (ing.quantity) {
+    // Vague measures read naturally: “handful dill” → “handful of dill”
+    if (
+      /^(?:small |large |heaped )?(handful|pinch|dash|splash|sprinkle)$/i.test(
+        ing.quantity
+      )
+    ) {
+      return `${ing.quantity} of ${ing.name}`;
+    }
+    return `${ing.quantity} ${ing.name}`;
+  }
   return ing.name;
+}
+
+/** Deep-link to Buy Local focused on this ingredient. */
+export function kitchenLocalHref(ingredientName: string): string {
+  const params = new URLSearchParams({
+    ingredient: ingredientName.trim(),
+    from: "kitchen",
+  });
+  return `/local?${params.toString()}#local-stores`;
 }
 
 /** Stable cart id for a kitchen ingredient (dedupe across recipes). */
@@ -582,10 +762,77 @@ export function ingredientToCartProduct(ing: ShoppingIngredient): Product {
   };
 }
 
-/** Rough shop time: ~2.5 min per unique ingredient, capped. */
-export function estimateShopMinutes(ingredientCount: number): number {
+export type RecipeComplexity = {
+  score: number;
+  aisleCount: number;
+  hasProtein: boolean;
+  slowCookHints: boolean;
+};
+
+/** Heuristic complexity from ingredient mix + method wording. */
+export function estimateRecipeComplexity(
+  recipeText: string,
+  ingredients: ShoppingIngredient[]
+): RecipeComplexity {
+  const aisles = new Set(ingredients.map((i) => i.aisle));
+  const hasProtein = ingredients.some((i) => i.aisle === "protein");
+  const text = recipeText.toLowerCase();
+  const slowCookHints =
+    /\b(roast|bake|simmer|marinate|overnight|chill|reduce|braise|proof|ferment)\b/i.test(
+      text
+    );
+
+  let score = 1;
+  if (ingredients.length >= 8) score += 1;
+  if (ingredients.length >= 12) score += 1;
+  if (aisles.size >= 4) score += 1;
+  if (hasProtein) score += 1;
+  if (slowCookHints) score += 1;
+  if (/\b(blend|whisk|assemble|layer)\b/i.test(text)) score += 0.5;
+
+  return {
+    score: Math.min(5, score),
+    aisleCount: aisles.size,
+    hasProtein,
+    slowCookHints,
+  };
+}
+
+/**
+ * Shop time: base + per item + aisle hopping.
+ * Typical small list ~12–20 min; larger multi-aisle ~25–45.
+ */
+export function estimateShopMinutes(
+  ingredientCount: number,
+  complexity?: Pick<RecipeComplexity, "aisleCount">
+): number {
   if (ingredientCount <= 0) return 0;
-  return Math.min(45, Math.max(10, Math.round(ingredientCount * 2.5)));
+  const aisleBonus = complexity
+    ? Math.max(0, complexity.aisleCount - 2) * 3
+    : 0;
+  const raw = 8 + ingredientCount * 2.2 + aisleBonus;
+  return Math.min(50, Math.max(10, Math.round(raw / 5) * 5));
+}
+
+function estimatePrepBufferMinutes(
+  ingredientCount: number,
+  complexity: RecipeComplexity
+): number {
+  const raw = 6 + ingredientCount * 0.6 + complexity.score * 2;
+  return Math.min(20, Math.max(8, Math.round(raw / 2) * 2));
+}
+
+function estimateCookFallback(
+  ingredientCount: number,
+  complexity: RecipeComplexity
+): number {
+  const raw =
+    12 +
+    ingredientCount * 1.5 +
+    complexity.score * 4 +
+    (complexity.hasProtein ? 5 : 0) +
+    (complexity.slowCookHints ? 8 : 0);
+  return Math.min(75, Math.max(15, Math.round(raw / 5) * 5));
 }
 
 export function buildRecipePlan(input: {
@@ -594,13 +841,25 @@ export function buildRecipePlan(input: {
   sampleCookMinutes?: number;
 }): RecipePlan {
   const title = extractTitle(input.recipeText);
-  const cookMinutes = extractCookMinutes(
+  const complexity = estimateRecipeComplexity(
     input.recipeText,
-    input.sampleCookMinutes ??
-      Math.min(60, 15 + input.ingredients.length * 2)
+    input.ingredients
   );
-  const shopMinutes = estimateShopMinutes(input.ingredients.length);
-  const prepBufferMinutes = 10;
+  // Prefer explicit sample cook time — free-text often matches step times (e.g. “10–12 min more”).
+  const cookMinutes =
+    input.sampleCookMinutes ??
+    extractCookMinutes(
+      input.recipeText,
+      estimateCookFallback(input.ingredients.length, complexity)
+    );
+  const shopMinutes = estimateShopMinutes(
+    input.ingredients.length,
+    complexity
+  );
+  const prepBufferMinutes = estimatePrepBufferMinutes(
+    input.ingredients.length,
+    complexity
+  );
   const totalMinutes = cookMinutes + shopMinutes + prepBufferMinutes;
   const servingsHint = extractServings(input.recipeText);
 
@@ -645,8 +904,178 @@ export function buildRecipePlan(input: {
     totalMinutes,
     servingsHint,
     calendarUrl: calendarUrl.toString(),
-    summary: `Leafy estimates about ${totalMinutes} minutes end-to-end (${shopMinutes} shopping + ${cookMinutes} cooking + ${prepBufferMinutes} buffer).`,
+    summary: `About ${totalMinutes} min end-to-end: ${shopMinutes} shopping + ${cookMinutes} cooking + ${prepBufferMinutes} prep buffer. Times are estimates — adjust for your kitchen and store.`,
   };
+}
+
+export type DietaryNote = {
+  id: string;
+  label: string;
+  detail: string;
+  /** warning = likely allergen present; info = general dietary tip */
+  tone: "warning" | "info";
+};
+
+const ALLERGEN_RULES: Array<{
+  id: string;
+  label: string;
+  detail: string;
+  tone: DietaryNote["tone"];
+  keywords: string[];
+}> = [
+  {
+    id: "fish",
+    label: "Contains fish",
+    detail:
+      "This list includes fish (e.g. salmon). Cross-check packaging if cooking for someone with a fish allergy.",
+    tone: "warning",
+    keywords: ["salmon", "tuna", "cod", "fish", "anchovy", "sardine", "trout"],
+  },
+  {
+    id: "shellfish",
+    label: "Contains shellfish",
+    detail: "Shellfish can cause severe reactions — confirm labels and prep surfaces.",
+    tone: "warning",
+    keywords: ["shrimp", "prawn", "crab", "lobster", "mussel", "clam", "oyster"],
+  },
+  {
+    id: "dairy",
+    label: "Contains dairy",
+    detail:
+      "Dairy or dairy-style items detected. Plant alternatives may work — check recipes and labels.",
+    tone: "warning",
+    keywords: [
+      "milk",
+      "butter",
+      "cheese",
+      "yoghurt",
+      "yogurt",
+      "cream",
+      "feta",
+      "parmesan",
+    ],
+  },
+  {
+    id: "egg",
+    label: "Contains egg",
+    detail: "Eggs appear on this list. Confirm if cooking for egg allergies.",
+    tone: "warning",
+    keywords: ["egg", "eggs"],
+  },
+  {
+    id: "gluten",
+    label: "May contain gluten",
+    detail:
+      "Gluten-free options may vary by brand (flour, pasta, soy sauce, oats). Always read the label.",
+    tone: "warning",
+    keywords: [
+      "flour",
+      "pasta",
+      "bread",
+      "soy sauce",
+      "noodle",
+      "wheat",
+      "couscous",
+      "oat",
+      "oats",
+    ],
+  },
+  {
+    id: "sesame",
+    label: "Contains sesame",
+    detail: "Sesame (including tahini) is a common allergen in many regions.",
+    tone: "warning",
+    keywords: ["sesame", "tahini"],
+  },
+  {
+    id: "nuts",
+    label: "May contain nuts",
+    detail:
+      "Tree nuts or nut products may be present. Check packaging for cross-contamination notes.",
+    tone: "warning",
+    keywords: [
+      "almond",
+      "walnut",
+      "cashew",
+      "peanut",
+      "hazelnut",
+      "pecan",
+      "pistachio",
+      "nut",
+    ],
+  },
+  {
+    id: "soy",
+    label: "Contains soy",
+    detail: "Soy appears on this list (e.g. tofu, soy sauce). Confirm labels if needed.",
+    tone: "warning",
+    keywords: ["tofu", "soy", "edamame", "tempeh"],
+  },
+];
+
+function isPlantDairyAlternative(name: string): boolean {
+  return /\b(oat|almond|soy|coconut|rice|hemp|cashew)\s+(milk|yoghurt|yogurt|cream)\b/i.test(
+    name
+  ) || /\bcoconut\s+(yoghurt|yogurt)\b/i.test(name);
+}
+
+function ingredientMatchesAllergen(
+  name: string,
+  ruleId: string,
+  keywords: string[]
+): boolean {
+  const n = name.toLowerCase();
+  if (ruleId === "dairy" && isPlantDairyAlternative(n)) return false;
+  // Avoid “peanut” false-positive from bare “nut” when only seeds present
+  return keywords.some((kw) => {
+    if (kw === "nut" && /\b(coconut|nutmeg)\b/.test(n) && !/\b(tree\s+)?nuts?\b/.test(n)) {
+      return false;
+    }
+    const re = new RegExp(`\\b${kw.replace(/\s+/g, "\\s+")}\\b`, "i");
+    return re.test(n);
+  });
+}
+
+/** Cautious allergen / dietary notes inferred from ingredient names. */
+export function detectDietaryNotes(
+  ingredients: ShoppingIngredient[]
+): DietaryNote[] {
+  const notes: DietaryNote[] = [];
+
+  for (const rule of ALLERGEN_RULES) {
+    const hit = ingredients.some((ing) =>
+      ingredientMatchesAllergen(ing.name, rule.id, rule.keywords)
+    );
+    if (hit) {
+      notes.push({
+        id: rule.id,
+        label: rule.label,
+        detail: rule.detail,
+        tone: rule.tone,
+      });
+    }
+  }
+
+  // Helpful, non-alarmist tip when nothing strong matched
+  if (notes.length === 0 && ingredients.length > 0) {
+    notes.push({
+      id: "general",
+      label: "Check labels & allergens",
+      detail:
+        "Leafy can’t verify allergens from a recipe paste. If cooking for others, double-check every pack and ask about cross-contact.",
+      tone: "info",
+    });
+  } else if (notes.length > 0) {
+    notes.push({
+      id: "caution",
+      label: "Guidance only",
+      detail:
+        "These notes are inferred from ingredient names — not a full allergen analysis. Always verify packaging.",
+      tone: "info",
+    });
+  }
+
+  return notes;
 }
 
 export const AISLE_LABELS: Record<ShoppingIngredient["aisle"], string> = {

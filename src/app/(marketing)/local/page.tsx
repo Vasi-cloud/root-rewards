@@ -66,6 +66,7 @@ function BuyLocalPageInner() {
   const cityParam = searchParams.get("city");
   const productParam = searchParams.get("product");
   const ingredientParam = searchParams.get("ingredient");
+  const fromKitchen = searchParams.get("from") === "kitchen";
   const storesSectionRef = useRef<HTMLElement>(null);
 
   const initialCity =
@@ -291,11 +292,42 @@ function BuyLocalPageInner() {
           ))}
         </nav>
 
-        {highlightName && (
-          <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-2.5 text-sm text-emerald-950">
-            Focusing on stores near matches for{" "}
-            <span className="font-semibold">{highlightName}</span>.
-          </p>
+        {(focusProductName || highlightName) && (
+          <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 px-3.5 py-3 shadow-xs sm:px-4 sm:py-3.5">
+            <p className="text-sm text-emerald-950">
+              {fromKitchen || ingredientParam ? (
+                <>
+                  Looking for{" "}
+                  <span className="font-semibold">
+                    {focusProductName || ingredientParam}
+                  </span>{" "}
+                  nearby?
+                </>
+              ) : (
+                <>
+                  Focusing on matches for{" "}
+                  <span className="font-semibold">{highlightName}</span>.
+                </>
+              )}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-emerald-900/85 sm:text-sm">
+              We don&apos;t track live stock — ask the store about fresh or
+              organic options for this ingredient. Scroll to nearby stores
+              below, or call ahead when you can.
+            </p>
+            {(fromKitchen || ingredientParam) && (
+              <Button
+                nativeButton={false}
+                render={<Link href="/kitchen" />}
+                variant="outline"
+                size="sm"
+                className="mt-2.5 h-9 gap-1.5 border-emerald-300/90 bg-white/90 text-emerald-950"
+              >
+                <Leaf className="size-3.5" />
+                Back to Leafy Kitchen
+              </Button>
+            )}
+          </div>
         )}
 
         <div className="mt-8 grid gap-6 lg:grid-cols-5">
