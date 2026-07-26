@@ -7,6 +7,7 @@ import {
   Check,
   ChefHat,
   ChevronDown,
+  ClipboardCopy,
   Clock,
   ExternalLink,
   Leaf,
@@ -14,9 +15,11 @@ import {
   MapPin,
   Minus,
   Plus,
+  Printer,
   ShoppingBag,
   Sparkles,
   Trash2,
+  Users,
   Wand2,
 } from "lucide-react";
 import Link from "next/link";
@@ -42,7 +45,9 @@ import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
   AISLE_LABELS,
+  DIETARY_FILTERS,
   SAMPLE_RECIPES,
+  SERVING_OPTIONS,
   buildRecipePlan,
   detectDietaryNotes,
   estimateIngredientLineTotal,
@@ -50,10 +55,17 @@ import {
   extractIngredientsFromRecipe,
   formatIngredientLabel,
   formatKitchenMoney,
+  formatShoppingListPlainText,
   groupByAisle,
   ingredientToCartProduct,
+  kitchenAmazonSearchTerm,
   kitchenIngredientCartId,
   kitchenLocalHref,
+  resolveBaseServings,
+  sampleMatchesDietaryFilter,
+  scaleIngredientsForServings,
+  shoppingListFilterNote,
+  type DietaryFilterId,
   type ShoppingIngredient,
 } from "@/lib/leafy-kitchen";
 import {
@@ -91,6 +103,11 @@ function KitchenAssistantPageInner() {
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [ingredients, setIngredients] = useState<ShoppingIngredient[]>([]);
+  const [baseServings, setBaseServings] = useState(2);
+  const [servings, setServings] = useState(2);
+  const [dietaryFilter, setDietaryFilter] = useState<DietaryFilterId | null>(
+    null
+  );
   const [addingAll, setAddingAll] = useState(false);
   const [savingList, setSavingList] = useState(false);
   const [listSaved, setListSaved] = useState(false);
@@ -104,17 +121,24 @@ function KitchenAssistantPageInner() {
 
   const grouped = useMemo(() => groupByAisle(ingredients), [ingredients]);
   const checkedCount = ingredients.filter((i) => i.checked).length;
+  const pantryCount = ingredients.filter((i) => i.haveIt).length;
 
   const addableIngredients = useMemo(
     () =>
       ingredients.filter(
-        (ing) => !ing.checked && !cartIds.has(kitchenIngredientCartId(ing))
+        (ing) =>
+          !ing.checked &&
+          !ing.haveIt &&
+          !cartIds.has(kitchenIngredientCartId(ing))
       ),
     [ingredients, cartIds]
   );
 
   const listTotalAll = useMemo(
-    () => estimateShoppingListTotal(ingredients, { onlyAddable: () => true }),
+    () =>
+      estimateShoppingListTotal(ingredients, {
+        onlyAddable: (ing) => !ing.haveIt,
+      }),
     [ingredients]
   );
 
@@ -122,10 +146,30 @@ function KitchenAssistantPageInner() {
     () =>
       estimateShoppingListTotal(ingredients, {
         onlyAddable: (ing) =>
-          !ing.checked && !cartIds.has(kitchenIngredientCartId(ing)),
+          !ing.checked &&
+          !ing.haveIt &&
+          !cartIds.has(kitchenIngredientCartId(ing)),
       }),
     [ingredients, cartIds]
   );
+
+  const filterNote = useMemo(
+    () => shoppingListFilterNote(ingredients, dietaryFilter),
+    [ingredients, dietaryFilter]
+  );
+
+  const filteredSamples = useMemo(
+    () =>
+      SAMPLE_RECIPES.filter((s) =>
+        sampleMatchesDietaryFilter(s, dietaryFilter)
+      ),
+    [dietaryFilter]
+  );
+
+  const servingChoices = useMemo(() => {
+    const set = new Set<number>([...SERVING_OPTIONS, baseServings, servings]);
+    return [...set].filter((n) => n > 0).sort((a, b) => a - b);
+  }, [baseServings, servings]);
 
   const livePlan = useMemo(() => {
     if (ingredients.length === 0) return null;
@@ -178,11 +222,16 @@ function KitchenAssistantPageInner() {
     openedSavedRef.current = savedId;
     setRecipeText(item.recipeText);
     setSelectedSampleId(item.sampleId);
+    const base = resolveBaseServings(item.recipeText, item.sampleId);
+    setBaseServings(base);
+    setServings(base);
     setIngredients(
       item.ingredients.map((i) => ({
         ...i,
         checked: false,
+        haveIt: Boolean(i.haveIt),
         cartQty: i.cartQty || 1,
+        baseQuantity: i.baseQuantity ?? i.quantity,
       }))
     );
     setPhase("ready");
@@ -233,8 +282,17 @@ function KitchenAssistantPageInner() {
     await new Promise((r) => window.setTimeout(r, 650));
 
     const parsed = extractIngredientsFromRecipe(text);
+    const base = resolveBaseServings(text, sid);
+    setBaseServings(base);
+    setServings(base);
     setIngredients(
-      parsed.map((i) => ({ ...i, checked: false, cartQty: i.cartQty || 1 }))
+      parsed.map((i) => ({
+        ...i,
+        checked: false,
+        haveIt: false,
+        cartQty: i.cartQty || 1,
+        baseQuantity: i.baseQuantity ?? i.quantity,
+      }))
     );
     setPhase("ready");
     setRecipeCollapsed(true);
@@ -252,13 +310,25 @@ function KitchenAssistantPageInner() {
         sampleCookMinutes: sample?.cookMinutes,
       });
       setLeafyTip(
-        `Found ${parsed.length} ingredients · about ${plan.totalMinutes} min end-to-end. Shop, check local, then plan your cook.`
+        `Found ${parsed.length} ingredients for ${base} servings · about ${plan.totalMinutes} min end-to-end. Adjust servings, tick pantry items, then shop.`
       );
       showSuccess(
         "Shopping list ready",
-        `${parsed.length} ingredients sorted by aisle.`
+        `${parsed.length} ingredients sorted by aisle · serves ${base}.`
       );
     }
+  }
+
+  function handleServingsChange(next: number) {
+    if (next === servings) return;
+    setServings(next);
+    setIngredients((prev) =>
+      scaleIngredientsForServings(prev, baseServings, next)
+    );
+    setListSaved(false);
+    setLeafyTip(
+      `Scaled to ${next} servings — quantities and basket estimate updated.`
+    );
   }
 
   async function handleSaveList() {
@@ -297,6 +367,17 @@ function KitchenAssistantPageInner() {
     );
   }
 
+  function toggleHaveIt(id: string) {
+    setIngredients((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        const haveIt = !i.haveIt;
+        return { ...i, haveIt, checked: haveIt ? false : i.checked };
+      })
+    );
+    setListSaved(false);
+  }
+
   function setCartQty(id: string, next: number) {
     const qty = Math.max(1, Math.min(20, Math.floor(next)));
     setIngredients((prev) =>
@@ -305,12 +386,36 @@ function KitchenAssistantPageInner() {
   }
 
   function openBuyOnline(ing: ShoppingIngredient) {
+    const search = kitchenAmazonSearchTerm(ing);
     const { url } = recordPartnerOutboundClick({
       platformId: "amazon",
       productId: `kitchen-${ing.id}`,
-      productName: `${ing.name} organic`,
+      productName: search,
     });
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function handleCopyList() {
+    if (ingredients.length === 0) return;
+    const text = formatShoppingListPlainText({
+      title: livePlan?.title ?? "Shopping list",
+      servings,
+      ingredients,
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      showSuccess("List copied", "Paste it into notes, messages, or email.");
+    } catch {
+      showSuccess(
+        "Copy ready",
+        "Your browser blocked clipboard access — try Print list instead."
+      );
+    }
+  }
+
+  function handlePrintList() {
+    if (typeof window === "undefined") return;
+    window.print();
   }
 
   async function addAllToCart() {
@@ -369,10 +474,16 @@ function KitchenAssistantPageInner() {
     setConfirmClear(false);
     setPhase("idle");
     setRecipeCollapsed(false);
+    setServings(2);
+    setBaseServings(2);
     setLeafyTip(
       "List cleared — pick a sample or paste a new recipe when you’re ready."
     );
     showSuccess("Shopping list cleared", "Start fresh whenever you like.");
+  }
+
+  function toggleDietaryFilter(id: DietaryFilterId) {
+    setDietaryFilter((prev) => (prev === id ? null : id));
   }
 
   const showResults =
@@ -413,7 +524,7 @@ function KitchenAssistantPageInner() {
           then helps you buy online, check local stores, and plan cook time.
         </p>
 
-        <div className="mt-5 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/90 p-3.5 shadow-sm sm:p-4">
+        <div className="mt-5 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/90 p-3.5 shadow-sm print:hidden sm:p-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
             <Leaf className="size-5" />
           </span>
@@ -427,38 +538,100 @@ function KitchenAssistantPageInner() {
           </div>
         </div>
 
-        {/* Sample chips — always visible */}
-        <div className="mt-6">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Start with a sample
-          </p>
-          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
-            {SAMPLE_RECIPES.map((sample) => (
-              <button
-                key={sample.id}
-                type="button"
-                disabled={phase === "extracting"}
-                onClick={() => loadSample(sample.id)}
-                className={cn(
-                  "min-w-[11rem] shrink-0 rounded-2xl border px-3.5 py-2.5 text-left text-sm transition-all duration-200 active:scale-[0.98] sm:min-w-0",
-                  selectedSampleId === sample.id && phase !== "idle"
-                    ? "border-emerald-800 bg-emerald-800 text-cream shadow-md"
-                    : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-sm"
-                )}
-              >
-                <span className="font-medium">{sample.title}</span>
-                <span
-                  className={cn(
-                    "mt-0.5 block text-[11px]",
-                    selectedSampleId === sample.id && phase !== "idle"
-                      ? "text-cream/80"
-                      : "text-emerald-800/70"
-                  )}
+        {/* Dietary filters + samples */}
+        <div className="mt-6 space-y-3 print:hidden">
+          <div>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Dietary filters
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {DIETARY_FILTERS.map((filter) => {
+                const active = dietaryFilter === filter.id;
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => toggleDietaryFilter(filter.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.98] sm:text-sm",
+                      active
+                        ? "border-emerald-800 bg-emerald-800 text-cream shadow-sm"
+                        : "border-emerald-200/90 bg-white/90 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-50"
+                    )}
+                    title={filter.hint}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+              {dietaryFilter && (
+                <button
+                  type="button"
+                  onClick={() => setDietaryFilter(null)}
+                  className="rounded-full px-2 py-1.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
                 >
-                  {sample.tagline}
-                </span>
-              </button>
-            ))}
+                  Clear filter
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Start with a sample
+              {dietaryFilter
+                ? ` · ${filteredSamples.length} match${filteredSamples.length === 1 ? "" : "es"}`
+                : ""}
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
+              {SAMPLE_RECIPES.map((sample) => {
+                const matches = sampleMatchesDietaryFilter(
+                  sample,
+                  dietaryFilter
+                );
+                const selected =
+                  selectedSampleId === sample.id && phase !== "idle";
+                return (
+                  <button
+                    key={sample.id}
+                    type="button"
+                    disabled={phase === "extracting"}
+                    onClick={() => loadSample(sample.id)}
+                    className={cn(
+                      "relative min-w-[11rem] shrink-0 rounded-2xl border px-3.5 py-2.5 text-left text-sm transition-all duration-200 active:scale-[0.98] sm:min-w-0",
+                      selected
+                        ? "border-emerald-800 bg-emerald-800 text-cream shadow-md"
+                        : matches
+                          ? "border-emerald-300 bg-emerald-50/90 text-emerald-950 shadow-sm ring-1 ring-emerald-400/30 hover:border-emerald-400 hover:bg-emerald-100"
+                          : "border-border/60 bg-muted/30 text-muted-foreground opacity-55 hover:opacity-80",
+                      dietaryFilter && matches && !selected && "border-emerald-500"
+                    )}
+                  >
+                    {dietaryFilter && matches && (
+                      <span
+                        className={cn(
+                          "mb-1 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          selected
+                            ? "bg-cream/20 text-cream"
+                            : "bg-emerald-800/10 text-emerald-900"
+                        )}
+                      >
+                        Fits filter
+                      </span>
+                    )}
+                    <span className="block font-medium">{sample.title}</span>
+                    <span
+                      className={cn(
+                        "mt-0.5 block text-[11px]",
+                        selected ? "text-cream/80" : "text-emerald-800/70"
+                      )}
+                    >
+                      {sample.tagline}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -471,7 +644,7 @@ function KitchenAssistantPageInner() {
           )}
         >
           {/* Recipe input */}
-          <Card className="border-border/70 bg-white/95 shadow-sm">
+          <Card className="border-border/70 bg-white/95 shadow-sm print:hidden">
             <CardHeader className="pb-2">
               <button
                 type="button"
@@ -595,36 +768,91 @@ Ingredients:
             )}
 
             {phase === "idle" && showResults && (
-              <Card className="border-dashed border-border/80 bg-card/70">
-                <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
-                  <span className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-900">
+              <Card className="border-dashed border-emerald-200/80 bg-gradient-to-b from-emerald-50/50 to-white/80 shadow-xs">
+                <CardContent className="flex flex-col items-center gap-4 px-4 py-10 text-center sm:py-12">
+                  <span className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-900 shadow-sm ring-1 ring-emerald-200/80">
                     <ShoppingBag className="size-6" />
                   </span>
-                  <p className="font-heading text-lg font-semibold text-primary">
-                    Your shopping list will appear here
-                  </p>
-                  <p className="max-w-sm text-sm text-muted-foreground">
-                    Tap a sample above for an instant list — or paste your own
-                    recipe and hit Make shopping list.
-                  </p>
+                  <div>
+                    <p className="font-heading text-lg font-semibold text-primary sm:text-xl">
+                      Your shopping list will appear here
+                    </p>
+                    <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                      Start in three quick steps — Leafy handles the sorting.
+                    </p>
+                  </div>
+                  <ol className="w-full max-w-sm space-y-2 text-left text-sm text-emerald-950/90">
+                    <li className="flex gap-2.5 rounded-xl border border-emerald-100 bg-white/80 px-3 py-2.5">
+                      <span className="font-heading text-base font-semibold text-emerald-800">
+                        1
+                      </span>
+                      <span>Pick a sample or paste a recipe</span>
+                    </li>
+                    <li className="flex gap-2.5 rounded-xl border border-emerald-100 bg-white/80 px-3 py-2.5">
+                      <span className="font-heading text-base font-semibold text-emerald-800">
+                        2
+                      </span>
+                      <span>Adjust servings &amp; tick pantry items</span>
+                    </li>
+                    <li className="flex gap-2.5 rounded-xl border border-emerald-100 bg-white/80 px-3 py-2.5">
+                      <span className="font-heading text-base font-semibold text-emerald-800">
+                        3
+                      </span>
+                      <span>Add to cart, check local, or save the list</span>
+                    </li>
+                  </ol>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      className="h-10 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900"
+                      onClick={() => loadSample(SAMPLE_RECIPES[0].id)}
+                      disabled={phase === "extracting"}
+                    >
+                      <Sparkles className="size-4" />
+                      Try a sample
+                    </Button>
+                    <Button
+                      nativeButton={false}
+                      render={<Link href="/kitchen/saved" />}
+                      variant="outline"
+                      className="h-10 gap-2"
+                    >
+                      <BookMarked className="size-4" />
+                      My Kitchen
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
             {phase === "ready" && ingredients.length === 0 && (
               <Card className="border-amber-200 bg-amber-50/50">
-                <CardContent className="py-10 text-center text-sm text-amber-950">
-                  No ingredients detected. Tip: add a line that says{" "}
-                  <strong>Ingredients:</strong> then list each item on its own
-                  line.
+                <CardContent className="space-y-3 px-4 py-10 text-center text-sm text-amber-950">
+                  <p className="font-heading text-base font-semibold">
+                    No ingredients detected
+                  </p>
+                  <p className="leading-relaxed">
+                    Add a line that says <strong>Ingredients:</strong> then list
+                    each item on its own line (e.g.{" "}
+                    <span className="font-mono text-xs">2 tbsp olive oil</span>
+                    ).
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 border-amber-300 bg-white"
+                    onClick={() => loadSample(SAMPLE_RECIPES[0].id)}
+                  >
+                    Try a sample recipe
+                  </Button>
                 </CardContent>
               </Card>
             )}
 
             {phase === "ready" && ingredients.length > 0 && (
               <>
-                <Card className="border-emerald-200/80 bg-white shadow-md ring-1 ring-emerald-900/5">
-                  <CardHeader className="space-y-4 pb-3">
+                <Card className="border-emerald-200/80 bg-white shadow-md ring-1 ring-emerald-900/5 print:shadow-none print:ring-0">
+                  <CardHeader className="space-y-3.5 px-3.5 pb-3 sm:space-y-4 sm:px-6">
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
@@ -634,10 +862,12 @@ Ingredients:
                           Shopping list
                         </CardTitle>
                         <CardDescription className="mt-1">
-                          {checkedCount}/{ingredients.length} checked · by aisle
+                          {checkedCount}/{ingredients.length} checked
+                          {pantryCount > 0 ? ` · ${pantryCount} in pantry` : ""}
+                          {" · "}by aisle
                         </CardDescription>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 print:hidden">
                         <Badge className="bg-emerald-800 text-cream">
                           {ingredients.length} items
                         </Badge>
@@ -671,6 +901,26 @@ Ingredients:
                             </>
                           )}
                         </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 bg-white"
+                          onClick={() => void handleCopyList()}
+                        >
+                          <ClipboardCopy className="size-3.5" />
+                          Share
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 gap-1.5"
+                          onClick={handlePrintList}
+                        >
+                          <Printer className="size-3.5" />
+                          Print
+                        </Button>
                         {!confirmClear ? (
                           <Button
                             type="button"
@@ -686,8 +936,51 @@ Ingredients:
                       </div>
                     </div>
 
+                    {/* Servings adjuster */}
+                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 px-3 py-3 print:border-border sm:px-3.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Users className="size-4 text-emerald-800" />
+                          <div>
+                            <p className="text-sm font-medium text-emerald-950">
+                              Servings
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              Scales quantities from {baseServings} base
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 print:hidden">
+                          {servingChoices.map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => handleServingsChange(n)}
+                              className={cn(
+                                "min-w-[2.5rem] rounded-xl border px-2.5 py-1.5 text-sm font-semibold tabular-nums transition-all active:scale-[0.97]",
+                                servings === n
+                                  ? "border-emerald-800 bg-emerald-800 text-cream shadow-sm"
+                                  : "border-emerald-200 bg-white text-emerald-950 hover:border-emerald-400"
+                              )}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="hidden text-sm font-semibold tabular-nums print:block">
+                          Serves {servings}
+                        </p>
+                      </div>
+                    </div>
+
+                    {filterNote && (
+                      <p className="rounded-xl border border-sky-200/80 bg-sky-50/70 px-3 py-2 text-xs leading-relaxed text-sky-950 print:hidden">
+                        {filterNote}
+                      </p>
+                    )}
+
                     {/* Estimated cost + hero Add All */}
-                    <div className="rounded-2xl border-2 border-emerald-700/25 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/30 p-3.5 shadow-sm sm:p-5">
+                    <div className="rounded-2xl border-2 border-emerald-700/25 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/30 p-3.5 shadow-sm print:hidden sm:p-5">
                       <div className="flex flex-wrap items-end justify-between gap-2">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
@@ -700,13 +993,15 @@ Ingredients:
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {addableTotal > 0
-                              ? `${addableIngredients.length} ready to add · illustrative`
-                              : "Illustrative prices · confirm at checkout"}
+                              ? `${addableIngredients.length} to buy · ${servings} servings`
+                              : pantryCount > 0
+                                ? "Pantry items excluded · illustrative prices"
+                                : "Illustrative prices · confirm at checkout"}
                           </p>
                         </div>
                         {addableTotal > 0 && addableTotal !== listTotalAll && (
                           <p className="text-right text-xs text-emerald-900/80">
-                            Full list
+                            Before pantry
                             <span className="mt-0.5 block font-heading text-lg font-semibold tabular-nums text-emerald-950">
                               {formatKitchenMoney(listTotalAll)}
                             </span>
@@ -808,41 +1103,47 @@ Ingredients:
                     )}
                     {ingredients.length > 0 &&
                       addableIngredients.length === 0 && (
-                        <p className="text-center text-xs text-muted-foreground">
-                          Everything on this list is already checked or in your
-                          cart.
+                        <p className="text-center text-xs text-muted-foreground print:hidden">
+                          Nothing left to add — items are in pantry, checked, or
+                          already in your cart.
                         </p>
                       )}
                   </CardHeader>
-                  <CardContent className="space-y-5 px-3.5 sm:space-y-5 sm:px-6">
+                  <CardContent className="space-y-4 px-3.5 sm:space-y-5 sm:px-6">
                     {grouped.map(({ aisle, items }) => (
                       <div key={aisle}>
-                        <p className="mb-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70 sm:mb-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70 sm:mb-2.5">
                           {AISLE_LABELS[aisle]}
                         </p>
-                        <ul className="space-y-3">
+                        <ul className="space-y-2.5 sm:space-y-3">
                           {items.map((ing) => {
                             const inCart = cartIds.has(
                               kitchenIngredientCartId(ing)
                             );
                             const done = ing.checked || inCart;
+                            const muted = done || ing.haveIt;
+                            const searchTerm = kitchenAmazonSearchTerm(ing);
                             return (
                               <li
                                 key={ing.id}
                                 className={cn(
-                                  "rounded-2xl border border-border/70 bg-muted/15 p-3.5 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm sm:rounded-xl sm:p-3.5",
-                                  done && "bg-emerald-50/50 opacity-75"
+                                  "rounded-2xl border border-border/70 bg-muted/15 p-3 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm sm:rounded-xl sm:p-3.5",
+                                  muted && "bg-muted/40 opacity-70",
+                                  ing.haveIt &&
+                                    "border-dashed border-emerald-300/70 bg-emerald-50/30"
                                 )}
                               >
                                 <div className="flex items-start gap-2.5 sm:gap-3">
                                   <button
                                     type="button"
                                     onClick={() => toggleChecked(ing.id)}
+                                    disabled={ing.haveIt}
                                     className={cn(
-                                      "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors sm:size-5",
+                                      "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors print:hidden sm:size-5",
                                       done
                                         ? "border-emerald-800 bg-emerald-800 text-cream"
-                                        : "border-border bg-background hover:border-emerald-400"
+                                        : "border-border bg-background hover:border-emerald-400",
+                                      ing.haveIt && "opacity-40"
                                     )}
                                     aria-label={
                                       ing.checked
@@ -857,16 +1158,24 @@ Ingredients:
                                       />
                                     )}
                                   </button>
-                                  <div className="min-w-0 flex-1 space-y-2.5 sm:space-y-3">
-                                    <div className="flex flex-wrap items-center gap-2">
+                                  <div className="min-w-0 flex-1 space-y-2 sm:space-y-2.5">
+                                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                                       <p
                                         className={cn(
                                           "text-[15px] font-medium leading-snug text-foreground sm:text-sm",
-                                          done && "line-through"
+                                          muted && "line-through decoration-emerald-800/40"
                                         )}
                                       >
                                         {formatIngredientLabel(ing)}
                                       </p>
+                                      {ing.haveIt && (
+                                        <Badge
+                                          variant="outline"
+                                          className="border-emerald-300/80 bg-emerald-50 text-[10px] font-medium text-emerald-900"
+                                        >
+                                          In pantry
+                                        </Badge>
+                                      )}
                                       {inCart && (
                                         <Badge
                                           variant="secondary"
@@ -877,72 +1186,95 @@ Ingredients:
                                       )}
                                     </div>
 
-                                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-                                      <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1 shadow-xs sm:rounded-lg sm:p-0.5">
-                                        <button
-                                          type="button"
-                                          disabled={done || ing.cartQty <= 1}
-                                          onClick={() =>
-                                            setCartQty(ing.id, ing.cartQty - 1)
-                                          }
-                                          className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
-                                          aria-label={`Decrease quantity for ${ing.name}`}
-                                        >
-                                          <Minus className="size-3.5" />
-                                        </button>
-                                        <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums sm:min-w-[1.75rem]">
-                                          {ing.cartQty}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          disabled={done || ing.cartQty >= 20}
-                                          onClick={() =>
-                                            setCartQty(ing.id, ing.cartQty + 1)
-                                          }
-                                          className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
-                                          aria-label={`Increase quantity for ${ing.name}`}
-                                        >
-                                          <Plus className="size-3.5" />
-                                        </button>
-                                      </div>
-                                      <span className="text-xs text-muted-foreground">
-                                        Qty ·{" "}
-                                        {formatKitchenMoney(
-                                          estimateIngredientLineTotal(ing)
+                                    <div className="flex flex-wrap items-center gap-2 print:hidden">
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleHaveIt(ing.id)}
+                                        className={cn(
+                                          "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all active:scale-[0.98] sm:text-xs",
+                                          ing.haveIt
+                                            ? "border-emerald-700 bg-emerald-800 text-cream"
+                                            : "border-border bg-background text-muted-foreground hover:border-emerald-300 hover:text-foreground"
                                         )}
-                                      </span>
+                                      >
+                                        {ing.haveIt
+                                          ? "Have it ✓"
+                                          : "I already have this"}
+                                      </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:flex-wrap">
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        className="h-10 w-full gap-1.5 bg-emerald-800 text-cream transition-all hover:bg-emerald-700 active:scale-[0.98] sm:h-8 sm:w-auto"
-                                        onClick={() => openBuyOnline(ing)}
-                                      >
-                                        <ShoppingBag className="size-3.5" />
-                                        Buy Online
-                                        <span className="text-[10px] opacity-80">
-                                          · {getAmazonStoreLabel()}
+                                    {!ing.haveIt && (
+                                      <div className="flex flex-wrap items-center gap-2.5 print:hidden sm:gap-3">
+                                        <div className="inline-flex items-center gap-0.5 rounded-xl border border-border bg-background p-1 shadow-xs sm:rounded-lg sm:p-0.5">
+                                          <button
+                                            type="button"
+                                            disabled={done || ing.cartQty <= 1}
+                                            onClick={() =>
+                                              setCartQty(ing.id, ing.cartQty - 1)
+                                            }
+                                            className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
+                                            aria-label={`Decrease quantity for ${ing.name}`}
+                                          >
+                                            <Minus className="size-3.5" />
+                                          </button>
+                                          <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums sm:min-w-[1.75rem]">
+                                            {ing.cartQty}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            disabled={done || ing.cartQty >= 20}
+                                            onClick={() =>
+                                              setCartQty(ing.id, ing.cartQty + 1)
+                                            }
+                                            className="inline-flex size-9 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted disabled:opacity-40 sm:size-8 sm:rounded-md"
+                                            aria-label={`Increase quantity for ${ing.name}`}
+                                          >
+                                            <Plus className="size-3.5" />
+                                          </button>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                          Cart qty ·{" "}
+                                          {formatKitchenMoney(
+                                            estimateIngredientLineTotal(ing)
+                                          )}
                                         </span>
-                                        <ExternalLink className="size-3 opacity-70" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-10 w-full gap-1.5 border-emerald-200/90 bg-white transition-all active:scale-[0.98] sm:h-8 sm:w-auto"
-                                        nativeButton={false}
-                                        render={
-                                          <Link
-                                            href={kitchenLocalHref(ing.name)}
-                                            aria-label={`Check local stores for ${ing.name}`}
-                                          />
-                                        }
-                                      >
-                                        <MapPin className="size-3.5" />
-                                        Check Local
-                                      </Button>
-                                    </div>
+                                      </div>
+                                    )}
+
+                                    {!ing.haveIt && (
+                                      <div className="grid grid-cols-1 gap-2 print:hidden sm:flex sm:flex-row sm:flex-wrap">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          className="h-10 w-full gap-1.5 bg-emerald-800 text-cream transition-all hover:bg-emerald-700 active:scale-[0.98] sm:h-8 sm:w-auto"
+                                          onClick={() => openBuyOnline(ing)}
+                                          title={`Search Amazon for ${searchTerm}`}
+                                        >
+                                          <ShoppingBag className="size-3.5" />
+                                          Buy Online
+                                          <span className="text-[10px] opacity-80">
+                                            · {getAmazonStoreLabel()}
+                                          </span>
+                                          <ExternalLink className="size-3 opacity-70" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-10 w-full gap-1.5 border-emerald-200/90 bg-white transition-all active:scale-[0.98] sm:h-8 sm:w-auto"
+                                          nativeButton={false}
+                                          render={
+                                            <Link
+                                              href={kitchenLocalHref(ing)}
+                                              aria-label={`Check local stores for ${searchTerm}`}
+                                              title={`Find ${searchTerm} nearby`}
+                                            />
+                                          }
+                                        >
+                                          <MapPin className="size-3.5" />
+                                          Check Local
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </li>
@@ -952,7 +1284,7 @@ Ingredients:
                       </div>
                     ))}
                   </CardContent>
-                  <CardFooter className="flex flex-col items-stretch gap-2.5 border-t bg-emerald-50/40 px-3.5 py-3.5 sm:gap-3 sm:px-6 sm:py-4">
+                  <CardFooter className="flex flex-col items-stretch gap-2.5 border-t bg-emerald-50/40 px-3.5 py-3.5 print:hidden sm:gap-3 sm:px-6 sm:py-4">
                     <Button
                       type="button"
                       size="lg"
@@ -1020,7 +1352,7 @@ Ingredients:
                           <Link
                             href={
                               ingredients[0]
-                                ? kitchenLocalHref(ingredients[0].name)
+                                ? kitchenLocalHref(ingredients[0])
                                 : "/local"
                             }
                           />
@@ -1056,10 +1388,7 @@ Ingredients:
                         ~{timePreview.total} minutes total
                       </CardTitle>
                       <CardDescription className="text-emerald-900/75">
-                        {livePlan.title}
-                        {livePlan.servingsHint
-                          ? ` · Serves ${livePlan.servingsHint}`
-                          : ""}
+                        {livePlan.title} · Serves {servings}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1127,7 +1456,7 @@ Ingredients:
                           <Link
                             href={
                               ingredients[0]
-                                ? kitchenLocalHref(ingredients[0].name)
+                                ? kitchenLocalHref(ingredients[0])
                                 : "/local"
                             }
                           />

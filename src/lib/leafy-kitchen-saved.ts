@@ -113,6 +113,8 @@ export function saveKitchenList(input: {
   const ingredients = input.ingredients.map((ing) => ({
     ...ing,
     checked: false,
+    haveIt: Boolean(ing.haveIt),
+    baseQuantity: ing.baseQuantity ?? ing.quantity,
   }));
   const existing = findMatchingSavedList(
     title,

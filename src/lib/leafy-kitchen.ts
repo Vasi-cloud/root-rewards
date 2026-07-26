@@ -25,8 +25,12 @@ export type ShoppingIngredient = {
   /** pantry | produce | protein | dairy | other */
   aisle: "pantry" | "produce" | "protein" | "dairy" | "other";
   checked: boolean;
+  /** User already has this — muted + excluded from Add All */
+  haveIt: boolean;
   /** How many units to add to the Forest Buddies cart (default 1) */
   cartQty: number;
+  /** Quantity at recipe base servings (for rescaling) */
+  baseQuantity: string | null;
 };
 
 export type RecipePlan = {
@@ -48,7 +52,7 @@ export const SAMPLE_RECIPES: SampleRecipe[] = [
     tagline: "Weeknight greens · 30 min",
     cookMinutes: 30,
     servings: 2,
-    tags: ["vegan", "high-protein"],
+    tags: ["vegan", "vegetarian", "gluten-free", "high-protein"],
     text: `Herb Lentil Power Bowl
 Serves 2 · About 30 minutes
 
@@ -79,7 +83,7 @@ Method:
     tagline: "Light supper · 25 min",
     cookMinutes: 25,
     servings: 2,
-    tags: ["pescatarian", "quick"],
+    tags: ["pescatarian", "gluten-free", "quick"],
     text: `One-Pan Lemon Herb Salmon
 Serves 2 · About 25 minutes
 
@@ -106,7 +110,7 @@ Method:
     tagline: "Make-ahead breakfast · 10 min + chill",
     cookMinutes: 10,
     servings: 2,
-    tags: ["breakfast", "make-ahead"],
+    tags: ["vegan", "vegetarian", "breakfast", "make-ahead"],
     text: `Forest Berry Chia Pudding
 Serves 2 · 10 minutes active + overnight chill
 
@@ -544,7 +548,9 @@ function detectCommonIngredientsInText(
       unit: null,
       aisle: classifyAisle(name),
       checked: false,
+      haveIt: false,
       cartQty: 1,
+      baseQuantity: null,
     });
     if (found.length >= 18) break;
   }
@@ -646,7 +652,9 @@ export function extractIngredientsFromRecipe(text: string): ShoppingIngredient[]
       unit: parsed.unit,
       aisle: classifyAisle(parsed.name),
       checked: false,
+      haveIt: false,
       cartQty: 1,
+      baseQuantity: parsed.quantity,
     });
   }
 
@@ -662,12 +670,44 @@ export function extractIngredientsFromRecipe(text: string): ShoppingIngredient[]
   return ingredients.slice(0, 24);
 }
 
+function pluralizeUnit(unit: string | null, qty: string | null): string | null {
+  if (!unit) return null;
+  const n = parseQuantityValue(qty);
+  const plural = n != null && n > 1.001;
+  const map: Record<string, [string, string]> = {
+    cup: ["cup", "cups"],
+    cups: ["cup", "cups"],
+    tbsp: ["tbsp", "tbsp"],
+    tsp: ["tsp", "tsp"],
+    clove: ["clove", "cloves"],
+    cloves: ["clove", "cloves"],
+    bunch: ["bunch", "bunches"],
+    bunches: ["bunch", "bunches"],
+    fillet: ["fillet", "fillets"],
+    fillets: ["fillet", "fillets"],
+    can: ["can", "cans"],
+    cans: ["can", "cans"],
+    tin: ["tin", "tins"],
+    tins: ["tin", "tins"],
+    g: ["g", "g"],
+    ml: ["ml", "ml"],
+    kg: ["kg", "kg"],
+    l: ["l", "l"],
+    oz: ["oz", "oz"],
+    lb: ["lb", "lb"],
+  };
+  const pair = map[unit.toLowerCase()];
+  if (!pair) return unit;
+  return plural ? pair[1] : pair[0];
+}
+
 export function formatIngredientLabel(ing: ShoppingIngredient): string {
   if (ing.quantity === "to taste") {
     return `${ing.name} (to taste)`;
   }
   if (ing.quantity && ing.unit) {
-    return `${ing.quantity} ${ing.unit} ${ing.name}`;
+    const unit = pluralizeUnit(ing.unit, ing.quantity) ?? ing.unit;
+    return `${ing.quantity} ${unit} ${ing.name}`;
   }
   if (ing.quantity) {
     // Vague measures read naturally: “handful dill” → “handful of dill”
@@ -683,13 +723,302 @@ export function formatIngredientLabel(ing: ShoppingIngredient): string {
   return ing.name;
 }
 
+export const SERVING_OPTIONS = [2, 4, 6, 8] as const;
+
+const VAGUE_QTY_RE =
+  /^(?:to taste|(?:small |large |heaped )?(handful|pinch|dash|splash|sprinkle))$/i;
+
+/** Parse a quantity string into a number (null if not scalable). */
+export function parseQuantityValue(qty: string | null): number | null {
+  if (!qty) return null;
+  const trimmed = qty.trim();
+  if (VAGUE_QTY_RE.test(trimmed)) return null;
+
+  // Range → midpoint (e.g. 2–3)
+  const range = trimmed.match(
+    /^(\d+(?:\.\d+)?|\d+\/\d+|\d+\s+\d+\/\d+)\s*[–-]\s*(\d+(?:\.\d+)?|\d+\/\d+|\d+\s+\d+\/\d+)$/
+  );
+  if (range) {
+    const a = parseQuantityValue(range[1]);
+    const b = parseQuantityValue(range[2]);
+    if (a != null && b != null) return (a + b) / 2;
+  }
+
+  // Mixed number: 1 1/2
+  const mixed = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) {
+    return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
+  }
+
+  // Simple fraction: 1/2
+  const frac = trimmed.match(/^(\d+)\/(\d+)$/);
+  if (frac) {
+    const d = Number(frac[2]);
+    return d === 0 ? null : Number(frac[1]) / d;
+  }
+
+  const n = Number.parseFloat(trimmed);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Format a scaled amount in a friendly way (prefer simple fractions). */
+export function formatQuantityValue(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "1";
+  const rounded = Math.round(n * 100) / 100;
+  const whole = Math.floor(rounded + 1e-9);
+  const frac = rounded - whole;
+
+  const fractions: Array<[number, string]> = [
+    [0, ""],
+    [0.25, "1/4"],
+    [0.33, "1/3"],
+    [0.5, "1/2"],
+    [0.67, "2/3"],
+    [0.75, "3/4"],
+  ];
+
+  let best = "";
+  let bestDiff = 0.08;
+  for (const [v, label] of fractions) {
+    const diff = Math.abs(frac - v);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = label;
+    }
+  }
+
+  if (best === "" && frac < 0.08) {
+    return String(Math.max(1, whole || Math.round(rounded)));
+  }
+  if (best && whole === 0) return best;
+  if (best && whole > 0) return `${whole} ${best}`;
+  if (Number.isInteger(rounded)) return String(rounded);
+  return String(Math.round(rounded * 10) / 10);
+}
+
+export function scaleQuantityString(
+  baseQuantity: string | null,
+  baseServings: number,
+  servings: number
+): string | null {
+  if (!baseQuantity) return null;
+  if (baseServings <= 0 || servings <= 0) return baseQuantity;
+  if (Math.abs(baseServings - servings) < 1e-9) return baseQuantity;
+  if (VAGUE_QTY_RE.test(baseQuantity.trim())) return baseQuantity;
+
+  const value = parseQuantityValue(baseQuantity);
+  if (value == null) return baseQuantity;
+
+  const scaled = value * (servings / baseServings);
+  return formatQuantityValue(scaled);
+}
+
+export function scaleIngredientsForServings(
+  ingredients: ShoppingIngredient[],
+  baseServings: number,
+  servings: number
+): ShoppingIngredient[] {
+  return ingredients.map((ing) => ({
+    ...ing,
+    quantity: scaleQuantityString(
+      ing.baseQuantity ?? ing.quantity,
+      baseServings,
+      servings
+    ),
+  }));
+}
+
+export function resolveBaseServings(
+  recipeText: string,
+  sampleId?: string | null
+): number {
+  const fromText = extractServings(recipeText);
+  if (fromText && fromText > 0) return fromText;
+  const sample = sampleId
+    ? SAMPLE_RECIPES.find((s) => s.id === sampleId)
+    : undefined;
+  return sample?.servings ?? 2;
+}
+
+/** Cleaner grocery search term for Amazon / Buy Local. */
+export function ingredientSearchTerm(
+  ing: Pick<ShoppingIngredient, "name" | "raw" | "unit">
+): string {
+  const raw = ing.raw
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\bto taste\b/gi, "")
+    .replace(
+      /^(?:a\s+|an\s+)?(?:small\s+|large\s+|heaped\s+)?(?:handful|pinch|dash|splash|sprinkle)\s+(?:of\s+)?/i,
+      ""
+    )
+    .replace(
+      /^\d+(?:\s+\d+\/\d+|\.\d+|\/\d+)?(?:\s*[–-]\s*\d+(?:\s+\d+\/\d+|\.\d+|\/\d+)?)?\s*/i,
+      ""
+    )
+    .replace(
+      /^(?:cups?|tbsp|tbsps?|tablespoons?|tsp|tsps?|teaspoons?|ml|l|g|kg|oz|lb|lbs|cloves?|bunch(?:es)?|cans?|tins?|packets?|packs?|fillets?|pieces?)\s+/i,
+      ""
+    )
+    .replace(
+      /\b(optional|rinsed|cubed|sliced|minced|crushed|trimmed|halved|chopped|diced|juiced|fresh|dried|ground|organic|sea|cracked)\b/gi,
+      ""
+    )
+    .replace(/,.*$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  let term = raw.length >= 3 ? raw : ing.name;
+
+  // Prefer keeping distinctive product words from the cleaned name
+  if (ing.name && term.toLowerCase().includes(ing.name.toLowerCase())) {
+    // already good
+  } else if (ing.name.length > term.length) {
+    term = ing.name;
+  }
+
+  // Count nouns that shoppers search for
+  if (/\bsalmon\b/i.test(term) && !/\bfillet/i.test(term)) {
+    term = term.replace(/\bsalmon\b/i, "salmon fillets");
+  }
+  if (/\blentil\b/i.test(term) && !/\blentils\b/i.test(term)) {
+    term = term.replace(/\blentil\b/i, "lentils");
+  }
+
+  term = term.replace(/\s+/g, " ").trim();
+  return term || ing.name;
+}
+
+export function kitchenAmazonSearchTerm(
+  ing: Pick<ShoppingIngredient, "name" | "raw" | "unit">
+): string {
+  return `${ingredientSearchTerm(ing)}`.trim();
+}
+
 /** Deep-link to Buy Local focused on this ingredient. */
-export function kitchenLocalHref(ingredientName: string): string {
+export function kitchenLocalHref(
+  ingredient: string | Pick<ShoppingIngredient, "name" | "raw" | "unit">
+): string {
+  const term =
+    typeof ingredient === "string"
+      ? ingredient.trim()
+      : ingredientSearchTerm(ingredient);
   const params = new URLSearchParams({
-    ingredient: ingredientName.trim(),
+    ingredient: term,
     from: "kitchen",
   });
   return `/local?${params.toString()}#local-stores`;
+}
+
+export type DietaryFilterId = "vegetarian" | "vegan" | "gluten-free";
+
+export const DIETARY_FILTERS: Array<{
+  id: DietaryFilterId;
+  label: string;
+  hint: string;
+}> = [
+  {
+    id: "vegetarian",
+    label: "Vegetarian",
+    hint: "No meat or fish",
+  },
+  {
+    id: "vegan",
+    label: "Vegan",
+    hint: "Plant-based",
+  },
+  {
+    id: "gluten-free",
+    label: "Gluten-free",
+    hint: "Check labels — guidance only",
+  },
+];
+
+export function sampleMatchesDietaryFilter(
+  sample: SampleRecipe,
+  filter: DietaryFilterId | null
+): boolean {
+  if (!filter) return true;
+  const tags = sample.tags.map((t) => t.toLowerCase());
+  if (filter === "vegan") return tags.includes("vegan");
+  if (filter === "vegetarian") {
+    return tags.includes("vegan") || tags.includes("vegetarian");
+  }
+  if (filter === "gluten-free") return tags.includes("gluten-free");
+  return true;
+}
+
+/** Gentle note when a dietary filter is active on the current list. */
+export function shoppingListFilterNote(
+  ingredients: ShoppingIngredient[],
+  filter: DietaryFilterId | null
+): string | null {
+  if (!filter || ingredients.length === 0) return null;
+
+  if (filter === "vegan") {
+    const hasAnimal =
+      ingredients.some((i) =>
+        /\b(salmon|tuna|fish|chicken|beef|turkey|egg|eggs|honey|butter|cheese|feta|parmesan)\b/i.test(
+          i.name
+        )
+      ) ||
+      ingredients.some(
+        (i) =>
+          /\b(milk|yoghurt|yogurt|cream)\b/i.test(i.name) &&
+          !/\b(oat|almond|soy|coconut|rice|hemp)\b/i.test(i.name)
+      );
+    if (hasAnimal) {
+      return "Vegan filter is on — this list may include animal products. Double-check before you shop.";
+    }
+    return "Vegan filter is on — this list looks plant-based. Still check labels for honey or hidden dairy.";
+  }
+
+  if (filter === "vegetarian") {
+    const hasMeatFish = ingredients.some((i) =>
+      /\b(salmon|tuna|fish|chicken|beef|turkey|anchovy|prawn|shrimp)\b/i.test(
+        i.name
+      )
+    );
+    if (hasMeatFish) {
+      return "Vegetarian filter is on — this list includes fish or meat. Swap those items if you need a vegetarian shop.";
+    }
+    return "Vegetarian filter is on — no meat or fish spotted on this list.";
+  }
+
+  if (filter === "gluten-free") {
+    const risky = ingredients.some((i) =>
+      /\b(flour|pasta|bread|soy sauce|wheat|couscous|noodle|oat|oats)\b/i.test(
+        i.name
+      )
+    );
+    if (risky) {
+      return "Gluten-free filter is on — some items may contain gluten depending on brand. Choose certified GF where needed.";
+    }
+    return "Gluten-free filter is on — nothing obvious on this list, but always read packaging.";
+  }
+
+  return null;
+}
+
+export function formatShoppingListPlainText(input: {
+  title: string;
+  servings: number;
+  ingredients: ShoppingIngredient[];
+}): string {
+  const lines = [
+    input.title,
+    `Servings: ${input.servings}`,
+    "",
+    "Shopping list",
+    ...input.ingredients.map((ing) => {
+      const label = formatIngredientLabel(ing);
+      if (ing.haveIt) return `☐ ${label} (already have)`;
+      if (ing.checked) return `☑ ${label}`;
+      return `☐ ${label}`;
+    }),
+    "",
+    "Planned with Forest Buddies® Leafy Kitchen",
+  ];
+  return lines.join("\n");
 }
 
 /** Stable cart id for a kitchen ingredient (dedupe across recipes). */
@@ -712,9 +1041,9 @@ const AISLE_BASE_PRICE: Record<ShoppingIngredient["aisle"], number> = {
 
 /** Unit shelf estimate for one cart line (before cartQty). */
 export function estimateIngredientUnitPrice(ing: ShoppingIngredient): number {
-  const qty = ing.quantity ? Number.parseFloat(ing.quantity.replace(/^\d+\//, "0.")) : NaN;
+  const qty = parseQuantityValue(ing.quantity);
   const qtyFactor =
-    Number.isFinite(qty) && qty > 0 ? Math.min(3, Math.max(0.5, qty)) : 1;
+    qty != null && qty > 0 ? Math.min(3, Math.max(0.5, qty)) : 1;
   return Math.round(AISLE_BASE_PRICE[ing.aisle] * qtyFactor * 100) / 100;
 }
 
@@ -729,7 +1058,7 @@ export function estimateShoppingListTotal(
 ): number {
   const list = opts?.onlyAddable
     ? ingredients.filter(opts.onlyAddable)
-    : ingredients.filter((i) => !i.checked);
+    : ingredients.filter((i) => !i.checked && !i.haveIt);
   return Math.round(
     list.reduce((sum, ing) => sum + estimateIngredientLineTotal(ing), 0) * 100
   ) / 100;
