@@ -806,7 +806,6 @@ Ingredients:
                       type="button"
                       className="h-10 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900"
                       onClick={() => loadSample(SAMPLE_RECIPES[0].id)}
-                      disabled={phase === "extracting"}
                     >
                       <Sparkles className="size-4" />
                       Try a sample
