@@ -30,6 +30,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { KitchenDietaryNotes } from "@/components/kitchen/kitchen-dietary-notes";
 import { KitchenSavedLink } from "@/components/kitchen/kitchen-saved-link";
+import { KitchenVoiceInput } from "@/components/kitchen/kitchen-voice-input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,13 +49,16 @@ import {
   AISLE_LABELS,
   DIETARY_FILTERS,
   SAMPLE_RECIPES,
+  SEASONAL_SAMPLE_RECIPES,
   SERVING_OPTIONS,
   buildRecipePlan,
   detectDietaryNotes,
   estimateIngredientLineTotal,
+  estimateRecipeCarbon,
   estimateShoppingListTotal,
   extractIngredientsFromRecipe,
   downloadShoppingListText,
+  findSampleRecipe,
   formatIngredientLabel,
   formatKitchenMoney,
   formatShoppingListPlainText,
@@ -177,6 +181,14 @@ function KitchenAssistantPageInner() {
     [dietaryFilter]
   );
 
+  const filteredSeasonalSamples = useMemo(
+    () =>
+      SEASONAL_SAMPLE_RECIPES.filter((s) =>
+        sampleMatchesDietaryFilter(s, dietaryFilter)
+      ),
+    [dietaryFilter]
+  );
+
   const servingChoices = useMemo(() => {
     const set = new Set<number>([...SERVING_OPTIONS, baseServings, servings]);
     return [...set].filter((n) => n > 0).sort((a, b) => a - b);
@@ -184,13 +196,21 @@ function KitchenAssistantPageInner() {
 
   const livePlan = useMemo(() => {
     if (ingredients.length === 0) return null;
-    const sample = SAMPLE_RECIPES.find((s) => s.id === selectedSampleId);
+    const sample = selectedSampleId
+      ? findSampleRecipe(selectedSampleId)
+      : undefined;
     return buildRecipePlan({
       recipeText,
       ingredients,
       sampleCookMinutes: sample?.cookMinutes,
     });
   }, [ingredients, recipeText, selectedSampleId]);
+
+  const carbonEstimate = useMemo(
+    () =>
+      ingredients.length > 0 ? estimateRecipeCarbon(ingredients) : null,
+    [ingredients]
+  );
 
   const dietaryNotes = useMemo(
     () => detectDietaryNotes(ingredients),
@@ -371,7 +391,7 @@ function KitchenAssistantPageInner() {
         "Hmm, I couldn’t find clear ingredient lines. Try listing them under “Ingredients:” or pick a sample."
       );
     } else {
-      const sample = SAMPLE_RECIPES.find((s) => s.id === sid);
+      const sample = sid ? findSampleRecipe(sid) : undefined;
       const plan = buildRecipePlan({
         recipeText: text,
         ingredients: parsed,
@@ -435,12 +455,36 @@ function KitchenAssistantPageInner() {
   }
 
   function loadSample(id: string) {
-    const sample = SAMPLE_RECIPES.find((s) => s.id === id);
+    const sample = findSampleRecipe(id);
     if (!sample) return;
     setSelectedSampleId(id);
     setRecipeText(sample.text);
-    setLeafyTip(`Nice pick — building a list for “${sample.title}”…`);
+    setLeafyTip(
+      sample.seasonal
+        ? `Seasonal pick — building a list for “${sample.title}”…`
+        : `Nice pick — building a list for “${sample.title}”…`
+    );
     void runExtract(sample.text, id);
+  }
+
+  function appendVoiceTranscript(chunk: string) {
+    const text = chunk.trim();
+    if (!text) return;
+    setRecipeText((prev) => {
+      const trimmed = prev.trimEnd();
+      if (!trimmed) return text;
+      const joiner = trimmed.endsWith("\n") ? "" : "\n";
+      return `${trimmed}${joiner}${text}`;
+    });
+    setSelectedSampleId(null);
+    if (phase === "ready") {
+      setPhase("idle");
+      setIngredients([]);
+      setRecipeCollapsed(false);
+    }
+    setLeafyTip(
+      "Voice captured — edit the text if needed, then make your shopping list."
+    );
   }
 
   function toggleChecked(id: string) {
@@ -732,6 +776,77 @@ function KitchenAssistantPageInner() {
               })}
             </div>
           </div>
+
+          <div>
+            <p className="mb-2 flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <Leaf className="size-3.5 text-emerald-700" />
+                Local & seasonal
+              </span>
+              {dietaryFilter
+                ? ` · ${filteredSeasonalSamples.length} match${filteredSeasonalSamples.length === 1 ? "" : "es"}`
+                : ""}
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden">
+              {SEASONAL_SAMPLE_RECIPES.map((sample) => {
+                const matches = sampleMatchesDietaryFilter(
+                  sample,
+                  dietaryFilter
+                );
+                const selected =
+                  selectedSampleId === sample.id && phase !== "idle";
+                return (
+                  <button
+                    key={sample.id}
+                    type="button"
+                    disabled={phase === "extracting"}
+                    onClick={() => loadSample(sample.id)}
+                    className={cn(
+                      "relative min-w-[11.5rem] shrink-0 rounded-2xl border px-3.5 py-2.5 text-left text-sm transition-all duration-200 active:scale-[0.98] sm:min-w-0",
+                      selected
+                        ? "border-emerald-800 bg-emerald-800 text-cream shadow-md"
+                        : matches
+                          ? "border-lime-300/90 bg-lime-50/80 text-emerald-950 shadow-sm ring-1 ring-lime-400/25 hover:border-lime-400 hover:bg-lime-50"
+                          : "border-border/60 bg-muted/30 text-muted-foreground opacity-55 hover:opacity-80",
+                      dietaryFilter && matches && !selected && "border-lime-500"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "mb-1 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        selected
+                          ? "bg-cream/20 text-cream"
+                          : "bg-lime-700/10 text-lime-900"
+                      )}
+                    >
+                      {sample.seasonLabel ?? "In season now"}
+                    </span>
+                    {dietaryFilter && matches && (
+                      <span
+                        className={cn(
+                          "mb-1 ml-1 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                          selected
+                            ? "bg-cream/20 text-cream"
+                            : "bg-emerald-800/10 text-emerald-900"
+                        )}
+                      >
+                        Fits filter
+                      </span>
+                    )}
+                    <span className="block font-medium">{sample.title}</span>
+                    <span
+                      className={cn(
+                        "mt-0.5 block text-[11px]",
+                        selected ? "text-cream/80" : "text-emerald-800/70"
+                      )}
+                    >
+                      {sample.tagline}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <div
@@ -762,7 +877,8 @@ function KitchenAssistantPageInner() {
                 />
               </button>
               <CardDescription className={cn(recipeCollapsed && "hidden lg:block")}>
-                Paste ingredients and method, or use a sample above.
+                Paste ingredients and method, speak a recipe, or use a sample
+                above.
               </CardDescription>
             </CardHeader>
             <CardContent
@@ -771,6 +887,10 @@ function KitchenAssistantPageInner() {
                 recipeCollapsed && "hidden lg:block"
               )}
             >
+              <KitchenVoiceInput
+                disabled={phase === "extracting"}
+                onTranscript={appendVoiceTranscript}
+              />
               <textarea
                 value={recipeText}
                 onChange={(e) => {
@@ -1154,6 +1274,23 @@ Ingredients:
                           </p>
                         )}
                       </div>
+
+                      {carbonEstimate && (
+                        <div className="mt-3 flex flex-wrap items-start gap-2.5 rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5">
+                          <Leaf className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-800/70">
+                              Estimated footprint
+                            </p>
+                            <p className="font-heading mt-0.5 text-lg font-semibold tabular-nums text-emerald-950">
+                              {carbonEstimate.label}
+                            </p>
+                            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                              {carbonEstimate.detail}
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       <Button
                         type="button"
@@ -1572,8 +1709,22 @@ Ingredients:
                       <p className="text-sm leading-relaxed text-emerald-950/90">
                         {livePlan.summary}
                       </p>
+                      {carbonEstimate && (
+                        <div className="flex flex-wrap items-start gap-2.5 rounded-xl border border-emerald-200/80 bg-white/70 px-3 py-2.5">
+                          <Leaf className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-emerald-950">
+                              Shopping list footprint · {carbonEstimate.label}
+                            </p>
+                            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                              Illustrative estimate · pantry items excluded
+                            </p>
+                          </div>
+                        </div>
+                      )}
                       <p className="rounded-xl border border-dashed border-emerald-300/80 bg-white/60 px-3 py-2.5 text-xs leading-relaxed text-emerald-900/80">
-                        Google Calendar opens a draft event. Full sync is on the
+                        Opens a Google Calendar draft with recipe name, total
+                        time, and a short shopping note. Full sync is on the
                         roadmap.
                       </p>
                     </CardContent>

@@ -14,6 +14,10 @@ export type SampleRecipe = {
   servings: number;
   tags: string[];
   text: string;
+  /** When true, shown under Seasonal picks */
+  seasonal?: boolean;
+  /** Short label e.g. “In season now” */
+  seasonLabel?: string;
 };
 
 export type ShoppingIngredient = {
@@ -131,6 +135,103 @@ Method:
 `,
   },
 ];
+
+/** Seasonal / local-leaning sample ideas (same flow as core samples). */
+export const SEASONAL_SAMPLE_RECIPES: SampleRecipe[] = [
+  {
+    id: "summer-tomato-salad",
+    title: "Peak Tomato & Herb Salad",
+    tagline: "No-cook · 15 min",
+    cookMinutes: 15,
+    servings: 2,
+    tags: ["vegan", "vegetarian", "gluten-free", "seasonal"],
+    seasonal: true,
+    seasonLabel: "In season now",
+    text: `Peak Tomato & Herb Salad
+Serves 2 · About 15 minutes
+
+Ingredients:
+- 4 ripe tomatoes, sliced
+- 1 cucumber, sliced
+- 1 handful fresh basil
+- 2 tbsp olive oil
+- 1 tbsp balsamic vinegar
+- 1 garlic clove, minced
+- Sea salt and black pepper to taste
+- Optional: 50g soft cheese or vegan alternative
+
+Method:
+1. Arrange tomato and cucumber on a plate.
+2. Whisk oil, vinegar, garlic, salt, and pepper.
+3. Spoon dressing over, tear basil on top, and serve.
+`,
+  },
+  {
+    id: "autumn-squash-soup",
+    title: "Roasted Squash Soup",
+    tagline: "Cosy bowl · 40 min",
+    cookMinutes: 40,
+    servings: 4,
+    tags: ["vegan", "vegetarian", "gluten-free", "seasonal"],
+    seasonal: true,
+    seasonLabel: "In season now",
+    text: `Roasted Squash Soup
+Serves 4 · About 40 minutes
+
+Ingredients:
+- 1 medium butternut squash, cubed
+- 1 onion, chopped
+- 2 garlic cloves
+- 2 tbsp olive oil
+- 750ml vegetable stock
+- 1 tsp ground cumin
+- Salt and black pepper to taste
+- 2 tbsp coconut yoghurt (optional)
+
+Method:
+1. Roast squash, onion, and garlic with oil at 200°C for 25 minutes.
+2. Simmer with stock and cumin for 10 minutes.
+3. Blend smooth, season, and finish with yoghurt if using.
+`,
+  },
+  {
+    id: "local-greens-pasta",
+    title: "Local Greens Pasta",
+    tagline: "Weeknight · 20 min",
+    cookMinutes: 20,
+    servings: 2,
+    tags: ["vegetarian", "seasonal", "quick"],
+    seasonal: true,
+    seasonLabel: "Local & seasonal",
+    text: `Local Greens Pasta
+Serves 2 · About 20 minutes
+
+Ingredients:
+- 200g pasta
+- 2 cups mixed seasonal greens (spinach, kale, or chard)
+- 2 tbsp olive oil
+- 2 garlic cloves, sliced
+- 1 lemon, zest and juice
+- 40g grated cheese or nutritional yeast
+- Pinch of chilli flakes
+- Salt and black pepper
+
+Method:
+1. Cook pasta until al dente; reserve a splash of water.
+2. Wilt greens in oil with garlic for 2–3 minutes.
+3. Toss with pasta, lemon, cheese, chilli, and pasta water.
+`,
+  },
+];
+
+/** All loadable sample recipes (core + seasonal). */
+export function getAllSampleRecipes(): SampleRecipe[] {
+  return [...SAMPLE_RECIPES, ...SEASONAL_SAMPLE_RECIPES];
+}
+
+export function findSampleRecipe(id: string): SampleRecipe | undefined {
+  return getAllSampleRecipes().find((s) => s.id === id);
+}
 
 const UNIT_PATTERN =
   "(?:cups?|tbsp|tbsps?|tablespoons?|tsp|tsps?|teaspoons?|ml|l|litres?|liters?|g|grams?|kg|oz|ounces?|lb|lbs|pounds?|cloves?|bunch(?:es)?|handfuls?|slices?|pinch(?:es)?|cans?|tins?|packets?|packs?|fillets?|pieces?|sprigs?)";
@@ -869,9 +970,7 @@ export function resolveBaseServings(
 ): number {
   const fromText = extractServings(recipeText);
   if (fromText && fromText > 0) return fromText;
-  const sample = sampleId
-    ? SAMPLE_RECIPES.find((s) => s.id === sampleId)
-    : undefined;
+  const sample = sampleId ? findSampleRecipe(sampleId) : undefined;
   return sample?.servings ?? 2;
 }
 
@@ -1283,24 +1382,34 @@ export function buildRecipePlan(input: {
       .replace(/[-:]/g, "")
       .replace(/\.\d{3}Z$/, "Z");
 
+  const servingsLine = servingsHint
+    ? `Servings: ${servingsHint}`
+    : "Servings: see recipe";
   const details = [
-    `Leafy Kitchen plan for “${title}”`,
+    `Recipe: ${title}`,
+    servingsLine,
     ``,
-    `Shopping ~${shopMinutes} min · Cook ~${cookMinutes} min · Buffer ${prepBufferMinutes} min`,
-    `Total ~${totalMinutes} minutes`,
+    `Estimated total time: ~${totalMinutes} minutes`,
+    `· Shop ~${shopMinutes} min`,
+    `· Cook ~${cookMinutes} min`,
+    `· Prep buffer ~${prepBufferMinutes} min`,
     ``,
-    `Shopping list:`,
+    `Note: Times are Leafy Kitchen estimates — adjust for your store and kitchen. This Google Calendar link opens a draft event (full sync coming later).`,
+    ``,
+    `Shopping list (${input.ingredients.length} items):`,
     ...input.ingredients.map((i) => `• ${formatIngredientLabel(i)}`),
     ``,
-    `Planned with Forest Buddies® Leafy Kitchen Assistant`,
-    `(Calendar deep-sync coming soon — this link uses Google’s event template.)`,
+    `Created with Forest Buddies® Leafy Kitchen`,
   ].join("\n");
 
   const calendarUrl = new URL(
     "https://calendar.google.com/calendar/render"
   );
   calendarUrl.searchParams.set("action", "TEMPLATE");
-  calendarUrl.searchParams.set("text", `Cook: ${title}`);
+  calendarUrl.searchParams.set(
+    "text",
+    `Cook: ${title} (~${totalMinutes} min)`
+  );
   calendarUrl.searchParams.set("dates", `${fmt(start)}/${fmt(end)}`);
   calendarUrl.searchParams.set("details", details.slice(0, 1800));
 
@@ -1314,6 +1423,51 @@ export function buildRecipePlan(input: {
     servingsHint,
     calendarUrl: calendarUrl.toString(),
     summary: `About ${totalMinutes} min end-to-end: ${shopMinutes} shopping + ${cookMinutes} cooking + ${prepBufferMinutes} prep buffer. Times are estimates — adjust for your kitchen and store.`,
+  };
+}
+
+/** Illustrative kg CO₂e factors by aisle (demo estimates, not LCA). */
+const AISLE_CO2_KG: Record<ShoppingIngredient["aisle"], number> = {
+  produce: 0.35,
+  protein: 2.4,
+  dairy: 1.1,
+  pantry: 0.55,
+  other: 0.7,
+};
+
+const LOW_IMPACT_PROTEIN =
+  /\b(lentil|lentils|chickpea|bean|beans|tofu|tempeh|pea)\b/i;
+
+export type RecipeCarbonEstimate = {
+  /** Estimated kg CO₂e for the shopping list */
+  kg: number;
+  label: string;
+  detail: string;
+};
+
+/** Rough, clearly labelled CO₂ estimate for a shopping list. */
+export function estimateRecipeCarbon(
+  ingredients: ShoppingIngredient[]
+): RecipeCarbonEstimate {
+  const shoppable = ingredients.filter((i) => !i.haveIt);
+  let kg = 0;
+  for (const ing of shoppable) {
+    const qty = parseQuantityValue(ing.quantity);
+    const qtyFactor =
+      qty != null && qty > 0 ? Math.min(2.5, Math.max(0.4, Math.sqrt(qty))) : 1;
+    let unit = AISLE_CO2_KG[ing.aisle];
+    if (ing.aisle === "protein" && LOW_IMPACT_PROTEIN.test(ing.name)) {
+      unit = 0.45;
+    }
+    const cartQty = Math.max(1, ing.cartQty || 1);
+    kg += unit * qtyFactor * cartQty;
+  }
+  kg = Math.round(kg * 10) / 10;
+  return {
+    kg,
+    label: `~${kg} kg CO₂e`,
+    detail:
+      "Illustrative estimate from ingredient types — not a full carbon audit. Prefer local and plant-forward swaps when you can.",
   };
 }
 
