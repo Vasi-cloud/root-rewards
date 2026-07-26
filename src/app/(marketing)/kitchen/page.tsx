@@ -70,9 +70,12 @@ import {
 } from "@/lib/leafy-kitchen";
 import {
   findMatchingSavedList,
+  getSavedItemKind,
   getSavedKitchenList,
   saveKitchenList,
+  savedKindLabel,
   subscribeSavedKitchenLists,
+  type KitchenSaveMode,
 } from "@/lib/leafy-kitchen-saved";
 import { cn } from "@/lib/utils";
 
@@ -111,6 +114,7 @@ function KitchenAssistantPageInner() {
   const [addingAll, setAddingAll] = useState(false);
   const [savingList, setSavingList] = useState(false);
   const [listSaved, setListSaved] = useState(false);
+  const [savedMode, setSavedMode] = useState<KitchenSaveMode | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [recipeCollapsed, setRecipeCollapsed] = useState(false);
   const [leafyTip, setLeafyTip] = useState(
@@ -222,9 +226,13 @@ function KitchenAssistantPageInner() {
     openedSavedRef.current = savedId;
     setRecipeText(item.recipeText);
     setSelectedSampleId(item.sampleId);
-    const base = resolveBaseServings(item.recipeText, item.sampleId);
-    setBaseServings(base);
-    setServings(base);
+    const kind = getSavedItemKind(item);
+    const restoredServings =
+      item.servings > 0
+        ? item.servings
+        : resolveBaseServings(item.recipeText, item.sampleId);
+    setBaseServings(restoredServings);
+    setServings(restoredServings);
     setIngredients(
       item.ingredients.map((i) => ({
         ...i,
@@ -234,12 +242,21 @@ function KitchenAssistantPageInner() {
         baseQuantity: i.baseQuantity ?? i.quantity,
       }))
     );
-    setPhase("ready");
-    setRecipeCollapsed(true);
+    setPhase(item.ingredients.length > 0 ? "ready" : "idle");
+    // Show recipe pane when a full recipe was saved
+    setRecipeCollapsed(kind === "list");
     setConfirmClear(false);
     setListSaved(true);
-    setLeafyTip(`Reopened “${item.title}” from My Kitchen.`);
-    showSuccess("List reopened", `“${item.title}” is ready to shop.`);
+    setSavedMode(kind === "list" ? "list" : "both");
+    setLeafyTip(
+      kind === "list"
+        ? `Reopened shopping list “${item.title}” from My Kitchen.`
+        : `Reopened “${item.title}” (${savedKindLabel(kind).toLowerCase()}) from My Kitchen.`
+    );
+    showSuccess(
+      kind === "list" ? "List reopened" : "Recipe reopened",
+      `“${item.title}” is ready${item.ingredients.length > 0 ? " to shop" : ""}.`
+    );
     if (typeof window !== "undefined") {
       window.history.replaceState({}, "", "/kitchen");
     }
@@ -248,18 +265,23 @@ function KitchenAssistantPageInner() {
   useEffect(() => {
     if (ingredients.length === 0) {
       setListSaved(false);
+      setSavedMode(null);
       return;
     }
     const title = livePlan?.title ?? "Saved shopping list";
     const refresh = () => {
-      setListSaved(
-        Boolean(
-          findMatchingSavedList(
-            title,
-            ingredients.map((i) => i.name)
-          )
-        )
+      const match = findMatchingSavedList(
+        title,
+        ingredients.map((i) => i.name)
       );
+      if (!match) {
+        setListSaved(false);
+        setSavedMode(null);
+        return;
+      }
+      setListSaved(true);
+      const kind = getSavedItemKind(match);
+      setSavedMode(kind === "list" ? "list" : "both");
     };
     refresh();
     return subscribeSavedKitchenLists(refresh);
@@ -278,6 +300,7 @@ function KitchenAssistantPageInner() {
     setPhase("extracting");
     setLeafyTip("Reading your recipe… sorting quantities and aisles…");
     setListSaved(false);
+    setSavedMode(null);
 
     await new Promise((r) => window.setTimeout(r, 650));
 
@@ -326,12 +349,13 @@ function KitchenAssistantPageInner() {
       scaleIngredientsForServings(prev, baseServings, next)
     );
     setListSaved(false);
+    setSavedMode(null);
     setLeafyTip(
       `Scaled to ${next} servings — quantities and basket estimate updated.`
     );
   }
 
-  async function handleSaveList() {
+  async function handleSave(mode: KitchenSaveMode) {
     if (ingredients.length === 0 || savingList) return;
     setSavingList(true);
     const title = livePlan?.title ?? "Saved shopping list";
@@ -339,17 +363,23 @@ function KitchenAssistantPageInner() {
       title,
       recipeText,
       ingredients,
+      servings,
       sampleId: selectedSampleId,
+      mode,
     });
     await new Promise((r) => window.setTimeout(r, 320));
     setListSaved(true);
+    setSavedMode(getSavedItemKind(saved) === "list" ? "list" : "both");
     setSavingList(false);
+    const kind = getSavedItemKind(saved);
     showSuccess(
-      "Saved to My Kitchen",
-      `“${saved.title}” is stored on this device.`,
+      kind === "both" ? "Recipe & list saved" : "Shopping list saved",
+      `“${saved.title}” · ${saved.servings} servings · stored on this device.`,
       { action: { label: "View saved", href: "/kitchen/saved" } }
     );
-    setLeafyTip(`Saved “${saved.title}” — reopen anytime from My Kitchen.`);
+    setLeafyTip(
+      `Saved “${saved.title}” as ${savedKindLabel(kind).toLowerCase()} — reopen anytime from My Kitchen.`
+    );
   }
 
   function loadSample(id: string) {
@@ -876,27 +906,61 @@ Ingredients:
                           variant="outline"
                           className={cn(
                             "h-8 gap-1.5 transition-all active:scale-[0.98]",
-                            listSaved
+                            listSaved && savedMode === "list"
                               ? "border-emerald-300 bg-emerald-50 text-emerald-950"
                               : "bg-white"
                           )}
-                          disabled={savingList || listSaved}
-                          onClick={() => void handleSaveList()}
+                          disabled={
+                            savingList ||
+                            (listSaved && savedMode === "list")
+                          }
+                          onClick={() => void handleSave("list")}
                         >
                           {savingList ? (
                             <>
                               <Loader2 className="size-3.5 animate-spin" />
                               Saving…
                             </>
-                          ) : listSaved ? (
+                          ) : listSaved && savedMode === "list" ? (
                             <>
                               <BookmarkCheck className="size-3.5" />
-                              Saved
+                              List saved
                             </>
                           ) : (
                             <>
                               <BookMarked className="size-3.5" />
                               Save list
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className={cn(
+                            "h-8 gap-1.5 transition-all active:scale-[0.98]",
+                            listSaved && savedMode === "both"
+                              ? "bg-emerald-700 text-cream hover:bg-emerald-700"
+                              : "bg-emerald-800 text-cream hover:bg-emerald-900"
+                          )}
+                          disabled={
+                            savingList ||
+                            (listSaved && savedMode === "both") ||
+                            !recipeText.trim()
+                          }
+                          onClick={() => void handleSave("both")}
+                        >
+                          {listSaved && savedMode === "both" ? (
+                            <>
+                              <BookmarkCheck className="size-3.5" />
+                              Recipe saved
+                            </>
+                          ) : (
+                            <>
+                              <BookMarked className="size-3.5" />
+                              <span className="sm:hidden">Save recipe</span>
+                              <span className="hidden sm:inline">
+                                Save recipe &amp; list
+                              </span>
                             </>
                           )}
                         </Button>

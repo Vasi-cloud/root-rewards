@@ -377,13 +377,48 @@ export function parseIngredientLine(line: string): ParsedLine | null {
   return { quantity, unit, name, raw };
 }
 
-function extractTitle(text: string): string {
+export function extractTitle(text: string): string {
   const first = text
     .split(/\r?\n/)
     .map((l) => l.trim())
     .find((l) => l.length > 2 && !/^ingredients?/i.test(l));
   if (!first) return "Your recipe";
   return first.replace(/^#+\s*/, "").slice(0, 80);
+}
+
+/** Pull method / directions block from a pasted recipe, if present. */
+export function extractRecipeMethod(text: string): string | null {
+  const lines = text.split(/\r?\n/);
+  let inMethod = false;
+  const collected: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed && !inMethod) continue;
+
+    if (METHOD_START.test(trimmed)) {
+      inMethod = true;
+      const rest = trimmed
+        .replace(METHOD_START, "")
+        .replace(/^[:\s]+/, "")
+        .trim();
+      if (rest) collected.push(rest);
+      continue;
+    }
+
+    if (inMethod) {
+      if (INGREDIENTS_START.test(trimmed)) break;
+      collected.push(trimmed);
+    }
+  }
+
+  const method = collected.join("\n").trim();
+  return method.length > 0 ? method : null;
+}
+
+/** True when the paste looks like it includes cooking steps. */
+export function recipeTextHasMethod(text: string): boolean {
+  return Boolean(extractRecipeMethod(text));
 }
 
 function extractCookMinutes(text: string, fallback: number): number {

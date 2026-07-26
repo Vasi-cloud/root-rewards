@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   BookMarked,
   ChefHat,
+  ClipboardList,
+  CookingPot,
   Leaf,
   Trash2,
 } from "lucide-react";
@@ -18,11 +20,42 @@ import { Button } from "@/components/ui/button";
 import {
   clearSavedKitchenLists,
   formatKitchenSavedDate,
+  getSavedItemKind,
   loadSavedKitchenLists,
   removeSavedKitchenList,
   subscribeSavedKitchenLists,
+  type KitchenSaveKind,
   type SavedKitchenList,
 } from "@/lib/leafy-kitchen-saved";
+import { cn } from "@/lib/utils";
+
+function KindBadge({ kind }: { kind: KitchenSaveKind }) {
+  if (kind === "both") {
+    return (
+      <Badge className="gap-1 bg-emerald-800 text-[10px] font-medium text-cream hover:bg-emerald-800">
+        <CookingPot className="size-3" />
+        Recipe &amp; list
+      </Badge>
+    );
+  }
+  if (kind === "recipe") {
+    return (
+      <Badge className="gap-1 border-0 bg-sky-800/90 text-[10px] font-medium text-white hover:bg-sky-800/90">
+        <ChefHat className="size-3" />
+        Recipe
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className="gap-1 border-emerald-300/80 bg-emerald-50 text-[10px] font-medium text-emerald-950"
+    >
+      <ClipboardList className="size-3" />
+      Shopping list
+    </Badge>
+  );
+}
 
 export default function KitchenSavedListsPage() {
   const router = useRouter();
@@ -55,7 +88,7 @@ export default function KitchenSavedListsPage() {
   function handleClearAll() {
     if (items.length === 0) return;
     clearSavedKitchenLists();
-    showSuccess("My Kitchen cleared", "All saved lists were removed.");
+    showSuccess("My Kitchen cleared", "All saved items were removed.");
   }
 
   return (
@@ -85,7 +118,7 @@ export default function KitchenSavedListsPage() {
               My Kitchen
             </h1>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-              Saved shopping lists and recipes from Leafy Kitchen — reopen
+              Saved shopping lists and full recipes from Leafy Kitchen — reopen
               anytime on this device.
             </p>
           </div>
@@ -109,8 +142,8 @@ export default function KitchenSavedListsPage() {
               Leafy says
             </p>
             <p className="mt-0.5 text-sm leading-relaxed text-foreground">
-              Lists stay in this browser for now. Still check allergens and
-              store labels when you shop.
+              Badges show whether you saved a shopping list, a full recipe, or
+              both. Still check allergens and labels when you cook.
             </p>
           </div>
         </div>
@@ -118,8 +151,8 @@ export default function KitchenSavedListsPage() {
         <div className="mt-7 flex items-center justify-between gap-3 sm:mt-8">
           <p className="text-sm text-muted-foreground">
             {items.length === 0
-              ? "No saved lists yet"
-              : `${items.length} saved list${items.length === 1 ? "" : "s"}`}
+              ? "Nothing saved yet"
+              : `${items.length} saved item${items.length === 1 ? "" : "s"}`}
           </p>
           {items.length > 0 && (
             <Button
@@ -143,8 +176,12 @@ export default function KitchenSavedListsPage() {
               Nothing saved yet
             </p>
             <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">
-              Build a shopping list in Leafy Kitchen, then tap{" "}
-              <span className="font-medium text-foreground">Save list</span>.
+              In Leafy Kitchen, tap{" "}
+              <span className="font-medium text-foreground">Save list</span> or{" "}
+              <span className="font-medium text-foreground">
+                Save recipe &amp; list
+              </span>
+              .
             </p>
             <Button
               nativeButton={false}
@@ -156,45 +193,56 @@ export default function KitchenSavedListsPage() {
           </div>
         ) : (
           <ul className="mt-4 space-y-3">
-            {items.map((item) => (
-              <li
-                key={item.id}
-                className="overflow-hidden rounded-2xl border border-border/70 bg-white/95 shadow-sm"
-              >
-                <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-                  <div className="min-w-0">
-                    <p className="font-heading text-base font-semibold leading-snug text-foreground sm:text-lg">
-                      {item.title}
-                    </p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {item.ingredients.length} ingredient
-                      {item.ingredients.length === 1 ? "" : "s"}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Saved {formatKitchenSavedDate(item.savedAt)}
-                    </p>
+            {items.map((item) => {
+              const kind = getSavedItemKind(item);
+              return (
+                <li
+                  key={item.id}
+                  className="overflow-hidden rounded-2xl border border-border/70 bg-white/95 shadow-sm"
+                >
+                  <div className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <KindBadge kind={kind} />
+                      </div>
+                      <p className="font-heading mt-1.5 text-base font-semibold leading-snug text-foreground sm:text-lg">
+                        {item.title}
+                      </p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        {item.servings} serving{item.servings === 1 ? "" : "s"}
+                        {item.ingredients.length > 0
+                          ? ` · ${item.ingredients.length} ingredient${item.ingredients.length === 1 ? "" : "s"}`
+                          : ""}
+                        {item.method ? " · includes method" : ""}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Saved {formatKitchenSavedDate(item.savedAt)}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
+                      <Button
+                        type="button"
+                        className={cn(
+                          "h-10 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900"
+                        )}
+                        onClick={() => handleOpen(item)}
+                      >
+                        {kind === "list" ? "Open list" : "Open recipe"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-10 gap-2 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleRemove(item.id, item.title)}
+                      >
+                        <Trash2 className="size-4" />
+                        Remove
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
-                    <Button
-                      type="button"
-                      className="h-10 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900"
-                      onClick={() => handleOpen(item)}
-                    >
-                      Open list
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="h-10 gap-2 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleRemove(item.id, item.title)}
-                    >
-                      <Trash2 className="size-4" />
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
