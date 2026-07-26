@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "My Kitchen · Saved recipes & lists",
+  title: "My Kitchen · Saved & recent",
   description:
-    "Reopen shopping lists and full recipes you’ve saved in Leafy Kitchen.",
+    "Reopen saved shopping lists and recipes, plus recent Leafy Kitchen history.",
 };
 
 export default function KitchenSavedLayout({

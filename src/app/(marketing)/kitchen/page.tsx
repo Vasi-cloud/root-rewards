@@ -71,6 +71,10 @@ import {
   type ShoppingIngredient,
 } from "@/lib/leafy-kitchen";
 import {
+  getKitchenHistoryItem,
+  recordKitchenHistory,
+} from "@/lib/leafy-kitchen-history";
+import {
   findMatchingSavedList,
   getSavedItemKind,
   getSavedKitchenList,
@@ -103,6 +107,7 @@ function KitchenAssistantPageInner() {
   const searchParams = useSearchParams();
   const resultsRef = useRef<HTMLElement>(null);
   const openedSavedRef = useRef<string | null>(null);
+  const openedHistoryRef = useRef<string | null>(null);
 
   const [recipeText, setRecipeText] = useState("");
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
@@ -265,6 +270,44 @@ function KitchenAssistantPageInner() {
   }, [searchParams, showSuccess]);
 
   useEffect(() => {
+    const historyId = searchParams.get("history");
+    if (!historyId || openedHistoryRef.current === historyId) return;
+    const item = getKitchenHistoryItem(historyId);
+    if (!item) return;
+    openedHistoryRef.current = historyId;
+    setRecipeText(item.recipeText);
+    setSelectedSampleId(item.sampleId);
+    const restoredServings =
+      item.servings > 0
+        ? item.servings
+        : resolveBaseServings(item.recipeText, item.sampleId);
+    setBaseServings(restoredServings);
+    setServings(restoredServings);
+    setIngredients(
+      item.ingredients.map((i) => ({
+        ...i,
+        checked: false,
+        haveIt: Boolean(i.haveIt),
+        cartQty: i.cartQty || 1,
+        baseQuantity: i.baseQuantity ?? i.quantity,
+      }))
+    );
+    setPhase(item.ingredients.length > 0 ? "ready" : "idle");
+    setRecipeCollapsed(false);
+    setConfirmClear(false);
+    setListSaved(false);
+    setSavedMode(null);
+    setLeafyTip(`Reopened recent recipe “${item.title}” from history.`);
+    showSuccess(
+      "Recent recipe opened",
+      `“${item.title}” is ready — save it anytime from the shopping list.`
+    );
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/kitchen");
+    }
+  }, [searchParams, showSuccess]);
+
+  useEffect(() => {
     if (ingredients.length === 0) {
       setListSaved(false);
       setSavedMode(null);
@@ -333,6 +376,13 @@ function KitchenAssistantPageInner() {
         recipeText: text,
         ingredients: parsed,
         sampleCookMinutes: sample?.cookMinutes,
+      });
+      recordKitchenHistory({
+        title: plan.title,
+        recipeText: text,
+        ingredients: parsed,
+        servings: base,
+        sampleId: sid,
       });
       setLeafyTip(
         `Found ${parsed.length} ingredients for ${base} servings · about ${plan.totalMinutes} min end-to-end. Adjust servings, tick pantry items, then shop.`
@@ -546,17 +596,18 @@ function KitchenAssistantPageInner() {
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-12">
-        <div className="mb-3 flex items-start justify-between gap-2 sm:items-center">
+      <div className="relative mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-12">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <MarketplaceBrandBadge />
             <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
               <ChefHat className="size-3.5" />
-              Leafy Kitchen
+              <span className="sm:hidden">Kitchen</span>
+              <span className="hidden sm:inline">Leafy Kitchen</span>
             </Badge>
             <Badge
               variant="outline"
-              className="font-normal text-muted-foreground"
+              className="hidden font-normal text-muted-foreground sm:inline-flex"
             >
               Shop &amp; Cook
             </Badge>
@@ -564,20 +615,20 @@ function KitchenAssistantPageInner() {
           <KitchenSavedLink />
         </div>
 
-        <h1 className="font-heading max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
+        <h1 className="font-heading max-w-2xl text-[1.75rem] font-semibold leading-tight tracking-tight text-primary sm:text-4xl lg:text-5xl">
           From recipe to basket — with Leafy
         </h1>
-        <p className="mt-2.5 max-w-2xl text-muted-foreground sm:mt-3 sm:text-lg">
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
           Pick a sample or paste a recipe. Leafy builds your shopping list,
           then helps you buy online, check local stores, and plan cook time.
         </p>
 
-        <div className="mt-5 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/90 p-3.5 shadow-sm print:hidden sm:p-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
-            <Leaf className="size-5" />
+        <div className="mt-4 flex gap-2.5 rounded-2xl border border-emerald-200/80 bg-white/90 p-3 shadow-sm print:hidden sm:mt-5 sm:gap-3 sm:p-4">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm sm:size-10">
+            <Leaf className="size-4 sm:size-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/70">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70 sm:text-xs">
               Leafy says
             </p>
             <p className="mt-0.5 text-sm leading-relaxed text-foreground">
@@ -601,7 +652,7 @@ function KitchenAssistantPageInner() {
                     type="button"
                     onClick={() => toggleDietaryFilter(filter.id)}
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.98] sm:text-sm",
+                      "min-h-10 rounded-full border px-3.5 py-2 text-xs font-medium transition-all active:scale-[0.98] sm:min-h-0 sm:px-3 sm:py-1.5 sm:text-sm",
                       active
                         ? "border-emerald-800 bg-emerald-800 text-cream shadow-sm"
                         : "border-emerald-200/90 bg-white/90 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-50"
@@ -914,124 +965,128 @@ Ingredients:
                           {" · "}by aisle
                         </CardDescription>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 print:hidden">
-                        <Badge className="bg-emerald-800 text-cream">
+                      <div className="print:hidden">
+                        <Badge className="mb-2 bg-emerald-800 text-cream sm:mb-0 sm:mr-2">
                           {ingredients.length} items
                         </Badge>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className={cn(
-                            "h-8 gap-1.5 transition-all active:scale-[0.98]",
-                            listSaved && savedMode === "list"
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-                              : "bg-white"
-                          )}
-                          disabled={
-                            savingList ||
-                            (listSaved && savedMode === "list")
-                          }
-                          onClick={() => void handleSave("list")}
-                        >
-                          {savingList ? (
-                            <>
-                              <Loader2 className="size-3.5 animate-spin" />
-                              Saving…
-                            </>
-                          ) : listSaved && savedMode === "list" ? (
-                            <>
-                              <BookmarkCheck className="size-3.5" />
-                              List saved
-                            </>
-                          ) : (
-                            <>
-                              <BookMarked className="size-3.5" />
-                              Save list
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className={cn(
-                            "h-8 gap-1.5 transition-all active:scale-[0.98]",
-                            listSaved && savedMode === "both"
-                              ? "bg-emerald-700 text-cream hover:bg-emerald-700"
-                              : "bg-emerald-800 text-cream hover:bg-emerald-900"
-                          )}
-                          disabled={
-                            savingList ||
-                            (listSaved && savedMode === "both") ||
-                            !recipeText.trim()
-                          }
-                          onClick={() => void handleSave("both")}
-                        >
-                          {listSaved && savedMode === "both" ? (
-                            <>
-                              <BookmarkCheck className="size-3.5" />
-                              Recipe saved
-                            </>
-                          ) : (
-                            <>
-                              <BookMarked className="size-3.5" />
-                              <span className="sm:hidden">Save recipe</span>
-                              <span className="hidden sm:inline">
-                                Save recipe &amp; list
-                              </span>
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1.5 bg-white"
-                          onClick={() => void handleCopyList()}
-                        >
-                          <ClipboardCopy className="size-3.5" />
-                          Share
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1.5 bg-white"
-                          onClick={handleDownloadList}
-                        >
-                          <Download className="size-3.5" />
-                          Download
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 gap-1.5"
-                          onClick={handlePrintList}
-                        >
-                          <Printer className="size-3.5" />
-                          Print
-                        </Button>
-                        {!confirmClear ? (
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              "h-11 gap-1.5 transition-all active:scale-[0.98] sm:h-8",
+                              listSaved && savedMode === "list"
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                                : "bg-white"
+                            )}
+                            disabled={
+                              savingList ||
+                              (listSaved && savedMode === "list")
+                            }
+                            onClick={() => void handleSave("list")}
+                          >
+                            {savingList ? (
+                              <>
+                                <Loader2 className="size-3.5 animate-spin" />
+                                Saving…
+                              </>
+                            ) : listSaved && savedMode === "list" ? (
+                              <>
+                                <BookmarkCheck className="size-3.5" />
+                                List saved
+                              </>
+                            ) : (
+                              <>
+                                <BookMarked className="size-3.5" />
+                                Save list
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className={cn(
+                              "h-11 gap-1.5 transition-all active:scale-[0.98] sm:h-8",
+                              listSaved && savedMode === "both"
+                                ? "bg-emerald-700 text-cream hover:bg-emerald-700"
+                                : "bg-emerald-800 text-cream hover:bg-emerald-900"
+                            )}
+                            disabled={
+                              savingList ||
+                              (listSaved && savedMode === "both") ||
+                              !recipeText.trim()
+                            }
+                            onClick={() => void handleSave("both")}
+                          >
+                            {listSaved && savedMode === "both" ? (
+                              <>
+                                <BookmarkCheck className="size-3.5" />
+                                Recipe saved
+                              </>
+                            ) : (
+                              <>
+                                <BookMarked className="size-3.5" />
+                                <span className="sm:hidden">Save recipe</span>
+                                <span className="hidden sm:inline">
+                                  Save recipe &amp; list
+                                </span>
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-11 gap-1.5 bg-white sm:h-8"
+                            onClick={() => void handleCopyList()}
+                          >
+                            <ClipboardCopy className="size-3.5" />
+                            Share
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-11 gap-1.5 bg-white sm:h-8"
+                            onClick={handleDownloadList}
+                          >
+                            <Download className="size-3.5" />
+                            Download
+                          </Button>
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
-                            className="h-8 gap-1.5 text-muted-foreground hover:text-destructive"
-                            onClick={() => setConfirmClear(true)}
+                            className="h-11 gap-1.5 sm:h-8"
+                            onClick={handlePrintList}
                           >
-                            <Trash2 className="size-3.5" />
-                            Clear
+                            <Printer className="size-3.5" />
+                            Print
                           </Button>
-                        ) : null}
+                          {!confirmClear ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-11 gap-1.5 text-muted-foreground hover:text-destructive sm:h-8"
+                              onClick={() => setConfirmClear(true)}
+                            >
+                              <Trash2 className="size-3.5" />
+                              Clear
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
 
                     {/* Servings adjuster */}
-                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 px-3 py-3 print:border-border sm:px-3.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Users className="size-4 text-emerald-800" />
+                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 px-3 py-3.5 print:border-border sm:px-3.5 sm:py-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800/10 text-emerald-900 sm:size-8">
+                            <Users className="size-4" />
+                          </span>
                           <div>
                             <p className="text-sm font-medium text-emerald-950">
                               Servings
@@ -1041,14 +1096,14 @@ Ingredients:
                             </p>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 print:hidden">
+                        <div className="grid grid-cols-4 gap-2 print:hidden sm:flex sm:flex-wrap sm:gap-1.5">
                           {servingChoices.map((n) => (
                             <button
                               key={n}
                               type="button"
                               onClick={() => handleServingsChange(n)}
                               className={cn(
-                                "min-w-[2.5rem] rounded-xl border px-2.5 py-1.5 text-sm font-semibold tabular-nums transition-all active:scale-[0.97]",
+                                "min-h-11 rounded-xl border px-2.5 text-base font-semibold tabular-nums transition-all active:scale-[0.97] sm:min-h-0 sm:min-w-[2.5rem] sm:py-1.5 sm:text-sm",
                                 servings === n
                                   ? "border-emerald-800 bg-emerald-800 text-cream shadow-sm"
                                   : "border-emerald-200 bg-white text-emerald-950 hover:border-emerald-400"
@@ -1103,7 +1158,7 @@ Ingredients:
                       <Button
                         type="button"
                         size="lg"
-                        className="mt-3.5 h-[3.75rem] w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg shadow-emerald-900/25 ring-2 ring-emerald-700/20 transition-all hover:bg-emerald-900 hover:shadow-xl active:scale-[0.99] sm:mt-4 sm:h-[4.25rem] sm:text-lg"
+                        className="mt-3.5 h-16 w-full flex-col gap-0.5 whitespace-normal bg-emerald-800 text-base font-semibold text-cream shadow-lg shadow-emerald-900/25 ring-2 ring-emerald-700/20 transition-all hover:bg-emerald-900 hover:shadow-xl active:scale-[0.99] sm:mt-4 sm:h-[4.25rem] sm:text-lg"
                         disabled={
                           ingredients.length === 0 ||
                           addableIngredients.length === 0 ||
@@ -1218,19 +1273,19 @@ Ingredients:
                               <li
                                 key={ing.id}
                                 className={cn(
-                                  "rounded-2xl border border-border/70 bg-muted/15 p-3 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm sm:rounded-xl sm:p-3.5",
+                                  "rounded-2xl border border-border/70 bg-muted/15 p-3.5 transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/40 hover:shadow-sm sm:rounded-xl sm:p-3.5",
                                   muted && "bg-muted/40 opacity-70",
                                   ing.haveIt &&
                                     "border-dashed border-emerald-300/70 bg-emerald-50/30"
                                 )}
                               >
-                                <div className="flex items-start gap-2.5 sm:gap-3">
+                                <div className="flex items-start gap-3">
                                   <button
                                     type="button"
                                     onClick={() => toggleChecked(ing.id)}
                                     disabled={ing.haveIt}
                                     className={cn(
-                                      "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors print:hidden sm:size-5",
+                                      "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border transition-colors print:hidden sm:size-5 sm:rounded-md",
                                       done
                                         ? "border-emerald-800 bg-emerald-800 text-cream"
                                         : "border-border bg-background hover:border-emerald-400",
@@ -1249,11 +1304,11 @@ Ingredients:
                                       />
                                     )}
                                   </button>
-                                  <div className="min-w-0 flex-1 space-y-2 sm:space-y-2.5">
+                                  <div className="min-w-0 flex-1 space-y-2.5">
                                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                                       <p
                                         className={cn(
-                                          "text-[15px] font-medium leading-snug text-foreground sm:text-sm",
+                                          "text-base font-medium leading-snug text-foreground sm:text-sm",
                                           muted && "line-through decoration-emerald-800/40"
                                         )}
                                       >
@@ -1282,7 +1337,7 @@ Ingredients:
                                         type="button"
                                         onClick={() => toggleHaveIt(ing.id)}
                                         className={cn(
-                                          "rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all active:scale-[0.98] sm:text-xs",
+                                          "min-h-10 rounded-xl border px-3 py-2 text-xs font-medium transition-all active:scale-[0.98] sm:min-h-0 sm:rounded-lg sm:px-2.5 sm:py-1.5",
                                           ing.haveIt
                                             ? "border-emerald-700 bg-emerald-800 text-cream"
                                             : "border-border bg-background text-muted-foreground hover:border-emerald-300 hover:text-foreground"
@@ -1337,7 +1392,7 @@ Ingredients:
                                         <Button
                                           type="button"
                                           size="sm"
-                                          className="h-10 w-full gap-1.5 bg-emerald-800 text-cream transition-all hover:bg-emerald-700 active:scale-[0.98] sm:h-8 sm:w-auto"
+                                          className="h-11 w-full gap-1.5 bg-emerald-800 text-cream transition-all hover:bg-emerald-700 active:scale-[0.98] sm:h-8 sm:w-auto"
                                           onClick={() => openBuyOnline(ing)}
                                           title={`Search Amazon for ${searchTerm}`}
                                         >
@@ -1351,7 +1406,7 @@ Ingredients:
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          className="h-10 w-full gap-1.5 border-emerald-200/90 bg-white transition-all active:scale-[0.98] sm:h-8 sm:w-auto"
+                                          className="h-11 w-full gap-1.5 border-emerald-200/90 bg-white transition-all active:scale-[0.98] sm:h-8 sm:w-auto"
                                           nativeButton={false}
                                           render={
                                             <Link
@@ -1470,21 +1525,21 @@ Ingredients:
                     id="cook-plan"
                     className="scroll-mt-24 overflow-hidden border-emerald-300/90 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 shadow-md"
                   >
-                    <CardHeader className="pb-2">
+                    <CardHeader className="space-y-1 px-3.5 pb-2 sm:px-6">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
                         Step 2 · Plan My Cook
                       </p>
                       <CardTitle className="flex flex-wrap items-center gap-2 text-xl text-emerald-950 sm:text-2xl">
-                        <Clock className="size-5" />
+                        <Clock className="size-5 shrink-0" />
                         ~{timePreview.total} minutes total
                       </CardTitle>
-                      <CardDescription className="text-emerald-900/75">
+                      <CardDescription className="text-sm leading-relaxed text-emerald-900/75">
                         {livePlan.title} · Serves {servings}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 px-3.5 sm:px-6">
                       <div
-                        className="flex h-3 overflow-hidden rounded-full bg-emerald-100"
+                        className="flex h-3.5 overflow-hidden rounded-full bg-emerald-100 sm:h-3"
                         role="img"
                         aria-label={`Shop ${timePreview.shop} minutes, cook ${timePreview.cook} minutes, buffer ${timePreview.buffer} minutes`}
                       >
@@ -1498,16 +1553,16 @@ Ingredients:
                           />
                         ))}
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         {timePreview.segments.map((seg) => (
                           <div
                             key={seg.key}
-                            className="rounded-xl border border-emerald-200/70 bg-white/80 px-1.5 py-2.5 text-center sm:px-2"
+                            className="rounded-2xl border border-emerald-200/70 bg-white/80 px-2 py-3 text-center sm:rounded-xl sm:px-2 sm:py-2.5"
                           >
-                            <p className="text-[10px] text-muted-foreground sm:text-[11px]">
+                            <p className="text-[11px] text-muted-foreground">
                               {seg.label}
                             </p>
-                            <p className="font-heading text-base font-semibold tabular-nums text-emerald-950 sm:text-lg">
+                            <p className="font-heading mt-0.5 text-lg font-semibold tabular-nums text-emerald-950 sm:text-lg">
                               {seg.minutes}
                               <span className="text-xs font-medium">m</span>
                             </p>
@@ -1517,14 +1572,14 @@ Ingredients:
                       <p className="text-sm leading-relaxed text-emerald-950/90">
                         {livePlan.summary}
                       </p>
-                      <p className="rounded-lg border border-dashed border-emerald-300/80 bg-white/60 px-3 py-2 text-xs text-emerald-900/80">
+                      <p className="rounded-xl border border-dashed border-emerald-300/80 bg-white/60 px-3 py-2.5 text-xs leading-relaxed text-emerald-900/80">
                         Google Calendar opens a draft event. Full sync is on the
                         roadmap.
                       </p>
                     </CardContent>
-                    <CardFooter className="flex flex-col gap-2 border-t-0 bg-transparent sm:flex-row sm:flex-wrap">
+                    <CardFooter className="flex flex-col gap-2.5 border-t-0 bg-transparent px-3.5 pb-4 sm:flex-row sm:flex-wrap sm:px-6">
                       <Button
-                        className="h-11 w-full gap-2 shadow-md sm:h-9 sm:w-auto"
+                        className="h-12 w-full gap-2 shadow-md sm:h-9 sm:w-auto"
                         nativeButton={false}
                         render={
                           <a
@@ -1541,7 +1596,7 @@ Ingredients:
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-11 w-full sm:h-8 sm:w-auto"
+                        className="h-12 w-full sm:h-8 sm:w-auto"
                         nativeButton={false}
                         render={
                           <Link
