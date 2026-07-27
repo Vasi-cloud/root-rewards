@@ -66,6 +66,14 @@ function CartButton({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Collapse strategy:
+ * - < lg: brand + icon actions + menu (mobile/tablet)
+ * - lg–xl: brand + primary nav (full labels) + cart + menu
+ *   (Dashboard / Settings / auth / language live in the menu — no squashed labels)
+ * - xl+: brand + primary nav + language + cart + Dashboard / auth
+ *   (Settings stays in menu / xl+ ghost link; menu still available for Explore)
+ */
 export function SiteHeader() {
   const { user } = useAuth();
   const { totalItems } = useCart();
@@ -78,10 +86,10 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 overflow-hidden px-3 sm:h-16 sm:gap-3 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-3 px-3 sm:h-16 sm:gap-4 sm:px-6">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:text-lg md:text-xl"
+          className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:text-lg"
           aria-label="Forest Buddies® home"
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
@@ -92,17 +100,18 @@ export function SiteHeader() {
 
         <MainNav
           variant="primary"
-          className="hidden min-w-0 flex-1 justify-center overflow-hidden lg:flex"
+          className="hidden flex-none justify-center lg:flex"
         />
 
-        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
-          <div className="hidden items-center gap-1.5 lg:flex">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          {/* Wide desktop only — keeps mid-width headers uncrowded */}
+          <div className="hidden items-center gap-1.5 xl:flex">
             <LanguageSelect id="lang-switcher-desktop" />
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-9 w-9 p-0"
+              className="h-9 w-9 shrink-0 p-0"
               aria-label="Open support chat"
               onClick={() => openSupportChat()}
             >
@@ -116,7 +125,7 @@ export function SiteHeader() {
                   render={<Link href="/dashboard" />}
                   size="sm"
                   variant="outline"
-                  className="px-2.5"
+                  className="shrink-0 px-3"
                 >
                   Dashboard
                 </Button>
@@ -125,11 +134,11 @@ export function SiteHeader() {
                   render={<Link href="/dashboard/settings" />}
                   size="sm"
                   variant="ghost"
-                  className="hidden px-2.5 xl:inline-flex"
+                  className="hidden shrink-0 px-2.5 2xl:inline-flex"
                 >
                   Settings
                 </Button>
-                <DashboardSignOut className="px-2.5" />
+                <DashboardSignOut className="shrink-0 px-2.5" />
               </>
             ) : (
               <>
@@ -138,7 +147,7 @@ export function SiteHeader() {
                   render={<Link href="/login" />}
                   variant="outline"
                   size="sm"
-                  className="px-2.5"
+                  className="shrink-0 px-3"
                 >
                   Sign in
                 </Button>
@@ -146,7 +155,7 @@ export function SiteHeader() {
                   nativeButton={false}
                   render={<Link href="/register" />}
                   size="sm"
-                  className="px-2.5"
+                  className="shrink-0 px-3"
                 >
                   Get started
                 </Button>
@@ -154,25 +163,28 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* Mobile / tablet: icon actions + menu */}
+          {/* Mobile / tablet / mid-desktop: compact icons + overflow menu */}
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="size-10 p-0 lg:hidden"
+            className="size-10 shrink-0 p-0 xl:hidden"
             aria-label="Open support chat"
             onClick={() => openSupportChat()}
           >
             <MessageCircle className="size-5" />
           </Button>
-          <CartButton className="lg:hidden" />
+          <CartButton className="xl:hidden" />
 
+          {/* Overflow menu: always available so Membership / Explore stay reachable.
+              Below xl it replaces Dashboard / Settings / auth in the bar. */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="inline-flex size-11 items-center justify-center rounded-xl border border-border bg-white/80 lg:hidden"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white/80 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted xl:h-9 xl:rounded-lg"
               aria-label="Open menu"
             >
-              <Menu className="size-5" />
+              <Menu className="size-5 xl:size-4" />
+              <span className="hidden xl:inline">More</span>
             </SheetTrigger>
             <SheetContent
               side="right"
@@ -217,6 +229,14 @@ export function SiteHeader() {
                     <ShoppingCart className="size-4" />
                     Cart
                     {totalItems > 0 ? ` (${totalItems})` : ""}
+                  </Button>
+                  <Button
+                    nativeButton={false}
+                    render={<Link href="/membership" />}
+                    variant="outline"
+                    className="min-h-11 w-full justify-start"
+                  >
+                    Membership
                   </Button>
                   <Button
                     nativeButton={false}

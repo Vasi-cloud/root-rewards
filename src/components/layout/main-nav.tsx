@@ -79,11 +79,13 @@ const accountNavItems: NavItem[] = [
   },
 ];
 
-/** Compact top-bar — Leafy tools first, then key explore links */
+/**
+ * Top-bar priority links — never truncated.
+ * Secondary items (Membership, About, account) live in the overflow menu.
+ */
 const desktopPrimaryItems: NavItem[] = [
-  ...LEAFY_NAV_ITEMS,
   { href: "/marketplace", label: "Marketplace" },
-  { href: "/membership", label: "Membership" },
+  ...LEAFY_NAV_ITEMS,
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -104,7 +106,10 @@ export function MainNav({
   if (variant === "primary") {
     return (
       <nav
-        className={cn("flex items-center gap-1", className)}
+        className={cn(
+          "flex items-center gap-1.5 xl:gap-2 2xl:gap-2.5",
+          className
+        )}
         aria-label="Primary"
       >
         {desktopPrimaryItems.map((item) => {
@@ -116,7 +121,8 @@ export function MainNav({
               href={item.href}
               title={item.description}
               className={cn(
-                "rounded-lg px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-3",
+                // shrink-0 + whitespace-nowrap: never clip labels like “Leafy Kitchen”
+                "shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-3.5",
                 active
                   ? "bg-primary/10 text-primary shadow-sm"
                   : featured
