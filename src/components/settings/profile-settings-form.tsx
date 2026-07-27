@@ -213,7 +213,7 @@ export function ProfileSettingsForm() {
         <Button
           type="submit"
           disabled={saving || !displayName.trim()}
-          className="min-w-[8.5rem]"
+          className="h-11 min-w-[9rem] sm:h-9"
         >
           {saving ? (
             <>
@@ -229,7 +229,12 @@ export function ProfileSettingsForm() {
             "Save profile"
           )}
         </Button>
-        <p className="text-xs text-muted-foreground">
+        {saved && (
+          <p className="text-sm font-medium text-emerald-800" role="status">
+            Profile updated
+          </p>
+        )}
+        <p className="w-full text-xs text-muted-foreground sm:w-auto">
           Changes apply across your dashboard and marketplace profile.
         </p>
       </div>
