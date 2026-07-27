@@ -1,13 +1,22 @@
 "use client";
 
-import { Leaf, Menu, MessageCircle, ShoppingCart } from "lucide-react";
+import {
+  ChevronDown,
+  Leaf,
+  LogOut,
+  Menu,
+  MessageCircle,
+  Settings,
+  ShoppingCart,
+} from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { BrandMark } from "@/components/brand/brand-mark";
 import { MainNav } from "@/components/layout/main-nav";
 import { DashboardSignOut } from "@/components/dashboard/sign-out-button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -24,6 +33,7 @@ import {
   useI18n,
   type Language,
 } from "@/contexts/i18n-context";
+import { cn } from "@/lib/utils";
 import { openSupportChat } from "@/lib/support-agent";
 
 function LanguageSelect({ id }: { id: string }) {
@@ -36,7 +46,7 @@ function LanguageSelect({ id }: { id: string }) {
         id={id}
         value={lang}
         onChange={(e) => setLang(e.target.value as Language)}
-        className="h-11 w-full rounded-lg border border-border bg-background px-2 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring xl:h-8 xl:w-auto xl:text-xs"
+        className="h-11 w-full rounded-lg border border-border bg-background px-2 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring xl:h-8 xl:max-w-[9.5rem] xl:text-xs"
         aria-label="Select language"
       >
         {SUPPORTED_LANGUAGES.map((l) => (
@@ -45,8 +55,7 @@ function LanguageSelect({ id }: { id: string }) {
           </option>
         ))}
       </select>
-      {/* Short hint in the sheet / stacked switchers only — avoids stretching the desktop header */}
-      {!isLangReady && selected && id.includes("mobile") ? (
+      {!isLangReady && selected && id.includes("menu") ? (
         <p className="text-[11px] leading-snug text-amber-800/90">
           {selected.label} coming soon — English for now.
         </p>
@@ -64,10 +73,8 @@ function CartButton({ className }: { className?: string }) {
       render={<Link href="/cart" />}
       variant="ghost"
       size="sm"
-      className={`relative size-10 shrink-0 p-0 sm:size-11 ${className ?? ""}`}
-      aria-label={
-        totalItems > 0 ? `Cart, ${totalItems} items` : "Cart"
-      }
+      className={cn("relative size-10 shrink-0 p-0 sm:size-11", className)}
+      aria-label={totalItems > 0 ? `Cart, ${totalItems} items` : "Cart"}
     >
       <ShoppingCart className="size-4" />
       {totalItems > 0 && (
@@ -79,12 +86,118 @@ function CartButton({ className }: { className?: string }) {
   );
 }
 
+/** Account dropdown — Settings + Sign out stay reachable without clipping. */
+function AccountMenu() {
+  const { user, profile, signOut } = useAuth();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  if (!user) return null;
+
+  const label =
+    profile?.displayName?.trim() ||
+    user.email?.split("@")[0] ||
+    "Account";
+  const initials = label.slice(0, 1).toUpperCase();
+
+  async function handleSignOut() {
+    setOpen(false);
+    await signOut();
+    router.push("/");
+  }
+
+  return (
+    <div className="relative shrink-0" ref={rootRef}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-white/90 px-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+      >
+        <Avatar size="sm" className="size-6">
+          {profile?.photoURL ? (
+            <AvatarImage src={profile.photoURL} alt="" />
+          ) : null}
+          <AvatarFallback className="bg-emerald-800 text-[10px] font-semibold text-cream">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <span className="hidden max-w-[7rem] truncate 2xl:inline">{label}</span>
+        <ChevronDown
+          className={cn(
+            "size-3.5 text-muted-foreground transition-transform",
+            open && "rotate-180"
+          )}
+        />
+      </button>
+      {open ? (
+        <div
+          id={menuId}
+          role="menu"
+          className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-border/80 bg-cream py-1 shadow-lg"
+        >
+          <div className="border-b border-border/60 px-3 py-2">
+            <p className="truncate text-sm font-medium text-foreground">
+              {label}
+            </p>
+            {user.email ? (
+              <p className="truncate text-xs text-muted-foreground">
+                {user.email}
+              </p>
+            ) : null}
+          </div>
+          <Link
+            href="/dashboard/settings"
+            role="menuitem"
+            className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-emerald-50"
+            onClick={() => setOpen(false)}
+          >
+            <Settings className="size-3.5 text-emerald-800" />
+            Settings
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-foreground hover:bg-emerald-50"
+            onClick={() => void handleSignOut()}
+          >
+            <LogOut className="size-3.5 text-emerald-800" />
+            Sign out
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * Collapse strategy:
- * - < lg: brand + icon actions + menu (mobile)
- * - lg–xl: brand + primary nav (full labels, no clip) + cart + menu
- *   Secondary (Dashboard / Settings / auth / language / Membership) stay in the menu
- * - xl+: brand + primary nav + language + cart + Dashboard / auth + More menu
+ * - < lg: brand + icons + menu
+ * - lg–xl: brand + primary nav (full labels) + Dashboard + menu
+ *   Settings / Sign out / language stay in the menu — never clipped
+ * - xl+: brand + primary nav + language + cart + Dashboard + account menu + More
  */
 export function SiteHeader() {
   const { user } = useAuth();
@@ -116,7 +229,7 @@ export function SiteHeader() {
         />
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-          {/* Wide desktop account/actions — kept off mid widths to avoid squashing nav */}
+          {/* xl+: Dashboard visible; Settings + Sign out in account dropdown */}
           <div className="hidden items-center gap-1.5 xl:flex">
             <LanguageSelect id="lang-switcher-desktop" />
             <Button
@@ -141,16 +254,7 @@ export function SiteHeader() {
                 >
                   Dashboard
                 </Button>
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/dashboard/settings" />}
-                  size="sm"
-                  variant="ghost"
-                  className="hidden shrink-0 px-2.5 2xl:inline-flex"
-                >
-                  Settings
-                </Button>
-                <DashboardSignOut className="shrink-0 px-2.5" />
+                <AccountMenu />
               </>
             ) : (
               <>
@@ -175,7 +279,7 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* Below xl: chat + cart stay as icons beside the menu */}
+          {/* Below xl: chat + cart icons */}
           <Button
             type="button"
             variant="ghost"
@@ -188,9 +292,32 @@ export function SiteHeader() {
           </Button>
           <CartButton className="xl:hidden" />
 
+          {/* Keep Dashboard visible on lg–xl without crowding Sign out into the bar */}
+          {user ? (
+            <Button
+              nativeButton={false}
+              render={<Link href="/dashboard" />}
+              size="sm"
+              variant="outline"
+              className="hidden shrink-0 px-2.5 lg:inline-flex xl:hidden"
+            >
+              Dashboard
+            </Button>
+          ) : (
+            <Button
+              nativeButton={false}
+              render={<Link href="/login" />}
+              size="sm"
+              variant="outline"
+              className="hidden shrink-0 px-2.5 lg:inline-flex xl:hidden"
+            >
+              Sign in
+            </Button>
+          )}
+
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-white/80 xl:h-9 xl:w-auto xl:gap-1.5 xl:px-3 xl:rounded-lg"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white/80 px-0 text-sm font-medium transition-colors hover:bg-muted size-11 xl:h-9 xl:w-auto xl:px-2.5 xl:rounded-lg"
               aria-label="Open menu"
             >
               <Menu className="size-5 xl:size-4" />
@@ -213,11 +340,11 @@ export function SiteHeader() {
                 <div className="mt-auto flex flex-col gap-2.5 border-t border-border pt-4">
                   <label
                     className="text-xs font-medium text-muted-foreground"
-                    htmlFor="lang-switcher-mobile"
+                    htmlFor="lang-switcher-menu"
                   >
                     Language
                   </label>
-                  <LanguageSelect id="lang-switcher-mobile" />
+                  <LanguageSelect id="lang-switcher-menu" />
                   <Button
                     type="button"
                     variant="outline"
@@ -261,7 +388,7 @@ export function SiteHeader() {
                       <Button
                         nativeButton={false}
                         render={<Link href="/dashboard" />}
-                        className="min-h-11 w-full"
+                        className="min-h-11 w-full xl:hidden"
                       >
                         Dashboard
                       </Button>
@@ -281,7 +408,7 @@ export function SiteHeader() {
                         nativeButton={false}
                         render={<Link href="/login" />}
                         variant="outline"
-                        className="min-h-11 w-full"
+                        className="min-h-11 w-full xl:hidden"
                       >
                         Sign in
                       </Button>
