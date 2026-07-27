@@ -27,6 +27,8 @@ const footerLinks = {
   Account: [
     { href: "/login", label: "Sign in" },
     { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard/my-forest", label: "My Forest" },
+    { href: "/dashboard/impact", label: "Your impact" },
     { href: "/dashboard/settings", label: "Account settings" },
     { href: "/seller", label: "Seller hub" },
     { href: "/feedback", label: "Share feedback" },

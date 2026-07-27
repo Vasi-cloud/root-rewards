@@ -12,6 +12,7 @@ import {
   Sparkles,
   Sun,
   Target,
+  Trees,
   Users,
   Waves,
 } from "lucide-react";
@@ -301,6 +302,14 @@ export default function DashboardPage() {
             <CardTitle className="font-heading">Quick actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <Button
+              nativeButton={false}
+              render={<Link href="/dashboard/my-forest" />}
+              className="w-full justify-start gap-2"
+              variant="outline"
+            >
+              <Trees className="size-4" /> Open My Forest
+            </Button>
             <Button
               nativeButton={false}
               render={<Link href="/dashboard/impact" />}

@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Trees,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -255,6 +256,31 @@ function AccountSettingsPageInner() {
         >
           <Leaf className="size-3.5" />
           Open impact
+          <ArrowRight className="size-3.5 opacity-80" />
+        </Button>
+      </div>
+
+      {/* My Forest cross-link */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200/70 bg-gradient-to-br from-emerald-50/50 via-cream to-white px-3.5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-800/70">
+            My Forest
+          </p>
+          <p className="mt-0.5 font-medium text-emerald-950">
+            Saved recipes, parts, and favourite places
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            One home for Kitchen, Garage, and Buy Local saves.
+          </p>
+        </div>
+        <Button
+          className="h-11 w-full shrink-0 gap-1.5 border-emerald-300 bg-white sm:h-9 sm:w-auto"
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/dashboard/my-forest" />}
+        >
+          <Trees className="size-3.5" />
+          Open My Forest
           <ArrowRight className="size-3.5 opacity-80" />
         </Button>
       </div>

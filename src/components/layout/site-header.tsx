@@ -237,6 +237,14 @@ export function SiteHeader() {
                       </Button>
                       <Button
                         nativeButton={false}
+                        render={<Link href="/dashboard/my-forest" />}
+                        variant="outline"
+                        className="w-full min-h-11"
+                      >
+                        My Forest
+                      </Button>
+                      <Button
+                        nativeButton={false}
                         render={<Link href="/dashboard/settings" />}
                         variant="outline"
                         className="w-full min-h-11"
