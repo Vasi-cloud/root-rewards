@@ -299,9 +299,34 @@ export async function recommendProductsAsync(
 }
 
 export const SUGGESTED_PROMPTS = [
-  { label: "Birthday gift under $30", query: "gift for birthday", budget: 30 },
-  { label: "Eco kitchen under $50", query: "eco kitchen under $50", budget: 50 },
-  { label: "Housewarming vibes", query: "housewarming home gift", budget: 40 },
-  { label: "Camping weekend", query: "camping outdoors adventure", budget: 80 },
-  { label: "Self-care set", query: "beauty self-care spa", budget: 35 },
+  {
+    label: "Eco alternatives",
+    query: "eco alternatives to plastic kitchen gadgets",
+    budget: 40,
+  },
+  {
+    label: "Local options",
+    query: "eco home essentials I could buy local or refill",
+    budget: 50,
+  },
+  {
+    label: "Materials & care",
+    query: "natural materials durable easy care home products",
+    budget: 45,
+  },
+  {
+    label: "Birthday under $30",
+    query: "gift for birthday",
+    budget: 30,
+  },
+  {
+    label: "Camping weekend",
+    query: "camping outdoors adventure",
+    budget: 80,
+  },
+  {
+    label: "Self-care set",
+    query: "beauty self-care spa",
+    budget: 35,
+  },
 ];

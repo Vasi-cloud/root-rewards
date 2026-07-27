@@ -6,6 +6,7 @@ import {
   ImagePlus,
   Leaf,
   MapPin,
+  MessageSquareText,
   Mic,
   Navigation,
   Sparkles,
@@ -20,6 +21,12 @@ import {
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { AskLeafyExamples } from "@/components/recommend/ask-leafy-examples";
+import {
+  AskLeafyDisclaimer,
+  AskLeafyNextSteps,
+} from "@/components/recommend/ask-leafy-next-steps";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PartnerOutboundButton } from "@/components/affiliate/PartnerOutboundButton";
@@ -76,7 +83,7 @@ export default function RecommendPage() {
   const photoFileRef = useRef<File | null>(null);
 
   const [mode, setMode] = useState<AskMode>("text");
-  const [query, setQuery] = useState("eco kitchen under $50");
+  const [query, setQuery] = useState("");
   const [budget, setBudget] = useState("50");
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -87,6 +94,7 @@ export default function RecommendPage() {
   const [thinking, setThinking] = useState(false);
   const [result, setResult] = useState<RecommendResult | null>(null);
   const [vision, setVision] = useState<VisionResult | null>(null);
+  const hasAsked = Boolean(result || vision);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const listenHandleRef = useRef<SpeechRecognitionHandle | null>(null);
@@ -607,32 +615,91 @@ export default function RecommendPage() {
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
-        <Badge className="mb-3 gap-1 bg-emerald-800/10 text-emerald-900">
-          <Wand2 className="size-3" />
-          Ask Leafy · text, voice &amp; Grok Vision
-        </Badge>
-        <h1 className="font-heading text-3xl font-semibold text-primary sm:text-5xl">
-          Ask Leafy what to buy
+      <div className="relative mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-14">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <MarketplaceBrandBadge />
+          <Badge className="gap-1 bg-emerald-800/10 font-normal text-emerald-900">
+            <Wand2 className="size-3.5" />
+            Ask Leafy
+          </Badge>
+        </div>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
+          Upload a photo or ask a question
         </h1>
-        <p className="mt-3 max-w-xl text-muted-foreground sm:text-lg">
-          Type, tap <strong className="font-medium text-foreground">Listen</strong>{" "}
-          to ask out loud, or snap a photo. After Leafy speaks, say{" "}
-          <strong className="font-medium text-foreground">Add to cart</strong>{" "}
-          for a pick — clear spoken feedback included.
+        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-lg">
+          Leafy helps you find eco-friendly products — snap something you like,
+          or type what you need. Guidance only, not medical or legal advice.
         </p>
 
+        {/* Equal entry paths */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setMode("text")}
+            className={`flex min-h-[5.5rem] flex-col items-start gap-2 rounded-2xl border px-4 py-3.5 text-left transition-all active:scale-[0.99] sm:min-h-[6rem] ${
+              mode === "text"
+                ? "border-emerald-800 bg-emerald-800 text-cream shadow-md"
+                : "border-emerald-200/90 bg-white/90 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-50"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2 text-sm font-semibold">
+              <MessageSquareText className="size-4 shrink-0" />
+              Type a question
+            </span>
+            <span
+              className={`text-xs leading-relaxed sm:text-sm ${
+                mode === "text" ? "text-cream/85" : "text-muted-foreground"
+              }`}
+            >
+              Ask for eco alternatives, local ideas, materials, or gift picks.
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("vision")}
+            className={`flex min-h-[5.5rem] flex-col items-start gap-2 rounded-2xl border px-4 py-3.5 text-left transition-all active:scale-[0.99] sm:min-h-[6rem] ${
+              mode === "vision"
+                ? "border-emerald-800 bg-emerald-800 text-cream shadow-md"
+                : "border-emerald-200/90 bg-white/90 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-50"
+            }`}
+          >
+            <span className="inline-flex items-center gap-2 text-sm font-semibold">
+              <Camera className="size-4 shrink-0" />
+              Upload a photo
+              {visionReady === "grok" && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                    mode === "vision"
+                      ? "bg-cream/20 text-cream"
+                      : "bg-emerald-100 text-emerald-900"
+                  }`}
+                >
+                  Grok
+                </span>
+              )}
+            </span>
+            <span
+              className={`text-xs leading-relaxed sm:text-sm ${
+                mode === "vision" ? "text-cream/85" : "text-muted-foreground"
+              }`}
+            >
+              Snap a product you like — Leafy suggests marketplace twins.
+            </span>
+          </button>
+        </div>
+
         <div
-          className="mt-6 rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50/90 via-cream to-white p-4 sm:p-5"
+          className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/90 via-cream to-white p-3.5 sm:rounded-3xl sm:p-5"
           role="region"
           aria-label="Voice controls for Ask Leafy"
         >
           <p className="text-sm font-medium text-primary">
-            Voice controls
+            Optional voice
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Conversational Leafy — ask out loud, hear answers, say{" "}
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            Ask out loud, hear answers, then say{" "}
             <strong className="font-medium text-foreground">Add to cart</strong>
+            {" "}— typing and photos work without voice.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Button
@@ -773,41 +840,57 @@ export default function RecommendPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("text")}
-            className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
-              mode === "text"
-                ? "bg-primary text-primary-foreground"
-                : "border border-border bg-white/80 text-foreground hover:bg-muted"
-            }`}
-          >
-            <Sparkles className="size-3.5" />
-            Text &amp; voice
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("vision")}
-            className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
-              mode === "vision"
-                ? "bg-primary text-primary-foreground"
-                : "border border-border bg-white/80 text-foreground hover:bg-muted"
-            }`}
-          >
-            <Camera className="size-3.5" />
-            Snap &amp; match
-            {visionReady === "grok" && (
-              <span className="ml-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-900">
-                Grok
-              </span>
+        {!hasAsked && !thinking && (
+          <div className="mt-5 rounded-2xl border border-dashed border-emerald-300/80 bg-emerald-50/40 px-3.5 py-4 sm:px-5 sm:py-5">
+            <p className="font-heading text-base font-semibold text-emerald-950 sm:text-lg">
+              First time here?
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Choose <strong className="font-medium text-foreground">Type a question</strong>{" "}
+              or <strong className="font-medium text-foreground">Upload a photo</strong>{" "}
+              above. Try an example below — Leafy will suggest marketplace picks
+              and next steps.
+            </p>
+            {mode === "text" && (
+              <AskLeafyExamples
+                className="mt-4"
+                onSelect={(example) => {
+                  setQuery(example.query);
+                  setBudget(String(example.budget));
+                  void runRecommend(example.query, String(example.budget));
+                }}
+              />
             )}
-          </button>
-        </div>
+            {mode === "vision" && (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                  Try a demo photo
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {VISION_DEMO_HINTS.map((h) => (
+                    <button
+                      key={h.fileName}
+                      type="button"
+                      onClick={() => {
+                        photoFileRef.current = null;
+                        setFileName(h.fileName);
+                        setVisionNote(h.label.toLowerCase());
+                        void runVision(h.fileName, h.label.toLowerCase());
+                      }}
+                      className="min-h-11 rounded-full border border-emerald-200 bg-white px-3.5 py-2 text-sm font-medium text-emerald-950 hover:bg-emerald-100"
+                    >
+                      Try “{h.label}”
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {mode === "text" ? (
           <form
-            className="mt-6 space-y-4 rounded-3xl border border-border/70 bg-white/80 p-5 shadow-sm sm:p-6"
+            className="mt-5 space-y-4 rounded-2xl border border-emerald-200/80 bg-white/90 p-4 shadow-sm sm:rounded-3xl sm:p-6"
             onSubmit={(e) => {
               e.preventDefault();
               void runRecommend();
@@ -818,19 +901,19 @@ export default function RecommendPage() {
                 htmlFor="rec-query"
                 className="mb-1.5 block text-sm font-medium"
               >
-                What are you shopping for?
+                Your question
               </label>
               <textarea
                 id="rec-query"
-                rows={2}
+                rows={3}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='e.g. "gift for birthday" or "eco kitchen under $50"'
-                className="w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder='e.g. "eco alternatives to plastic wrap" or "birthday gift under $30"'
+                className="w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
               />
-              <p className="mt-1.5 text-sm text-muted-foreground">
-                Or tap <strong className="font-medium">Listen</strong> above and
-                say it out loud.
+              <p className="mt-1.5 text-xs text-muted-foreground sm:text-sm">
+                Tip: mention budget, occasion, or “local” — or tap{" "}
+                <strong className="font-medium">Listen</strong> above.
               </p>
             </div>
 
@@ -851,43 +934,45 @@ export default function RecommendPage() {
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                   placeholder="50"
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-12 w-full rounded-xl border border-input bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-auto sm:py-2.5"
                 />
               </div>
               <Button
                 type="submit"
                 size="lg"
-                className="min-h-12 flex-1 gap-2 text-base"
+                className="h-12 min-h-12 flex-1 gap-2 bg-emerald-800 text-base text-cream hover:bg-emerald-900 sm:h-11"
                 disabled={thinking || !query.trim()}
               >
                 <Sparkles className="size-4" />
-                {thinking ? "Leafy is thinking…" : "Get recommendations"}
+                {thinking ? "Leafy is thinking…" : "Ask Leafy"}
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              {SUGGESTED_PROMPTS.map((p) => (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => {
-                    setQuery(p.query);
-                    setBudget(String(p.budget));
-                    void runRecommend(p.query, String(p.budget));
-                  }}
-                  className="rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-emerald-100 sm:text-sm"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            {hasAsked && (
+              <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">
+                {SUGGESTED_PROMPTS.map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setQuery(p.query);
+                      setBudget(String(p.budget));
+                      void runRecommend(p.query, String(p.budget));
+                    }}
+                    className="min-h-10 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs font-medium text-emerald-950 hover:bg-emerald-100 sm:min-h-0 sm:py-1.5 sm:text-sm"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </form>
         ) : (
-          <div className="mt-6 space-y-4 rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-white/90 to-sky-50/50 p-5 shadow-sm sm:p-6">
+          <div className="mt-5 space-y-4 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-white/90 to-sky-50/50 p-4 shadow-sm sm:rounded-3xl sm:p-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-                <Leaf className="size-3.5" />
-                Leafy&apos;s eyes
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-800/10 px-2.5 py-1 text-xs font-semibold text-emerald-950">
+                <Camera className="size-3.5" />
+                Photo match
               </span>
               <span className="text-xs text-muted-foreground">
                 {visionReady === "grok"
@@ -900,7 +985,7 @@ export default function RecommendPage() {
 
             <div>
               <p className="mb-1.5 text-sm font-medium">
-                Snap something you like
+                Upload a product photo
               </p>
               <input
                 ref={fileRef}
@@ -921,14 +1006,14 @@ export default function RecommendPage() {
                   <button
                     type="button"
                     onClick={clearPhoto}
-                    className="absolute top-2 right-2 rounded-full bg-cream/95 p-1.5 text-foreground shadow-sm hover:bg-white"
+                    className="absolute top-2 right-2 flex size-10 items-center justify-center rounded-full bg-cream/95 text-foreground shadow-sm hover:bg-white"
                     aria-label="Remove photo"
                   >
                     <X className="size-4" />
                   </button>
                   {fileName && (
                     <p className="border-t border-border/60 bg-cream/80 px-3 py-2 text-xs text-muted-foreground">
-                      {fileName} · ready for the canopy scan
+                      {fileName} · ready to match
                     </p>
                   )}
                 </div>
@@ -936,15 +1021,15 @@ export default function RecommendPage() {
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
-                  className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/80 bg-white/60 px-4 py-10 text-center transition hover:border-emerald-500 hover:bg-emerald-50/80"
+                  className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-emerald-400/80 bg-white/70 px-4 py-12 text-center transition hover:border-emerald-500 hover:bg-emerald-50/80"
                 >
-                  <ImagePlus className="size-8 text-emerald-800" />
-                  <span className="font-medium text-primary">
+                  <ImagePlus className="size-9 text-emerald-800" />
+                  <span className="text-base font-medium text-primary">
                     Drop or choose a photo
                   </span>
-                  <span className="max-w-xs text-xs text-muted-foreground">
-                    JPG or PNG works best · Leafy + Grok will suggest marketplace
-                    twins
+                  <span className="max-w-xs text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                    JPG or PNG · Leafy suggests similar eco finds from the
+                    marketplace
                   </span>
                 </button>
               )}
@@ -967,38 +1052,40 @@ export default function RecommendPage() {
                 value={visionNote}
                 onChange={(e) => setVisionNote(e.target.value)}
                 placeholder="e.g. water bottle, rain jacket, tote…"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-12 w-full rounded-xl border border-input bg-background px-3 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-auto sm:py-2.5"
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              {VISION_DEMO_HINTS.map((h) => (
-                <button
-                  key={h.fileName}
-                  type="button"
-                  onClick={() => {
-                    photoFileRef.current = null;
-                    setFileName(h.fileName);
-                    setVisionNote(h.label.toLowerCase());
-                    void runVision(h.fileName, h.label.toLowerCase());
-                  }}
-                  className="rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-emerald-100 sm:text-sm"
-                >
-                  Try “{h.label}”
-                </button>
-              ))}
-            </div>
+            {hasAsked && (
+              <div className="flex flex-wrap gap-2">
+                {VISION_DEMO_HINTS.map((h) => (
+                  <button
+                    key={h.fileName}
+                    type="button"
+                    onClick={() => {
+                      photoFileRef.current = null;
+                      setFileName(h.fileName);
+                      setVisionNote(h.label.toLowerCase());
+                      void runVision(h.fileName, h.label.toLowerCase());
+                    }}
+                    className="min-h-10 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-xs font-medium text-emerald-950 hover:bg-emerald-100 sm:min-h-0 sm:py-1.5 sm:text-sm"
+                  >
+                    Try “{h.label}”
+                  </button>
+                ))}
+              </div>
+            )}
 
             {visionError && (
               <p className="text-sm text-amber-800">{visionError}</p>
             )}
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               {!previewUrl && (
                 <Button
                   type="button"
                   variant="outline"
-                  className="gap-1.5"
+                  className="h-12 gap-1.5 border-emerald-300/90 sm:h-11"
                   onClick={() => fileRef.current?.click()}
                 >
                   <Camera className="size-4" />
@@ -1008,12 +1095,12 @@ export default function RecommendPage() {
               <Button
                 type="button"
                 size="lg"
-                className="min-h-11 flex-1 gap-2 sm:flex-none"
+                className="h-12 min-h-12 flex-1 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-11 sm:flex-none"
                 disabled={thinking || (!fileName && !previewUrl)}
                 onClick={() => void runVision()}
               >
                 <Camera className="size-4" />
-                {thinking ? "Leafy is looking…" : "Match with Grok Vision"}
+                {thinking ? "Leafy is looking…" : "Match photo"}
               </Button>
             </div>
           </div>
@@ -1038,19 +1125,23 @@ export default function RecommendPage() {
         )}
 
         {!thinking && mode === "vision" && vision && (
-          <div className="mt-8 space-y-5 animate-fb-fade-up">
-            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-5 py-4">
-              <div className="flex flex-wrap items-center gap-2">
+          <div className="mt-8 space-y-6 animate-fb-fade-up">
+            {/* Summary */}
+            <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-4 py-4 sm:px-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                Summary
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <Badge
                   className={
                     vision.engine === "grok-vision"
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-emerald-800 text-cream"
                       : "bg-amber-800 text-white"
                   }
                 >
                   {vision.engine === "grok-vision"
                     ? "Grok Vision"
-                    : "Mock vision"}
+                    : "Demo vision"}
                 </Badge>
                 {vision.categoryHint && (
                   <Badge variant="outline">{vision.categoryHint}</Badge>
@@ -1067,7 +1158,7 @@ export default function RecommendPage() {
               </div>
 
               <p
-                className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl"
+                className="font-heading mt-3 text-lg font-semibold leading-snug text-emerald-950 sm:text-xl"
                 id="leafy-vision-reply"
               >
                 {vision.summary}
@@ -1078,7 +1169,7 @@ export default function RecommendPage() {
                   type="button"
                   size="lg"
                   variant="outline"
-                  className="min-h-12 gap-2 border-emerald-300 bg-white text-base"
+                  className="h-12 min-h-12 gap-2 border-emerald-300 bg-white text-base sm:h-11"
                   aria-label="Speak Leafy’s photo reply"
                   onClick={() => {
                     if (speaking) stopLeafyVoice();
@@ -1102,7 +1193,7 @@ export default function RecommendPage() {
               {typeof vision.confidence === "number" && (
                 <div className="mt-3">
                   <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                    <span>Match confidence</span>
+                    <span>Match confidence (estimate)</span>
                     <span className="tabular-nums font-medium text-emerald-900">
                       {Math.round(vision.confidence * 100)}%
                     </span>
@@ -1141,7 +1232,7 @@ export default function RecommendPage() {
                 <Button
                   type="button"
                   size="lg"
-                  className="min-h-11 flex-1 gap-2 sm:flex-none"
+                  className="h-12 min-h-12 flex-1 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-11 sm:flex-none"
                   disabled={findingStores || vision.productIds.length === 0}
                   onClick={() => findNearestStoreFromVision()}
                 >
@@ -1150,15 +1241,15 @@ export default function RecommendPage() {
                     ? "Looking nearby…"
                     : showLocal
                       ? "Refresh nearest store"
-                      : "Find Nearest Store"}
+                      : "Find nearest store"}
                 </Button>
                 <p className="text-xs text-muted-foreground sm:max-w-[14rem]">
                   {placesEngine === "google-places" || placesEngine === "hybrid"
                     ? "Live Google Maps + Forest Buddies makers"
-                    : "Enhanced mock makers — add GOOGLE_MAPS_API_KEY for live Places"}
+                    : "Local options are estimates — confirm stock in store"}
                 </p>
               </div>
-            </div>
+            </section>
 
             <VisionNearestStorePanel
               showLocal={showLocal}
@@ -1217,36 +1308,49 @@ export default function RecommendPage() {
               onFind={() => void findNearestStoreFromVision()}
             />
 
-            <div>
-              <h2 className="font-heading text-xl font-semibold text-primary">
-                Marketplace twins
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Ranked by visual kinship — shop online or pick up nearby.
-              </p>
-            </div>
+            {/* Suggestions */}
+            <section className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                  Suggestions
+                </p>
+                <h2 className="font-heading mt-1 text-xl font-semibold text-primary sm:text-2xl">
+                  Marketplace twins
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Ranked by visual kinship — shop online or check nearby.
+                </p>
+              </div>
 
-            <PickList
-              picks={vision.picks}
-              addedId={addedId}
-              onAdd={handleAdd}
-              reasonLabel="Why Leafy matched it"
-            />
+              <PickList
+                picks={vision.picks}
+                addedId={addedId}
+                onAdd={handleAdd}
+                reasonLabel="Why Leafy matched it"
+              />
+            </section>
+
+            <AskLeafyNextSteps highlightHref="/local" />
+            <AskLeafyDisclaimer />
 
             <p className="text-center text-xs text-muted-foreground">
               {vision.engine === "grok-vision"
-                ? "Live Grok Vision · Find Nearest Store uses makers + Google Places when configured"
+                ? "Live Grok Vision · nearest store uses makers + Google Places when configured"
                 : "Demo vision · set XAI_API_KEY and GOOGLE_MAPS_API_KEY for the full stack"}
             </p>
           </div>
         )}
 
         {!thinking && mode === "text" && result && (
-          <div className="mt-8 space-y-5 animate-fb-fade-up">
-            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-5 py-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="bg-emerald-800 text-white">
-                  {result.engine === "mock" ? "Mock agent" : "Grok"}
+          <div className="mt-8 space-y-6 animate-fb-fade-up">
+            {/* Summary */}
+            <section className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-4 py-4 sm:px-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                Summary
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge className="bg-emerald-800 text-cream">
+                  {result.engine === "mock" ? "Leafy guidance" : "Grok"}
                 </Badge>
                 {result.parsed.budget != null && (
                   <Badge variant="outline">≤ ${result.parsed.budget}</Badge>
@@ -1261,7 +1365,7 @@ export default function RecommendPage() {
                 ))}
               </div>
               <p
-                className="font-heading mt-3 text-lg font-semibold text-emerald-950 sm:text-xl"
+                className="font-heading mt-3 text-lg font-semibold leading-snug text-emerald-950 sm:text-xl"
                 id="leafy-text-reply"
               >
                 {result.message}
@@ -1271,7 +1375,7 @@ export default function RecommendPage() {
                   type="button"
                   size="lg"
                   variant="outline"
-                  className="min-h-12 gap-2 border-emerald-300 bg-white text-base"
+                  className="h-12 min-h-12 gap-2 border-emerald-300 bg-white text-base sm:h-11"
                   aria-label="Speak Leafy’s reply"
                   onClick={() => {
                     if (speaking) stopLeafyVoice();
@@ -1291,14 +1395,29 @@ export default function RecommendPage() {
                   )}
                 </Button>
               </div>
-            </div>
+            </section>
 
-            <PickList
-              picks={result.picks}
-              addedId={addedId}
-              onAdd={handleAdd}
-              reasonLabel="Why Leafy picked it"
-            />
+            {/* Suggestions */}
+            <section className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                  Suggestions
+                </p>
+                <h2 className="font-heading mt-1 text-xl font-semibold text-primary sm:text-2xl">
+                  Leafy’s picks
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Ranked for your question, budget, and eco scores.
+                </p>
+              </div>
+
+              <PickList
+                picks={result.picks}
+                addedId={addedId}
+                onAdd={handleAdd}
+                reasonLabel="Why Leafy picked it"
+              />
+            </section>
 
             <LocalStoresPanel
               showLocal={showLocal}
@@ -1312,10 +1431,16 @@ export default function RecommendPage() {
               onFind={findLocalStores}
             />
 
+            <AskLeafyNextSteps
+              highlightHref={
+                /local|nearby|refill/i.test(query) ? "/local" : undefined
+              }
+            />
+            <AskLeafyDisclaimer />
+
             <p className="text-center text-xs text-muted-foreground">
-              Engine: mock scorer on the live marketplace catalog. Hook up Grok
-              by swapping{" "}
-              <code className="rounded bg-muted px-1">recommendProducts</code>.
+              Guidance from the Forest Buddies® marketplace catalog — always
+              check product details before you buy.
             </p>
           </div>
         )}
@@ -1394,10 +1519,9 @@ function PickList({
                   </Badge>
                 ))}
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button
-                  size="sm"
-                  className="gap-1.5"
+                  className="h-11 gap-1.5 sm:h-9"
                   onClick={() => onAdd(pick.product)}
                 >
                   <ShoppingBag className="size-3.5" />
@@ -1411,15 +1535,15 @@ function PickList({
                   listPrice={pick.product.price}
                   label="Shop Amazon"
                   primary
-                  className="min-h-9 px-3 text-sm"
+                  className="min-h-11 px-3 text-sm sm:min-h-9"
                 />
                 <Button
-                  size="sm"
                   variant="outline"
+                  className="h-11 sm:h-9"
                   nativeButton={false}
                   render={<Link href="/marketplace" />}
                 >
-                  Browse similar
+                  Browse marketplace
                 </Button>
               </div>
               <div className="mt-3 border-t border-border/50 pt-3">
