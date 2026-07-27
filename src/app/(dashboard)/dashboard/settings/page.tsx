@@ -245,7 +245,7 @@ function AccountSettingsPageInner() {
             Trees, CO₂ estimates, and causes you’ve funded
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Based on your Forest Buddies activity on this device.
+            Based on your Forest Buddies® activity on this device.
           </p>
         </div>
         <Button

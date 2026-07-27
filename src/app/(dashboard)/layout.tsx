@@ -37,18 +37,21 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-full flex-col overflow-x-hidden bg-cream">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
           <Link
             href="/"
             className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary sm:text-lg"
             aria-label="Forest Buddies® home"
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105">
-              <Leaf className="size-4" aria-hidden />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
+              <Leaf className="size-4 sm:size-5" aria-hidden />
             </span>
             <BrandMark />
           </Link>
-          <nav className="hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 text-sm lg:flex">
+          <nav
+            className="hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-1 px-2 text-sm lg:flex"
+            aria-label="Dashboard"
+          >
             {dashboardNav.map((item) => {
               const active = navActive(pathname, item.href);
               return (
@@ -56,10 +59,10 @@ export default function DashboardLayout({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "whitespace-nowrap transition-colors",
+                    "rounded-lg px-2.5 py-2 whitespace-nowrap transition-colors",
                     active
-                      ? "font-medium text-primary"
-                      : "text-muted-foreground hover:text-primary"
+                      ? "bg-primary/10 font-medium text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-primary"
                   )}
                 >
                   {item.label}
@@ -68,10 +71,13 @@ export default function DashboardLayout({
             })}
           </nav>
           <div className="flex shrink-0 items-center gap-1.5">
-            <DashboardSignOut className="min-h-9 px-2.5 text-xs sm:text-sm" />
+            <DashboardSignOut className="min-h-10 px-2.5 text-xs sm:min-h-9 sm:text-sm" />
           </div>
         </div>
-        <nav className="mx-auto flex max-w-6xl flex-wrap gap-1.5 px-3 pb-3 lg:hidden">
+        <nav
+          className="mx-auto flex max-w-6xl gap-1.5 overflow-x-auto px-3 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
+          aria-label="Dashboard sections"
+        >
           {dashboardNav.map((item) => {
             const active = navActive(pathname, item.href);
             return (
@@ -79,10 +85,10 @@ export default function DashboardLayout({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "inline-flex rounded-lg px-2.5 py-1.5 text-xs font-medium",
+                  "inline-flex min-h-10 shrink-0 items-center rounded-xl px-3.5 text-sm font-medium",
                   active
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted/60 text-foreground/80 hover:bg-muted hover:text-primary"
+                    : "bg-muted/70 text-foreground/80 hover:bg-muted hover:text-primary"
                 )}
               >
                 {item.short}
@@ -104,7 +110,7 @@ export default function DashboardLayout({
                   <Link
                     href={item.href}
                     className={cn(
-                      "block rounded-lg px-3 py-2 transition-colors",
+                      "block rounded-xl px-3 py-2.5 transition-colors",
                       active
                         ? "bg-primary/10 font-medium text-primary"
                         : "text-foreground/80 hover:bg-muted hover:text-primary"

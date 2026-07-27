@@ -31,6 +31,7 @@ import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { KitchenDietaryNotes } from "@/components/kitchen/kitchen-dietary-notes";
 import { KitchenSavedLink } from "@/components/kitchen/kitchen-saved-link";
 import { KitchenVoiceInput } from "@/components/kitchen/kitchen-voice-input";
+import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -640,7 +641,7 @@ function KitchenAssistantPageInner() {
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-6xl px-3 py-6 sm:px-6 sm:py-12">
+      <div className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
             <MarketplaceBrandBadge />
@@ -659,13 +660,15 @@ function KitchenAssistantPageInner() {
           <KitchenSavedLink />
         </div>
 
-        <h1 className="font-heading max-w-2xl text-[1.75rem] font-semibold leading-tight tracking-tight text-primary sm:text-4xl lg:text-5xl">
+        <h1 className="font-heading max-w-2xl text-3xl font-semibold leading-tight tracking-tight text-primary sm:text-4xl lg:text-5xl">
           From recipe to basket — with Leafy
         </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
+        <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
           Pick a sample or paste a recipe. Leafy builds your shopping list,
           then helps you buy online, check local stores, and plan cook time.
         </p>
+
+        <LeafyHubLinks omitHref="/kitchen" className="mt-4" dense />
 
         <div className="mt-4 flex gap-2.5 rounded-2xl border border-emerald-200/80 bg-white/90 p-3 shadow-sm print:hidden sm:mt-5 sm:gap-3 sm:p-4">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm sm:size-10">
@@ -1020,10 +1023,10 @@ Ingredients:
                       <span>Add to cart, check local, or save the list</span>
                     </li>
                   </ol>
-                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
                     <Button
                       type="button"
-                      className="h-10 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900"
+                      className="h-11 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
                       onClick={() => loadSample(SAMPLE_RECIPES[0].id)}
                     >
                       <Sparkles className="size-4" />
@@ -1033,7 +1036,7 @@ Ingredients:
                       nativeButton={false}
                       render={<Link href="/kitchen/saved" />}
                       variant="outline"
-                      className="h-10 gap-2"
+                      className="h-11 gap-2 sm:h-10"
                     >
                       <BookMarked className="size-4" />
                       My Kitchen
@@ -1771,7 +1774,7 @@ Ingredients:
 
         <p className="mt-10 text-center text-xs text-muted-foreground sm:mt-12">
           Leafy Kitchen is a helper — always check allergens and store
-          availability. Affiliate links may earn Forest Buddies a small
+          availability. Affiliate links may earn Forest Buddies® a small
           commission.
         </p>
       </div>

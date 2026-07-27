@@ -217,7 +217,7 @@ export default function MembershipPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             variant="ghost"
-            className="h-10 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
+            className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
             nativeButton={false}
             render={<Link href="/dashboard" />}
           >
@@ -226,12 +226,21 @@ export default function MembershipPage() {
           </Button>
           <Button
             variant="ghost"
-            className="h-10 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
+            className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
+            nativeButton={false}
+            render={<Link href="/dashboard/my-forest" />}
+          >
+            <Trees className="size-3.5" />
+            My Forest
+          </Button>
+          <Button
+            variant="ghost"
+            className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
             nativeButton={false}
             render={<Link href="/dashboard/settings" />}
           >
             <Settings className="size-3.5" />
-            Account Settings
+            Account settings
             <ArrowRight className="size-3.5 opacity-70" />
           </Button>
         </div>

@@ -5,6 +5,7 @@ import {
   HeartHandshake,
   MapPin,
   Sparkles,
+  Trees,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -63,12 +64,26 @@ const exploreNavItems: NavItem[] = [
   { href: "/about", label: "About" },
 ];
 
-/** Compact top-bar — key tools always visible on desktop */
+const accountNavItems: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", description: "Overview & membership" },
+  {
+    href: "/dashboard/my-forest",
+    label: "My Forest",
+    description: "Saved recipes, parts & places",
+    icon: Trees,
+  },
+  {
+    href: "/dashboard/impact",
+    label: "Your impact",
+    description: "Trees, CO₂ & causes",
+  },
+];
+
+/** Compact top-bar — Leafy tools first, then key explore links */
 const desktopPrimaryItems: NavItem[] = [
-  { href: "/marketplace", label: "Marketplace" },
   ...LEAFY_NAV_ITEMS,
+  { href: "/marketplace", label: "Marketplace" },
   { href: "/membership", label: "Membership" },
-  { href: "/about", label: "About" },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -89,7 +104,7 @@ export function MainNav({
   if (variant === "primary") {
     return (
       <nav
-        className={cn("flex items-center gap-0.5", className)}
+        className={cn("flex items-center gap-1", className)}
         aria-label="Primary"
       >
         {desktopPrimaryItems.map((item) => {
@@ -99,8 +114,9 @@ export function MainNav({
             <Link
               key={item.href}
               href={item.href}
+              title={item.description}
               className={cn(
-                "rounded-lg px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200",
+                "rounded-lg px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-3",
                 active
                   ? "bg-primary/10 text-primary shadow-sm"
                   : featured
@@ -118,7 +134,7 @@ export function MainNav({
 
   return (
     <nav
-      className={cn("flex flex-col gap-5", className)}
+      className={cn("flex flex-col gap-6", className)}
       aria-label="Main menu"
     >
       <div>
@@ -126,7 +142,7 @@ export function MainNav({
           <HeartHandshake className="size-3.5" aria-hidden />
           Leafy tools
         </p>
-        <ul className="mt-2 space-y-1.5">
+        <ul className="mt-2.5 space-y-2">
           {LEAFY_NAV_ITEMS.map((item) => {
             const active = isActivePath(pathname, item.href);
             const Icon = item.icon;
@@ -135,7 +151,7 @@ export function MainNav({
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2.5 transition-all active:scale-[0.99]",
+                    "flex min-h-[3.25rem] items-center gap-3 rounded-xl border px-3.5 py-3 transition-all active:scale-[0.99]",
                     active
                       ? "border-emerald-700/40 bg-emerald-800 text-cream shadow-sm"
                       : "border-emerald-200/80 bg-emerald-50/50 text-emerald-950 hover:border-emerald-300 hover:bg-emerald-50"
@@ -177,6 +193,43 @@ export function MainNav({
 
       <div>
         <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Your Forest
+        </p>
+        <ul className="mt-2 space-y-1">
+          {accountNavItems.map((item) => {
+            const active = isActivePath(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex min-h-12 items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors active:scale-[0.99]",
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground/85 hover:bg-muted hover:text-primary"
+                  )}
+                >
+                  {Icon ? (
+                    <Icon className="size-4 shrink-0 text-emerald-800" aria-hidden />
+                  ) : null}
+                  <span className="min-w-0">
+                    <span className="block leading-tight">{item.label}</span>
+                    {item.description ? (
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                        {item.description}
+                      </span>
+                    ) : null}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Explore
         </p>
         <ul className="mt-2 space-y-0.5">
@@ -187,7 +240,7 @@ export function MainNav({
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex min-h-12 items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors active:scale-[0.99]",
+                    "flex min-h-12 items-center rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors active:scale-[0.99]",
                     active
                       ? "bg-primary/10 text-primary"
                       : "text-foreground/85 hover:bg-muted hover:text-primary"

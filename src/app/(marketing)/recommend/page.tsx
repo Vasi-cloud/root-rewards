@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { AskLeafyExamples } from "@/components/recommend/ask-leafy-examples";
 import {
   AskLeafyDisclaimer,
@@ -623,13 +624,15 @@ export default function RecommendPage() {
             Ask Leafy
           </Badge>
         </div>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
           Upload a photo or ask a question
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
           Leafy helps you find eco-friendly products — snap something you like,
           or type what you need. Guidance only, not medical or legal advice.
         </p>
+
+        <LeafyHubLinks omitHref="/recommend" className="mt-4" dense />
 
         {/* Equal entry paths */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -1118,7 +1121,7 @@ export default function RecommendPage() {
               {mode === "vision"
                 ? visionReady === "grok"
                   ? "Grok Vision → eco twins from the marketplace"
-                  : "Matching shapes & vibes to Forest Buddies finds"
+                  : "Matching shapes & vibes to Forest Buddies® finds"
                 : "Matching budget, occasion, and eco scores"}
             </p>
           </div>
@@ -1245,7 +1248,7 @@ export default function RecommendPage() {
                 </Button>
                 <p className="text-xs text-muted-foreground sm:max-w-[14rem]">
                   {placesEngine === "google-places" || placesEngine === "hybrid"
-                    ? "Live Google Maps + Forest Buddies makers"
+                    ? "Live Google Maps + Forest Buddies® makers"
                     : "Local options are estimates — confirm stock in store"}
                 </p>
               </div>
@@ -1592,11 +1595,11 @@ function VisionNearestStorePanel({
   const others = stores?.slice(1) ?? [];
   const engineLabel =
     placesEngine === "hybrid"
-      ? "Forest Buddies + Google Maps"
+      ? "Forest Buddies® + Google Maps"
       : placesEngine === "google-places"
         ? "Google Maps Places"
         : placesEngine === "forest-buddies"
-          ? "Forest Buddies makers"
+          ? "Forest Buddies® makers"
           : "Enhanced mock makers";
 
   return (
@@ -1721,7 +1724,7 @@ function VisionNearestStorePanel({
                       >
                         {nearest.source === "google"
                           ? "Google Maps"
-                          : "Forest Buddies"}
+                          : "Forest Buddies®"}
                       </Badge>
                     </div>
                     <h3 className="font-heading text-xl font-semibold text-primary">

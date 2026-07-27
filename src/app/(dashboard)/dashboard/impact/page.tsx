@@ -14,10 +14,12 @@ import {
   Sun,
   Trees,
   Waves,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,6 +59,12 @@ const EMPTY_CTAS = [
     icon: ChefHat,
   },
   {
+    href: "/parts",
+    label: "Try Leafy Parts",
+    hint: "Identify a part and save it to Garage",
+    icon: Wrench,
+  },
+  {
     href: "/local",
     label: "Check Buy Local",
     hint: "Find nearby stores & makers",
@@ -67,6 +75,12 @@ const EMPTY_CTAS = [
     label: "Ask Leafy",
     hint: "Photo or question → greener picks",
     icon: MessageSquareText,
+  },
+  {
+    href: "/dashboard/my-forest",
+    label: "Open My Forest",
+    hint: "Saved recipes, parts & favourite places",
+    icon: Trees,
   },
 ] as const;
 
@@ -119,6 +133,7 @@ export default function PersonalImpactPage() {
           activity has supported so far — based on checkouts, causes, and
           shopping on this device.
         </p>
+        <LeafyHubLinks className="mt-4" dense />
       </div>
 
       {!summary.hasActivity ? (
@@ -144,7 +159,7 @@ export default function PersonalImpactPage() {
                       nativeButton={false}
                       render={<Link href={cta.href} />}
                       variant="outline"
-                      className="h-auto min-h-14 w-full justify-start gap-3 border-emerald-200/90 bg-white px-3 py-2.5 text-left whitespace-normal hover:bg-emerald-50"
+                      className="h-auto min-h-14 w-full justify-start gap-3 border-emerald-200/90 bg-white px-3 py-3 text-left whitespace-normal hover:bg-emerald-50"
                     >
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-800 text-cream">
                         <Icon className="size-4" />
@@ -193,7 +208,7 @@ export default function PersonalImpactPage() {
               icon={ShoppingBag}
               label="Eco purchases"
               value={String(summary.ecoPurchases)}
-              detail="Completed Forest Buddies checkouts"
+              detail="Completed Forest Buddies® checkouts"
             />
             <MetricCard
               icon={ShoppingCart}
@@ -204,7 +219,7 @@ export default function PersonalImpactPage() {
           </div>
 
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Based on your Forest Buddies activity on this device. Cause CO₂
+            Based on your Forest Buddies® activity on this device. Cause CO₂
             figures are illustrative estimates — not a full carbon audit.
           </p>
 

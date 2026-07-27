@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { useAppToast } from "@/components/ui/app-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { EcoEmptyPanel } from "@/components/ui/eco-empty-panel";
 import {
   formatKitchenHistoryDate,
   loadKitchenHistory,
@@ -136,6 +138,8 @@ export default function MyForestPage() {
         )}
       </div>
 
+        <LeafyHubLinks className="mt-1" dense />
+
       {/* Impact light link */}
       <Link
         href="/dashboard/impact"
@@ -183,12 +187,18 @@ export default function MyForestPage() {
           </CardHeader>
           <CardContent className="space-y-4 px-4 sm:px-6">
             {recipes.length === 0 && recentRecipes.length === 0 ? (
-              <EmptyBlock
+              <EcoEmptyPanel
                 icon={ChefHat}
                 title="No recipes saved yet"
-                hint="Plan a cook in Leafy Kitchen, then save a list or recipe."
-                ctaHref="/kitchen"
-                ctaLabel="Open Leafy Kitchen"
+                description="Plan a cook in Leafy Kitchen, then save a list or recipe to see it here."
+                primaryAction={{
+                  href: "/kitchen",
+                  label: "Open Leafy Kitchen",
+                }}
+                secondaryAction={{
+                  href: "/kitchen/saved",
+                  label: "My Kitchen",
+                }}
               />
             ) : (
               <>
@@ -278,12 +288,18 @@ export default function MyForestPage() {
           </CardHeader>
           <CardContent className="space-y-3 px-4 sm:px-6">
             {parts.length === 0 ? (
-              <EmptyBlock
+              <EcoEmptyPanel
                 icon={Cog}
-                title="Garage is empty"
-                hint="Identify a part, then save it to Garage for later."
-                ctaHref="/parts"
-                ctaLabel="Open Parts Finder"
+                title="No parts saved yet"
+                description="Identify a part in Leafy Parts Finder, then save it to Garage for later."
+                primaryAction={{
+                  href: "/parts",
+                  label: "Open Parts Finder",
+                }}
+                secondaryAction={{
+                  href: "/parts/garage",
+                  label: "My Garage",
+                }}
               />
             ) : (
               <>
@@ -402,12 +418,14 @@ export default function MyForestPage() {
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
             {favourites.length === 0 ? (
-              <EmptyBlock
+              <EcoEmptyPanel
                 icon={MapPin}
                 title="No favourites yet"
-                hint="Heart a store or maker on Buy Local so it shows up here."
-                ctaHref="/local"
-                ctaLabel="Check Buy Local"
+                description="Heart a store or maker on Buy Local so it shows up here for easy revisits."
+                primaryAction={{
+                  href: "/local",
+                  label: "Check Buy Local",
+                }}
               />
             ) : (
               <>
@@ -484,7 +502,7 @@ export default function MyForestPage() {
           nativeButton={false}
           render={<Link href="/dashboard" />}
           variant="outline"
-          className="h-11 sm:h-9"
+          className="h-11 sm:h-10"
         >
           Back to overview
         </Button>
@@ -492,48 +510,12 @@ export default function MyForestPage() {
           nativeButton={false}
           render={<Link href="/dashboard/impact" />}
           variant="ghost"
-          className="h-11 gap-1.5 sm:h-9"
+          className="h-11 gap-1.5 sm:h-10"
         >
           <Leaf className="size-3.5" />
           Your impact
         </Button>
       </div>
-    </div>
-  );
-}
-
-function EmptyBlock({
-  icon: Icon,
-  title,
-  hint,
-  ctaHref,
-  ctaLabel,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  hint: string;
-  ctaHref: string;
-  ctaLabel: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-dashed border-emerald-300/80 bg-emerald-50/40 px-4 py-8 text-center">
-      <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-white text-emerald-800 shadow-sm ring-1 ring-emerald-200/80">
-        <Icon className="size-5" />
-      </span>
-      <p className="mt-3 font-heading text-base font-semibold text-emerald-950">
-        {title}
-      </p>
-      <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground sm:text-sm">
-        {hint}
-      </p>
-      <Button
-        nativeButton={false}
-        render={<Link href={ctaHref} />}
-        className="mt-4 h-11 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-9"
-      >
-        {ctaLabel}
-        <ArrowRight className="size-3.5" />
-      </Button>
     </div>
   );
 }
@@ -573,7 +555,7 @@ function SectionList({
               <p className="truncate text-sm font-semibold text-foreground">
                 {item.title}
               </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                 {item.detail}
               </p>
             </div>
@@ -582,7 +564,7 @@ function SectionList({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-9 flex-1 sm:h-8 sm:flex-none"
+                className="h-11 flex-1 sm:h-9 sm:flex-none"
                 onClick={item.onOpen}
               >
                 Open
@@ -591,7 +573,7 @@ function SectionList({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-9 gap-1 text-muted-foreground hover:text-destructive sm:h-8"
+                className="h-11 gap-1 text-muted-foreground hover:text-destructive sm:h-9"
                 aria-label={`Remove ${item.title}`}
                 onClick={item.onRemove}
               >

@@ -8,7 +8,7 @@ import { TrademarkRegLink } from "@/components/legal/trademark-reg-link";
 export function HomeTrustStrip() {
   return (
     <section
-      aria-label="Why Forest Buddies"
+      aria-label="Why Forest Buddies®"
       className="border-b border-emerald-200/60 bg-cream px-4 py-4 sm:px-6 sm:py-5"
     >
       <ul className="mx-auto flex w-full max-w-5xl flex-col gap-3 sm:max-w-6xl sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">

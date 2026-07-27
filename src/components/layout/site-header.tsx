@@ -169,16 +169,16 @@ export function SiteHeader() {
 
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="inline-flex size-10 items-center justify-center rounded-lg border border-border lg:hidden"
+              className="inline-flex size-11 items-center justify-center rounded-xl border border-border bg-white/80 lg:hidden"
               aria-label="Open menu"
             >
               <Menu className="size-5" />
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="flex w-[min(100vw-1rem,22rem)] max-w-full flex-col overflow-hidden px-4 sm:px-6"
+              className="flex w-[min(100vw-0.75rem,22.5rem)] max-w-full flex-col overflow-hidden px-4 sm:px-6"
             >
-              <SheetHeader className="shrink-0 space-y-1 pb-1 text-left">
+              <SheetHeader className="shrink-0 space-y-1.5 pb-2 text-left">
                 <SheetTitle className="font-heading text-lg text-primary">
                   Forest Buddies®
                 </SheetTitle>
@@ -186,7 +186,7 @@ export function SiteHeader() {
                   Shop kindly · Leafy tools · Local &amp; eco
                 </p>
               </SheetHeader>
-              <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pb-5">
+              <div className="mt-2 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-6">
                 <MainNav variant="full" />
                 <div className="mt-auto flex flex-col gap-2.5 border-t border-border pt-4">
                   <label
@@ -199,7 +199,7 @@ export function SiteHeader() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-start gap-2"
+                    className="min-h-11 w-full justify-start gap-2"
                     onClick={() => {
                       setMenuOpen(false);
                       openSupportChat();
@@ -212,7 +212,7 @@ export function SiteHeader() {
                     nativeButton={false}
                     render={<Link href="/cart" />}
                     variant="outline"
-                    className="w-full justify-start gap-2"
+                    className="min-h-11 w-full justify-start gap-2"
                   >
                     <ShoppingCart className="size-4" />
                     Cart
@@ -222,7 +222,7 @@ export function SiteHeader() {
                     nativeButton={false}
                     render={<Link href="/seller" />}
                     variant="outline"
-                    className="w-full justify-start"
+                    className="min-h-11 w-full justify-start"
                   >
                     Become a seller
                   </Button>
@@ -231,27 +231,19 @@ export function SiteHeader() {
                       <Button
                         nativeButton={false}
                         render={<Link href="/dashboard" />}
-                        className="w-full min-h-11"
+                        className="min-h-11 w-full"
                       >
                         Dashboard
                       </Button>
                       <Button
                         nativeButton={false}
-                        render={<Link href="/dashboard/my-forest" />}
-                        variant="outline"
-                        className="w-full min-h-11"
-                      >
-                        My Forest
-                      </Button>
-                      <Button
-                        nativeButton={false}
                         render={<Link href="/dashboard/settings" />}
                         variant="outline"
-                        className="w-full min-h-11"
+                        className="min-h-11 w-full"
                       >
                         Account settings
                       </Button>
-                      <DashboardSignOut className="w-full min-h-11 justify-center" />
+                      <DashboardSignOut className="min-h-11 w-full justify-center" />
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
@@ -259,14 +251,14 @@ export function SiteHeader() {
                         nativeButton={false}
                         render={<Link href="/login" />}
                         variant="outline"
-                        className="w-full min-h-11"
+                        className="min-h-11 w-full"
                       >
                         Sign in
                       </Button>
                       <Button
                         nativeButton={false}
                         render={<Link href="/register" />}
-                        className="w-full min-h-11"
+                        className="min-h-11 w-full"
                       >
                         Get started
                       </Button>

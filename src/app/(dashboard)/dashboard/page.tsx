@@ -3,9 +3,11 @@
 import {
   ArrowRight,
   BookOpen,
+  ChefHat,
   Copy,
   DollarSign,
   Leaf,
+  MapPin,
   MousePointerClick,
   PawPrint,
   ShoppingCart,
@@ -15,6 +17,7 @@ import {
   Trees,
   Users,
   Waves,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -320,6 +323,30 @@ export default function DashboardPage() {
             </Button>
             <Button
               nativeButton={false}
+              render={<Link href="/kitchen" />}
+              className="w-full justify-start gap-2"
+              variant="outline"
+            >
+              <ChefHat className="size-4" /> Leafy Kitchen
+            </Button>
+            <Button
+              nativeButton={false}
+              render={<Link href="/parts" />}
+              className="w-full justify-start gap-2"
+              variant="outline"
+            >
+              <Wrench className="size-4" /> Leafy Parts
+            </Button>
+            <Button
+              nativeButton={false}
+              render={<Link href="/local" />}
+              className="w-full justify-start gap-2"
+              variant="outline"
+            >
+              <MapPin className="size-4" /> Buy Local
+            </Button>
+            <Button
+              nativeButton={false}
               render={<Link href="/marketplace" />}
               className="w-full justify-start gap-2"
               variant="outline"
@@ -362,7 +389,7 @@ export default function DashboardPage() {
                 <Leaf className="size-5" /> Your impact
               </CardTitle>
               <CardDescription className="text-emerald-800/80">
-                Based on your Forest Buddies activity — causes, purchases, and
+                Based on your Forest Buddies® activity — causes, purchases, and
                 cart actions on this device.
               </CardDescription>
             </div>

@@ -17,6 +17,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { LocalEmptyState } from "@/components/local/local-empty-state";
 import { LocalMakerCard } from "@/components/local/local-maker-card";
 import {
@@ -425,14 +426,16 @@ function BuyLocalPageInner() {
           </Badge>
         </div>
 
-        <h1 className="font-heading max-w-3xl text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
+        <h1 className="font-heading max-w-3xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
           Find nearby stores &amp; makers
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
           Buy Local helps you source ingredients, household goods, and parts
           from shops and makers close by — then confirm in person before you
           travel. Three clear lists: Stores, Makers, and Products.
         </p>
+
+        <LeafyHubLinks omitHref="/local" className="mt-4" dense />
 
         {/* Primary honest disclaimer */}
         <div
@@ -443,7 +446,7 @@ function BuyLocalPageInner() {
           <div>
             <p className="font-medium leading-relaxed">{LOCAL_STOCK_DISCLAIMER}</p>
             <p className="mt-1 text-xs leading-relaxed text-amber-900/80">
-              Distances are approximate. Stock is never live on Forest Buddies.
+              Distances are approximate. Stock is never live on Forest Buddies®.
             </p>
           </div>
         </div>
@@ -1062,14 +1065,14 @@ function BuyLocalPageInner() {
                   {maxMiles < 50 && (
                     <Button
                       type="button"
-                      className="h-11 sm:h-9"
+                      className="h-11 sm:h-10"
                       onClick={() => setMaxMiles(50)}
                     >
                       Expand to {distanceOptionLabel(50, user.country)}
                     </Button>
                   )}
                   <Button
-                    className="h-11 sm:h-9"
+                    className="h-11 sm:h-10"
                     variant="outline"
                     nativeButton={false}
                     render={<Link href="/marketplace" />}

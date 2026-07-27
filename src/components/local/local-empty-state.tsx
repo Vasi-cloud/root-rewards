@@ -59,7 +59,7 @@ export function LocalEmptyState({
           {nextRadius != null && onExpandRadius && (
             <Button
               type="button"
-              className="h-12 w-full sm:h-10"
+              className="h-11 w-full sm:h-10"
               onClick={() => onExpandRadius(nextRadius)}
             >
               Widen search to {distanceOptionLabel(nextRadius, country)}
@@ -69,7 +69,7 @@ export function LocalEmptyState({
             <Button
               type="button"
               variant="outline"
-              className="h-12 w-full sm:h-10"
+              className="h-11 w-full sm:h-10"
               onClick={secondaryAction.onClick}
             >
               {secondaryAction.label}
