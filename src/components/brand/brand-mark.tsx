@@ -5,23 +5,32 @@ import { cn } from "@/lib/utils";
 /** Canonical registered brand string for prominent display */
 export const BRAND_NAME_REGISTERED = "Forest Buddies®";
 
-/** Compact registered short form for narrow headers */
+/** Compact registered short form — only for very narrow viewports */
 export const BRAND_NAME_SHORT = "Forest®";
 
 /**
  * Nav wordmark with ®.
- * Mobile: leaf + “Forest®”. Desktop (sm+): “Forest Buddies®”.
+ * Defaults to the full “Forest Buddies®” on marketing and app headers.
  * Only one label is visible at a time — never truncate a dual-label wrapper
  * (that caused “FBFB®” / incomplete marks on small screens).
+ *
+ * @param compactOnNarrow — when true (default), may show “Forest®” only below
+ *   ~360px width if space is extremely tight; otherwise always the full name.
  */
 export function BrandMark({
   className = "",
-  shortOnMobile = true,
+  compactOnNarrow = true,
+  /** @deprecated Use compactOnNarrow. Kept so older call sites still compile. */
+  shortOnMobile,
 }: {
   className?: string;
+  compactOnNarrow?: boolean;
   shortOnMobile?: boolean;
 }) {
-  if (!shortOnMobile) {
+  const allowCompact =
+    typeof shortOnMobile === "boolean" ? shortOnMobile : compactOnNarrow;
+
+  if (!allowCompact) {
     return (
       <span className={cn("whitespace-nowrap", className)}>
         {BRAND_NAME_REGISTERED}
@@ -31,8 +40,9 @@ export function BrandMark({
 
   return (
     <span className={cn("whitespace-nowrap", className)}>
-      <span className="inline sm:hidden">{BRAND_NAME_SHORT}</span>
-      <span className="hidden sm:inline">{BRAND_NAME_REGISTERED}</span>
+      {/* Full name by default; short form only on very narrow phones */}
+      <span className="hidden max-[359px]:inline">{BRAND_NAME_SHORT}</span>
+      <span className="inline max-[359px]:hidden">{BRAND_NAME_REGISTERED}</span>
     </span>
   );
 }
