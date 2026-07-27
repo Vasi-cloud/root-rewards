@@ -9,6 +9,7 @@ import {
   shouldShowShopTrademarkStrip,
 } from "@/components/brand/brand-mark";
 import { AbandonedCartRecovery } from "@/components/cart/AbandonedCartRecovery";
+import { LanguageComingSoonBanner } from "@/components/layout/language-coming-soon-banner";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SupportChat } from "@/components/support/SupportChat";
@@ -23,6 +24,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
         <AffiliateTracker />
       </Suspense>
       <SiteHeader />
+      <LanguageComingSoonBanner />
       <AbandonedCartRecovery />
       <main className="min-w-0 flex-1">{children}</main>
       {showShopStrip ? (

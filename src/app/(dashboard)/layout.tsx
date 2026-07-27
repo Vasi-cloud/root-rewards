@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { BrandMark } from "@/components/brand/brand-mark";
 import { DashboardSignOut } from "@/components/dashboard/sign-out-button";
+import { LanguageComingSoonBanner } from "@/components/layout/language-coming-soon-banner";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -97,6 +98,7 @@ export default function DashboardLayout({
           })}
         </nav>
       </header>
+      <LanguageComingSoonBanner />
       <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-1 gap-8 px-3 py-6 sm:px-6 sm:py-8">
         <aside className="hidden w-48 shrink-0 md:block">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

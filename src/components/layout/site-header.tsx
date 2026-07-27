@@ -18,27 +18,40 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
-import { SUPPORTED_LANGUAGES, useI18n } from "@/contexts/i18n-context";
-import type { Language } from "@/contexts/i18n-context";
+import {
+  formatLanguageOptionLabel,
+  SUPPORTED_LANGUAGES,
+  useI18n,
+  type Language,
+} from "@/contexts/i18n-context";
 import { openSupportChat } from "@/lib/support-agent";
 
 function LanguageSelect({ id }: { id: string }) {
-  const { lang, setLang } = useI18n();
+  const { lang, setLang, isLangReady } = useI18n();
+  const selected = SUPPORTED_LANGUAGES.find((l) => l.code === lang);
 
   return (
-    <select
-      id={id}
-      value={lang}
-      onChange={(e) => setLang(e.target.value as Language)}
-      className="h-11 w-full rounded-lg border border-border bg-background px-2 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring md:h-8 md:w-auto md:text-xs"
-      aria-label="Select language"
-    >
-      {SUPPORTED_LANGUAGES.map((l) => (
-        <option key={l.code} value={l.code}>
-          {l.short} — {l.label}
-        </option>
-      ))}
-    </select>
+    <div className="flex min-w-0 flex-col gap-1">
+      <select
+        id={id}
+        value={lang}
+        onChange={(e) => setLang(e.target.value as Language)}
+        className="h-11 w-full rounded-lg border border-border bg-background px-2 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring xl:h-8 xl:w-auto xl:text-xs"
+        aria-label="Select language"
+      >
+        {SUPPORTED_LANGUAGES.map((l) => (
+          <option key={l.code} value={l.code}>
+            {formatLanguageOptionLabel(l)}
+          </option>
+        ))}
+      </select>
+      {/* Short hint in the sheet / stacked switchers only — avoids stretching the desktop header */}
+      {!isLangReady && selected && id.includes("mobile") ? (
+        <p className="text-[11px] leading-snug text-amber-800/90">
+          {selected.label} coming soon — English for now.
+        </p>
+      ) : null}
+    </div>
   );
 }
 

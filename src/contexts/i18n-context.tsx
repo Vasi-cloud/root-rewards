@@ -4,20 +4,45 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 export type Language = "en" | "es" | "fr" | "de" | "ro" | "it" | "nl";
 
-export const SUPPORTED_LANGUAGES: { code: Language; label: string; short: string }[] = [
-  { code: "en", label: "English", short: "EN" },
-  { code: "es", label: "Español", short: "ES" },
-  { code: "fr", label: "Français", short: "FR" },
-  { code: "de", label: "Deutsch", short: "DE" },
-  { code: "it", label: "Italiano", short: "IT" },
-  { code: "nl", label: "Nederlands", short: "NL" },
-  { code: "ro", label: "Română", short: "RO" },
+export type LanguageOption = {
+  code: Language;
+  label: string;
+  short: string;
+  /** True only for locales with a complete UI translation */
+  ready: boolean;
+};
+
+export const SUPPORTED_LANGUAGES: LanguageOption[] = [
+  { code: "en", label: "English", short: "EN", ready: true },
+  { code: "es", label: "Español", short: "ES", ready: false },
+  { code: "fr", label: "Français", short: "FR", ready: false },
+  { code: "de", label: "Deutsch", short: "DE", ready: false },
+  { code: "it", label: "Italiano", short: "IT", ready: false },
+  { code: "nl", label: "Nederlands", short: "NL", ready: false },
+  { code: "ro", label: "Română", short: "RO", ready: false },
 ];
+
+/** Only English is fully supported for now. */
+export function isLanguageReady(code: Language): boolean {
+  return SUPPORTED_LANGUAGES.find((l) => l.code === code)?.ready === true;
+}
+
+export function getLanguageOption(code: Language): LanguageOption | undefined {
+  return SUPPORTED_LANGUAGES.find((l) => l.code === code);
+}
+
+/** Dropdown label — marks incomplete locales without cluttering English. */
+export function formatLanguageOptionLabel(lang: LanguageOption): string {
+  if (lang.ready) return `${lang.short} — ${lang.label}`;
+  return `${lang.short} — ${lang.label} (Coming soon)`;
+}
 
 interface I18nContextValue {
   lang: Language;
   setLang: (lang: Language) => void;
   t: (key: string) => string;
+  /** True when the selected language has full UI support */
+  isLangReady: boolean;
 }
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
@@ -670,7 +695,7 @@ const translations: Record<Language, Record<string, string>> = {
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Language>("en");
 
-  // Load saved language
+  // Load saved language preference (selection is remembered; UI stays English until ready)
   useEffect(() => {
     const saved = localStorage.getItem("forest-buddies-lang") as Language | null;
     if (saved && SUPPORTED_LANGUAGES.some((l) => l.code === saved)) {
@@ -683,14 +708,21 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("forest-buddies-lang", newLang);
   }, []);
 
+  const isLangReady = isLanguageReady(lang);
+
+  // Always serve English copy until a locale is fully ready — avoids half-translated UI
   const t = useCallback(
     (key: string): string => {
-      return translations[lang][key] ?? key;
+      const dict = isLanguageReady(lang) ? translations[lang] : translations.en;
+      return dict[key] ?? translations.en[key] ?? key;
     },
     [lang]
   );
 
-  const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t]);
+  const value = useMemo(
+    () => ({ lang, setLang, t, isLangReady }),
+    [lang, setLang, t, isLangReady]
+  );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
