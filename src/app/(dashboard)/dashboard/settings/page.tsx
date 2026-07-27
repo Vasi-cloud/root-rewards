@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   Check,
+  Leaf,
   Loader2,
   Lock,
   Settings,
@@ -229,6 +230,31 @@ function AccountSettingsPageInner() {
         >
           <Sparkles className="size-3.5" />
           {isImpactMember ? "Manage membership" : "View membership"}
+          <ArrowRight className="size-3.5 opacity-80" />
+        </Button>
+      </div>
+
+      {/* Impact cross-link */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/60 px-3.5 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-800/70">
+            Your impact
+          </p>
+          <p className="mt-0.5 font-medium text-foreground">
+            Trees, CO₂ estimates, and causes you’ve funded
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Based on your Forest Buddies activity on this device.
+          </p>
+        </div>
+        <Button
+          className="h-11 w-full shrink-0 gap-1.5 sm:h-9 sm:w-auto"
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/dashboard/impact" />}
+        >
+          <Leaf className="size-3.5" />
+          Open impact
           <ArrowRight className="size-3.5 opacity-80" />
         </Button>
       </div>

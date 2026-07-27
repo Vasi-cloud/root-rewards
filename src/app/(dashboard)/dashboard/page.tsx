@@ -39,9 +39,12 @@ import {
 } from "@/lib/affiliate-storage";
 import { CAUSES, formatCauseUnits } from "@/lib/causes";
 import {
+  getPersonalImpactSummary,
   loadUserImpact,
+  subscribeUserImpact,
   totalImpactCo2,
   totalImpactUnits,
+  type PersonalImpactSummary,
   type UserImpact,
 } from "@/lib/impact-storage";
 import {
@@ -68,6 +71,8 @@ export default function DashboardPage() {
     periodEndsAt,
   } = useMembership();
   const [impact, setImpact] = useState<UserImpact | null>(null);
+  const [impactSummary, setImpactSummary] =
+    useState<PersonalImpactSummary | null>(null);
   const [stats, setStats] = useState<AffiliateStats>({
     clicks: 0,
     conversions: 0,
@@ -80,20 +85,31 @@ export default function DashboardPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setImpact(loadUserImpact());
     const mine = ensureMyAffiliateCode(profile?.affiliateCode);
     setCode(mine);
     setStats(getMyAffiliateStats(mine));
     setEvents(getMyAffiliateEvents(8));
     setOrigin(window.location.origin);
 
-    const refresh = () => {
+    const refreshImpact = () => {
+      setImpact(loadUserImpact());
+      setImpactSummary(getPersonalImpactSummary());
+    };
+    refreshImpact();
+
+    const refreshAffiliate = () => {
       setStats(getMyAffiliateStats(mine));
       setEvents(getMyAffiliateEvents(8));
     };
-    window.addEventListener("forest-buddies-affiliate-updated", refresh);
-    return () =>
-      window.removeEventListener("forest-buddies-affiliate-updated", refresh);
+    window.addEventListener("forest-buddies-affiliate-updated", refreshAffiliate);
+    const unsubImpact = subscribeUserImpact(refreshImpact);
+    return () => {
+      window.removeEventListener(
+        "forest-buddies-affiliate-updated",
+        refreshAffiliate
+      );
+      unsubImpact();
+    };
   }, [profile?.affiliateCode]);
 
   if (loading) {
@@ -114,6 +130,12 @@ export default function DashboardPage() {
     : [];
 
   const shareUrl = buildReferralUrl({ origin, code, path: "/marketplace" });
+  const treesLabel =
+    impactSummary && impactSummary.treesEquivalent > 0
+      ? impactSummary.treesEquivalent % 1 === 0
+        ? String(impactSummary.treesEquivalent)
+        : impactSummary.treesEquivalent.toFixed(1)
+      : "0";
 
   async function copyLink() {
     try {
@@ -281,6 +303,14 @@ export default function DashboardPage() {
           <CardContent className="space-y-2">
             <Button
               nativeButton={false}
+              render={<Link href="/dashboard/impact" />}
+              className="w-full justify-start gap-2"
+              variant="outline"
+            >
+              <Leaf className="size-4" /> View your personal impact
+            </Button>
+            <Button
+              nativeButton={false}
               render={<Link href="/marketplace" />}
               className="w-full justify-start gap-2"
               variant="outline"
@@ -317,29 +347,81 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/50">
-          <CardHeader>
-            <CardTitle className="font-heading flex items-center gap-2 text-emerald-900">
-              <Leaf className="size-5" /> Your cause impact
-            </CardTitle>
-            <CardDescription className="text-emerald-800/80">
-              From checkout donations across Trees, Ocean, Animals, and more.
-            </CardDescription>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="font-heading flex items-center gap-2 text-emerald-900">
+                <Leaf className="size-5" /> Your impact
+              </CardTitle>
+              <CardDescription className="text-emerald-800/80">
+                Based on your Forest Buddies activity — causes, purchases, and
+                cart actions on this device.
+              </CardDescription>
+            </div>
+            <Button
+              nativeButton={false}
+              render={<Link href="/dashboard/impact" />}
+              size="sm"
+              variant="outline"
+              className="h-10 shrink-0 gap-1.5 border-emerald-300 bg-white/80 text-emerald-950 hover:bg-white sm:h-8"
+            >
+              Full impact
+              <ArrowRight className="size-3.5" />
+            </Button>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline gap-2">
-              <div className="font-heading text-5xl font-semibold tabular-nums text-emerald-900">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl border border-emerald-200/70 bg-white/70 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                  Trees
+                </p>
+                <p className="mt-0.5 font-heading text-2xl font-semibold tabular-nums text-emerald-950">
+                  {treesLabel}
+                </p>
+              </div>
+              <div className="rounded-xl border border-emerald-200/70 bg-white/70 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                  CO₂ (kg)
+                </p>
+                <p className="mt-0.5 font-heading text-2xl font-semibold tabular-nums text-emerald-950">
+                  ~{Math.round(co2 * 10) / 10}
+                </p>
+              </div>
+              <div className="rounded-xl border border-emerald-200/70 bg-white/70 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                  Purchases
+                </p>
+                <p className="mt-0.5 font-heading text-2xl font-semibold tabular-nums text-emerald-950">
+                  {impactSummary?.ecoPurchases ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-emerald-200/70 bg-white/70 px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                  Cart
+                </p>
+                <p className="mt-0.5 font-heading text-2xl font-semibold tabular-nums text-emerald-950">
+                  {impactSummary?.cartActions ?? 0}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-baseline gap-2">
+              <div className="font-heading text-3xl font-semibold tabular-nums text-emerald-900">
                 {units}
               </div>
-              <div className="text-emerald-800">impact units</div>
-            </div>
-            <div className="mt-2 text-sm text-emerald-800">
-              ~{co2} kg CO₂ equivalent funded
+              <div className="text-sm text-emerald-800">cause units funded</div>
             </div>
 
             {causeRows.length === 0 ? (
-              <p className="mt-4 text-sm text-emerald-800/80">
+              <p className="mt-3 text-sm text-emerald-800/80">
                 Make your next checkout count — pick a cause and watch this
-                grow.
+                grow. Or{" "}
+                <Link
+                  href="/dashboard/impact"
+                  className="font-medium underline underline-offset-2"
+                >
+                  see how to start
+                </Link>
+                .
               </p>
             ) : (
               <div className="mt-4 space-y-2">

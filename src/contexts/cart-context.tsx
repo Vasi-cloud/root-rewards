@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { recordCartAction } from "@/lib/impact-storage";
 import type { CartItem, Product } from "@/types";
 
 interface CartContextValue {
@@ -61,6 +62,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, { ...product, quantity: qty }];
     });
+    recordCartAction(product.name);
   }, []);
 
   const removeFromCart = useCallback((productId: string) => {

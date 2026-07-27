@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 const dashboardNav = [
   { href: "/dashboard", label: "Overview", short: "Home" },
+  { href: "/dashboard/impact", label: "Your impact", short: "Impact" },
   { href: "/membership", label: "Membership", short: "Plan" },
   { href: "/dashboard/settings", label: "Account settings", short: "Settings" },
   { href: "/seller", label: "Become a seller", short: "Sell" },

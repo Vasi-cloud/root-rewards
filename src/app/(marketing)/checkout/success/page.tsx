@@ -23,7 +23,7 @@ import {
   selectionLines,
   type CauseSelection,
 } from "@/lib/causes";
-import { saveLastDonation } from "@/lib/impact-storage";
+import { recordEcoPurchase, saveLastDonation } from "@/lib/impact-storage";
 import {
   confirmPaidOrder,
   type ConfirmedOrderClient,
@@ -63,6 +63,13 @@ function CheckoutSuccessInner() {
         const orderNumber = `FB-DEMO-${Date.now().toString().slice(-6)}`;
         if (pending?.sellerLines?.length) {
           recordSellerSales(pending.sellerLines);
+        }
+        // Cause donation is already recorded on demo checkout submit;
+        // count the eco purchase once while pending still exists.
+        if (pending) {
+          recordEcoPurchase({
+            productName: pending.productName,
+          });
         }
         if (pending?.email) {
           void fetch("/api/email/order-confirmation", {
@@ -131,6 +138,9 @@ function CheckoutSuccessInner() {
       const pending = loadPendingCheckout();
       if (pending) {
         saveLastDonation(pending.selection);
+        recordEcoPurchase({
+          productName: pending.productName,
+        });
         if (pending.memberCreditApplied) consumeCauseCredit();
         recordAffiliateConversion({
           orderTotal: pending.cartSubtotal,
@@ -143,6 +153,7 @@ function CheckoutSuccessInner() {
         }
         clearPendingCheckout();
       } else if (result.order.causeSelection) {
+        // First visit without pending payload — still capture cause gift once.
         saveLastDonation(result.order.causeSelection as CauseSelection);
       }
 
@@ -294,12 +305,12 @@ function CheckoutSuccessInner() {
         </Button>
         <Button
           nativeButton={false}
-          render={<Link href="/dashboard" />}
+          render={<Link href="/dashboard/impact" />}
           variant="outline"
           size="lg"
           className="min-h-12 w-full"
         >
-          View impact dashboard
+          View your impact
         </Button>
       </div>
     </div>
