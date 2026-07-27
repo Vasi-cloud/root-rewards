@@ -68,11 +68,10 @@ function CartButton({ className }: { className?: string }) {
 
 /**
  * Collapse strategy:
- * - < lg: brand + icon actions + menu (mobile/tablet)
- * - lg–xl: brand + primary nav (full labels) + cart + menu
- *   (Dashboard / Settings / auth / language live in the menu — no squashed labels)
- * - xl+: brand + primary nav + language + cart + Dashboard / auth
- *   (Settings stays in menu / xl+ ghost link; menu still available for Explore)
+ * - < lg: brand + icon actions + menu (mobile)
+ * - lg–xl: brand + primary nav (full labels, no clip) + cart + menu
+ *   Secondary (Dashboard / Settings / auth / language / Membership) stay in the menu
+ * - xl+: brand + primary nav + language + cart + Dashboard / auth + More menu
  */
 export function SiteHeader() {
   const { user } = useAuth();
@@ -104,7 +103,7 @@ export function SiteHeader() {
         />
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-          {/* Wide desktop only — keeps mid-width headers uncrowded */}
+          {/* Wide desktop account/actions — kept off mid widths to avoid squashing nav */}
           <div className="hidden items-center gap-1.5 xl:flex">
             <LanguageSelect id="lang-switcher-desktop" />
             <Button
@@ -163,7 +162,7 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* Mobile / tablet / mid-desktop: compact icons + overflow menu */}
+          {/* Below xl: chat + cart stay as icons beside the menu */}
           <Button
             type="button"
             variant="ghost"
@@ -176,11 +175,9 @@ export function SiteHeader() {
           </Button>
           <CartButton className="xl:hidden" />
 
-          {/* Overflow menu: always available so Membership / Explore stay reachable.
-              Below xl it replaces Dashboard / Settings / auth in the bar. */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white/80 px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted xl:h-9 xl:rounded-lg"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-white/80 xl:h-9 xl:w-auto xl:gap-1.5 xl:px-3 xl:rounded-lg"
               aria-label="Open menu"
             >
               <Menu className="size-5 xl:size-4" />
