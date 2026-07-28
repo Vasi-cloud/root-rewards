@@ -50,6 +50,7 @@ import {
   formatDistance,
   getLocalListings,
   getNearbyMakers,
+  googleMapsDirectionsUrl,
   retailChainToNearbyStore,
   type NearbyStore,
 } from "@/lib/local-commerce";
@@ -61,6 +62,7 @@ import {
 } from "@/lib/local-favourites";
 import { ensureDemoShops } from "@/lib/seller-storage";
 import { cn } from "@/lib/utils";
+import { setVoiceNavPlaces } from "@/lib/voice-nav";
 
 export default function BuyLocalPage() {
   return (
@@ -200,6 +202,27 @@ function BuyLocalPageInner() {
     if (!showFavouritesOnly) return makers;
     return makers.filter(({ maker }) => favouriteMakerIds.has(maker.id));
   }, [makers, showFavouritesOnly, favouriteMakerIds]);
+
+  // Publish nearby places for site voice navigation (How far / Directions)
+  useEffect(() => {
+    const storePlaces = nearbyStores.map((store) => ({
+      id: store.id,
+      name: store.name,
+      kind: "store" as const,
+      distanceMi: store.distanceMi,
+      distanceLabel: formatDistance(store.distanceMi, user.country),
+      directionsUrl: store.directionsUrl,
+    }));
+    const makerPlaces = makers.map(({ maker, distanceMi }) => ({
+      id: maker.id,
+      name: maker.name,
+      kind: "maker" as const,
+      distanceMi,
+      distanceLabel: formatDistance(distanceMi, user.country),
+      directionsUrl: googleMapsDirectionsUrl(maker, user),
+    }));
+    setVoiceNavPlaces([...storePlaces, ...makerPlaces]);
+  }, [nearbyStores, makers, user]);
 
   const listings = useMemo(() => {
     const all = getLocalListings(user, maxMiles);

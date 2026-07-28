@@ -35,6 +35,7 @@ import {
 import { buildLoginHref, buildRegisterHref } from "@/lib/auth-redirect";
 import { cn } from "@/lib/utils";
 import { openSupportChat } from "@/lib/support-agent";
+import { VoiceNavControl } from "@/components/voice/voice-nav-control";
 
 function LanguageSelect({ id }: { id: string }) {
   const { lang, setLang, isLangReady } = useI18n();
@@ -236,6 +237,7 @@ export function SiteHeader() {
           {/* xl+: language · chat · cart · Dashboard · account avatar (last) */}
           <div className="hidden items-center gap-1.5 xl:flex">
             <LanguageSelect id="lang-switcher-desktop" />
+            <VoiceNavControl variant="icon" />
             <Button
               type="button"
               variant="ghost"
@@ -283,7 +285,8 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* Below xl: chat + cart icons */}
+          {/* Below xl: voice · chat · cart icons */}
+          <VoiceNavControl variant="icon" className="xl:hidden" />
           <Button
             type="button"
             variant="ghost"
@@ -353,6 +356,10 @@ export function SiteHeader() {
                     Language
                   </label>
                   <LanguageSelect id="lang-switcher-menu" />
+                  <VoiceNavControl
+                    variant="menu"
+                    onAfterNavigate={() => setMenuOpen(false)}
+                  />
                   <Button
                     type="button"
                     variant="outline"

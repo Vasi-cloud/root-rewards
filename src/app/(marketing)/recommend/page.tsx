@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { PartnerOutboundButton } from "@/components/affiliate/PartnerOutboundButton";
 import { LocalAvailabilityBadge } from "@/components/local/local-availability-badge";
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
+import { VoiceNavControl } from "@/components/voice/voice-nav-control";
 import { useCart } from "@/contexts/cart-context";
 import {
   VOICE_COMMAND_HINTS,
@@ -894,6 +895,9 @@ export default function RecommendPage() {
                 below. Hearing answers aloud may still work in some browsers.
               </p>
             )}
+          </div>
+          <div className="mt-3">
+            <VoiceNavControl variant="panel" />
           </div>
         </div>
 
