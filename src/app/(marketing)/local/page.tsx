@@ -62,7 +62,10 @@ import {
 } from "@/lib/local-favourites";
 import { ensureDemoShops } from "@/lib/seller-storage";
 import { cn } from "@/lib/utils";
-import { setVoiceNavPlaces } from "@/lib/voice-nav";
+import {
+  consumeVoiceNavFocusQuery,
+  setVoiceNavPlaces,
+} from "@/lib/voice-nav";
 
 export default function BuyLocalPage() {
   return (
@@ -223,6 +226,38 @@ function BuyLocalPageInner() {
     }));
     setVoiceNavPlaces([...storePlaces, ...makerPlaces]);
   }, [nearbyStores, makers, user]);
+
+  // Honour pending voice-nav focus (e.g. “Where is Tesco near me”)
+  useEffect(() => {
+    if (storesLoading) return;
+    const focus = consumeVoiceNavFocusQuery();
+    if (!focus) return;
+
+    const q = focus.toLowerCase();
+    const store =
+      nearbyStores.find((s) => s.name.toLowerCase().includes(q)) ??
+      nearbyStores.find((s) =>
+        q.split(/\s+/).every((t) => t.length < 3 || s.name.toLowerCase().includes(t))
+      );
+    const makerRow = makers.find(({ maker }) =>
+      maker.name.toLowerCase().includes(q)
+    );
+
+    window.setTimeout(() => {
+      if (store) {
+        handleSelectPin(store.id);
+        return;
+      }
+      if (makerRow) {
+        handleSelectPin(makerRow.maker.id);
+        return;
+      }
+      storesSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 120);
+  }, [storesLoading, nearbyStores, makers]);
 
   const listings = useMemo(() => {
     const all = getLocalListings(user, maxMiles);

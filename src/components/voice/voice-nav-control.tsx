@@ -7,11 +7,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   VOICE_NAV_HELP_LINES,
-  confirmVoiceNav,
-  getVoiceNavPlaces,
+  handleSiteVoiceTranscript,
   isSpeechRecognitionSupported,
-  parseVoiceNavCommand,
-  resolveVoiceNavAction,
   startListening,
   type SpeechRecognitionHandle,
 } from "@/lib/voice-nav";
@@ -53,24 +50,22 @@ export function VoiceNavControl({
     };
   }, []);
 
-  // Close help panel on route change
   useEffect(() => {
     setShowHelp(false);
     setPanelOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    if (!status || listening) return;
-    const timer = window.setTimeout(() => setStatus(null), 9000);
+    if (!status || listening || showHelp) return;
+    const timer = window.setTimeout(() => setStatus(null), 10000);
     return () => window.clearTimeout(timer);
-  }, [status, listening]);
+  }, [status, listening, showHelp]);
 
   useEffect(() => {
     if (!panelOpen && !listening) return;
     function onPointerDown(event: MouseEvent) {
       if (!rootRef.current?.contains(event.target as Node)) {
         setPanelOpen(false);
-        setShowHelp(false);
       }
     }
     document.addEventListener("mousedown", onPointerDown);
@@ -85,36 +80,17 @@ export function VoiceNavControl({
   }
 
   function applyTranscript(transcript: string) {
-    const command = parseVoiceNavCommand(transcript, getVoiceNavPlaces());
-    const action = resolveVoiceNavAction(command, getVoiceNavPlaces());
+    const action = handleSiteVoiceTranscript(transcript, {
+      pathname,
+      navigate: (href) => {
+        router.push(href);
+        onAfterNavigate?.();
+      },
+    });
     setStatus(action.status);
     setError(null);
     setPanelOpen(true);
     if (action.showHelp) setShowHelp(true);
-
-    if (action.speak) {
-      confirmVoiceNav(action.speak);
-    }
-
-    if (action.openUrl && typeof window !== "undefined") {
-      window.open(action.openUrl, "_blank", "noopener,noreferrer");
-    }
-
-    if (action.href) {
-      const [path, hash] = action.href.split("#");
-      if (path && path !== pathname) {
-        router.push(action.href);
-      } else if (hash) {
-        const el = document.getElementById(hash);
-        el?.scrollIntoView({ behavior: "smooth", block: "start" });
-        if (typeof window !== "undefined") {
-          window.history.replaceState(null, "", `#${hash}`);
-        }
-      } else if (path) {
-        router.push(path);
-      }
-      onAfterNavigate?.();
-    }
   }
 
   function startVoiceNav() {
@@ -125,12 +101,13 @@ export function VoiceNavControl({
       );
       setShowHelp(true);
       setPanelOpen(true);
+      setStatus("Speech recognition isn’t supported here.");
       return;
     }
 
     stopListening();
     setError(null);
-    setStatus("Listening… say a page name, or Help");
+    setStatus("Listening for a site command… try “Open Buy Local” or “Help”");
     setInterim(null);
     setListening(true);
     setShowHelp(false);
@@ -147,6 +124,7 @@ export function VoiceNavControl({
         setError(message);
         setStatus(null);
         setInterim(null);
+        setShowHelp(true);
         setPanelOpen(true);
       },
       onEnd: () => {
@@ -179,7 +157,9 @@ export function VoiceNavControl({
           Hearing: <span className="text-foreground">“{interim}”</span>
         </p>
       ) : null}
-      {status ? <p className="text-emerald-900">{status}</p> : null}
+      {status ? (
+        <p className="font-medium text-emerald-900">{status}</p>
+      ) : null}
       {error ? <p className="text-amber-900">{error}</p> : null}
       {!supported ? (
         <p className="text-muted-foreground">
@@ -193,8 +173,11 @@ export function VoiceNavControl({
   const helpList = showHelp ? (
     <ul
       id={panelId}
-      className="mt-2 grid gap-1 rounded-xl border border-emerald-200/80 bg-white/90 px-3 py-2.5 text-xs text-emerald-950 sm:text-sm"
+      className="mt-2 grid gap-1.5 rounded-xl border border-emerald-200/80 bg-white/90 px-3 py-2.5 text-xs text-emerald-950 sm:text-sm"
     >
+      <li className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-800/70">
+        Example commands
+      </li>
       {VOICE_NAV_HELP_LINES.map((line) => (
         <li key={line} className="leading-snug">
           “{line}”
@@ -216,14 +199,16 @@ export function VoiceNavControl({
             )}
             aria-pressed={listening}
             aria-label={
-              listening ? "Stop voice navigation" : "Voice help — speak a command"
+              listening
+                ? "Stop site voice help"
+                : "Site voice help — open pages and stores by voice"
             }
             onClick={toggleListen}
           >
             {listening ? (
               <Square className="size-4 shrink-0" />
             ) : (
-              <Mic className={cn("size-4 shrink-0", listening && "animate-pulse")} />
+              <Mic className="size-4 shrink-0" />
             )}
             {listening ? "Listening… tap to stop" : "Voice help"}
           </Button>
@@ -232,7 +217,7 @@ export function VoiceNavControl({
             variant="outline"
             size="icon"
             className="size-11 shrink-0"
-            aria-label="Show voice commands"
+            aria-label="Show site voice commands"
             aria-expanded={showHelp}
             aria-controls={panelId}
             onClick={() => setShowHelp((v) => !v)}
@@ -250,7 +235,7 @@ export function VoiceNavControl({
     return (
       <div
         className={cn(
-          "rounded-2xl border border-emerald-200/70 bg-white/70 p-3 sm:p-3.5",
+          "rounded-2xl border border-emerald-300/80 bg-emerald-50/50 p-3 sm:p-3.5",
           className
         )}
       >
@@ -261,10 +246,15 @@ export function VoiceNavControl({
             size="sm"
             variant={listening ? "default" : "outline"}
             className={cn(
-              "min-h-10 gap-1.5",
-              listening && "bg-red-600 text-white hover:bg-red-600/90"
+              "min-h-10 gap-1.5 border-emerald-300 bg-white",
+              listening && "border-transparent bg-red-600 text-white hover:bg-red-600/90"
             )}
             aria-pressed={listening}
+            aria-label={
+              listening
+                ? "Stop site voice help"
+                : "Site voice help — navigate by voice"
+            }
             onClick={toggleListen}
           >
             <Mic className={cn("size-3.5", listening && "animate-pulse")} />
@@ -283,8 +273,9 @@ export function VoiceNavControl({
           </Button>
         </div>
         <p className="mt-1.5 text-xs text-muted-foreground">
-          Navigate pages by voice — separate from Speak / Listen for shopping
-          questions.
+          Opens pages and Buy Local stores.{" "}
+          <strong className="font-medium text-foreground">Speak</strong> above is
+          only for shopping questions — it won’t run site navigation.
         </p>
         <div className="mt-2">{statusBlock}</div>
         {helpList}
@@ -292,7 +283,6 @@ export function VoiceNavControl({
     );
   }
 
-  // Compact header icon
   return (
     <div className={cn("relative shrink-0", className)} ref={rootRef}>
       <Button
@@ -305,23 +295,23 @@ export function VoiceNavControl({
         )}
         aria-pressed={listening}
         aria-label={
-          listening ? "Stop voice navigation" : "Voice help — speak a command"
+          listening ? "Stop site voice help" : "Site voice help — speak a command"
         }
-        title="Voice help"
+        title="Site voice help"
         onClick={toggleListen}
         onContextMenu={(e) => {
           e.preventDefault();
           setPanelOpen(true);
-          setShowHelp((v) => !v);
+          setShowHelp(true);
         }}
       >
         <Mic className={cn("size-4", listening && "animate-pulse")} />
       </Button>
       {(panelOpen || listening) && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl border border-emerald-200 bg-cream p-3 shadow-lg">
+        <div className="absolute right-0 top-full z-50 mt-2 w-[min(19rem,calc(100vw-1.5rem))] rounded-2xl border border-emerald-200 bg-cream p-3 shadow-lg">
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800/80">
-              Voice help
+              Site voice help
             </p>
             <button
               type="button"

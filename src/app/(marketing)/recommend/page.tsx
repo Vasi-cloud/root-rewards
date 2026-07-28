@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
@@ -70,6 +71,10 @@ import {
 } from "@/lib/recommendation-agent";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import {
+  handleSiteVoiceTranscript,
+  isSiteNavigationCommand,
+} from "@/lib/voice-nav";
+import {
   VISION_DEMO_HINTS,
   classifyPhotoAsync,
   type VisionResult,
@@ -80,6 +85,8 @@ type AskMode = "text" | "vision";
 
 export default function RecommendPage() {
   const { addToCart } = useCart();
+  const router = useRouter();
+  const pathname = usePathname();
   const fileRef = useRef<HTMLInputElement>(null);
   const photoFileRef = useRef<File | null>(null);
 
@@ -280,6 +287,22 @@ export default function RecommendPage() {
   }
 
   function handleVoiceTranscript(transcript: string) {
+    // Site navigation wins over free-form shopping (except leafy cart/help when picks exist)
+    if (isSiteNavigationCommand(transcript)) {
+      const action = handleSiteVoiceTranscript(transcript, {
+        pathname,
+        navigate: (href) => router.push(href),
+      });
+      setVoiceError(null);
+      setInterimHeard(null);
+      setVoiceStatus(
+        action.showHelp
+          ? `${action.status} Open Site voice help → Commands for the full list.`
+          : action.status
+      );
+      return;
+    }
+
     const picks = picksRef.current;
     const names = picks.map((p) => p.product.name);
     const command = parseVoiceCommand(transcript, names);
@@ -310,16 +333,18 @@ export default function RecommendPage() {
     }
 
     if (command.type === "find_stores") {
-      if (modeRef.current === "vision" && visionRef.current) {
-        setVoiceStatus("Finding nearest stores…");
-        speakFeedback("Looking for the nearest store for your photo.");
-        void findNearestStoreFromVision();
-      } else {
-        setVoiceStatus("Open Snap & match, or browse Buy Local for stores.");
-        speakFeedback(
-          "For nearby stores, snap a photo in Snap and match, or open Buy Local."
-        );
+      // Prefer Buy Local site nav when not in a photo match flow
+      if (!(modeRef.current === "vision" && visionRef.current)) {
+        const action = handleSiteVoiceTranscript("find local stores", {
+          pathname,
+          navigate: (href) => router.push(href),
+        });
+        setVoiceStatus(action.status);
+        return;
       }
+      setVoiceStatus("Finding nearest stores…");
+      speakFeedback("Looking for the nearest store for your photo.");
+      void findNearestStoreFromVision();
       return;
     }
 
@@ -346,7 +371,7 @@ export default function RecommendPage() {
       return;
     }
 
-    // Free-form shopping question
+    // Free-form shopping question only
     setMode("text");
     setQuery(command.query);
     const money = command.query.match(/\$?\s*(\d{1,3})\b/);
@@ -459,6 +484,23 @@ export default function RecommendPage() {
       onResult: (transcript) => {
         const text = transcript.trim();
         if (!text) return;
+
+        // Site commands must navigate — never paste into the question box
+        if (isSiteNavigationCommand(text)) {
+          const action = handleSiteVoiceTranscript(text, {
+            pathname,
+            navigate: (href) => router.push(href),
+          });
+          setVoiceStatus(action.status);
+          setVoiceError(null);
+          if (action.showHelp) {
+            setVoiceStatus(
+              `${action.status} Use Site voice help below for the full command list.`
+            );
+          }
+          return;
+        }
+
         setQuery(text);
         const money = text.match(/\$?\s*(\d{1,3})\b/);
         if (money) setBudget(money[1]);
@@ -759,12 +801,12 @@ export default function RecommendPage() {
             Optional voice
           </p>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Tap <strong className="font-medium text-foreground">Speak</strong> to
-            dictate your question, or{" "}
-            <strong className="font-medium text-foreground">Listen</strong> for
-            commands like{" "}
-            <strong className="font-medium text-foreground">Add to cart</strong>
-            {" "}— typing and photos work without voice.
+            <strong className="font-medium text-foreground">Speak</strong> dictates
+            a shopping question.{" "}
+            <strong className="font-medium text-foreground">Listen</strong> is for
+            Add to cart and follow-ups. Use{" "}
+            <strong className="font-medium text-foreground">Site voice help</strong>{" "}
+            below to open pages or find stores — that won’t fill the question box.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Button
