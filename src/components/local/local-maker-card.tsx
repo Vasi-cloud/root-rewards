@@ -20,6 +20,7 @@ import {
   googleMapsDirectionsUrl,
   googleMapsStoreUrl,
   inferMakerType,
+  visitMakerWebsiteUrl,
   type GeoPoint,
   type LocalMaker,
   type LocationCountry,
@@ -47,6 +48,7 @@ export function LocalMakerCard({
   const distance = formatDistance(distanceMi, country);
   const directionsUrl = googleMapsDirectionsUrl(maker, from);
   const mapsUrl = googleMapsStoreUrl(maker);
+  const websiteUrl = visitMakerWebsiteUrl(maker) ?? mapsUrl;
   const makerType = inferMakerType(maker);
   const offers = maker.services.length > 0 ? maker.services : maker.tags;
 
@@ -171,18 +173,24 @@ export function LocalMakerCard({
             Directions
           </Button>
         </div>
-        <Button
-          variant="ghost"
-          className="h-11 w-full gap-2 text-emerald-950 sm:h-8"
-          nativeButton={false}
-          render={
-            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" />
-          }
-        >
-          <Globe className="size-3.5" />
-          Visit website
-          <ExternalLink className="size-3 opacity-70" />
-        </Button>
+        {websiteUrl ? (
+          <Button
+            variant="ghost"
+            className="h-11 w-full gap-2 text-emerald-950 sm:h-8"
+            nativeButton={false}
+            render={
+              <a
+                href={websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            }
+          >
+            <Globe className="size-3.5" />
+            Visit website
+            <ExternalLink className="size-3 opacity-70" />
+          </Button>
+        ) : null}
       </CardFooter>
     </Card>
   );

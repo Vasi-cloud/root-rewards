@@ -38,7 +38,6 @@ import {
   VOICE_COMMAND_HINTS,
   buildLeafySpeechScript,
   isSpeechRecognitionSupported,
-  isSpeechSynthesisSupported,
   loadAutoSpeakPreference,
   loadListenAfterSpeakPreference,
   matchProductBySpokenName,
@@ -87,6 +86,7 @@ export default function RecommendPage() {
   const [query, setQuery] = useState("");
   const [budget, setBudget] = useState("50");
   const [listening, setListening] = useState(false);
+  const [dictating, setDictating] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [listenAfterSpeak, setListenAfterSpeak] = useState(true);
@@ -255,6 +255,7 @@ export default function RecommendPage() {
     listenHandleRef.current = null;
     stopSpeaking();
     setListening(false);
+    setDictating(false);
     setSpeaking(false);
     setVoiceStatus(null);
     setInterimHeard(null);
@@ -363,6 +364,7 @@ export default function RecommendPage() {
     listenHandleRef.current?.stop();
     stopSpeaking();
     setSpeaking(false);
+    setDictating(false);
     setVoiceError(null);
     setInterimHeard(null);
 
@@ -418,6 +420,62 @@ export default function RecommendPage() {
       return;
     }
     startVoiceListen({ forCommands: picksRef.current.length > 0 });
+  }
+
+  /** Speak → dictate into the question input (speech recognition). */
+  function toggleSpeakForInput() {
+    if (dictating) {
+      listenHandleRef.current?.stop();
+      listenHandleRef.current = null;
+      setDictating(false);
+      setVoiceStatus(null);
+      setInterimHeard(null);
+      return;
+    }
+
+    if (!isSpeechRecognitionSupported()) {
+      setVoiceError(
+        "Speech recognition isn’t available in this browser. Type your question below — that still works."
+      );
+      setVoiceStatus(null);
+      return;
+    }
+
+    listenHandleRef.current?.stop();
+    stopSpeaking();
+    setListening(false);
+    setSpeaking(false);
+    setMode("text");
+    setVoiceError(null);
+    setInterimHeard(null);
+    setDictating(true);
+    setVoiceStatus("Listening… speak your question");
+
+    const handle = startListening({
+      continuous: false,
+      onInterim: (text) => setInterimHeard(text),
+      onSpeechStart: () => setVoiceStatus("Hearing you… keep talking"),
+      onResult: (transcript) => {
+        const text = transcript.trim();
+        if (!text) return;
+        setQuery(text);
+        const money = text.match(/\$?\s*(\d{1,3})\b/);
+        if (money) setBudget(money[1]);
+        setVoiceStatus(`Added to your question: “${text}”`);
+      },
+      onError: (message) => {
+        setVoiceError(message);
+        setVoiceStatus(null);
+        setInterimHeard(null);
+        setDictating(false);
+      },
+      onEnd: () => {
+        setDictating(false);
+        setInterimHeard(null);
+        listenHandleRef.current = null;
+      },
+    });
+    listenHandleRef.current = handle;
   }
 
   async function runRecommend(
@@ -700,7 +758,10 @@ export default function RecommendPage() {
             Optional voice
           </p>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Ask out loud, hear answers, then say{" "}
+            Tap <strong className="font-medium text-foreground">Speak</strong> to
+            dictate your question, or{" "}
+            <strong className="font-medium text-foreground">Listen</strong> for
+            commands like{" "}
             <strong className="font-medium text-foreground">Add to cart</strong>
             {" "}— typing and photos work without voice.
           </p>
@@ -729,36 +790,29 @@ export default function RecommendPage() {
             <Button
               type="button"
               size="lg"
-              variant={speaking ? "default" : "outline"}
+              variant={dictating ? "default" : "outline"}
               className={`min-h-14 gap-2 text-base ${
-                speaking ? "" : "border-emerald-300 bg-white"
+                dictating
+                  ? "bg-red-600 text-white hover:bg-red-600/90"
+                  : "border-emerald-300 bg-white"
               }`}
-              aria-pressed={speaking}
+              aria-pressed={dictating}
               aria-label={
-                speaking
-                  ? "Stop Leafy speaking"
-                  : "Speak — hear Leafy’s reply out loud"
+                dictating
+                  ? "Stop speaking into the question"
+                  : "Speak — dictate your question into the input"
               }
-              disabled={thinking || (!result && !vision)}
-              onClick={() => {
-                if (speaking) {
-                  stopLeafyVoice();
-                  return;
-                }
-                speakLeafyReply(
-                  mode === "vision" ? null : result,
-                  mode === "vision" ? vision : null
-                );
-              }}
+              disabled={thinking}
+              onClick={toggleSpeakForInput}
             >
-              {speaking ? (
+              {dictating ? (
                 <>
-                  <Square className="size-5" />
-                  Stop speaking
+                  <Mic className="size-5 animate-pulse" />
+                  Listening… tap to stop
                 </>
               ) : (
                 <>
-                  <Volume2 className="size-5" />
+                  <Mic className="size-5" />
                   Speak
                 </>
               )}
@@ -797,14 +851,14 @@ export default function RecommendPage() {
                   saveListenAfterSpeakPreference(on);
                   setVoiceStatus(
                     on
-                      ? "After speaking, Leafy will listen for Add to cart"
-                      : "Won’t auto-listen after speaking"
+                      ? "After reading aloud, Leafy will listen for Add to cart"
+                      : "Won’t auto-listen after reading aloud"
                   );
                 }}
               />
               <span>After speaking, listen for “Add to cart”</span>
             </label>
-            {(listening || speaking) && (
+            {(listening || dictating || speaking) && (
               <Button
                 type="button"
                 variant="ghost"
@@ -823,7 +877,7 @@ export default function RecommendPage() {
             aria-live="polite"
             aria-atomic="true"
           >
-            {interimHeard && listening && (
+            {interimHeard && (listening || dictating) && (
               <p className="text-muted-foreground">
                 Hearing: <span className="text-foreground">“{interimHeard}”</span>
               </p>
@@ -834,12 +888,12 @@ export default function RecommendPage() {
             {voiceError && (
               <p className="text-amber-900">{voiceError}</p>
             )}
-            {!isSpeechRecognitionSupported() &&
-              !isSpeechSynthesisSupported() && (
-                <p className="text-muted-foreground">
-                  Voice isn’t available in this browser — typing still works.
-                </p>
-              )}
+            {!isSpeechRecognitionSupported() && (
+              <p className="text-muted-foreground">
+                Speech recognition isn’t available here — type your question
+                below. Hearing answers aloud may still work in some browsers.
+              </p>
+            )}
           </div>
         </div>
 
@@ -916,7 +970,8 @@ export default function RecommendPage() {
               />
               <p className="mt-1.5 text-xs text-muted-foreground sm:text-sm">
                 Tip: mention budget, occasion, or “local” — or tap{" "}
-                <strong className="font-medium">Listen</strong> above.
+                <strong className="font-medium">Speak</strong> to dictate your
+                question.
               </p>
             </div>
 

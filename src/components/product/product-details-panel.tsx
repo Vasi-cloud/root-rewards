@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Shirt, Sparkles } from "lucide-react";
+import { CalendarClock, Ruler, Shirt, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 import { SizeGuideTable } from "@/components/product/size-guide-table";
@@ -21,15 +21,23 @@ export type ProductDetailsFields = {
   availabilityNote?: string;
 };
 
+function isApparelCategory(category?: string | null): boolean {
+  if (!category) return false;
+  return /apparel|clothing|wear|fashion/i.test(category);
+}
+
 export function ProductDetailsPanel({
   details,
   className = "",
   /** Show standard apparel guide when product has no chart (e.g. apparel category) */
   fallbackSizeGuide = false,
+  /** Product category — used to choose Fit & sizing vs Dimensions label */
+  category,
 }: {
   details: ProductDetailsFields;
   className?: string;
   fallbackSizeGuide?: boolean;
+  category?: string | null;
 }) {
   const isService = details.listingType === "service";
   const chart =
@@ -48,6 +56,17 @@ export function ProductDetailsPanel({
   if (!hasProductSpecs(details) && !chart && !hasServiceMeta) return null;
 
   const { materials, madeIn, careNotes, fitGuide, dimensions } = details;
+  const isApparel =
+    !isService &&
+    (fallbackSizeGuide || isApparelCategory(category) || Boolean(chart));
+
+  const sizingLabel = isApparel
+    ? "Fit & sizing"
+    : fitGuide
+      ? "Size & dimensions"
+      : "Dimensions";
+
+  const SizingIcon = isApparel ? Shirt : Ruler;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -93,8 +112,8 @@ export function ProductDetailsPanel({
       {!isService && (fitGuide || dimensions) && (
         <div className="rounded-2xl border border-border/70 bg-white/80 p-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-primary">
-            <Shirt className="size-4 text-emerald-800" />
-            Fit &amp; sizing
+            <SizingIcon className="size-4 text-emerald-800" />
+            {sizingLabel}
           </p>
           {fitGuide && (
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -103,7 +122,11 @@ export function ProductDetailsPanel({
           )}
           {dimensions && (
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground/80">Dimensions: </span>
+              {(isApparel || fitGuide) && (
+                <span className="font-medium text-foreground/80">
+                  Dimensions:{" "}
+                </span>
+              )}
               {dimensions}
             </p>
           )}
@@ -112,7 +135,7 @@ export function ProductDetailsPanel({
 
       {chart && <SizeGuideTable chart={chart} />}
 
-      {!isService && !chart && (
+      {!isService && isApparel && !chart && (
         <p className="text-xs text-muted-foreground">
           Need help with fit? See our{" "}
           <Link

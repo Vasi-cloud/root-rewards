@@ -200,6 +200,7 @@ export function ShopProductDetail({
 
             <ProductDetailsPanel
               details={product}
+              category={product.category}
               fallbackSizeGuide={!isService && product.category === "Apparel"}
             />
 

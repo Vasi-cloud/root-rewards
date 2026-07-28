@@ -139,6 +139,7 @@ const FIELD_MASK = [
   "places.regularOpeningHours",
   "places.types",
   "places.googleMapsUri",
+  "places.websiteUri",
 ].join(",");
 
 /**

@@ -118,6 +118,8 @@ export interface LocalMaker {
   tags: string[];
   /** Shopper-facing hours hint */
   hoursHint?: string;
+  /** Public website when known (https://…) */
+  websiteUrl?: string;
 }
 
 /** Shopper-facing maker category for Buy Local cards. */
@@ -567,6 +569,7 @@ type StoreLinkInput = {
   mapsUrl?: string;
   websiteUrl?: string;
   storeFinderUrl?: string;
+  shopSlug?: string;
 };
 
 /** Infer a retailer store-finder URL from the brand name when not set explicitly. */
@@ -637,16 +640,82 @@ export function checkInStoreUrl(store: StoreLinkInput): string {
   return googleMapsSearchUrl(store.name);
 }
 
-/** Chain homepage / groceries hub when distinct from the check-in finder. */
+/** Normalize http(s) or same-origin paths for Visit website links. */
+export function normalizeExternalUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
+  try {
+    const withProto = /^https?:\/\//i.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+    const url = new URL(withProto);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Infer a chain homepage from the store name when Places omits websiteUri. */
+export function inferRetailerWebsiteUrl(
+  store: Pick<StoreLinkInput, "name">
+): string | null {
+  const name = store.name.toLowerCase();
+  if (name.includes("sainsbury")) return "https://www.sainsburys.co.uk/";
+  if (name.includes("tesco")) return "https://www.tesco.com/";
+  if (name.includes("waitrose")) return "https://www.waitrose.com/";
+  if (name.includes("asda")) return "https://www.asda.com/";
+  if (name.includes("aldi")) return "https://www.aldi.co.uk/";
+  if (name.includes("lidl")) return "https://www.lidl.co.uk/";
+  if (name.includes("whole foods")) return "https://www.wholefoodsmarket.com/";
+  if (name.includes("boots")) return "https://www.boots.com/";
+  if (
+    name.includes("marks & spencer") ||
+    name.includes("marks and spencer") ||
+    /\bm&s\b/.test(name)
+  ) {
+    return "https://www.marksandspencer.com/";
+  }
+  if (name.includes("target")) return "https://www.target.com/";
+  if (name.includes("walmart")) return "https://www.walmart.com/";
+  if (name.includes("trader joe")) return "https://www.traderjoes.com/";
+  if (name.includes("costco")) return "https://www.costco.com/";
+  if (name.includes("co-op") || name.includes("coop food")) {
+    return "https://www.coop.co.uk/";
+  }
+  return null;
+}
+
+/**
+ * “Visit website” — real store/brand site only (not Maps / store-finder).
+ * Prefers Places `websiteUri` / catalog URLs, then common-chain inference.
+ */
 export function visitWebsiteUrl(store: StoreLinkInput): string | null {
-  const checkIn = checkInStoreUrl(store);
-  if (store.websiteUrl && store.websiteUrl !== checkIn) {
-    return store.websiteUrl;
+  if (store.websiteUrl) {
+    const direct = normalizeExternalUrl(store.websiteUrl);
+    if (direct) return direct;
   }
-  if (store.mapsUrl && store.mapsUrl !== checkIn) {
-    return store.mapsUrl;
+  const inferred = inferRetailerWebsiteUrl(store);
+  if (inferred) return inferred;
+  if (store.shopSlug?.trim()) return `/shop/${store.shopSlug.trim()}`;
+  // Last resort so nearby Places cards still get an outbound link
+  if (store.mapsUrl) {
+    return normalizeExternalUrl(store.mapsUrl);
   }
-  return store.websiteUrl ?? null;
+  return null;
+}
+
+/** Maker “Visit website” — external site, else Forest Buddies shop page. */
+export function visitMakerWebsiteUrl(
+  maker: Pick<LocalMaker, "websiteUrl" | "shopSlug">
+): string | null {
+  if (maker.websiteUrl) {
+    const direct = normalizeExternalUrl(maker.websiteUrl);
+    if (direct) return direct;
+  }
+  if (maker.shopSlug?.trim()) return `/shop/${maker.shopSlug.trim()}`;
+  return null;
 }
 
 export function retailChainToNearbyStore(
@@ -1200,6 +1269,7 @@ export function localMatchToNearbyStore(
     shopSlug: maker.shopSlug,
     mapsUrl: googleMapsStoreUrl(maker),
     directionsUrl: googleMapsDirectionsUrl(maker, from),
+    websiteUrl: maker.websiteUrl,
   };
 }
 
