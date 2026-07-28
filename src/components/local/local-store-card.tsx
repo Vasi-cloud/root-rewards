@@ -22,6 +22,7 @@ import {
   type LocationCountry,
   type NearbyStore,
 } from "@/lib/local-commerce";
+import { cn } from "@/lib/utils";
 
 type LocalStoreCardProps = {
   store: NearbyStore;
@@ -29,6 +30,7 @@ type LocalStoreCardProps = {
   focusLabel?: string | null;
   markerIndex?: number;
   saved?: boolean;
+  highlighted?: boolean;
   onToggleFavourite?: () => void;
 };
 
@@ -38,6 +40,7 @@ export function LocalStoreCard({
   focusLabel,
   markerIndex,
   saved = false,
+  highlighted = false,
   onToggleFavourite,
 }: LocalStoreCardProps) {
   const storeType = inferNearbyStoreType(store);
@@ -48,7 +51,11 @@ export function LocalStoreCard({
   return (
     <Card
       id={`local-store-${store.id}`}
-      className="flex flex-col border-border/70 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md"
+      className={cn(
+        "flex flex-col border-border/70 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md",
+        highlighted &&
+          "ring-2 ring-emerald-600 ring-offset-2 ring-offset-cream border-emerald-500 shadow-md"
+      )}
     >
       <CardHeader className="space-y-2.5 px-4 pb-2 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-2.5">

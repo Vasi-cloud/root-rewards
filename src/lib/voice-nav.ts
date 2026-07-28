@@ -123,6 +123,16 @@ const FOCUS_KEY = "fb-voice-nav-focus";
 
 let placesCache: VoiceNavPlace[] = [];
 
+export type VoiceNavFocusPayload = {
+  /** Name / chain query to match on Buy Local */
+  query?: string;
+  placeId?: string;
+  kind?: "store" | "maker";
+  intent: "nearest" | "named" | "browse" | "directions";
+  /** Pre-built confirmation when we already know the match */
+  confirmation?: string;
+};
+
 export function setVoiceNavPlaces(places: VoiceNavPlace[]) {
   placesCache = [...places].sort((a, b) => a.distanceMi - b.distanceMi);
 }
@@ -131,26 +141,59 @@ export function getVoiceNavPlaces(): VoiceNavPlace[] {
   return placesCache;
 }
 
-export function setVoiceNavFocusQuery(query: string | null) {
+export function setVoiceNavFocusPayload(payload: VoiceNavFocusPayload | null) {
   if (typeof window === "undefined") return;
   try {
-    if (!query?.trim()) sessionStorage.removeItem(FOCUS_KEY);
-    else sessionStorage.setItem(FOCUS_KEY, query.trim());
+    if (!payload) sessionStorage.removeItem(FOCUS_KEY);
+    else sessionStorage.setItem(FOCUS_KEY, JSON.stringify(payload));
+    window.dispatchEvent(new Event("fb-voice-nav-focus"));
   } catch {
     // ignore
   }
 }
 
-export function consumeVoiceNavFocusQuery(): string | null {
+/** @deprecated prefer setVoiceNavFocusPayload */
+export function setVoiceNavFocusQuery(query: string | null) {
+  if (!query?.trim()) {
+    setVoiceNavFocusPayload(null);
+    return;
+  }
+  setVoiceNavFocusPayload({ query: query.trim(), intent: "named" });
+}
+
+export function consumeVoiceNavFocusPayload(): VoiceNavFocusPayload | null {
   if (typeof window === "undefined") return null;
   try {
-    const v = sessionStorage.getItem(FOCUS_KEY);
+    const raw = sessionStorage.getItem(FOCUS_KEY);
     sessionStorage.removeItem(FOCUS_KEY);
-    return v?.trim() || null;
+    if (!raw) return null;
+    // Legacy: plain string query
+    if (!raw.startsWith("{")) {
+      return { query: raw.trim(), intent: "named" };
+    }
+    const parsed = JSON.parse(raw) as VoiceNavFocusPayload;
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
   } catch {
     return null;
   }
 }
+
+/** @deprecated prefer consumeVoiceNavFocusPayload */
+export function consumeVoiceNavFocusQuery(): string | null {
+  return consumeVoiceNavFocusPayload()?.query ?? null;
+}
+
+function storeMatchConfirmation(place: VoiceNavPlace): string {
+  return `Showing nearby stores — ${place.name} is about ${place.distanceLabel} away`;
+}
+
+function storeMatchSpoken(place: VoiceNavPlace): string {
+  return `${place.name} is about ${place.distanceLabel} away.`;
+}
+
+const NEARBY_STORES_FALLBACK =
+  "Here are nearby stores on Buy Local.";
 
 function normalizeTranscript(raw: string): string {
   return raw
@@ -308,7 +351,7 @@ export type VoiceNavActionResult = {
   href?: string;
   openUrl?: string;
   showHelp?: boolean;
-  focusQuery?: string;
+  focusPayload?: VoiceNavFocusPayload;
 };
 
 export function resolveVoiceNavAction(
@@ -332,61 +375,105 @@ export function resolveVoiceNavAction(
       };
     case "find_local_stores": {
       const focus = command.focusQuery?.trim();
+      if (focus) {
+        const place = matchPlaceByName(focus, places);
+        if (place) {
+          return {
+            status: storeMatchConfirmation(place),
+            speak: storeMatchSpoken(place),
+            href: `/local#local-${place.kind}-${place.id}`,
+            focusPayload: {
+              query: focus,
+              placeId: place.id,
+              kind: place.kind,
+              intent: "named",
+              confirmation: storeMatchConfirmation(place),
+            },
+          };
+        }
+        return {
+          status: NEARBY_STORES_FALLBACK,
+          speak: NEARBY_STORES_FALLBACK,
+          href: "/local#local-stores",
+          focusPayload: { query: focus, intent: "named" },
+        };
+      }
       return {
-        status: focus
-          ? `Opening Buy Local to look for ${focus}…`
-          : "Opening Buy Local — nearby stores…",
-        speak: focus
-          ? `Opening Buy Local to look for ${focus}.`
-          : "Opening Buy Local stores.",
+        status: NEARBY_STORES_FALLBACK,
+        speak: NEARBY_STORES_FALLBACK,
         href: "/local#local-stores",
-        focusQuery: focus,
+        focusPayload: { intent: "browse" },
       };
     }
     case "nearest_distance":
       if (!nearest) {
         return {
-          status:
-            "Opening Buy Local so you can see the nearest store and distance.",
-          speak: "Opening Buy Local for the nearest store.",
+          status: NEARBY_STORES_FALLBACK,
+          speak: NEARBY_STORES_FALLBACK,
           href: "/local#local-stores",
+          focusPayload: { intent: "nearest" },
         };
       }
       return {
-        status: `Nearest: ${nearest.name} — about ${nearest.distanceLabel} away. Opening Buy Local…`,
-        speak: `The nearest is ${nearest.name}, about ${nearest.distanceLabel} away.`,
+        status: storeMatchConfirmation(nearest),
+        speak: storeMatchSpoken(nearest),
         href: `/local#local-${nearest.kind}-${nearest.id}`,
-        focusQuery: nearest.name,
+        focusPayload: {
+          query: nearest.name,
+          placeId: nearest.id,
+          kind: nearest.kind,
+          intent: "nearest",
+          confirmation: storeMatchConfirmation(nearest),
+        },
       };
     case "directions_nearest":
       if (!nearest) {
         return {
-          status: "Opening Buy Local for directions…",
-          speak: "Opening Buy Local for directions.",
+          status: NEARBY_STORES_FALLBACK,
+          speak: NEARBY_STORES_FALLBACK,
           href: "/local#local-stores",
+          focusPayload: { intent: "directions" },
         };
       }
       return {
-        status: `Opening directions to ${nearest.name}…`,
+        status: `Opening directions to ${nearest.name} — about ${nearest.distanceLabel} away`,
         speak: `Opening directions to ${nearest.name}.`,
         openUrl: nearest.directionsUrl,
         href: `/local#local-${nearest.kind}-${nearest.id}`,
-        focusQuery: nearest.name,
+        focusPayload: {
+          query: nearest.name,
+          placeId: nearest.id,
+          kind: nearest.kind,
+          intent: "directions",
+          confirmation: storeMatchConfirmation(nearest),
+        },
       };
     case "how_far":
       return {
-        status: `${command.place.name} is about ${command.place.distanceLabel} away. Opening Buy Local…`,
-        speak: `${command.place.name} is about ${command.place.distanceLabel} away.`,
+        status: storeMatchConfirmation(command.place),
+        speak: storeMatchSpoken(command.place),
         href: `/local#local-${command.place.kind}-${command.place.id}`,
-        focusQuery: command.place.name,
+        focusPayload: {
+          query: command.place.name,
+          placeId: command.place.id,
+          kind: command.place.kind,
+          intent: "named",
+          confirmation: storeMatchConfirmation(command.place),
+        },
       };
     case "directions_to":
       return {
-        status: `Opening directions to ${command.place.name}…`,
+        status: `Opening directions to ${command.place.name} — about ${command.place.distanceLabel} away`,
         speak: `Opening directions to ${command.place.name}.`,
         openUrl: command.place.directionsUrl,
         href: `/local#local-${command.place.kind}-${command.place.id}`,
-        focusQuery: command.place.name,
+        focusPayload: {
+          query: command.place.name,
+          placeId: command.place.id,
+          kind: command.place.kind,
+          intent: "directions",
+          confirmation: storeMatchConfirmation(command.place),
+        },
       };
     case "unknown":
     default:
@@ -418,8 +505,8 @@ export function runVoiceNavAction(
     navigate: (href: string) => void;
   }
 ): void {
-  if (action.focusQuery) {
-    setVoiceNavFocusQuery(action.focusQuery);
+  if (action.focusPayload) {
+    setVoiceNavFocusPayload(action.focusPayload);
   }
 
   if (action.speak) {

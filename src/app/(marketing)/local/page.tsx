@@ -63,9 +63,10 @@ import {
 import { ensureDemoShops } from "@/lib/seller-storage";
 import { cn } from "@/lib/utils";
 import {
-  consumeVoiceNavFocusQuery,
+  consumeVoiceNavFocusPayload,
   setVoiceNavPlaces,
 } from "@/lib/voice-nav";
+import { isSpeechSynthesisSupported, speakFeedback } from "@/lib/leafy-voice";
 
 export default function BuyLocalPage() {
   return (
@@ -114,6 +115,8 @@ function BuyLocalPageInner() {
   );
   const [favourites, setFavourites] = useState<LocalFavourite[]>([]);
   const [showFavouritesOnly, setShowFavouritesOnly] = useState(false);
+  const [voiceHighlightId, setVoiceHighlightId] = useState<string | null>(null);
+  const [voiceBanner, setVoiceBanner] = useState<string | null>(null);
 
   useEffect(() => {
     ensureDemoShops();
@@ -227,37 +230,100 @@ function BuyLocalPageInner() {
     setVoiceNavPlaces([...storePlaces, ...makerPlaces]);
   }, [nearbyStores, makers, user]);
 
-  // Honour pending voice-nav focus (e.g. “Where is Tesco near me”)
+  // Honour pending voice-nav focus (e.g. “Where is Tesco near me” / nearest store)
   useEffect(() => {
     if (storesLoading) return;
-    const focus = consumeVoiceNavFocusQuery();
-    if (!focus) return;
 
-    const q = focus.toLowerCase();
-    const store =
-      nearbyStores.find((s) => s.name.toLowerCase().includes(q)) ??
-      nearbyStores.find((s) =>
-        q.split(/\s+/).every((t) => t.length < 3 || s.name.toLowerCase().includes(t))
-      );
-    const makerRow = makers.find(({ maker }) =>
-      maker.name.toLowerCase().includes(q)
-    );
+    function applyVoiceFocus() {
+      const payload = consumeVoiceNavFocusPayload();
+      if (!payload) return;
 
-    window.setTimeout(() => {
-      if (store) {
-        handleSelectPin(store.id);
-        return;
+      const q = (payload.query ?? "").toLowerCase().trim();
+      let matchedStore =
+        (payload.placeId &&
+          payload.kind !== "maker" &&
+          nearbyStores.find((s) => s.id === payload.placeId)) ||
+        null;
+      let matchedMaker =
+        (payload.placeId &&
+          payload.kind === "maker" &&
+          makers.find(({ maker }) => maker.id === payload.placeId)) ||
+        null;
+
+      if (!matchedStore && !matchedMaker && q) {
+        matchedStore =
+          nearbyStores.find((s) => s.name.toLowerCase().includes(q)) ??
+          nearbyStores.find((s) =>
+            q
+              .split(/\s+/)
+              .every((t) => t.length < 3 || s.name.toLowerCase().includes(t))
+          ) ??
+          null;
+        matchedMaker =
+          makers.find(({ maker }) => maker.name.toLowerCase().includes(q)) ??
+          null;
       }
-      if (makerRow) {
-        handleSelectPin(makerRow.maker.id);
-        return;
+
+      if (
+        !matchedStore &&
+        !matchedMaker &&
+        (payload.intent === "nearest" || payload.intent === "directions")
+      ) {
+        matchedStore = nearbyStores[0] ?? null;
+        if (!matchedStore) matchedMaker = makers[0] ?? null;
       }
-      storesSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 120);
-  }, [storesLoading, nearbyStores, makers]);
+
+      let banner =
+        payload.confirmation ?? "Here are nearby stores on Buy Local.";
+      let highlightId: string | null = null;
+
+      if (matchedStore) {
+        const dist = formatDistance(matchedStore.distanceMi, user.country);
+        banner = `Showing nearby stores — ${matchedStore.name} is about ${dist} away`;
+        highlightId = matchedStore.id;
+      } else if (matchedMaker) {
+        const dist = formatDistance(matchedMaker.distanceMi, user.country);
+        banner = `Showing nearby stores — ${matchedMaker.maker.name} is about ${dist} away`;
+        highlightId = matchedMaker.maker.id;
+      } else if (payload.intent === "browse" || payload.intent === "named") {
+        banner = "Here are nearby stores on Buy Local.";
+      }
+
+      setVoiceBanner(banner);
+      setVoiceHighlightId(highlightId);
+
+      if (
+        isSpeechSynthesisSupported() &&
+        !payload.confirmation &&
+        (matchedStore || matchedMaker)
+      ) {
+        const spoken = matchedStore
+          ? `${matchedStore.name} is about ${formatDistance(matchedStore.distanceMi, user.country)} away.`
+          : `${matchedMaker!.maker.name} is about ${formatDistance(matchedMaker!.distanceMi, user.country)} away.`;
+        speakFeedback(spoken);
+      }
+
+      window.setTimeout(() => {
+        if (highlightId) {
+          handleSelectPin(highlightId);
+        } else {
+          storesSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+      }, 150);
+
+      window.setTimeout(() => setVoiceHighlightId(null), 10000);
+      window.setTimeout(() => setVoiceBanner(null), 12000);
+    }
+
+    applyVoiceFocus();
+    window.addEventListener("fb-voice-nav-focus", applyVoiceFocus);
+    return () => {
+      window.removeEventListener("fb-voice-nav-focus", applyVoiceFocus);
+    };
+  }, [storesLoading, nearbyStores, makers, user.country]);
 
   const listings = useMemo(() => {
     const all = getLocalListings(user, maxMiles);
@@ -818,6 +884,15 @@ function BuyLocalPageInner() {
             )}
           </div>
 
+          {voiceBanner && (
+            <div
+              role="status"
+              className="mb-4 rounded-xl border border-emerald-300/90 bg-emerald-50 px-3.5 py-3 text-sm text-emerald-950 shadow-sm sm:px-4"
+            >
+              <p className="font-medium leading-relaxed">{voiceBanner}</p>
+            </div>
+          )}
+
           {storesLoading ? (
             <div
               className="grid gap-4 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"
@@ -872,6 +947,7 @@ function BuyLocalPageInner() {
                   focusLabel={focusProductName}
                   markerIndex={markerIndexById.get(store.id)}
                   saved={favouriteStoreIds.has(store.id)}
+                  highlighted={voiceHighlightId === store.id}
                   onToggleFavourite={() => handleToggleStoreFavourite(store)}
                 />
               ))}
@@ -945,6 +1021,7 @@ function BuyLocalPageInner() {
                   from={user}
                   markerIndex={markerIndexById.get(maker.id)}
                   saved={favouriteMakerIds.has(maker.id)}
+                  highlighted={voiceHighlightId === maker.id}
                   onToggleFavourite={() =>
                     handleToggleMakerFavourite(maker.id, maker.name)
                   }

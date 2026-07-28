@@ -25,6 +25,7 @@ import {
   type LocalMaker,
   type LocationCountry,
 } from "@/lib/local-commerce";
+import { cn } from "@/lib/utils";
 
 type LocalMakerCardProps = {
   maker: LocalMaker;
@@ -33,6 +34,7 @@ type LocalMakerCardProps = {
   from: GeoPoint;
   markerIndex?: number;
   saved?: boolean;
+  highlighted?: boolean;
   onToggleFavourite?: () => void;
 };
 
@@ -43,6 +45,7 @@ export function LocalMakerCard({
   from,
   markerIndex,
   saved = false,
+  highlighted = false,
   onToggleFavourite,
 }: LocalMakerCardProps) {
   const distance = formatDistance(distanceMi, country);
@@ -55,7 +58,11 @@ export function LocalMakerCard({
   return (
     <Card
       id={`local-maker-${maker.id}`}
-      className="flex flex-col border-border/70 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md"
+      className={cn(
+        "flex flex-col border-border/70 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md",
+        highlighted &&
+          "ring-2 ring-emerald-600 ring-offset-2 ring-offset-cream border-emerald-500 shadow-md"
+      )}
     >
       <CardHeader className="space-y-2.5 px-4 pb-2 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-2.5">
