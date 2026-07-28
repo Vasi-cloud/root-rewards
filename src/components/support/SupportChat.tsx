@@ -25,7 +25,9 @@ const HIDE_FAB_PREFIXES = ["/checkout"];
 
 export function SupportChat() {
   const pathname = usePathname();
-  const hideFab = HIDE_FAB_PREFIXES.some((p) => pathname?.startsWith(p));
+  const hideFabForRoute = HIDE_FAB_PREFIXES.some((p) => pathname?.startsWith(p));
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false);
+  const hideFab = hideFabForRoute || navDrawerOpen;
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,6 +37,18 @@ export function SupportChat() {
   const [suggestions, setSuggestions] = useState(SUPPORT_QUICK_PROMPTS);
   const [sendError, setSendError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sync = () =>
+      setNavDrawerOpen(document.body.dataset.navDrawerOpen === "1");
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-nav-drawer-open"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (hideFab) setOpen(false);

@@ -209,6 +209,14 @@ export function SiteHeader() {
     setMenuOpen(false);
   }, [pathname]);
 
+  // Hide floating chat FAB while the nav drawer is open (it sat above Sign out)
+  useEffect(() => {
+    document.body.dataset.navDrawerOpen = menuOpen ? "1" : "";
+    return () => {
+      delete document.body.dataset.navDrawerOpen;
+    };
+  }, [menuOpen]);
+
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-3 px-3 sm:h-16 sm:gap-4 sm:px-6">
@@ -325,9 +333,10 @@ export function SiteHeader() {
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="flex w-[min(100vw-0.75rem,22.5rem)] max-w-full flex-col overflow-hidden px-4 sm:px-6"
+              className="flex h-dvh max-h-dvh w-[min(100vw-0.75rem,22.5rem)] max-w-full flex-col gap-0 overflow-hidden p-0"
             >
-              <SheetHeader className="shrink-0 space-y-1.5 pb-2 text-left">
+              {/* Sticky drawer header — brand + close stay visible while body scrolls */}
+              <SheetHeader className="shrink-0 space-y-1 border-b border-border/70 bg-cream px-4 py-3.5 pr-14 text-left sm:px-5">
                 <SheetTitle className="font-heading text-lg text-primary">
                   Forest Buddies®
                 </SheetTitle>
@@ -335,9 +344,12 @@ export function SiteHeader() {
                   Shop kindly · Leafy tools · Local &amp; eco
                 </p>
               </SheetHeader>
-              <div className="mt-2 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-6">
+
+              {/* Scrollable body — Settings / Sign out reachable at the bottom */}
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-3 sm:px-5 [-webkit-overflow-scrolling:touch] pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))]">
                 <MainNav variant="full" />
-                <div className="mt-auto flex flex-col gap-2.5 border-t border-border pt-4">
+
+                <div className="mt-6 flex flex-col gap-2.5 border-t border-border pt-4">
                   <label
                     className="text-xs font-medium text-muted-foreground"
                     htmlFor="lang-switcher-menu"
