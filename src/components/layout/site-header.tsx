@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ChevronDown,
   Leaf,
   LogOut,
   Menu,
@@ -133,24 +132,18 @@ function AccountMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
+        aria-label="Account menu"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-white/90 px-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-white/90 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <Avatar size="sm" className="size-6">
+        <Avatar size="sm" className="size-7">
           {profile?.photoURL ? (
             <AvatarImage src={profile.photoURL} alt="" />
           ) : null}
-          <AvatarFallback className="bg-emerald-800 text-[10px] font-semibold text-cream">
+          <AvatarFallback className="bg-emerald-800 text-[11px] font-semibold text-cream">
             {initials}
           </AvatarFallback>
         </Avatar>
-        <span className="hidden max-w-[7rem] truncate 2xl:inline">{label}</span>
-        <ChevronDown
-          className={cn(
-            "size-3.5 text-muted-foreground transition-transform",
-            open && "rotate-180"
-          )}
-        />
       </button>
       {open ? (
         <div
@@ -236,8 +229,8 @@ export function SiteHeader() {
           className="hidden flex-none justify-center lg:flex"
         />
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-          {/* xl+: Dashboard visible; Settings + Sign out in account dropdown */}
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* xl+: language · chat · cart · Dashboard · account avatar (last) */}
           <div className="hidden items-center gap-1.5 xl:flex">
             <LanguageSelect id="lang-switcher-desktop" />
             <Button
@@ -323,13 +316,13 @@ export function SiteHeader() {
             </Button>
           )}
 
+          {/* Mobile / mid-width menu only — never sits beside the desktop account avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-border bg-white/80 px-0 text-sm font-medium transition-colors hover:bg-muted size-11 xl:h-9 xl:w-auto xl:px-2.5 xl:rounded-lg"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-white/80 xl:hidden"
               aria-label="Open menu"
             >
-              <Menu className="size-5 xl:size-4" />
-              <span className="hidden xl:inline">More</span>
+              <Menu className="size-5" />
             </SheetTrigger>
             <SheetContent
               side="right"
