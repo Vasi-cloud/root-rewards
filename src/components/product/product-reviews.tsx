@@ -2,11 +2,13 @@
 
 import { Leaf, Star } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
+import { buildLoginHref } from "@/lib/auth-redirect";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import {
   averageFromReviews,
@@ -131,6 +133,7 @@ export function ProductReviews({
   className?: string;
 }) {
   const { user, profile } = useAuth();
+  const pathname = usePathname();
   const [stored, setStored] = useState<ProductReviewRecord[]>([]);
   const [rating, setRating] = useState(5);
   const [title, setTitle] = useState("");
@@ -277,7 +280,7 @@ export function ProductReviews({
         {!user ? (
           <p className="text-sm text-muted-foreground">
             <Link
-              href="/login"
+              href={buildLoginHref(pathname)}
               className="font-medium text-primary underline-offset-2 hover:underline"
             >
               Sign in

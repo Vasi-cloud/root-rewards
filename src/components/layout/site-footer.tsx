@@ -2,11 +2,13 @@
 
 import { Leaf } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { MinimalTrademarkFooter } from "@/components/brand/brand-mark";
 import { SupportChatTrigger } from "@/components/support/SupportChat";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { Separator } from "@/components/ui/separator";
+import { buildLoginHref } from "@/lib/auth-redirect";
 
 const footerLinks = {
   Shop: [
@@ -51,6 +53,9 @@ export function SiteFooter({
 }: {
   trademarkMode?: "minimal" | "compact";
 }) {
+  const pathname = usePathname();
+  const loginHref = buildLoginHref(pathname);
+
   return (
     <footer className="mt-auto border-t border-border bg-primary text-primary-foreground">
       <div className="mx-auto max-w-6xl px-3 py-10 sm:px-6 sm:py-12">
@@ -77,7 +82,9 @@ export function SiteFooter({
                 {links.map((link) => (
                   <li key={link.href}>
                     <Link
-                      href={link.href}
+                      href={
+                        link.href === "/login" ? loginHref : link.href
+                      }
                       className="text-sm text-primary-foreground/85 transition-colors duration-200 hover:text-sage"
                     >
                       {link.label}

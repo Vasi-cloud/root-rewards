@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { useMembership } from "@/contexts/membership-context";
+import { buildLoginHref } from "@/lib/auth-redirect";
 
 /**
  * Soft-deactivate account — free tier only.
@@ -31,7 +32,7 @@ export function AccountDeactivateControls() {
       <p className="text-sm text-muted-foreground">
         Sign in to manage your account.{" "}
         <Link
-          href="/login"
+          href={buildLoginHref("/dashboard/settings")}
           className="font-medium text-primary underline-offset-2 hover:underline"
         >
           Sign in

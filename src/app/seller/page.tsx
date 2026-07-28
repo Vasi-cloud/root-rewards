@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { useSeller } from "@/contexts/seller-context";
+import { buildLoginHref, buildRegisterHref } from "@/lib/auth-redirect";
 import type {
   ListingType,
   ProductApprovalStatus,
@@ -364,14 +365,14 @@ export default function SellerPage() {
             <CardContent className="flex flex-col gap-3 sm:flex-row">
               <Button
                 nativeButton={false}
-                render={<Link href="/login" />}
+                render={<Link href={buildLoginHref("/seller")} />}
                 className="flex-1"
               >
                 Sign in to continue
               </Button>
               <Button
                 nativeButton={false}
-                render={<Link href="/register" />}
+                render={<Link href={buildRegisterHref("/seller")} />}
                 variant="outline"
                 className="flex-1"
               >
@@ -381,7 +382,10 @@ export default function SellerPage() {
           </Card>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already selling?{" "}
-            <Link href="/login" className="font-medium text-primary underline-offset-2 hover:underline">
+            <Link
+              href={buildLoginHref("/seller")}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
               Open Seller Hub
             </Link>
           </p>

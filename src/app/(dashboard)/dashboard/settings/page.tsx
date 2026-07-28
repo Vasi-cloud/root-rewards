@@ -33,6 +33,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 import { useMembership } from "@/contexts/membership-context";
+import { buildLoginHref } from "@/lib/auth-redirect";
 import {
   getProfileOverrides,
   setProfileOverrides,
@@ -76,7 +77,7 @@ function AccountSettingsPageInner() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login?next=/dashboard/settings");
+      router.replace(buildLoginHref("/dashboard/settings"));
     }
   }, [loading, user, router]);
 

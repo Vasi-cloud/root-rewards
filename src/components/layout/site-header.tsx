@@ -32,6 +32,7 @@ import {
   useI18n,
   type Language,
 } from "@/contexts/i18n-context";
+import { buildLoginHref, buildRegisterHref } from "@/lib/auth-redirect";
 import { cn } from "@/lib/utils";
 import { openSupportChat } from "@/lib/support-agent";
 
@@ -197,6 +198,8 @@ export function SiteHeader() {
   const { totalItems } = useCart();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const loginHref = buildLoginHref(pathname);
+  const registerHref = buildRegisterHref(pathname);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -261,7 +264,7 @@ export function SiteHeader() {
               <>
                 <Button
                   nativeButton={false}
-                  render={<Link href="/login" />}
+                  render={<Link href={loginHref} />}
                   variant="outline"
                   size="sm"
                   className="shrink-0 px-3"
@@ -270,7 +273,7 @@ export function SiteHeader() {
                 </Button>
                 <Button
                   nativeButton={false}
-                  render={<Link href="/register" />}
+                  render={<Link href={registerHref} />}
                   size="sm"
                   className="shrink-0 px-3"
                 >
@@ -307,7 +310,7 @@ export function SiteHeader() {
           ) : (
             <Button
               nativeButton={false}
-              render={<Link href="/login" />}
+              render={<Link href={loginHref} />}
               size="sm"
               variant="outline"
               className="hidden shrink-0 px-2.5 lg:inline-flex xl:hidden"
@@ -411,7 +414,7 @@ export function SiteHeader() {
                     <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
                       <Button
                         nativeButton={false}
-                        render={<Link href="/login" />}
+                        render={<Link href={loginHref} />}
                         variant="outline"
                         className="min-h-11 w-full xl:hidden"
                       >
@@ -419,7 +422,7 @@ export function SiteHeader() {
                       </Button>
                       <Button
                         nativeButton={false}
-                        render={<Link href="/register" />}
+                        render={<Link href={registerHref} />}
                         className="min-h-11 w-full"
                       >
                         Get started

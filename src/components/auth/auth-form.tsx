@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/auth-context";
 import { consumeDeactivatedNotice } from "@/lib/account-storage";
+import {
+  buildLoginHref,
+  buildRegisterHref,
+  readAuthReturnParam,
+} from "@/lib/auth-redirect";
 import { getAuthErrorMessage } from "@/lib/firebase/errors";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { validateEmail, validatePassword } from "@/lib/validation";
@@ -45,14 +50,23 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-export function AuthForm({ mode }: { mode: AuthMode }) {
+function AuthFormInner({ mode }: { mode: AuthMode }) {
   const router = useRouter();
-  const { signIn, register, signInGoogle, firebaseReady } = useAuth();
+  const searchParams = useSearchParams();
+  const { user, loading, signIn, register, signInGoogle, firebaseReady } =
+    useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const returnTarget = readAuthReturnParam(searchParams);
+  const returnRaw = searchParams.get("next") ?? searchParams.get("return");
+  const switchHref =
+    mode === "login"
+      ? buildRegisterHref(returnRaw)
+      : buildLoginHref(returnRaw);
 
   useEffect(() => {
     if (mode === "login" && consumeDeactivatedNotice()) {
@@ -61,6 +75,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       );
     }
   }, [mode]);
+
+  // Already signed in — honour return URL (or dashboard) without re-auth.
+  useEffect(() => {
+    if (loading || !user || submitting) return;
+    router.replace(returnTarget);
+  }, [loading, user, submitting, returnTarget, router]);
 
   async function finishAuthRedirect() {
     // Auth listener may soft-block deactivated accounts and set a notice
@@ -71,7 +91,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       );
       return;
     }
-    router.push("/dashboard");
+    router.push(returnTarget);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -143,6 +163,22 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   }
 
   const isLogin = mode === "login";
+
+  if (loading || user) {
+    return (
+      <Card className="w-full max-w-md border-border/80 shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-heading text-2xl">
+            {isLogin ? "Welcome back" : "Create your account"}
+          </CardTitle>
+          <CardDescription>Taking you to your destination…</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Please wait…</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md border-border/80 shadow-lg">
@@ -240,14 +276,20 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             {isLogin ? (
               <>
                 New here?{" "}
-                <Link href="/register" className="font-medium text-primary hover:underline">
+                <Link
+                  href={switchHref}
+                  className="font-medium text-primary hover:underline"
+                >
                   Create an account
                 </Link>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <Link href="/login" className="font-medium text-primary hover:underline">
+                <Link
+                  href={switchHref}
+                  className="font-medium text-primary hover:underline"
+                >
                   Sign in
                 </Link>
               </>
@@ -256,5 +298,24 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+export function AuthForm({ mode }: { mode: AuthMode }) {
+  return (
+    <Suspense
+      fallback={
+        <Card className="w-full max-w-md border-border/80 shadow-lg">
+          <CardHeader>
+            <CardTitle className="font-heading text-2xl">
+              {mode === "login" ? "Welcome back" : "Create your account"}
+            </CardTitle>
+            <CardDescription>Loading…</CardDescription>
+          </CardHeader>
+        </Card>
+      }
+    >
+      <AuthFormInner mode={mode} />
+    </Suspense>
   );
 }
