@@ -71,6 +71,27 @@ export async function startDonateCheckout(
   return { url: data.url };
 }
 
+export async function startMembershipCheckout(
+  body: unknown
+): Promise<{ url: string } | { demo: true } | { error: string }> {
+  const res = await fetch("/api/membership/create-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    url?: string;
+    mode?: string;
+    error?: string;
+  };
+  if (res.status === 503 || data.mode === "demo") {
+    return { demo: true };
+  }
+  if (!res.ok || !data.url) {
+    return { error: data.error ?? "Could not start membership checkout." };
+  }
+  return { url: data.url };
+}
 
 export async function openBillingPortal(
   customerId: string
