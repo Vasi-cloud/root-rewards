@@ -3,6 +3,7 @@
 import {
   ArrowRight,
   BookOpen,
+  Check,
   HeartHandshake,
   Leaf,
   Loader2,
@@ -29,13 +30,13 @@ import {
   selectionCo2,
   selectionCost,
   selectionLines,
+  selectionTotalUnits,
   unitsToDollars,
   type Cause,
   type CauseId,
+  type CauseSelection,
 } from "@/lib/causes";
-import {
-  savePendingDonation,
-} from "@/lib/donate";
+import { savePendingDonation } from "@/lib/donate";
 import { saveLastDonation } from "@/lib/impact-storage";
 import { startDonateCheckout } from "@/lib/stripe/client";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,9 @@ const CAUSE_ICONS = {
 } as const;
 
 /** Quick dollar picks for Trees; other causes use 1 / 3 / 5 units. */
-function quickPicksForCause(cause: Cause): Array<{ dollars: number; label: string }> {
+function quickPicksForCause(
+  cause: Cause
+): Array<{ dollars: number; label: string }> {
   if (cause.id === "trees") {
     return [
       { dollars: 8, label: "1 tree" },
@@ -64,51 +67,79 @@ function quickPicksForCause(cause: Cause): Array<{ dollars: number; label: strin
   }));
 }
 
+function initialSelection(): CauseSelection {
+  const next = emptyCauseSelection();
+  next.trees = 1; // preserve simple single-cause start
+  return next;
+}
+
+function initialCustomAmounts(): Record<CauseId, string> {
+  return {
+    trees: "8",
+    ocean: "",
+    animals: "",
+    education: "",
+    climate: "",
+  };
+}
+
 export default function DonatePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [causeId, setCauseId] = useState<CauseId>("trees");
-  const [customAmount, setCustomAmount] = useState("");
-  const [units, setUnits] = useState(1);
+  const [selection, setSelection] = useState<CauseSelection>(initialSelection);
+  const [customAmounts, setCustomAmounts] = useState(initialCustomAmounts);
   const [email, setEmail] = useState(user?.email ?? "");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cause = CAUSES.find((c) => c.id === causeId) ?? CAUSES[0];
-  const picks = useMemo(() => quickPicksForCause(cause), [cause]);
-
-  const selection = useMemo(() => {
-    const next = emptyCauseSelection();
-    next[cause.id] = units;
-    return next;
-  }, [cause.id, units]);
-
   const total = selectionCost(selection);
   const co2 = selectionCo2(selection);
   const summary = formatLiveImpactSummary(selection);
   const lines = selectionLines(selection);
+  const hasSelection = selectionTotalUnits(selection) > 0;
+  const canContinue = hasSelection && total >= 0.5;
 
-  function applyDollars(dollars: number) {
-    const nextUnits = dollarsToUnits(cause, dollars);
-    setUnits(Math.max(1, nextUnits));
-    setCustomAmount(String(dollars));
+  const selectedCount = useMemo(
+    () => CAUSES.filter((c) => (selection[c.id] || 0) > 0).length,
+    [selection]
+  );
+
+  function setCauseUnits(id: CauseId, units: number) {
+    const cause = CAUSES.find((c) => c.id === id);
+    if (!cause) return;
+    const nextUnits = Math.max(0, Math.floor(units));
+    setSelection((prev) => ({ ...prev, [id]: nextUnits }));
+    setCustomAmounts((prev) => ({
+      ...prev,
+      [id]: nextUnits > 0 ? String(unitsToDollars(cause, nextUnits)) : "",
+    }));
   }
 
-  function selectCause(id: CauseId) {
-    setCauseId(id);
-    const nextCause = CAUSES.find((c) => c.id === id) ?? CAUSES[0];
-    // Keep roughly similar spend when switching causes
-    const dollars = Math.max(nextCause.unitPrice, unitsToDollars(cause, units));
-    const nextUnits = Math.max(1, dollarsToUnits(nextCause, dollars));
-    setUnits(nextUnits);
-    setCustomAmount(String(unitsToDollars(nextCause, nextUnits)));
+  function toggleCause(id: CauseId) {
+    const current = selection[id] || 0;
+    if (current > 0) {
+      setCauseUnits(id, 0);
+      return;
+    }
+    setCauseUnits(id, 1);
+  }
+
+  function applyDollars(id: CauseId, dollars: number) {
+    const cause = CAUSES.find((c) => c.id === id);
+    if (!cause) return;
+    const nextUnits = Math.max(1, dollarsToUnits(cause, dollars));
+    setSelection((prev) => ({ ...prev, [id]: nextUnits }));
+    setCustomAmounts((prev) => ({
+      ...prev,
+      [id]: String(unitsToDollars(cause, nextUnits)),
+    }));
   }
 
   async function handleContinue() {
     setError(null);
-    if (units < 1 || total < 0.5) {
-      setError("Choose an amount to support a cause.");
+    if (!canContinue) {
+      setError("Select at least one cause and amount to continue.");
       return;
     }
 
@@ -154,7 +185,6 @@ export default function DonatePage() {
         // demo mode from API
       }
 
-      // Demo / no email — record locally and thank the donor
       saveLastDonation(selection);
       savePendingDonation({ ...pending, recorded: true });
       await new Promise((r) => window.setTimeout(r, 400));
@@ -164,8 +194,6 @@ export default function DonatePage() {
       setSubmitting(false);
     }
   }
-
-  const Icon = CAUSE_ICONS[cause.icon];
 
   return (
     <div className="relative overflow-hidden">
@@ -187,9 +215,9 @@ export default function DonatePage() {
           Fund impact — no purchase needed
         </h1>
         <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-base">
-          Help fund trees and partner causes even when you&apos;re not shopping.
-          Amounts map to illustrative, partner-funded units — we never claim a
-          live carbon audit from a single gift.
+          Pick one cause or several — each with its own amount — then continue
+          once for the combined total. Amounts map to illustrative,
+          partner-funded units, not a live carbon audit.
         </p>
 
         <LeafyHubLinks className="mt-4" dense />
@@ -201,147 +229,206 @@ export default function DonatePage() {
           <p className="font-medium">Honest impact</p>
           <p className="mt-1 text-xs leading-relaxed text-amber-900/85 sm:text-sm">
             For Trees, about <strong>$8 ≈ 1 tree</strong> (illustrative /
-            partner-funded). Totals below are estimates to keep the experience
-            clear — not a guarantee of a specific planted tree or CO₂ offset.
+            partner-funded). Totals below are estimates — not a guarantee of a
+            specific planted tree or CO₂ offset.
           </p>
         </div>
 
-        {/* Cause picker */}
+        {/* Multi-select cause cards */}
         <section className="mt-8 space-y-3">
-          <h2 className="font-heading text-xl font-semibold text-primary">
-            Choose a cause
-          </h2>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {CAUSES.map((c) => {
-              const CIcon = CAUSE_ICONS[c.icon];
-              const active = c.id === causeId;
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h2 className="font-heading text-xl font-semibold text-primary">
+              Choose causes
+            </h2>
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              {selectedCount === 0
+                ? "Tap to add one or more"
+                : `${selectedCount} selected`}
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            {CAUSES.map((cause) => {
+              const CIcon = CAUSE_ICONS[cause.icon];
+              const units = selection[cause.id] || 0;
+              const selected = units > 0;
+              const picks = quickPicksForCause(cause);
+              const lineCost = unitsToDollars(cause, units);
+
               return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => selectCause(c.id)}
+                <div
+                  key={cause.id}
                   className={cn(
-                    "rounded-2xl border px-3.5 py-3.5 text-left transition-all",
-                    active
-                      ? `${c.accentClass} shadow-sm ring-2 ring-emerald-600/40`
-                      : "border-border/70 bg-white/80 hover:border-emerald-300/80 hover:bg-emerald-50/40"
+                    "rounded-2xl border transition-all",
+                    selected
+                      ? `${cause.accentClass} shadow-sm ring-2 ring-emerald-600/35`
+                      : "border-border/70 bg-white/80"
                   )}
                 >
-                  <div className="flex items-start gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleCause(cause.id)}
+                    aria-pressed={selected}
+                    className="flex w-full items-start gap-3 px-3.5 py-3.5 text-left sm:px-4"
+                  >
+                    <span
+                      className={cn(
+                        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
+                        selected
+                          ? "border-emerald-800 bg-emerald-800 text-cream"
+                          : "border-emerald-300 bg-white text-transparent"
+                      )}
+                      aria-hidden
+                    >
+                      <Check className="size-3 stroke-[3]" />
+                    </span>
                     <span
                       className={cn(
                         "flex size-9 shrink-0 items-center justify-center rounded-xl",
-                        active
+                        selected
                           ? "bg-emerald-800 text-cream"
                           : "bg-emerald-100 text-emerald-900"
                       )}
                     >
                       <CIcon className="size-4" />
                     </span>
-                    <div className="min-w-0">
-                      <p className="font-heading text-base font-semibold">
-                        {c.name}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                        <span className="font-heading text-base font-semibold">
+                          {cause.name}
+                        </span>
+                        {selected ? (
+                          <span className="text-sm font-semibold tabular-nums">
+                            ${lineCost.toFixed(2)}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed opacity-90 sm:text-sm">
+                        {cause.tagline}
+                      </span>
+                      <span className="mt-1.5 block text-[11px] font-medium tabular-nums opacity-80">
+                        ${cause.unitPrice} / {cause.unitSingular}
+                        {cause.id === "trees" ? " · ≈ 1 tree" : ""}
+                        {selected
+                          ? ` · ${formatCauseUnits(cause, units)}`
+                          : " · tap to add"}
+                      </span>
+                    </span>
+                  </button>
+
+                  {selected ? (
+                    <div className="border-t border-current/10 px-3.5 pb-3.5 pt-3 sm:px-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">
+                        Amount for {cause.name}
                       </p>
-                      <p className="mt-0.5 text-xs leading-relaxed opacity-90 sm:text-sm">
-                        {c.tagline}
-                      </p>
-                      <p className="mt-1.5 text-[11px] font-medium tabular-nums opacity-80">
-                        ${c.unitPrice} / {c.unitSingular}
-                        {c.id === "trees" ? " · ≈ 1 tree" : ""}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {picks.map((pick) => {
+                          const pickUnits = dollarsToUnits(cause, pick.dollars);
+                          const active = units === pickUnits;
+                          return (
+                            <button
+                              key={pick.dollars}
+                              type="button"
+                              onClick={() => applyDollars(cause.id, pick.dollars)}
+                              className={cn(
+                                "min-h-10 rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors",
+                                active
+                                  ? "border-emerald-800 bg-emerald-800 text-cream"
+                                  : "border-emerald-300/80 bg-white/85 hover:bg-white"
+                              )}
+                            >
+                              <span className="tabular-nums">${pick.dollars}</span>
+                              <span className="ml-1 opacity-80">
+                                ({pick.label})
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <label
+                        htmlFor={`donate-custom-${cause.id}`}
+                        className="mt-3 block text-sm font-medium"
+                      >
+                        Custom amount ($)
+                      </label>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <input
+                          id={`donate-custom-${cause.id}`}
+                          type="number"
+                          min={cause.unitPrice}
+                          step="1"
+                          inputMode="decimal"
+                          value={customAmounts[cause.id]}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setCustomAmounts((prev) => ({
+                              ...prev,
+                              [cause.id]: value,
+                            }));
+                            const n = parseFloat(value);
+                            if (Number.isFinite(n) && n > 0) {
+                              const nextUnits = dollarsToUnits(cause, n);
+                              setSelection((prev) => ({
+                                ...prev,
+                                [cause.id]: Math.max(0, nextUnits),
+                              }));
+                            }
+                          }}
+                          placeholder={String(cause.unitPrice)}
+                          className="h-11 w-full max-w-[10rem] rounded-xl border border-input bg-background px-3 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCauseUnits(cause.id, 0)}
+                          className="min-h-11 rounded-xl px-3 text-sm font-medium text-emerald-900/80 underline-offset-2 hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <p className="mt-1.5 text-xs opacity-75">
+                        Whole units only — ${cause.unitPrice} funds 1{" "}
+                        {cause.unitSingular}.
                       </p>
                     </div>
-                  </div>
-                </button>
+                  ) : null}
+                </div>
               );
             })}
           </div>
         </section>
 
-        {/* Amount */}
-        <section className={`mt-8 rounded-2xl border p-4 sm:p-5 ${cause.accentClass}`}>
-          <div className="mb-1 flex items-center gap-2">
-            <Icon className="size-5" />
-            <h2 className="font-heading text-lg font-semibold">{cause.name}</h2>
-          </div>
-          <p className="text-sm opacity-90">{cause.tagline}</p>
-
-          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] opacity-70">
-            Quick picks
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {picks.map((pick) => {
-              const pickUnits = dollarsToUnits(cause, pick.dollars);
-              const active = units === pickUnits;
-              return (
-                <button
-                  key={pick.dollars}
-                  type="button"
-                  onClick={() => applyDollars(pick.dollars)}
-                  className={cn(
-                    "min-h-11 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors",
-                    active
-                      ? "border-emerald-800 bg-emerald-800 text-cream"
-                      : "border-emerald-300/80 bg-white/80 hover:bg-white"
-                  )}
-                >
-                  <span className="tabular-nums">${pick.dollars}</span>
-                  <span className="ml-1.5 opacity-80">({pick.label})</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <label
-            htmlFor="donate-custom"
-            className="mt-4 block text-sm font-medium"
-          >
-            Custom amount ($)
-          </label>
-          <input
-            id="donate-custom"
-            type="number"
-            min={cause.unitPrice}
-            step="1"
-            inputMode="decimal"
-            value={customAmount}
-            onChange={(e) => {
-              setCustomAmount(e.target.value);
-              const n = parseFloat(e.target.value);
-              if (Number.isFinite(n) && n > 0) {
-                setUnits(Math.max(0, dollarsToUnits(cause, n)));
-              }
-            }}
-            placeholder={String(cause.unitPrice)}
-            className="mt-1.5 h-12 w-full max-w-xs rounded-xl border border-input bg-background px-3 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <p className="mt-2 text-xs opacity-80">
-            Whole units only — ${cause.unitPrice} funds 1 {cause.unitSingular}.
-          </p>
-        </section>
-
-        {/* Summary */}
+        {/* Combined summary */}
         <section className="mt-6 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-cream to-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-sm font-semibold text-emerald-950">
             <Sparkles className="size-4" />
-            Before you continue
+            Combined gift
           </p>
-          {lines.length === 0 ? (
+          {!hasSelection ? (
             <p className="mt-2 text-sm text-muted-foreground">
-              Pick an amount above to see your estimated impact.
+              Select one or more causes above to build your total.
             </p>
           ) : (
-            <ul className="mt-3 space-y-1.5 text-sm text-emerald-950">
-              {lines.map(({ cause: c, units: u, cost }) => (
-                <li
-                  key={c.id}
-                  className="flex justify-between gap-3 tabular-nums"
-                >
-                  <span>
-                    {c.name}: {formatCauseUnits(c, u)}
-                  </span>
-                  <span>${cost.toFixed(2)}</span>
-                </li>
-              ))}
+            <ul className="mt-3 space-y-2 text-sm text-emerald-950">
+              {lines.map(({ cause: c, units: u, cost }) => {
+                const Icon = CAUSE_ICONS[c.icon];
+                return (
+                  <li
+                    key={c.id}
+                    className="flex items-start justify-between gap-3"
+                  >
+                    <span className="flex min-w-0 items-start gap-2">
+                      <Icon className="mt-0.5 size-3.5 shrink-0 opacity-80" />
+                      <span>
+                        {c.name}: {formatCauseUnits(c, u)}
+                      </span>
+                    </span>
+                    <span className="shrink-0 tabular-nums">
+                      ${cost.toFixed(2)}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
           <div className="mt-3 flex items-end justify-between border-t border-emerald-200/70 pt-3">
@@ -352,18 +439,16 @@ export default function DonatePage() {
               </p>
             </div>
             <p className="max-w-[14rem] text-right text-xs text-muted-foreground">
-              ~{co2} kg CO₂e equivalent
+              ~{Math.round(co2)} kg CO₂e equivalent
               <span className="block">(illustrative estimate)</span>
             </p>
           </div>
-          {summary && (
-            <p className="mt-3 text-sm font-medium text-emerald-900">
-              {summary}
-            </p>
-          )}
+          {summary ? (
+            <p className="mt-3 text-sm font-medium text-emerald-900">{summary}</p>
+          ) : null}
         </section>
 
-        {/* Optional contact for Stripe receipt */}
+        {/* Optional contact */}
         <section className="mt-6 space-y-3">
           <h2 className="font-heading text-lg font-semibold text-primary">
             Contact (optional)
@@ -404,44 +489,51 @@ export default function DonatePage() {
           </div>
         </section>
 
-        {error && (
+        {error ? (
           <p
             role="alert"
             className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
           >
             {error}
           </p>
-        )}
+        ) : null}
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Button
-            type="button"
-            size="lg"
-            className="min-h-12 flex-1 gap-2 bg-emerald-800 text-base text-cream hover:bg-emerald-900"
-            disabled={submitting || units < 1}
-            onClick={() => void handleContinue()}
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Continuing…
-              </>
-            ) : (
-              <>
-                Continue · ${total.toFixed(2)}
-                <ArrowRight className="size-4" />
-              </>
-            )}
-          </Button>
-          <Button
-            nativeButton={false}
-            render={<Link href="/marketplace" />}
-            variant="outline"
-            size="lg"
-            className="min-h-12 sm:w-auto"
-          >
-            Shop instead
-          </Button>
+        <div className="mt-6 flex flex-col gap-2">
+          {!canContinue ? (
+            <p className="text-sm text-muted-foreground">
+              Select at least one cause with an amount to continue.
+            </p>
+          ) : null}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              size="lg"
+              className="min-h-12 flex-1 gap-2 bg-emerald-800 text-base text-cream hover:bg-emerald-900"
+              disabled={submitting || !canContinue}
+              onClick={() => void handleContinue()}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Continuing…
+                </>
+              ) : (
+                <>
+                  Continue · ${total.toFixed(2)}
+                  <ArrowRight className="size-4" />
+                </>
+              )}
+            </Button>
+            <Button
+              nativeButton={false}
+              render={<Link href="/marketplace" />}
+              variant="outline"
+              size="lg"
+              className="min-h-12 sm:w-auto"
+            >
+              Shop instead
+            </Button>
+          </div>
         </div>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
