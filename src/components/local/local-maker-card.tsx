@@ -58,10 +58,11 @@ export function LocalMakerCard({
   return (
     <Card
       id={`local-maker-${maker.id}`}
+      data-voice-matched={highlighted ? "true" : undefined}
       className={cn(
-        "flex flex-col border-border/70 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md",
+        "flex flex-col border-border/70 bg-card transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300/80 hover:shadow-md",
         highlighted &&
-          "ring-2 ring-emerald-600 ring-offset-2 ring-offset-cream border-emerald-500 shadow-md"
+          "z-[1] scale-[1.01] border-emerald-600 bg-emerald-50/50 shadow-[0_0_0_3px_rgba(5,150,105,0.45),0_10px_28px_rgba(5,150,105,0.22)] ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-cream"
       )}
     >
       <CardHeader className="space-y-2.5 px-4 pb-2 sm:px-6">
@@ -72,6 +73,11 @@ export function LocalMakerCard({
                 <span className="flex size-7 items-center justify-center rounded-full bg-emerald-800 text-[11px] font-bold text-cream sm:size-6">
                   {markerIndex}
                 </span>
+              )}
+              {highlighted && (
+                <Badge className="animate-pulse bg-emerald-700 font-semibold text-cream">
+                  Matched
+                </Badge>
               )}
               <Badge
                 variant="outline"

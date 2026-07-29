@@ -64,6 +64,8 @@ import { ensureDemoShops } from "@/lib/seller-storage";
 import { cn } from "@/lib/utils";
 import {
   consumeVoiceNavFocusPayload,
+  pickBestNamedMatch,
+  scorePlaceNameMatch,
   setVoiceNavPlaces,
 } from "@/lib/voice-nav";
 import { isSpeechSynthesisSupported, speakFeedback } from "@/lib/leafy-voice";
@@ -117,9 +119,23 @@ function BuyLocalPageInner() {
   const [showFavouritesOnly, setShowFavouritesOnly] = useState(false);
   const [voiceHighlightId, setVoiceHighlightId] = useState<string | null>(null);
   const [voiceBanner, setVoiceBanner] = useState<string | null>(null);
+  const voiceFocusTimersRef = useRef<{
+    scroll?: number;
+    clearHighlight?: number;
+    clearBanner?: number;
+  }>({});
 
   useEffect(() => {
     ensureDemoShops();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const timers = voiceFocusTimersRef.current;
+      if (timers.scroll) window.clearTimeout(timers.scroll);
+      if (timers.clearHighlight) window.clearTimeout(timers.clearHighlight);
+      if (timers.clearBanner) window.clearTimeout(timers.clearBanner);
+    };
   }, []);
 
   useEffect(() => {
@@ -234,34 +250,87 @@ function BuyLocalPageInner() {
   useEffect(() => {
     if (storesLoading) return;
 
+    function clearVoiceFocusTimers() {
+      const timers = voiceFocusTimersRef.current;
+      if (timers.scroll) window.clearTimeout(timers.scroll);
+      if (timers.clearHighlight) window.clearTimeout(timers.clearHighlight);
+      if (timers.clearBanner) window.clearTimeout(timers.clearBanner);
+      voiceFocusTimersRef.current = {};
+    }
+
+    function scrollToMatchedCard(id: string, kind: "store" | "maker") {
+      const el =
+        document.getElementById(`local-${kind}-${id}`) ??
+        document.getElementById(`local-store-${id}`) ??
+        document.getElementById(`local-maker-${id}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
     function applyVoiceFocus() {
       const payload = consumeVoiceNavFocusPayload();
       if (!payload) return;
 
-      const q = (payload.query ?? "").toLowerCase().trim();
-      let matchedStore =
-        (payload.placeId &&
-          payload.kind !== "maker" &&
-          nearbyStores.find((s) => s.id === payload.placeId)) ||
-        null;
-      let matchedMaker =
-        (payload.placeId &&
-          payload.kind === "maker" &&
-          makers.find(({ maker }) => maker.id === payload.placeId)) ||
-        null;
+      clearVoiceFocusTimers();
 
+      // Ensure the matched card is in the list (favourites-only can hide it)
+      if (showFavouritesOnly) {
+        setShowFavouritesOnly(false);
+      }
+
+      const q = (payload.query ?? "").trim();
+      let matchedStore: (typeof nearbyStores)[number] | null = null;
+      let matchedMaker: (typeof makers)[number] | null = null;
+      let matchKind: "store" | "maker" = "store";
+
+      if (payload.placeId) {
+        if (payload.kind === "maker") {
+          matchedMaker =
+            makers.find(({ maker }) => maker.id === payload.placeId) ?? null;
+          if (matchedMaker) matchKind = "maker";
+        } else {
+          matchedStore =
+            nearbyStores.find((s) => s.id === payload.placeId) ?? null;
+          if (matchedStore) matchKind = "store";
+        }
+      }
+
+      // Named query: score all candidates and keep the single best match
       if (!matchedStore && !matchedMaker && q) {
-        matchedStore =
-          nearbyStores.find((s) => s.name.toLowerCase().includes(q)) ??
-          nearbyStores.find((s) =>
-            q
-              .split(/\s+/)
-              .every((t) => t.length < 3 || s.name.toLowerCase().includes(t))
-          ) ??
-          null;
-        matchedMaker =
-          makers.find(({ maker }) => maker.name.toLowerCase().includes(q)) ??
-          null;
+        const bestStore = pickBestNamedMatch(q, nearbyStores, 48);
+        const bestMakerHit = pickBestNamedMatch(
+          q,
+          makers.map(({ maker, distanceMi }) => ({
+            id: maker.id,
+            name: maker.name,
+            distanceMi,
+          })),
+          48
+        );
+
+        if (bestStore && bestMakerHit) {
+          const storeScore = scorePlaceNameMatch(q, bestStore.name);
+          const makerScore = scorePlaceNameMatch(q, bestMakerHit.name);
+          if (
+            storeScore > makerScore ||
+            (storeScore === makerScore &&
+              bestStore.distanceMi <= bestMakerHit.distanceMi)
+          ) {
+            matchedStore = bestStore;
+            matchKind = "store";
+          } else {
+            matchedMaker =
+              makers.find(({ maker }) => maker.id === bestMakerHit.id) ?? null;
+            matchKind = "maker";
+          }
+        } else if (bestStore) {
+          matchedStore = bestStore;
+          matchKind = "store";
+        } else if (bestMakerHit) {
+          matchedMaker =
+            makers.find(({ maker }) => maker.id === bestMakerHit.id) ?? null;
+          matchKind = "maker";
+        }
       }
 
       if (
@@ -270,7 +339,11 @@ function BuyLocalPageInner() {
         (payload.intent === "nearest" || payload.intent === "directions")
       ) {
         matchedStore = nearbyStores[0] ?? null;
-        if (!matchedStore) matchedMaker = makers[0] ?? null;
+        if (matchedStore) matchKind = "store";
+        else {
+          matchedMaker = makers[0] ?? null;
+          if (matchedMaker) matchKind = "maker";
+        }
       }
 
       let banner =
@@ -281,10 +354,12 @@ function BuyLocalPageInner() {
         const dist = formatDistance(matchedStore.distanceMi, user.country);
         banner = `Showing nearby stores — ${matchedStore.name} is about ${dist} away`;
         highlightId = matchedStore.id;
+        matchKind = "store";
       } else if (matchedMaker) {
         const dist = formatDistance(matchedMaker.distanceMi, user.country);
         banner = `Showing nearby stores — ${matchedMaker.maker.name} is about ${dist} away`;
         highlightId = matchedMaker.maker.id;
+        matchKind = "maker";
       } else if (payload.intent === "browse" || payload.intent === "named") {
         banner = "Here are nearby stores on Buy Local.";
       }
@@ -303,19 +378,29 @@ function BuyLocalPageInner() {
         speakFeedback(spoken);
       }
 
-      window.setTimeout(() => {
+      // Wait for favourites filter / highlight paint, then scroll the matched card
+      voiceFocusTimersRef.current.scroll = window.setTimeout(() => {
         if (highlightId) {
-          handleSelectPin(highlightId);
+          scrollToMatchedCard(highlightId, matchKind);
+          // Second pass after layout settles (esp. after un-filtering favourites)
+          window.setTimeout(
+            () => scrollToMatchedCard(highlightId!, matchKind),
+            280
+          );
         } else {
           storesSectionRef.current?.scrollIntoView({
             behavior: "smooth",
             block: "start",
           });
         }
-      }, 150);
+      }, 200);
 
-      window.setTimeout(() => setVoiceHighlightId(null), 10000);
-      window.setTimeout(() => setVoiceBanner(null), 12000);
+      voiceFocusTimersRef.current.clearHighlight = window.setTimeout(() => {
+        setVoiceHighlightId(null);
+      }, 7000);
+      voiceFocusTimersRef.current.clearBanner = window.setTimeout(() => {
+        setVoiceBanner(null);
+      }, 12000);
     }
 
     applyVoiceFocus();
@@ -323,7 +408,7 @@ function BuyLocalPageInner() {
     return () => {
       window.removeEventListener("fb-voice-nav-focus", applyVoiceFocus);
     };
-  }, [storesLoading, nearbyStores, makers, user.country]);
+  }, [storesLoading, nearbyStores, makers, user.country, showFavouritesOnly]);
 
   const listings = useMemo(() => {
     const all = getLocalListings(user, maxMiles);

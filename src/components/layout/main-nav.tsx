@@ -107,7 +107,7 @@ export function MainNav({
     return (
       <nav
         className={cn(
-          "flex items-center gap-1.5 xl:gap-2 2xl:gap-2.5",
+          "flex min-w-0 items-center justify-center gap-1 overflow-x-auto xl:gap-1.5 2xl:gap-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           className
         )}
         aria-label="Primary"
@@ -122,7 +122,7 @@ export function MainNav({
               title={item.description}
               className={cn(
                 // shrink-0 + whitespace-nowrap: never clip labels like “Leafy Kitchen”
-                "shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-3.5",
+                "shrink-0 rounded-lg px-2 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-2.5 2xl:px-3.5",
                 active
                   ? "bg-primary/10 text-primary shadow-sm"
                   : featured

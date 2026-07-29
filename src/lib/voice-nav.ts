@@ -213,31 +213,47 @@ function stripFiller(name: string): string {
     .trim();
 }
 
+/** Score how well a spoken query matches a place name (higher is better). */
+export function scorePlaceNameMatch(query: string, name: string): number {
+  const q = normalizeTranscript(stripFiller(query));
+  const n = normalizeTranscript(name);
+  if (!q || !n) return 0;
+  if (n === q) return 100;
+  if (n.startsWith(q) || q.startsWith(n)) return 92;
+  if (n.includes(q)) return 85;
+  if (q.includes(n) && n.length >= 4) return 80;
+  const tokens = q.split(" ").filter((t) => t.length > 2);
+  if (tokens.length === 0) return 0;
+  const hits = tokens.filter((t) => n.includes(t)).length;
+  if (hits === 0) return 0;
+  return (hits / tokens.length) * 70;
+}
+
+/** Pick a single best name match — ignores weak runners-up. */
+export function pickBestNamedMatch<T extends { id: string; name: string }>(
+  query: string,
+  items: T[],
+  minScore = 48
+): T | null {
+  if (!query.trim() || items.length === 0) return null;
+  let best: T | null = null;
+  let bestScore = 0;
+  for (const item of items) {
+    const score = scorePlaceNameMatch(query, item.name);
+    if (score > bestScore) {
+      bestScore = score;
+      best = item;
+    }
+  }
+  if (!best || bestScore < minScore) return null;
+  return best;
+}
+
 function matchPlaceByName(
   query: string,
   places: VoiceNavPlace[]
 ): VoiceNavPlace | null {
-  const q = normalizeTranscript(stripFiller(query));
-  if (!q || places.length === 0) return null;
-
-  const scored = places
-    .map((place) => {
-      const name = normalizeTranscript(place.name);
-      let score = 0;
-      if (name === q) score = 100;
-      else if (name.includes(q) || q.includes(name)) score = 80;
-      else {
-        const tokens = q.split(" ").filter((t) => t.length > 2);
-        if (tokens.length === 0) return { place, score: 0 };
-        const hits = tokens.filter((t) => name.includes(t)).length;
-        score = (hits / tokens.length) * 70;
-      }
-      return { place, score };
-    })
-    .filter((row) => row.score >= 40)
-    .sort((a, b) => b.score - a.score);
-
-  return scored[0]?.place ?? null;
+  return pickBestNamedMatch(query, places, 40);
 }
 
 /** True when the phrase is a site navigation command (not a product question). */

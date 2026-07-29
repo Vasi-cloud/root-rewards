@@ -37,7 +37,14 @@ import { cn } from "@/lib/utils";
 import { openSupportChat } from "@/lib/support-agent";
 import { VoiceNavControl } from "@/components/voice/voice-nav-control";
 
-function LanguageSelect({ id }: { id: string }) {
+function LanguageSelect({
+  id,
+  compact = false,
+}: {
+  id: string;
+  /** Narrow closed control for crowded desktop header */
+  compact?: boolean;
+}) {
   const { lang, setLang, isLangReady } = useI18n();
   const selected = SUPPORTED_LANGUAGES.find((l) => l.code === lang);
 
@@ -47,8 +54,15 @@ function LanguageSelect({ id }: { id: string }) {
         id={id}
         value={lang}
         onChange={(e) => setLang(e.target.value as Language)}
-        className="h-11 w-full rounded-lg border border-border bg-background px-2 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring xl:h-8 xl:max-w-[9.5rem] xl:text-xs"
+        className={cn(
+          "h-11 w-full rounded-lg border border-border bg-background px-2 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring",
+          compact
+            ? // xl: short footprint so “Get started” isn’t clipped; 2xl: readable again
+              "xl:h-8 xl:w-[3.5rem] xl:max-w-[3.5rem] xl:truncate xl:px-1.5 xl:text-xs 2xl:w-[8.75rem] 2xl:max-w-[8.75rem] 2xl:px-2"
+            : "xl:h-8 xl:max-w-[9.5rem] xl:text-xs"
+        )}
         aria-label="Select language"
+        title={selected ? formatLanguageOptionLabel(selected) : "Language"}
       >
         {SUPPORTED_LANGUAGES.map((l) => (
           <option key={l.code} value={l.code}>
@@ -216,7 +230,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-3 px-3 sm:h-16 sm:gap-4 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
         <Link
           href="/"
           className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:text-lg"
@@ -230,13 +244,13 @@ export function SiteHeader() {
 
         <MainNav
           variant="primary"
-          className="hidden flex-none justify-center lg:flex"
+          className="hidden min-w-0 flex-1 justify-center lg:flex"
         />
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          {/* xl+: language · chat · cart · Dashboard · account avatar (last) */}
-          <div className="hidden items-center gap-1.5 xl:flex">
-            <LanguageSelect id="lang-switcher-desktop" />
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          {/* xl+: language · utilities · auth — CTAs never shrink/clip */}
+          <div className="hidden items-center gap-1 xl:flex 2xl:gap-1.5">
+            <LanguageSelect id="lang-switcher-desktop" compact />
             <VoiceNavControl variant="icon" />
             <Button
               type="button"
@@ -256,20 +270,20 @@ export function SiteHeader() {
                   render={<Link href="/dashboard" />}
                   size="sm"
                   variant="outline"
-                  className="shrink-0 px-3"
+                  className="shrink-0 whitespace-nowrap px-3"
                 >
                   Dashboard
                 </Button>
                 <AccountMenu />
               </>
             ) : (
-              <>
+              <div className="flex shrink-0 items-center gap-1.5 pl-0.5">
                 <Button
                   nativeButton={false}
                   render={<Link href={loginHref} />}
                   variant="outline"
                   size="sm"
-                  className="shrink-0 px-3"
+                  className="h-9 shrink-0 whitespace-nowrap px-3"
                 >
                   Sign in
                 </Button>
@@ -277,11 +291,11 @@ export function SiteHeader() {
                   nativeButton={false}
                   render={<Link href={registerHref} />}
                   size="sm"
-                  className="shrink-0 px-3"
+                  className="h-9 shrink-0 whitespace-nowrap px-3"
                 >
                   Get started
                 </Button>
-              </>
+              </div>
             )}
           </div>
 
@@ -430,7 +444,7 @@ export function SiteHeader() {
                       <Button
                         nativeButton={false}
                         render={<Link href={registerHref} />}
-                        className="min-h-11 w-full"
+                        className="min-h-11 w-full whitespace-nowrap"
                       >
                         Get started
                       </Button>
