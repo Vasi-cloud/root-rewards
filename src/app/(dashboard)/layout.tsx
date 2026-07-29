@@ -10,7 +10,7 @@ import { LanguageComingSoonBanner } from "@/components/layout/language-coming-so
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-const dashboardNav = [
+const primaryNav = [
   { href: "/dashboard", label: "Overview", short: "Home" },
   { href: "/dashboard/my-forest", label: "My Forest", short: "Forest" },
   { href: "/dashboard/impact", label: "Your impact", short: "Impact" },
@@ -18,15 +18,45 @@ const dashboardNav = [
   { href: "/membership", label: "Membership", short: "Plan" },
   { href: "/dashboard/settings", label: "Account settings", short: "Settings" },
   { href: "/seller", label: "Become a seller", short: "Sell" },
+] as const;
+
+const secondaryNav = [
   { href: "/marketplace", label: "Marketplace", short: "Shop" },
   { href: "/affiliates", label: "Affiliate tools", short: "Affiliate" },
-];
+] as const;
+
+/** Full list for mobile chips + sidebar (routes/labels unchanged). */
+const dashboardNav = [...primaryNav, ...secondaryNav];
 
 function navActive(pathname: string, href: string) {
   if (href === "/dashboard") {
     return pathname === "/dashboard";
   }
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function DesktopNavLink({
+  href,
+  label,
+  active,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "inline-flex h-9 items-center rounded-lg px-2.5 text-sm whitespace-nowrap transition-colors",
+        active
+          ? "bg-primary/10 font-medium text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-primary"
+      )}
+    >
+      {label}
+    </Link>
+  );
 }
 
 export default function DashboardLayout({
@@ -39,45 +69,54 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-full flex-col overflow-x-hidden bg-cream">
       <header className="sticky top-0 z-40 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
-          <Link
-            href="/"
-            className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary sm:text-lg"
-            aria-label="Forest Buddies® home"
-          >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
-              <Leaf className="size-4 sm:size-5" aria-hidden />
-            </span>
-            <BrandMark />
-          </Link>
-          <nav
-            className="hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-1 px-2 text-sm lg:flex"
-            aria-label="Dashboard"
-          >
-            {dashboardNav.map((item) => {
-              const active = navActive(pathname, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "rounded-lg px-2.5 py-2 whitespace-nowrap transition-colors",
-                    active
-                      ? "bg-primary/10 font-medium text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-primary"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <DashboardSignOut className="min-h-10 px-2.5 text-xs sm:min-h-9 sm:text-sm" />
+        <div className="mx-auto max-w-6xl min-w-0 px-3 sm:px-6">
+          {/* Brand + Sign out */}
+          <div className="flex h-14 min-w-0 items-center justify-between gap-3 sm:h-16">
+            <Link
+              href="/"
+              className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary sm:text-lg"
+              aria-label="Forest Buddies® home"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
+                <Leaf className="size-4 sm:size-5" aria-hidden />
+              </span>
+              <BrandMark />
+            </Link>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <DashboardSignOut className="min-h-10 px-2.5 text-xs sm:min-h-9 sm:text-sm" />
+            </div>
           </div>
+
+          {/* Desktop: two left-aligned rows, shared spacing */}
+          <nav className="hidden pb-3 lg:block" aria-label="Dashboard">
+            <ul className="flex flex-wrap items-center gap-x-1 gap-y-1">
+              {primaryNav.map((item) => (
+                <li key={item.href}>
+                  <DesktopNavLink
+                    href={item.href}
+                    label={item.label}
+                    active={navActive(pathname, item.href)}
+                  />
+                </li>
+              ))}
+            </ul>
+            <ul className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1">
+              {secondaryNav.map((item) => (
+                <li key={item.href}>
+                  <DesktopNavLink
+                    href={item.href}
+                    label={item.label}
+                    active={navActive(pathname, item.href)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
+
+        {/* Mobile / tablet: horizontal chips — unchanged pattern */}
         <nav
-          className="mx-auto flex max-w-6xl gap-1.5 overflow-x-auto px-3 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
+          className="mx-auto flex max-w-6xl gap-1.5 overflow-x-auto px-3 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] lg:hidden sm:px-6 [&::-webkit-scrollbar]:hidden"
           aria-label="Dashboard sections"
         >
           {dashboardNav.map((item) => {
