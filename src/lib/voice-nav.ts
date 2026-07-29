@@ -38,6 +38,7 @@ export const VOICE_NAV_HELP_LINES = [
   "Open Marketplace",
   "Open My Forest",
   "Open cart",
+  "Open donate / Support a cause",
   "Find local stores",
   "Nearest store",
   "How far is the nearest store?",
@@ -48,7 +49,7 @@ export const VOICE_NAV_HELP_LINES = [
 ] as const;
 
 export const VOICE_NAV_HELP_SPOKEN =
-  "You can say: Open Buy Local, Open Leafy Kitchen, Open Leafy Parts, Open Ask Leafy, Open Marketplace, Open My Forest, or Open cart. Try Find local stores, Nearest store, or Where is Tesco near me. Say Help anytime.";
+  "You can say: Open Buy Local, Open Leafy Kitchen, Open Leafy Parts, Open Ask Leafy, Open Marketplace, Open My Forest, Open cart, or Open donate. Try Find local stores, Nearest store, or Where is Tesco near me. Say Help anytime.";
 
 const KNOWN_CHAINS =
   /\b(sainsbury'?s?|tesco|waitrose|asda|aldi|lidl|whole\s*foods|boots|marks?\s*(?:and|&)\s*spencer|m\s*&\s*s|target|walmart|trader\s*joe'?s?|costco|co-?op)\b/i;
@@ -115,6 +116,15 @@ const OPEN_TARGETS: Array<{
       /\b(open|go to|show|take me to|navigate to)\s+(my\s+)?cart\b/,
       /^(cart|basket)$/,
       /^open\s+cart$/,
+    ],
+  },
+  {
+    href: "/donate",
+    label: "Support a cause",
+    patterns: [
+      /\b(open|go to|show|take me to|navigate to)\s+(donate|donation|support(\s+a)?\s+cause)\b/,
+      /^(donate|support(\s+a)?\s+cause)$/,
+      /\bfund\s+(impact|a\s+cause)\b/,
     ],
   },
 ];

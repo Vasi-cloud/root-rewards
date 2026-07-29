@@ -36,7 +36,9 @@ const HOW_IT_WORKS = [
   {
     step: "02",
     title: "Fund a cause you love",
-    text: "At checkout, choose Trees, Ocean, Animals, Education, or Climate—your impact is tracked.",
+    text: "At checkout—or anytime via Support a cause—choose Trees, Ocean, Animals, Education, or Climate. Impact stays illustrative.",
+    href: "/donate",
+    cta: "Support a cause",
   },
   {
     step: "03",
@@ -241,6 +243,21 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+
+          <div className="mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:items-center sm:gap-4">
+            <Button
+              nativeButton={false}
+              render={<Link href="/donate" />}
+              className="h-11 gap-2 self-start bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-9"
+            >
+              Support a cause
+              <ArrowRight className="size-4" />
+            </Button>
+            <p className="max-w-sm text-xs text-muted-foreground sm:text-sm">
+              Fund trees and partner causes anytime — no product purchase
+              required. Impact figures stay illustrative estimates.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -308,8 +325,8 @@ export default function HomePage() {
             Causes you can fund
           </h2>
           <p className="mt-3 max-w-md text-sm text-muted-foreground sm:max-w-xl sm:text-base">
-            At checkout, pick where your generosity lands—then watch it grow on
-            your dashboard.
+            Fund at checkout or anytime via Support a cause—then see estimates
+            grow on Your Impact.
           </p>
 
           <div className="mt-8 grid gap-4 sm:mt-12 sm:grid-cols-2 sm:gap-6 lg:grid-cols-5">
@@ -335,11 +352,21 @@ export default function HomePage() {
             })}
           </div>
 
-          <div className="mt-10">
+          <div className="mt-10 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+            <Button
+              nativeButton={false}
+              render={<Link href="/donate" />}
+              size="lg"
+              className="h-12 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-11"
+            >
+              Support a cause
+              <ArrowRight className="size-4" />
+            </Button>
             <Button
               nativeButton={false}
               render={<Link href="/marketplace" />}
               size="lg"
+              variant="outline"
               className="h-12 gap-2 sm:h-11"
             >
               Shop & choose a cause

@@ -398,6 +398,14 @@ export function SiteHeader() {
                   </Button>
                   <Button
                     nativeButton={false}
+                    render={<Link href="/donate" />}
+                    variant="outline"
+                    className="min-h-11 w-full justify-start"
+                  >
+                    Donate / Support a cause
+                  </Button>
+                  <Button
+                    nativeButton={false}
                     render={<Link href="/membership" />}
                     variant="outline"
                     className="min-h-11 w-full justify-start"

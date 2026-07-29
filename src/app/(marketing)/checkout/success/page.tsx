@@ -312,6 +312,15 @@ function CheckoutSuccessInner() {
         >
           View your impact
         </Button>
+        <Button
+          nativeButton={false}
+          render={<Link href="/donate" />}
+          variant="ghost"
+          size="lg"
+          className="min-h-12 w-full"
+        >
+          Support a cause anytime
+        </Button>
       </div>
     </div>
   );

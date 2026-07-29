@@ -49,10 +49,10 @@ export async function startStripeCheckout(
   return { url: data.url };
 }
 
-export async function startMembershipCheckout(
+export async function startDonateCheckout(
   body: unknown
 ): Promise<{ url: string } | { demo: true } | { error: string }> {
-  const res = await fetch("/api/membership/create-session", {
+  const res = await fetch("/api/donate/create-session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -66,10 +66,11 @@ export async function startMembershipCheckout(
     return { demo: true };
   }
   if (!res.ok || !data.url) {
-    return { error: data.error ?? "Could not start membership checkout." };
+    return { error: data.error ?? "Could not start donation checkout." };
   }
   return { url: data.url };
 }
+
 
 export async function openBillingPortal(
   customerId: string

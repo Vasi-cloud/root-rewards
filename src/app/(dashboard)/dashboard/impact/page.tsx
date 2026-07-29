@@ -231,13 +231,14 @@ export default function PersonalImpactPage() {
                 </CardTitle>
                 <CardDescription>
                   Trees, Ocean, Animals, Education, and Climate when you’ve
-                  contributed at checkout.
+                  contributed at checkout or via Support a cause.
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-4 sm:px-6">
                 {summary.byCause.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No cause units yet — pick a cause on your next checkout.
+                    No cause units yet — fund a cause anytime, or add one at
+                    checkout.
                   </p>
                 ) : (
                   <ul className="space-y-2">
@@ -272,15 +273,24 @@ export default function PersonalImpactPage() {
                     })}
                   </ul>
                 )}
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/checkout" />}
-                  variant="outline"
-                  className="mt-4 h-11 w-full gap-2 sm:h-9 sm:w-auto"
-                >
-                  <Leaf className="size-3.5" />
-                  Fund a cause at checkout
-                </Button>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button
+                    nativeButton={false}
+                    render={<Link href="/donate" />}
+                    className="h-11 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-9 sm:w-auto"
+                  >
+                    <Leaf className="size-3.5" />
+                    Support a cause
+                  </Button>
+                  <Button
+                    nativeButton={false}
+                    render={<Link href="/checkout" />}
+                    variant="outline"
+                    className="h-11 w-full gap-2 sm:h-9 sm:w-auto"
+                  >
+                    Fund at checkout
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 

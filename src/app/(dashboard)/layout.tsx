@@ -14,6 +14,7 @@ const dashboardNav = [
   { href: "/dashboard", label: "Overview", short: "Home" },
   { href: "/dashboard/my-forest", label: "My Forest", short: "Forest" },
   { href: "/dashboard/impact", label: "Your impact", short: "Impact" },
+  { href: "/donate", label: "Support a cause", short: "Donate" },
   { href: "/membership", label: "Membership", short: "Plan" },
   { href: "/dashboard/settings", label: "Account settings", short: "Settings" },
   { href: "/seller", label: "Become a seller", short: "Sell" },
