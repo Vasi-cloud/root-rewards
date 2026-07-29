@@ -77,6 +77,12 @@ const accountNavItems: NavItem[] = [
     label: "Your impact",
     description: "Trees, CO₂ & causes",
   },
+  {
+    href: "/donate",
+    label: "Donate",
+    description: "Support a cause · no purchase needed",
+    icon: HeartHandshake,
+  },
 ];
 
 /**

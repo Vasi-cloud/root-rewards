@@ -21,7 +21,7 @@ const footerLinks = {
     { href: "/about", label: "Our mission" },
   ],
   Earn: [
-    { href: "/donate", label: "Support a cause" },
+    { href: "/donate", label: "Donate" },
     { href: "/seller", label: "Become a seller" },
     { href: "/affiliates", label: "Affiliate program" },
     { href: "/membership", label: "Impact Member" },

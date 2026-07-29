@@ -280,7 +280,7 @@ export default function PersonalImpactPage() {
                     className="h-11 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-9 sm:w-auto"
                   >
                     <Leaf className="size-3.5" />
-                    Support a cause
+                    Fund a cause
                   </Button>
                   <Button
                     nativeButton={false}
