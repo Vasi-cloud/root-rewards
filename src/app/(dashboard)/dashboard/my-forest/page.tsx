@@ -138,7 +138,11 @@ export default function MyForestPage() {
         )}
       </div>
 
-        <LeafyHubLinks className="mt-1" dense />
+        <LeafyHubLinks
+          omitHref="/dashboard/my-forest"
+          className="mt-1"
+          dense
+        />
 
       {/* Impact light link */}
       <Link
