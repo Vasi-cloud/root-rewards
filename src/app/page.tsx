@@ -30,7 +30,7 @@ const CAUSE_ICONS = {
 const HOW_IT_WORKS = [
   {
     step: "01",
-    title: "Shop with intention",
+    title: "Shop",
     text: "Browse eco-scored products for materials, makers, and carbon care.",
   },
   {
@@ -42,7 +42,7 @@ const HOW_IT_WORKS = [
   },
   {
     step: "03",
-    title: "Sell as you are",
+    title: "Sell",
     text: "Solo makers and self-employed pros, or registered brands — apply once and list goods or services.",
     href: "/seller",
     cta: "Become a seller",
@@ -178,7 +178,7 @@ export default function HomePage() {
             How Forest Buddies® works
           </h2>
           <p className="mt-3 max-w-md text-sm text-muted-foreground sm:max-w-xl sm:text-base">
-            Three simple steps from curious shopper to lasting impact.
+            Three simple steps from shopper to lasting impact.
           </p>
 
           <ol className="mt-10 grid gap-8 sm:mt-14 sm:gap-10 md:grid-cols-3 md:gap-8">
