@@ -580,7 +580,7 @@ export const STOCK_SIMULATION_DISCLAIMER =
  * Store cards use LOCAL_STORE_STOCK_HINT; makers/markets keep their own short lines.
  */
 export const LOCAL_STOCK_DISCLAIMER =
-  "We help you find nearby places and plan the trip. Stock is never live on Forest Buddies® — confirm on the store’s site, by phone, or in person before you go.";
+  "Nearby stores, makers, and markets: stock is not live on Forest Buddies®.";
 
 /** Combined grocery/store card blurb + stock note (one line only — do not also append LOCAL_STORE_STOCK_HINT). */
 export const LOCAL_STORE_STOCK_HINT =

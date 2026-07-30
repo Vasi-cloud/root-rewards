@@ -684,12 +684,7 @@ function BuyLocalPageInner() {
           className="mt-5 flex gap-3 rounded-xl border border-amber-300/90 bg-amber-50 px-3.5 py-3 text-sm text-amber-950 shadow-sm sm:items-start sm:px-4"
         >
           <Store className="mt-0.5 size-5 shrink-0 text-amber-800" />
-          <div>
-            <p className="font-medium leading-relaxed">{LOCAL_STOCK_DISCLAIMER}</p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-900/80">
-              Distances are approximate from your selected city.
-            </p>
-          </div>
+          <p className="font-medium leading-relaxed">{LOCAL_STOCK_DISCLAIMER}</p>
         </div>
 
         {/* Section jump */}
