@@ -577,12 +577,16 @@ export const STOCK_SIMULATION_DISCLAIMER =
 
 /**
  * Section-level Buy Local notice — use once at page level.
- * Cards should use LOCAL_CARD_VERIFY_HINT instead of repeating this.
+ * Store cards use LOCAL_STORE_STOCK_HINT; makers/markets keep their own short lines.
  */
 export const LOCAL_STOCK_DISCLAIMER =
   "We help you find nearby places and plan the trip. Stock is never live on Forest Buddies® — confirm on the store’s site, by phone, or in person before you go.";
 
-/** Short per-card line — avoid stacking multiple stock warnings. */
+/** Short per-card line for grocery / store cards on Buy Local. */
+export const LOCAL_STORE_STOCK_HINT =
+  "Check stock on their site or in person.";
+
+/** Short per-card line for makers — avoid stacking multiple stock warnings. */
 export const LOCAL_CARD_VERIFY_HINT =
   "Confirm stock or hours before you go.";
 
@@ -900,7 +904,7 @@ export function retailChainToNearbyStore(
     lng: store.lng,
     blurb: "Major retailer near you — confirm stock on their site or in person.",
     source: "google",
-    availabilityHint: LOCAL_CARD_VERIFY_HINT,
+    availabilityHint: LOCAL_STORE_STOCK_HINT,
     matchingProductNames: [],
     mapsUrl: googleMapsSearchUrl(`${store.name} ${store.address}`),
     directionsUrl: googleMapsDirectionsUrl(store, from),

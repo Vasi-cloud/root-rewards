@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  LOCAL_CARD_VERIFY_HINT,
+  LOCAL_STORE_STOCK_HINT,
   checkInStoreUrl,
   formatDistance,
   inferNearbyStoreType,
@@ -137,7 +137,7 @@ export function LocalStoreCard({
           </p>
         ) : null}
         <p className="mt-auto text-xs leading-relaxed text-muted-foreground">
-          {LOCAL_CARD_VERIFY_HINT}
+          {LOCAL_STORE_STOCK_HINT}
         </p>
       </CardContent>
       <CardFooter className="flex flex-col gap-2 border-t-0 bg-transparent px-4 pt-0 sm:px-6">
