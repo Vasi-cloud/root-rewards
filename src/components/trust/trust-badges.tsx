@@ -83,12 +83,12 @@ export function TrustBadges({
           })}
         </ul>
         <p className="mt-3 text-xs text-emerald-900/70">
-          Demo badges — live payment security and eco audits connect later.{" "}
+          Demo signals — Stripe powers live checkout when configured.{" "}
           <Link
             href="/returns"
             className="font-medium underline-offset-2 hover:underline"
           >
-            Returns policy
+            Returns guidance
           </Link>
         </p>
       </div>

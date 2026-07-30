@@ -30,7 +30,7 @@ export function ShopTrustBar({
   const items = [
     {
       icon: BadgeCheck,
-      label: "Verified eco shop",
+      label: "Eco-scored shop",
       detail: "Reviewed by Forest Buddies",
     },
     {

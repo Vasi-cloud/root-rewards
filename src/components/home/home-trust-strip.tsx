@@ -25,7 +25,7 @@ export function HomeTrustStrip() {
         <li className="flex min-h-11 items-start gap-2.5 text-sm text-emerald-950/90 sm:min-h-0 sm:items-center">
           <Leaf className="mt-0.5 size-4 shrink-0 text-emerald-800 sm:mt-0" />
           <span className="leading-snug">
-            Shop that funds trees &amp; causes — impact you can track
+            Shop that funds trees &amp; causes — illustrative impact you can track
           </span>
         </li>
         <li className="flex min-h-11 items-start gap-2.5 text-sm text-emerald-950/90 sm:min-h-0 sm:items-center">

@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s | Forest Buddies®",
   },
   description:
-    "Shop sustainable products from verified eco brands. Earn rewards as an affiliate with Forest Buddies®.",
+    "Shop eco-scored sustainable products, fund causes, and earn as an affiliate with Forest Buddies®.",
 };
 
 export const viewport: Viewport = {

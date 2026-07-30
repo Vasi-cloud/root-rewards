@@ -24,48 +24,51 @@ export type TrustBadge = {
   icon: LucideIcon;
 };
 
-/** Shared trust signals — mock certifications for the demo. */
+/**
+ * Trust signals — keep wording accurate for soft launch.
+ * Prefer secure checkout / SSL / eco-scored / impact tracked over over-claims.
+ */
 export const TRUST_BADGES: TrustBadge[] = [
   {
     id: "secure-checkout",
     label: "Secure checkout",
     shortLabel: "Secure checkout",
-    description: "Encrypted session · demo payment only",
+    description: "HTTPS checkout · Stripe when configured, otherwise demo pay",
     icon: Lock,
   },
   {
     id: "eco-verified",
-    label: "Eco verified",
-    shortLabel: "Eco verified",
-    description: "Listings screened for sustainability claims",
+    label: "Eco-scored",
+    shortLabel: "Eco-scored",
+    description: "Products scored for materials, makers, and carbon care",
     icon: Leaf,
   },
   {
     id: "buyer-protection",
-    label: "Buyer protection",
-    shortLabel: "Buyer protected",
-    description: "30-day returns on unused items",
+    label: "Seller policies",
+    shortLabel: "Seller policies",
+    description: "Return and shipping terms vary by seller — see listing details",
     icon: ShieldCheck,
   },
   {
     id: "encrypted",
     label: "SSL encrypted",
     shortLabel: "SSL encrypted",
-    description: "Connection protected (demo badge)",
+    description: "Connection protected over HTTPS",
     icon: BadgeCheck,
   },
   {
     id: "free-returns",
-    label: "Free returns",
-    shortLabel: "Free returns",
-    description: "Easy returns within 30 days",
+    label: "Returns guidance",
+    shortLabel: "Returns guidance",
+    description: "See Returns for Forest Buddies–fulfilled vs seller-fulfilled orders",
     icon: Recycle,
   },
   {
     id: "impact-tracked",
     label: "Impact tracked",
     shortLabel: "Impact tracked",
-    description: "Cause funding shown at checkout",
+    description: "Cause gifts shown at checkout — illustrative / partner-funded",
     icon: Truck,
   },
 ];
@@ -73,22 +76,23 @@ export const TRUST_BADGES: TrustBadge[] = [
 export const CHECKOUT_TRUST_IDS: TrustBadgeId[] = [
   "secure-checkout",
   "encrypted",
-  "buyer-protection",
+  "impact-tracked",
   "eco-verified",
 ];
 
+/** Footer: only signals that hold for soft launch today. */
 export const FOOTER_TRUST_IDS: TrustBadgeId[] = [
   "secure-checkout",
+  "encrypted",
   "eco-verified",
-  "buyer-protection",
-  "free-returns",
+  "impact-tracked",
 ];
 
 export const PRODUCT_TRUST_IDS: TrustBadgeId[] = [
   "eco-verified",
-  "buyer-protection",
-  "free-returns",
   "impact-tracked",
+  "secure-checkout",
+  "buyer-protection",
 ];
 
 export function getTrustBadges(ids: TrustBadgeId[]): TrustBadge[] {

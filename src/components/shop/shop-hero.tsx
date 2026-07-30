@@ -45,7 +45,7 @@ export function ShopHero({
                 <Leaf className="size-3" />
                 {shop.sellerType === "individual"
                   ? "Self-employed seller"
-                  : "Verified eco shop"}
+                  : "Eco-scored shop"}
               </Badge>
               {shop.trustTier && (
                 <Badge className="bg-sage/20 text-cream backdrop-blur-md">
@@ -119,7 +119,7 @@ export function ShopHero({
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Heart className="size-4 text-primary" />
-              A share of sales funds verified causes
+              A share of sales can fund partner causes
             </span>
           </div>
         </div>

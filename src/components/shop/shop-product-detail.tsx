@@ -137,7 +137,7 @@ export function ShopProductDetail({
             <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground sm:text-sm">
               <li className="inline-flex items-center gap-1.5">
                 <BadgeCheck className="size-3.5 text-emerald-800" />
-                Verified listing
+                Eco-scored listing
               </li>
               <li className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="size-3.5 text-emerald-800" />

@@ -173,7 +173,7 @@ export default function SellerShopPage() {
               More trusted eco shops
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Explore other verified makers on Forest Buddies®.
+              Explore other eco-scored makers on Forest Buddies®.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               {others.map((s) => (

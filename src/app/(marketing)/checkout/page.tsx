@@ -718,12 +718,12 @@ export default function CheckoutPage() {
                 </>
               )}
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-                Free returns within 30 days on unused items. Check the{" "}
+                Return eligibility depends on the seller and item type. See the{" "}
                 <Link
                   href="/returns"
                   className="font-medium text-primary underline-offset-2 hover:underline"
                 >
-                  returns policy &amp; EU/UK/US size guide
+                  returns guidance &amp; EU/UK/US size guide
                 </Link>{" "}
                 before you order apparel.
               </p>

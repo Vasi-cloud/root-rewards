@@ -31,7 +31,7 @@ const HOW_IT_WORKS = [
   {
     step: "01",
     title: "Shop with intention",
-    text: "Browse verified eco products scored for materials, makers, and carbon care.",
+    text: "Browse eco-scored products for materials, makers, and carbon care.",
   },
   {
     step: "02",
@@ -49,11 +49,12 @@ const HOW_IT_WORKS = [
   },
 ];
 
+/** Soft-launch pillars — not live platform totals. */
 const IMPACT = [
-  { value: "18.4k", label: "Sustainable orders" },
-  { value: "142t", label: "CO₂ equivalent funded" },
-  { value: "47k", label: "Trees & cause units" },
-  { value: "3.2k", label: "Eco affiliates & sellers" },
+  { value: "Shop", label: "Eco-scored goods from makers & partners" },
+  { value: "Fund", label: "Illustrative cause gifts at checkout or Donate" },
+  { value: "Local", label: "Stores, makers & markets to check in person" },
+  { value: "Share", label: "Affiliate tools for kind referrals" },
 ];
 
 const FEATURED = [
@@ -228,13 +229,14 @@ export default function HomePage() {
             Impact we grow together
           </h2>
           <p className="mt-3 max-w-md text-sm text-muted-foreground sm:max-w-xl sm:text-base">
-            Every cart, cause, and referral adds to a living forest of change.
+            How Forest Buddies® turns everyday choices into cause funding — not
+            live platform totals.
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-6 sm:mt-12 sm:gap-8 lg:grid-cols-4 lg:gap-6">
             {IMPACT.map((stat) => (
               <div key={stat.label} className="min-w-0 text-left">
-                <div className="font-heading text-3xl font-semibold tabular-nums tracking-tight text-primary sm:text-5xl">
+                <div className="font-heading text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
                   {stat.value}
                 </div>
                 <div className="mt-2 text-xs text-muted-foreground sm:text-sm">
