@@ -582,9 +582,9 @@ export const STOCK_SIMULATION_DISCLAIMER =
 export const LOCAL_STOCK_DISCLAIMER =
   "We help you find nearby places and plan the trip. Stock is never live on Forest Buddies® — confirm on the store’s site, by phone, or in person before you go.";
 
-/** Short per-card line for grocery / store cards on Buy Local. */
+/** Combined grocery/store card blurb + stock note (one line only — do not also append LOCAL_STORE_STOCK_HINT). */
 export const LOCAL_STORE_STOCK_HINT =
-  "Check stock on their site or in person.";
+  "Major retailer near you — check stock on their site or in person.";
 
 /** Short per-card line for makers — avoid stacking multiple stock warnings. */
 export const LOCAL_CARD_VERIFY_HINT =
@@ -902,7 +902,7 @@ export function retailChainToNearbyStore(
     distanceMi: store.distanceMi,
     lat: store.lat,
     lng: store.lng,
-    blurb: "Major retailer near you — confirm stock on their site or in person.",
+    blurb: LOCAL_STORE_STOCK_HINT,
     source: "google",
     availabilityHint: LOCAL_STORE_STOCK_HINT,
     matchingProductNames: [],
