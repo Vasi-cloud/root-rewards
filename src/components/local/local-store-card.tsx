@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  LOCAL_STOCK_DISCLAIMER,
+  LOCAL_CARD_VERIFY_HINT,
   checkInStoreUrl,
   formatDistance,
   inferNearbyStoreType,
@@ -118,15 +118,26 @@ export function LocalStoreCard({
         <p className="text-sm leading-relaxed text-foreground/85">
           {store.blurb}
         </p>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {store.openNow === true
-            ? "Listed as open now — still confirm stock before visiting."
-            : store.openNow === false
-              ? "May be closed now — check hours on their site."
-              : "Hours and stock not verified by Forest Buddies."}
-        </p>
-        <p className="mt-auto rounded-lg border border-dashed border-amber-200/90 bg-amber-50/60 px-2.5 py-2 text-[11px] leading-relaxed text-amber-950/90">
-          {LOCAL_STOCK_DISCLAIMER}
+        {store.hoursHint ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Hours (approx.): {store.hoursHint}
+            {store.openNow === true
+              ? " · listed as open now"
+              : store.openNow === false
+                ? " · may be closed now"
+                : ""}
+          </p>
+        ) : store.openNow === true ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Listed as open now on Maps
+          </p>
+        ) : store.openNow === false ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            May be closed now — check their site
+          </p>
+        ) : null}
+        <p className="mt-auto text-xs leading-relaxed text-muted-foreground">
+          {LOCAL_CARD_VERIFY_HINT}
         </p>
       </CardContent>
       <CardFooter className="flex flex-col gap-2 border-t-0 bg-transparent px-4 pt-0 sm:px-6">
@@ -142,7 +153,7 @@ export function LocalStoreCard({
               />
             }
           >
-            Check in-store
+            Check on site
             <ExternalLink className="size-3.5 opacity-80" />
           </Button>
           <Button

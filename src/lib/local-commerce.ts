@@ -372,6 +372,163 @@ export const LOCAL_MAKERS: LocalMaker[] = [
   },
 ];
 
+/** Open / farmers markets for Buy Local (curated demo — not live inventory). */
+export interface LocalMarket {
+  id: string;
+  name: string;
+  city: string;
+  address?: string;
+  blurb: string;
+  lat: number;
+  lng: number;
+  /** Typical days/hours — illustrative, not live */
+  hoursHint: string;
+  tags: string[];
+  websiteUrl?: string;
+}
+
+export const LOCAL_MARKETS: LocalMarket[] = [
+  {
+    id: "market-borough",
+    name: "Borough Market",
+    city: "London, UK",
+    address: "8 Southwark St, London SE1 1TL",
+    blurb:
+      "Covered food market with produce, bakery, and pantry stalls — great for ingredients before a Kitchen cook.",
+    lat: 51.5055,
+    lng: -0.091,
+    hoursHint: "Wed–Thu 10am–5pm · Fri 10am–6pm · Sat 8am–5pm (typical)",
+    tags: ["farmers", "food", "produce"],
+    websiteUrl: "https://boroughmarket.org.uk/",
+  },
+  {
+    id: "market-broadway",
+    name: "Broadway Market",
+    city: "London, UK",
+    address: "Broadway Market, London E8 4QJ",
+    blurb:
+      "East London street market for fresh food, flowers, and small makers — weekends are busiest.",
+    lat: 51.5372,
+    lng: -0.0618,
+    hoursHint: "Sat 9am–5pm (typical)",
+    tags: ["street", "food", "makers"],
+    websiteUrl: "https://broadwaymarket.co.uk/",
+  },
+  {
+    id: "market-nq",
+    name: "Northern Quarter Craft & Food Market",
+    city: "Manchester, UK",
+    address: "Stevenson Square, Manchester M1 1AN",
+    blurb:
+      "Rotating outdoor stalls for local food, crafts, and zero-waste goods near the NQ.",
+    lat: 53.4826,
+    lng: -2.2348,
+    hoursHint: "Sat–Sun 10am–4pm (typical · weather dependent)",
+    tags: ["craft", "food", "outdoor"],
+  },
+  {
+    id: "market-st-nicks",
+    name: "St Nicholas Market",
+    city: "Bristol, UK",
+    address: "Corn St, Bristol BS1 1JQ",
+    blurb:
+      "Indoor historic market with produce, street food, and independent traders in the city centre.",
+    lat: 51.4542,
+    lng: -2.5945,
+    hoursHint: "Mon–Sat 9:30am–5pm (typical)",
+    tags: ["indoor", "food", "produce"],
+    websiteUrl: "https://www.stnicholasmarketbristol.co.uk/",
+  },
+  {
+    id: "market-stockbridge",
+    name: "Stockbridge Market",
+    city: "Edinburgh, UK",
+    address: "Kerr St, Edinburgh EH3 6HU",
+    blurb:
+      "Sunday farmers market with Scottish produce, bakery, and small-batch makers.",
+    lat: 55.9582,
+    lng: -3.2089,
+    hoursHint: "Sun 10am–3pm (typical)",
+    tags: ["farmers", "produce", "sunday"],
+  },
+  {
+    id: "market-portland-saturday",
+    name: "Portland Saturday Market",
+    city: "Portland, OR",
+    address: "2 SW Naito Pkwy, Portland, OR 97204",
+    blurb:
+      "Handmade crafts and local food along the waterfront — classic weekend makers market.",
+    lat: 45.5225,
+    lng: -122.6705,
+    hoursHint: "Sat–Sun 10am–5pm (Mar–Dec typical)",
+    tags: ["makers", "craft", "food"],
+    websiteUrl: "https://www.portlandsaturdaymarket.com/",
+  },
+  {
+    id: "market-alberta",
+    name: "Alberta Arts Street Fair stalls",
+    city: "Portland, OR",
+    address: "NE Alberta St, Portland, OR 97211",
+    blurb:
+      "Neighborhood weekend stalls for produce, kitchen goods, and local makers along Alberta.",
+    lat: 45.559,
+    lng: -122.6445,
+    hoursHint: "Last Sat monthly · check organisers (typical)",
+    tags: ["neighborhood", "makers", "produce"],
+  },
+  {
+    id: "market-little-italy",
+    name: "Little Italy Mercato",
+    city: "San Diego, CA",
+    address: "Date St & Kettner Blvd, San Diego, CA 92101",
+    blurb:
+      "Open-air farmers market with California produce, flowers, and prepared foods.",
+    lat: 32.722,
+    lng: -117.1685,
+    hoursHint: "Sat 8am–2pm (typical)",
+    tags: ["farmers", "produce", "outdoor"],
+    websiteUrl: "https://littleitalysd.com/mercato/",
+  },
+  {
+    id: "market-hope-austin",
+    name: "HOPE Farmers Market",
+    city: "Austin, TX",
+    address: "1100 E 5th St, Austin, TX 78702",
+    blurb:
+      "East Austin farmers market with regional growers, eggs, and ready-to-eat stalls.",
+    lat: 30.2642,
+    lng: -97.7315,
+    hoursHint: "Sun 11am–3pm (typical)",
+    tags: ["farmers", "produce", "sunday"],
+    websiteUrl: "https://www.hopefarmersmarket.org/",
+  },
+  {
+    id: "market-udistrict",
+    name: "University District Farmers Market",
+    city: "Seattle, WA",
+    address: "University Way NE & NE 50th St, Seattle, WA 98105",
+    blurb:
+      "Year-round outdoor market for Pacific Northwest produce, seafood, and bakery.",
+    lat: 47.6615,
+    lng: -122.3132,
+    hoursHint: "Sat 9am–2pm (typical)",
+    tags: ["farmers", "produce", "seafood"],
+    websiteUrl: "https://seattlefarmersmarkets.org/markets/u-district",
+  },
+  {
+    id: "market-rino",
+    name: "RiNo Fresh Market",
+    city: "Denver, CO",
+    address: "3501 Wazee St, Denver, CO 80216",
+    blurb:
+      "Front Range growers and makers in RiNo — produce, pantry jars, and weekend food stalls.",
+    lat: 39.7698,
+    lng: -104.9792,
+    hoursHint: "Sat 9am–1pm (typical · seasonal)",
+    tags: ["farmers", "makers", "seasonal"],
+  },
+];
+
 export const DISTANCE_OPTIONS_MI = [10, 25, 50, 100, 500] as const;
 
 /** Haversine distance in miles. */
@@ -418,9 +575,20 @@ export interface LocalProductMatch {
 export const STOCK_SIMULATION_DISCLAIMER =
   "Local availability is simulated for this demo — live store inventory and real-time stock checks come later.";
 
-/** Clear shopper-facing notice for Buy Local (no live stock). */
+/**
+ * Section-level Buy Local notice — use once at page level.
+ * Cards should use LOCAL_CARD_VERIFY_HINT instead of repeating this.
+ */
 export const LOCAL_STOCK_DISCLAIMER =
-  "Product availability may vary. Please check directly with the store.";
+  "We help you find nearby places and plan the trip. Stock is never live on Forest Buddies® — confirm on the store’s site, by phone, or in person before you go.";
+
+/** Short per-card line — avoid stacking multiple stock warnings. */
+export const LOCAL_CARD_VERIFY_HINT =
+  "Confirm stock or hours before you go.";
+
+/** Markets: stalls and hours change — confirm on the day. */
+export const LOCAL_MARKET_VERIFY_HINT =
+  "Confirm on the day — stalls and hours vary.";
 
 /** UK / US grocery & lifestyle chains for Buy Local (demo pins when Places is unset). */
 export type RetailChainStore = {
@@ -730,9 +898,9 @@ export function retailChainToNearbyStore(
     distanceMi: store.distanceMi,
     lat: store.lat,
     lng: store.lng,
-    blurb: "Major retailer near you — confirm stock on their site or in-store.",
+    blurb: "Major retailer near you — confirm stock on their site or in person.",
     source: "google",
-    availabilityHint: LOCAL_STOCK_DISCLAIMER,
+    availabilityHint: LOCAL_CARD_VERIFY_HINT,
     matchingProductNames: [],
     mapsUrl: googleMapsSearchUrl(`${store.name} ${store.address}`),
     directionsUrl: googleMapsDirectionsUrl(store, from),
@@ -928,6 +1096,15 @@ export function getNearbyMakers(user: GeoPoint, maxMiles: number) {
   return LOCAL_MAKERS.map((maker) => ({
     maker,
     distanceMi: milesBetween(user, maker),
+  }))
+    .filter((r) => r.distanceMi <= maxMiles)
+    .sort((a, b) => a.distanceMi - b.distanceMi);
+}
+
+export function getNearbyMarkets(user: GeoPoint, maxMiles: number) {
+  return LOCAL_MARKETS.map((market) => ({
+    market,
+    distanceMi: milesBetween(user, market),
   }))
     .filter((r) => r.distanceMi <= maxMiles)
     .sort((a, b) => a.distanceMi - b.distanceMi);

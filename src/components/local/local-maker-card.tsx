@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  LOCAL_STOCK_DISCLAIMER,
+  LOCAL_CARD_VERIFY_HINT,
   formatDistance,
   googleMapsDirectionsUrl,
   googleMapsStoreUrl,
@@ -134,13 +134,13 @@ export function LocalMakerCard({
             ))}
           </div>
         </div>
-        {maker.hoursHint && (
+        {maker.hoursHint ? (
           <p className="text-xs leading-relaxed text-muted-foreground">
             Hours (approx.): {maker.hoursHint}
           </p>
-        )}
-        <p className="mt-auto rounded-lg border border-dashed border-amber-200/90 bg-amber-50/60 px-2.5 py-2 text-[11px] leading-relaxed text-amber-950/90">
-          {LOCAL_STOCK_DISCLAIMER}
+        ) : null}
+        <p className="mt-auto text-xs leading-relaxed text-muted-foreground">
+          {LOCAL_CARD_VERIFY_HINT}
         </p>
       </CardContent>
       <CardFooter className="flex flex-col gap-2 border-t-0 bg-transparent px-4 pt-0 sm:px-6">

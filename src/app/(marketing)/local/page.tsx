@@ -10,6 +10,7 @@ import {
   Recycle,
   ShoppingBag,
   Store,
+  Tent,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { LocalEmptyState } from "@/components/local/local-empty-state";
 import { LocalMakerCard } from "@/components/local/local-maker-card";
+import { LocalMarketCard } from "@/components/local/local-market-card";
 import {
   LocalStoreCard,
   LocalStoreCardSkeleton,
@@ -50,6 +52,7 @@ import {
   formatDistance,
   getLocalListings,
   getNearbyMakers,
+  getNearbyMarkets,
   googleMapsDirectionsUrl,
   retailChainToNearbyStore,
   type NearbyStore,
@@ -98,6 +101,7 @@ function BuyLocalPageInner() {
   const fromParts = fromParam === "parts";
   const storesSectionRef = useRef<HTMLElement>(null);
   const makersSectionRef = useRef<HTMLElement>(null);
+  const marketsSectionRef = useRef<HTMLElement>(null);
   const productsSectionRef = useRef<HTMLElement>(null);
 
   const initialCity =
@@ -200,6 +204,11 @@ function BuyLocalPageInner() {
     [user, maxMiles]
   );
 
+  const markets = useMemo(
+    () => getNearbyMarkets(user, maxMiles),
+    [user, maxMiles]
+  );
+
   const favouriteStoreIds = useMemo(
     () =>
       new Set(
@@ -224,6 +233,12 @@ function BuyLocalPageInner() {
     if (!showFavouritesOnly) return makers;
     return makers.filter(({ maker }) => favouriteMakerIds.has(maker.id));
   }, [makers, showFavouritesOnly, favouriteMakerIds]);
+
+  /** Markets are curated listings — still respect distance; favourites filter hides them. */
+  const visibleMarkets = useMemo(() => {
+    if (showFavouritesOnly) return [];
+    return markets;
+  }, [markets, showFavouritesOnly]);
 
   // Publish nearby places for site voice navigation (How far / Directions)
   useEffect(() => {
@@ -553,6 +568,12 @@ function BuyLocalPageInner() {
       icon: HeartHandshake,
     },
     {
+      href: "#local-markets",
+      label: "Markets",
+      count: showFavouritesOnly ? null : visibleMarkets.length,
+      icon: Tent,
+    },
+    {
       href: "#local-favourites",
       label: "Saved",
       count: favourites.length,
@@ -589,7 +610,7 @@ function BuyLocalPageInner() {
         markerIndex: markerIndex++,
       });
     }
-    for (const { maker, distanceMi } of visibleMakers.slice(0, 4)) {
+    for (const { maker, distanceMi } of visibleMakers.slice(0, 3)) {
       if (pins.some((p) => p.id === maker.id)) continue;
       pins.push({
         id: maker.id,
@@ -601,8 +622,20 @@ function BuyLocalPageInner() {
         markerIndex: markerIndex++,
       });
     }
+    for (const { market, distanceMi } of visibleMarkets.slice(0, 3)) {
+      if (pins.some((p) => p.id === market.id)) continue;
+      pins.push({
+        id: market.id,
+        name: market.name,
+        lat: market.lat,
+        lng: market.lng,
+        distanceMi,
+        kind: "maker",
+        markerIndex: markerIndex++,
+      });
+    }
     return pins;
-  }, [user, visibleStores, visibleMakers]);
+  }, [user, visibleStores, visibleMakers, visibleMarkets]);
 
   const markerIndexById = useMemo(() => {
     const map = new Map<string, number>();
@@ -636,26 +669,25 @@ function BuyLocalPageInner() {
         </div>
 
         <h1 className="font-heading max-w-3xl text-3xl font-semibold tracking-tight text-primary sm:text-4xl lg:text-5xl">
-          Find nearby stores &amp; makers
+          Find nearby stores, makers &amp; markets
         </h1>
         <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
-          Buy Local helps you source ingredients, household goods, and parts
-          from shops and makers close by — then confirm in person before you
-          travel. Three clear lists: Stores, Makers, and Products.
+          Source ingredients, household goods, and parts from shops, makers, and
+          open markets close by — then plan the trip and verify before you go.
         </p>
 
         <LeafyHubLinks omitHref="/local" className="mt-4" dense />
 
-        {/* Primary honest disclaimer */}
+        {/* Single page-level stock notice */}
         <div
           role="status"
-          className="mt-5 flex gap-3 rounded-xl border border-amber-300/90 bg-amber-50 px-3.5 py-3 text-sm text-amber-950 shadow-sm sm:items-center sm:px-4"
+          className="mt-5 flex gap-3 rounded-xl border border-amber-300/90 bg-amber-50 px-3.5 py-3 text-sm text-amber-950 shadow-sm sm:items-start sm:px-4"
         >
-          <Store className="mt-0.5 size-5 shrink-0 text-amber-800 sm:mt-0" />
+          <Store className="mt-0.5 size-5 shrink-0 text-amber-800" />
           <div>
             <p className="font-medium leading-relaxed">{LOCAL_STOCK_DISCLAIMER}</p>
             <p className="mt-1 text-xs leading-relaxed text-amber-900/80">
-              Distances are approximate. Stock is never live on Forest Buddies®.
+              Distances are approximate from your selected city.
             </p>
           </div>
         </div>
@@ -761,10 +793,10 @@ function BuyLocalPageInner() {
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-emerald-900/85 sm:text-sm">
                   {contextMode === "parts"
-                    ? "We’ll emphasise nearby options that may carry used or recycled parts. Stock isn’t live — call or visit to confirm."
+                    ? "We’ll emphasise nearby options that may carry used or recycled parts. Confirm the part before you go."
                     : contextMode === "kitchen"
-                      ? "Stores below are a starting point for this ingredient. Ask about fresh or organic options — we don’t track live stock."
-                      : "Use Check in-store or Directions on a store card, or browse every local option below."}
+                      ? "Stores and markets below are a starting point for this ingredient — ask about fresh or organic options in person."
+                      : "Use Check on site or Directions on a card, or browse every local option below."}
                 </p>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {contextMode === "kitchen" && (
@@ -911,7 +943,9 @@ function BuyLocalPageInner() {
                         Finding stores…
                       </span>
                     )
-                    : `${visibleStores.length} store${visibleStores.length === 1 ? "" : "s"} · ${visibleMakers.length} maker${visibleMakers.length === 1 ? "" : "s"}${showFavouritesOnly ? " saved nearby" : ""} · ${listings.length} product${listings.length === 1 ? "" : "s"}`}
+                    : showFavouritesOnly
+                      ? `${visibleStores.length} store${visibleStores.length === 1 ? "" : "s"} · ${visibleMakers.length} maker${visibleMakers.length === 1 ? "" : "s"} saved nearby`
+                      : `${visibleStores.length} store${visibleStores.length === 1 ? "" : "s"} · ${visibleMakers.length} maker${visibleMakers.length === 1 ? "" : "s"} · ${visibleMarkets.length} market${visibleMarkets.length === 1 ? "" : "s"}`}
                   {placesEngine === "hybrid" || placesEngine === "google-places"
                     ? " · Google Maps"
                     : " · map preview"}
@@ -921,11 +955,11 @@ function BuyLocalPageInner() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex gap-2">
                   <Leaf className="mt-0.5 size-4 shrink-0 text-primary" />
-                  Ingredients, parts, or everyday goods — start with Stores
+                  Stores, makers, then markets — jump with the chips above
                 </li>
                 <li className="flex gap-2">
                   <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                  Distances are approximate from your selected city
+                  Use Directions or Visit website to verify before you travel
                 </li>
               </ul>
             </CardContent>
@@ -958,7 +992,7 @@ function BuyLocalPageInner() {
               <p className="mt-2 text-sm text-muted-foreground sm:text-base">
                 {contextMode === "parts"
                   ? "Start with local recyclers and breakers when you can — then confirm the part before you go. Grocery chains may still appear as fallbacks."
-                  : "Grocery chains and local shops with distance, store type, and clear next steps. We never claim real-time stock."}
+                  : "Grocery chains and local shops with distance, store type, and next steps to verify on their site."}
               </p>
             </div>
             {!storesLoading && visibleStores.length > 0 && (
@@ -1055,8 +1089,8 @@ function BuyLocalPageInner() {
                 Eco businesses near you
               </h2>
               <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-                Independent makers with the same clear distance and next steps
-                as big stores — confirm pickup or inventory before you go.
+                Independent makers with the same distance and next steps as big
+                stores — View maker, Directions, or Visit website.
               </p>
             </div>
             {visibleMakers.length > 0 && (
@@ -1110,6 +1144,70 @@ function BuyLocalPageInner() {
                   onToggleFavourite={() =>
                     handleToggleMakerFavourite(maker.id, maker.name)
                   }
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Markets */}
+        <section
+          ref={marketsSectionRef}
+          id="local-markets"
+          className="mt-12 scroll-mt-24 sm:mt-14"
+        >
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-5">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-lime-800/70">
+                3 · Markets
+              </p>
+              <h2 className="font-heading mt-1 text-2xl font-semibold text-primary sm:text-3xl">
+                Open markets &amp; farmers markets
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+                Curated nearby markets with typical days and hours. Availability
+                is variable — confirm on the day before you travel.
+              </p>
+            </div>
+            {!showFavouritesOnly && visibleMarkets.length > 0 ? (
+              <Badge className="bg-lime-800/10 font-normal text-lime-950">
+                {visibleMarkets.length} nearby
+              </Badge>
+            ) : null}
+          </div>
+          {showFavouritesOnly ? (
+            <LocalEmptyState
+              icon={Tent}
+              title="Markets aren’t in Saved yet"
+              description="Favourites currently cover stores and makers. Clear the Favourites filter to browse open markets nearby."
+              country={user.country}
+              currentCityId={locationId}
+              maxMiles={maxMiles}
+              secondaryAction={{
+                label: "Show all nearby",
+                onClick: () => setShowFavouritesOnly(false),
+              }}
+            />
+          ) : visibleMarkets.length === 0 ? (
+            <LocalEmptyState
+              icon={Tent}
+              title="No markets in this radius"
+              description={`No curated markets near ${user.label} within your current distance. Widen the search or try another city.`}
+              country={user.country}
+              currentCityId={locationId}
+              maxMiles={maxMiles}
+              onExpandRadius={(mi) => setMaxMiles(mi)}
+              onSelectCity={setLocationId}
+            />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleMarkets.map(({ market, distanceMi }) => (
+                <LocalMarketCard
+                  key={market.id}
+                  market={market}
+                  distanceMi={distanceMi}
+                  country={user.country}
+                  from={user}
                 />
               ))}
             </div>
@@ -1337,17 +1435,13 @@ function BuyLocalPageInner() {
                         <Store className="size-3.5 text-primary" />
                         Listed with {maker.name}
                       </p>
-                      <p className="rounded-lg bg-muted/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                        Availability not verified. Use Buy Online for partners,
-                        or Check Local Stores to confirm in person.
-                      </p>
                       <div className="flex flex-col gap-2">
                         <Button
                           className="h-11 w-full justify-center gap-2 shadow-sm transition-transform active:scale-[0.98] sm:h-9"
                           onClick={() => scrollToStores(product.name)}
                         >
                           <MapPin className="size-3.5" />
-                          Check Local Stores
+                          Find nearby stores
                         </Button>
                         <Button
                           variant={isOnlineOpen ? "secondary" : "outline"}
@@ -1390,12 +1484,11 @@ function BuyLocalPageInner() {
         <Card className="mt-12 border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 sm:mt-14">
           <CardHeader className="px-3.5 text-center sm:px-6">
             <CardTitle className="text-xl text-emerald-950 sm:text-2xl">
-              Shop closer, confirm first
+              Shop closer, travel smarter
             </CardTitle>
             <CardDescription className="mx-auto max-w-lg text-emerald-900/80">
-              Buying nearby can cut shipping miles — just remember that store
-              shelves change. Check in-store or on the retailer&apos;s site
-              before you make the trip.
+              Buying nearby can cut shipping miles. Use Directions and Visit
+              website on any card when you&apos;re ready to go.
             </CardDescription>
           </CardHeader>
           <CardFooter className="flex flex-col justify-center gap-2 border-t-0 bg-transparent px-3.5 sm:flex-row sm:px-6">
@@ -1410,9 +1503,9 @@ function BuyLocalPageInner() {
               variant="outline"
               className="h-11 w-full sm:h-9 sm:w-auto"
               nativeButton={false}
-              render={<Link href="#local-stores" />}
+              render={<Link href="#local-markets" />}
             >
-              Back to stores
+              Browse markets
             </Button>
           </CardFooter>
         </Card>
