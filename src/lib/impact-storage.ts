@@ -331,7 +331,11 @@ export function getPersonalImpactSummary(): PersonalImpactSummary {
 
 export function saveLastDonation(
   selection: CauseSelection,
-  opts?: { source?: "donate" | "checkout"; status?: "pending" | "recorded" }
+  opts?: {
+    source?: "donate" | "checkout";
+    status?: "pending" | "recorded";
+    userEmail?: string | null;
+  }
 ) {
   const donation: LastDonation = {
     selection,
@@ -347,6 +351,7 @@ export function saveLastDonation(
         source: opts?.source ?? "checkout",
         status: opts?.status ?? "recorded",
         createdAt: donation.createdAt,
+        userEmail: opts?.userEmail ?? null,
       });
     } else {
       localStorage.removeItem(LAST_DONATION_KEY);

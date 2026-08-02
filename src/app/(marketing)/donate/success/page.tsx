@@ -68,7 +68,10 @@ function DonateSuccessInner() {
         const pending = loadPendingDonation();
         const selection = pending?.selection ?? emptyCauseSelection();
         if (!pending?.recorded) {
-          saveLastDonation(selection, { source: "donate" });
+          saveLastDonation(selection, {
+            source: "donate",
+            userEmail: pending?.email ?? null,
+          });
         }
         clearPendingDonation();
         if (!cancelled) {
@@ -87,7 +90,10 @@ function DonateSuccessInner() {
         const pending = loadPendingDonation();
         if (pending) {
           if (!pending.recorded) {
-            saveLastDonation(pending.selection, { source: "donate" });
+            saveLastDonation(pending.selection, {
+              source: "donate",
+              userEmail: pending.email ?? null,
+            });
           }
           clearPendingDonation();
           if (!cancelled) {
@@ -136,7 +142,11 @@ function DonateSuccessInner() {
       }
 
       if (!pending?.recorded) {
-        saveLastDonation(selection, { source: "donate" });
+        saveLastDonation(selection, {
+          source: "donate",
+          userEmail:
+            pending?.email ?? verified.customerEmail ?? null,
+        });
       }
       clearPendingDonation();
 

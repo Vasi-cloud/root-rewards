@@ -137,7 +137,10 @@ function CheckoutSuccessInner() {
 
       const pending = loadPendingCheckout();
       if (pending) {
-        saveLastDonation(pending.selection, { source: "checkout" });
+        saveLastDonation(pending.selection, {
+          source: "checkout",
+          userEmail: pending.email ?? null,
+        });
         recordEcoPurchase({
           productName: pending.productName,
         });
@@ -156,6 +159,7 @@ function CheckoutSuccessInner() {
         // First visit without pending payload — still capture cause gift once.
         saveLastDonation(result.order.causeSelection as CauseSelection, {
           source: "checkout",
+          userEmail: result.order.customerEmail ?? null,
         });
       }
 

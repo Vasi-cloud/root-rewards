@@ -28,6 +28,8 @@ export type AdminCauseContribution = {
   status: CauseContributionStatus;
   /** Optional batch key from parent donation */
   batchId: string;
+  /** Reporter email when known; export as guest if missing */
+  userEmail?: string | null;
 };
 
 function emit() {
@@ -92,6 +94,7 @@ export function recordAdminCauseContribution(
     source: CauseContributionSource;
     status?: CauseContributionStatus;
     createdAt?: string;
+    userEmail?: string | null;
   }
 ): AdminCauseContribution[] {
   if (selectionTotalUnits(selection) < 1) return [];
@@ -99,6 +102,7 @@ export function recordAdminCauseContribution(
   const createdAt = opts.createdAt ?? new Date().toISOString();
   const status = opts.status ?? "recorded";
   const batchId = `batch-${Date.now()}`;
+  const userEmail = opts.userEmail?.trim() || null;
   const rows = loadRaw();
   const created: AdminCauseContribution[] = [];
 
@@ -115,6 +119,7 @@ export function recordAdminCauseContribution(
       source: opts.source,
       status,
       batchId,
+      userEmail,
     };
     created.push(row);
   }

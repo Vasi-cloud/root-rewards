@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Download,
   Flag,
   HeartHandshake,
   TreePine,
@@ -11,6 +12,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -19,6 +21,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useModeration } from "@/contexts/moderation-context";
+import { ADMIN_EXPORT_CURRENCY } from "@/lib/admin-csv";
+import {
+  exportCausesCsv,
+  exportIncomeSummaryCsv,
+  exportMembersCsv,
+} from "@/lib/admin-export";
 import {
   countActiveAdminMembers,
   loadAdminMembers,
@@ -73,6 +81,7 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
   const [memberCount, setMemberCount] = useState(0);
   const [causesMonth, setCausesMonth] = useState(0);
   const [knownAccounts, setKnownAccounts] = useState(0);
+  const [exportNote, setExportNote] = useState<string | null>(null);
 
   const refresh = () => {
     setMemberCount(countActiveAdminMembers());
@@ -126,14 +135,73 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="font-heading text-2xl font-semibold text-primary">
-          Overview
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Lean admin snapshot — zeros are fine until real activity lands.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-heading text-2xl font-semibold text-primary">
+            Overview
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Lean admin snapshot — zeros are fine until real activity lands.
+            CSV exports use {ADMIN_EXPORT_CURRENCY}.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 gap-2 sm:h-9"
+            onClick={() => {
+              const r = exportCausesCsv();
+              setExportNote(
+                r.rowCount === 0
+                  ? `Causes CSV: headers only (${r.filename}).`
+                  : `Causes CSV: ${r.rowCount} rows (${r.filename}).`
+              );
+            }}
+          >
+            <Download className="size-3.5" />
+            Export causes
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 gap-2 sm:h-9"
+            onClick={() => {
+              const r = exportMembersCsv();
+              setExportNote(
+                r.rowCount === 0
+                  ? `Members CSV: headers only (${r.filename}).`
+                  : `Members CSV: ${r.rowCount} rows (${r.filename}).`
+              );
+            }}
+          >
+            <Download className="size-3.5" />
+            Export members
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-11 gap-2 sm:h-9"
+            onClick={() => {
+              const r = exportIncomeSummaryCsv();
+              setExportNote(
+                r.rowCount === 0
+                  ? `Income summary: headers only (${r.filename}).`
+                  : `Income summary: ${r.rowCount} rows (${r.filename}).`
+              );
+            }}
+          >
+            <Download className="size-3.5" />
+            Income summary
+          </Button>
+        </div>
       </div>
+
+      {exportNote ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {exportNote}
+        </p>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
@@ -157,8 +225,8 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
         <StatTile
           icon={TreePine}
           label="Causes this month"
-          value={`$${causesMonth.toFixed(2)}`}
-          hint="Donate + checkout gifts"
+          value={`£${causesMonth.toFixed(2)}`}
+          hint={`Donate + checkout · ${ADMIN_EXPORT_CURRENCY}`}
         />
       </div>
 

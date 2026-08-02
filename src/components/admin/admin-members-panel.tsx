@@ -1,9 +1,10 @@
 "use client";
 
-import { HeartHandshake } from "lucide-react";
+import { Download, HeartHandshake } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,6 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ADMIN_EXPORT_CURRENCY } from "@/lib/admin-csv";
+import { exportMembersCsv } from "@/lib/admin-export";
 import {
   loadAdminMembers,
   subscribeAdminMembers,
@@ -19,6 +22,7 @@ import {
 
 export function AdminMembersPanel() {
   const [members, setMembers] = useState<AdminMemberRecord[]>([]);
+  const [exportNote, setExportNote] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => setMembers(loadAdminMembers());
@@ -26,17 +30,43 @@ export function AdminMembersPanel() {
     return subscribeAdminMembers(refresh);
   }, []);
 
+  function handleExport() {
+    const result = exportMembersCsv(members);
+    setExportNote(
+      result.rowCount === 0
+        ? `Downloaded ${result.filename} (headers only — no rows yet).`
+        : `Downloaded ${result.filename} (${result.rowCount} row${result.rowCount === 1 ? "" : "s"}).`
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-heading text-2xl font-semibold text-primary">
-          Members
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Impact memberships recorded from upgrades on this device. Read-only
-          for v1.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-heading text-2xl font-semibold text-primary">
+            Members
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Impact memberships recorded from upgrades on this device. Read-only
+            for v1. Export uses {ADMIN_EXPORT_CURRENCY} · monthly plan.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 shrink-0 gap-2 sm:h-9"
+          onClick={handleExport}
+        >
+          <Download className="size-3.5" />
+          Export CSV
+        </Button>
       </div>
+
+      {exportNote ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {exportNote}
+        </p>
+      ) : null}
 
       <Card className="overflow-hidden border-primary/20">
         <CardHeader className="border-b border-primary/10 bg-emerald-50/40">
@@ -84,7 +114,7 @@ export function AdminMembersPanel() {
                       day: "numeric",
                     })}
                     {m.amountMonthly > 0
-                      ? ` · $${m.amountMonthly}/mo`
+                      ? ` · £${m.amountMonthly}/mo`
                       : null}
                   </p>
                 </div>

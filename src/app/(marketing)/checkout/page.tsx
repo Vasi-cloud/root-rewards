@@ -310,7 +310,10 @@ export default function CheckoutPage() {
     }
 
     // Demo fallback — no Stripe secret configured
-    saveLastDonation(selection, { source: "checkout" });
+    saveLastDonation(selection, {
+      source: "checkout",
+      userEmail: email || null,
+    });
     if (memberCredit > 0) consumeCauseCredit();
     recordAffiliateConversion({
       orderTotal: totalPrice,

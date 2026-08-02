@@ -185,7 +185,10 @@ export default function DonatePage() {
         // demo mode from API
       }
 
-      saveLastDonation(selection, { source: "donate" });
+      saveLastDonation(selection, {
+        source: "donate",
+        userEmail: emailTrim || user?.email || null,
+      });
       savePendingDonation({ ...pending, recorded: true });
       await new Promise((r) => window.setTimeout(r, 400));
       router.push("/donate/success?demo=1");

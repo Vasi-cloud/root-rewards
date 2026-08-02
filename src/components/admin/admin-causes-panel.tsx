@@ -1,9 +1,10 @@
 "use client";
 
-import { TreePine } from "lucide-react";
+import { Download, TreePine } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,16 +12,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ADMIN_EXPORT_CURRENCY } from "@/lib/admin-csv";
 import {
   loadAdminCauseContributions,
   subscribeAdminCauses,
   sumAdminCausesThisMonth,
   type AdminCauseContribution,
 } from "@/lib/admin-causes-ledger";
+import { exportCausesCsv } from "@/lib/admin-export";
 
 export function AdminCausesPanel() {
   const [rows, setRows] = useState<AdminCauseContribution[]>([]);
   const [monthTotal, setMonthTotal] = useState(0);
+  const [exportNote, setExportNote] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => {
@@ -40,17 +44,43 @@ export function AdminCausesPanel() {
     []
   );
 
+  function handleExport() {
+    const result = exportCausesCsv(rows);
+    setExportNote(
+      result.rowCount === 0
+        ? `Downloaded ${result.filename} (headers only — no rows yet).`
+        : `Downloaded ${result.filename} (${result.rowCount} row${result.rowCount === 1 ? "" : "s"}).`
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-heading text-2xl font-semibold text-primary">
-          Causes ledger
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Internal batching view for partner cause gifts from Donate and
-          checkout — not public.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-heading text-2xl font-semibold text-primary">
+            Causes ledger
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Internal batching view for partner cause gifts from Donate and
+            checkout — not public. Amounts export as {ADMIN_EXPORT_CURRENCY}.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 shrink-0 gap-2 sm:h-9"
+          onClick={handleExport}
+        >
+          <Download className="size-3.5" />
+          Export CSV
+        </Button>
       </div>
+
+      {exportNote ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {exportNote}
+        </p>
+      ) : null}
 
       <Card className="border-emerald-200/80 bg-gradient-to-br from-emerald-50/70 via-cream to-white">
         <CardContent className="flex flex-wrap items-end justify-between gap-3 p-5">
@@ -59,11 +89,12 @@ export function AdminCausesPanel() {
               {monthLabel} total
             </p>
             <p className="font-heading mt-1 text-3xl font-semibold tabular-nums text-primary">
-              ${monthTotal.toFixed(2)}
+              £{monthTotal.toFixed(2)}
             </p>
           </div>
           <p className="max-w-xs text-xs text-muted-foreground">
-            Sum of recorded contribute amounts this calendar month.
+            Sum of recorded contribute amounts this calendar month (
+            {ADMIN_EXPORT_CURRENCY}).
           </p>
         </CardContent>
       </Card>
@@ -110,10 +141,11 @@ export function AdminCausesPanel() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     {row.units} unit{row.units === 1 ? "" : "s"} ·{" "}
                     {new Date(row.createdAt).toLocaleString()}
+                    {row.userEmail ? ` · ${row.userEmail}` : " · guest"}
                   </p>
                 </div>
                 <p className="shrink-0 font-semibold tabular-nums text-primary">
-                  ${row.amount.toFixed(2)}
+                  £{row.amount.toFixed(2)}
                 </p>
               </div>
             ))
