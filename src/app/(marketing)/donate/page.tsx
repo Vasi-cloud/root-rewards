@@ -185,7 +185,7 @@ export default function DonatePage() {
         // demo mode from API
       }
 
-      saveLastDonation(selection);
+      saveLastDonation(selection, { source: "donate" });
       savePendingDonation({ ...pending, recorded: true });
       await new Promise((r) => window.setTimeout(r, 400));
       router.push("/donate/success?demo=1");

@@ -13,6 +13,7 @@ import {
   selectionCost,
   selectionTotalUnits,
 } from "@/lib/causes";
+import { recordAdminCauseContribution } from "@/lib/admin-causes-ledger";
 import { loadKitchenHistory } from "@/lib/leafy-kitchen-history";
 
 const IMPACT_KEY = "forest-buddies-impact";
@@ -328,7 +329,10 @@ export function getPersonalImpactSummary(): PersonalImpactSummary {
   };
 }
 
-export function saveLastDonation(selection: CauseSelection) {
+export function saveLastDonation(
+  selection: CauseSelection,
+  opts?: { source?: "donate" | "checkout"; status?: "pending" | "recorded" }
+) {
   const donation: LastDonation = {
     selection,
     totalCost: selectionCost(selection),
@@ -339,6 +343,11 @@ export function saveLastDonation(selection: CauseSelection) {
     if (selectionTotalUnits(selection) > 0) {
       localStorage.setItem(LAST_DONATION_KEY, JSON.stringify(donation));
       recordDonation(selection);
+      recordAdminCauseContribution(selection, {
+        source: opts?.source ?? "checkout",
+        status: opts?.status ?? "recorded",
+        createdAt: donation.createdAt,
+      });
     } else {
       localStorage.removeItem(LAST_DONATION_KEY);
     }

@@ -24,12 +24,14 @@ import {
   setMembershipTier,
   type MembershipState,
 } from "@/lib/membership-storage";
+import { upsertAdminMember } from "@/lib/admin-members-ledger";
 import {
   openBillingPortal,
   startMembershipCheckout,
   verifyCheckoutSession,
 } from "@/lib/stripe/client";
 import type { MembershipTierId } from "@/types";
+import { useAuth } from "@/contexts/auth-context";
 
 interface MembershipContextValue {
   state: MembershipState;
@@ -69,6 +71,7 @@ export function MembershipProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const { user } = useAuth();
   const [state, setState] = useState<MembershipState>(() => ({
     tierId: "free",
     startedAt: null,
@@ -79,6 +82,35 @@ export function MembershipProvider({
     stripeSubscriptionId: null,
     updatedAt: new Date().toISOString(),
   }));
+
+  const syncAdminLedger = useCallback(
+    (next: MembershipState, emailOverride?: string | null) => {
+      if (next.tierId !== "impact") {
+        if (next.cancelAtPeriodEnd || next.tierId === "free") {
+          upsertAdminMember({
+            email: emailOverride ?? user?.email ?? null,
+            displayName: user?.displayName ?? null,
+            tierId: "impact",
+            status: "cancelled",
+            startedAt: next.startedAt,
+            stripeCustomerId: next.stripeCustomerId,
+            stripeSubscriptionId: next.stripeSubscriptionId,
+          });
+        }
+        return;
+      }
+      upsertAdminMember({
+        email: emailOverride ?? user?.email ?? null,
+        displayName: user?.displayName ?? null,
+        tierId: "impact",
+        status: next.cancelAtPeriodEnd ? "cancelled" : "active",
+        startedAt: next.startedAt,
+        stripeCustomerId: next.stripeCustomerId,
+        stripeSubscriptionId: next.stripeSubscriptionId,
+      });
+    },
+    [user?.email, user?.displayName]
+  );
 
   const refresh = useCallback(() => {
     setState(loadMembership());
@@ -99,16 +131,27 @@ export function MembershipProvider({
     };
   }, [refresh]);
 
+  // Keep admin ledger in sync when this device has Impact Member
+  useEffect(() => {
+    if (state.tierId === "impact") {
+      syncAdminLedger(state);
+    }
+  }, [state, syncAdminLedger]);
+
   const upgradeToImpact = useCallback(
     async (email?: string): Promise<"stripe" | "demo" | "error"> => {
       const current = loadMembership();
+      const checkoutEmail =
+        email?.trim() || user?.email || "member@forestbuddies.eco";
       const result = await startMembershipCheckout({
-        email: email?.trim() || "member@forestbuddies.eco",
-        userId: null,
+        email: checkoutEmail,
+        userId: user?.uid ?? null,
         customerId: current.stripeCustomerId,
       });
       if ("demo" in result) {
-        setState(setMembershipTier("impact"));
+        const next = setMembershipTier("impact");
+        setState(next);
+        syncAdminLedger(next, checkoutEmail);
         return "demo";
       }
       if ("error" in result) {
@@ -118,12 +161,17 @@ export function MembershipProvider({
       window.location.href = result.url;
       return "stripe";
     },
-    []
+    [user?.email, user?.uid, syncAdminLedger]
   );
 
   const downgradeToFree = useCallback(() => {
+    const prev = loadMembership();
+    syncAdminLedger(
+      { ...prev, tierId: "free", cancelAtPeriodEnd: true },
+      user?.email
+    );
     setState(setMembershipTier("free"));
-  }, []);
+  }, [syncAdminLedger, user?.email]);
 
   const cancelMembership = useCallback(async () => {
     const current = loadMembership();

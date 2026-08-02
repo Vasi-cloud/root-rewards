@@ -9,6 +9,7 @@ import {
   Check,
   DollarSign,
   Flag,
+  HeartHandshake,
   Leaf,
   EyeOff,
   MessageCircleHeart,
@@ -39,6 +40,9 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useModeration } from "@/contexts/moderation-context";
 import { useSeller } from "@/contexts/seller-context";
+import { AdminCausesPanel } from "@/components/admin/admin-causes-panel";
+import { AdminMembersPanel } from "@/components/admin/admin-members-panel";
+import { AdminOverviewPanel } from "@/components/admin/admin-overview-panel";
 import { AdminReportsPanel } from "@/components/admin/admin-reports-panel";
 import { isAdminUser } from "@/lib/admin";
 import {
@@ -65,9 +69,11 @@ import type { ProductReviewRecord, ReviewStatus } from "@/types/reviews";
 
 type AdminTab =
   | "overview"
+  | "reports"
+  | "members"
+  | "causes"
   | "products"
   | "sellers"
-  | "reports"
   | "moderation"
   | "reviews"
   | "feedback"
@@ -562,11 +568,24 @@ export default function AdminDashboard() {
     (item) => reviewFilter === "All" || item.status === reviewFilter
   );
 
-  const tabs: { id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  const primaryTabs: {
+    id: AdminTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
     { id: "overview", label: "Overview", icon: TrendingUp },
+    { id: "reports", label: "Reports", icon: Flag },
+    { id: "members", label: "Members", icon: HeartHandshake },
+    { id: "causes", label: "Causes", icon: TreePine },
+  ];
+
+  const moreTabs: {
+    id: AdminTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
     { id: "products", label: "Products", icon: ShoppingBag },
     { id: "sellers", label: "Sellers", icon: Store },
-    { id: "reports", label: "Reports", icon: Flag },
     { id: "moderation", label: "Moderation", icon: Shield },
     { id: "reviews", label: "Reviews", icon: Star },
     { id: "feedback", label: "Feedback", icon: MessageCircleHeart },
@@ -610,7 +629,7 @@ export default function AdminDashboard() {
         </div>
 
         <nav className="scrollbar-none mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 pb-3 sm:px-6">
-          {tabs.map((item) => (
+          {primaryTabs.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -636,170 +655,38 @@ export default function AdminDashboard() {
               ) : null}
             </button>
           ))}
+          <span
+            className="mx-1 hidden h-8 w-px shrink-0 self-center bg-border sm:block"
+            aria-hidden
+          />
+          {moreTabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTab(item.id)}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors sm:px-3 ${
+                tab === item.id
+                  ? "bg-primary/90 text-primary-foreground"
+                  : "text-foreground/55 hover:bg-muted hover:text-primary"
+              }`}
+            >
+              <item.icon className="size-4" />
+              <span className="max-sm:text-xs">{item.label}</span>
+            </button>
+          ))}
         </nav>
       </header>
 
       <main className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8">
         {tab === "overview" && (
-          <div className="space-y-8">
-            <div>
-              <h2 className="font-heading text-2xl font-semibold text-primary">
-                Overview
-              </h2>
-              <p className="mt-1 text-muted-foreground">
-                Live snapshot of sales, impact, and operations.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                icon={DollarSign}
-                label="Net sales"
-                value={`$${stats.totalSales.toLocaleString()}`}
-                hint={`Avg order $${stats.avgOrderValue.toFixed(0)}`}
-              />
-              <StatCard
-                icon={TreePine}
-                label="Trees planted"
-                value={stats.treesPlanted.toLocaleString()}
-                hint={`+${stats.treesThisMonth} from recent orders`}
-                accent
-              />
-              <StatCard
-                icon={Store}
-                label="Seller review"
-                value={String(pendingListings.length + pendingSellerAccounts.length)}
-                hint={`${pendingListings.length} listings · ${pendingSellerAccounts.length} shops`}
-              />
-              <StatCard
-                icon={Shield}
-                label="Open flags"
-                value={String(openFlags.length + openReports.length)}
-                hint={`${openFlags.length} flags · ${openReports.length} reports`}
-              />
-            </div>
-
-            {rvStats.pending > 0 && (
-              <Card className="border-amber-200 bg-amber-50/50">
-                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle className="font-heading flex items-center gap-2 text-amber-950">
-                      <Star className="size-5" />
-                      Reviews awaiting moderation
-                    </CardTitle>
-                    <CardDescription className="text-amber-900/80">
-                      {rvStats.pending} rating
-                      {rvStats.pending === 1 ? "" : "s"} waiting to go live on
-                      product &amp; service pages.
-                    </CardDescription>
-                  </div>
-                  <Button size="sm" onClick={() => setTab("reviews")}>
-                    Moderate reviews
-                  </Button>
-                </CardHeader>
-              </Card>
-            )}
-
-            {fbStats.newCount > 0 && (
-              <Card className="border-emerald-200 bg-emerald-50/50">
-                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle className="font-heading flex items-center gap-2 text-emerald-900">
-                      <MessageCircleHeart className="size-5" />
-                      New community feedback
-                    </CardTitle>
-                    <CardDescription className="text-emerald-800/80">
-                      {fbStats.newCount} unread note
-                      {fbStats.newCount === 1 ? "" : "s"} from shoppers &
-                      makers.
-                    </CardDescription>
-                  </div>
-                  <Button size="sm" onClick={() => setTab("feedback")}>
-                    Review feedback
-                  </Button>
-                </CardHeader>
-              </Card>
-            )}
-
-            <div className="grid gap-6 lg:grid-cols-3">
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="font-heading">Recent orders</CardTitle>
-                  <CardDescription>
-                    Latest activity across the marketplace.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {orders.slice(0, 5).map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-card px-4 py-3"
-                    >
-                      <div>
-                        <div className="font-mono text-xs text-muted-foreground">
-                          {order.id}
-                        </div>
-                        <div className="font-medium">{order.customer}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-semibold tabular-nums">
-                          ${order.total}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {order.date} · {order.trees} trees
-                        </div>
-                      </div>
-                      <Badge className={statusBadgeClass(order.status)}>
-                        {order.status}
-                      </Badge>
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setTab("orders")}
-                    className="w-full"
-                  >
-                    Manage all orders
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-emerald-200 bg-emerald-50/40">
-                <CardHeader>
-                  <CardTitle className="font-heading flex items-center gap-2 text-emerald-800">
-                    <TreePine className="size-5" />
-                    Impact pulse
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 text-sm text-emerald-800">
-                  <div>
-                    <div className="text-3xl font-semibold tabular-nums">
-                      {stats.co2OffsetKg.toLocaleString()} kg
-                    </div>
-                    <div className="text-emerald-700">Estimated CO₂ offset</div>
-                  </div>
-                  <div className="rounded-xl border border-emerald-200 bg-white/70 p-3">
-                    <div className="font-medium">
-                      {stats.treesThisMonth} trees from checkout donations
-                    </div>
-                    <div className="mt-1 text-xs text-emerald-700">
-                      Every order can fund forest restoration.
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setTab("trees")}
-                    className="w-full border-emerald-300"
-                  >
-                    View trees tracking
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          <AdminOverviewPanel onNavigate={(t) => setTab(t)} />
         )}
+
+        {tab === "reports" && <AdminReportsPanel />}
+
+        {tab === "members" && <AdminMembersPanel />}
+
+        {tab === "causes" && <AdminCausesPanel />}
 
         {tab === "products" && (
           <div className="space-y-6">
@@ -1469,8 +1356,6 @@ export default function AdminDashboard() {
             </Card>
           </div>
         )}
-
-        {tab === "reports" && <AdminReportsPanel />}
 
         {tab === "moderation" && (
           <div className="space-y-8">
