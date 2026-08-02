@@ -17,7 +17,7 @@ export function BuyLocalStrip() {
             </span>
           </div>
           <h2 className="font-heading mt-1 text-xl font-semibold sm:text-2xl">
-            Support eco businesses near you
+            Support local businesses near you
           </h2>
           <p className="mt-1 max-w-xl text-sm text-cream/75">
             Filter makers by distance, explore a map preview, and keep impact in
