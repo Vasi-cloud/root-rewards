@@ -36,6 +36,7 @@ interface ModerationContextValue {
     sellerUid?: string;
     shopName?: string;
     reporterUid?: string;
+    reporterEmail?: string | null;
     reason: ReportReason;
     note?: string;
   }) => { escalated: boolean };
@@ -68,6 +69,7 @@ export function ModerationProvider({ children }: { children: React.ReactNode }) 
       sellerUid?: string;
       shopName?: string;
       reporterUid?: string;
+      reporterEmail?: string | null;
       reason: ReportReason;
       note?: string;
     }) => {
@@ -99,7 +101,7 @@ export function ModerationProvider({ children }: { children: React.ReactNode }) 
       flags,
       reports,
       openFlags: flags.filter((f) => f.status === "open"),
-      openReports: reports.filter((r) => r.status === "open"),
+      openReports: reports.filter((r) => r.status === "new"),
       refresh,
       submitReport,
       resolveFlag: resolveFlagFn,

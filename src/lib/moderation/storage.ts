@@ -12,7 +12,7 @@ const FLAGS_KEY = "forest-buddies-moderation-flags";
 const REPORTS_KEY = "forest-buddies-product-reports";
 const EVENT = "forest-buddies-moderation-updated";
 
-/** Auto-escalate to a flag after this many open reports on one product. */
+/** Auto-escalate to a flag after this many new reports on one product. */
 export const REPORT_FLAG_THRESHOLD = 2;
 
 function emit() {
@@ -51,6 +51,23 @@ function saveJson(key: string, value: unknown) {
   }
 }
 
+/** Migrate legacy open/dismissed → new/resolved. */
+function normalizeReportStatus(raw: unknown): ReportStatus {
+  if (raw === "reviewed") return "reviewed";
+  if (raw === "resolved" || raw === "dismissed") return "resolved";
+  return "new";
+}
+
+function normalizeReport(raw: ProductReport): ProductReport {
+  return {
+    ...raw,
+    status: normalizeReportStatus(raw.status),
+    reporterEmail:
+      typeof raw.reporterEmail === "string" ? raw.reporterEmail : raw.reporterEmail ?? null,
+    note: typeof raw.note === "string" ? raw.note : "",
+  };
+}
+
 export function loadFlags(): ModerationFlag[] {
   return loadJson<ModerationFlag[]>(FLAGS_KEY, []);
 }
@@ -60,23 +77,30 @@ export function saveFlags(flags: ModerationFlag[]) {
 }
 
 export function loadReports(): ProductReport[] {
-  return loadJson<ProductReport[]>(REPORTS_KEY, []);
+  const raw = loadJson<ProductReport[]>(REPORTS_KEY, []);
+  return raw.map(normalizeReport).sort((a, b) => {
+    return +new Date(b.createdAt) - +new Date(a.createdAt);
+  });
 }
 
 export function saveReports(reports: ProductReport[]) {
-  saveJson(REPORTS_KEY, reports);
+  saveJson(REPORTS_KEY, reports.map(normalizeReport));
 }
 
 export function countOpenReportsForProduct(productId: string): number {
   return loadReports().filter(
-    (r) => r.productId === productId && r.status === "open"
+    (r) => r.productId === productId && r.status === "new"
   ).length;
 }
 
 export function countOpenReportsForSeller(sellerUid: string): number {
   return loadReports().filter(
-    (r) => r.sellerUid === sellerUid && r.status === "open"
+    (r) => r.sellerUid === sellerUid && r.status === "new"
   ).length;
+}
+
+export function countNewReports(): number {
+  return loadReports().filter((r) => r.status === "new").length;
 }
 
 export function recordFlagHits(params: {
@@ -105,7 +129,6 @@ export function recordFlagHits(params: {
     createdAt: new Date().toISOString(),
   }));
 
-  // Drop prior open rule flags for this product (fresh scan on submit/edit)
   const kept = existing.filter(
     (f) =>
       !(
@@ -146,6 +169,7 @@ export function submitProductReport(input: {
   sellerUid?: string;
   shopName?: string;
   reporterUid?: string;
+  reporterEmail?: string | null;
   reason: ReportReason;
   note?: string;
 }): { report: ProductReport; escalated: boolean } {
@@ -156,9 +180,10 @@ export function submitProductReport(input: {
     sellerUid: input.sellerUid,
     shopName: input.shopName,
     reporterUid: input.reporterUid,
+    reporterEmail: input.reporterEmail?.trim() || null,
     reason: input.reason,
     note: (input.note ?? "").trim(),
-    status: "open",
+    status: "new",
     createdAt: new Date().toISOString(),
   };
 
@@ -166,7 +191,7 @@ export function submitProductReport(input: {
   saveReports(reports);
 
   const openCount = reports.filter(
-    (r) => r.productId === input.productId && r.status === "open"
+    (r) => r.productId === input.productId && r.status === "new"
   ).length;
 
   let escalated = false;
@@ -185,7 +210,7 @@ export function submitProductReport(input: {
           ruleId: "user_reports",
           severity: "high",
           source: "report",
-          message: `${openCount} open user reports on this listing.`,
+          message: `${openCount} new user reports on this listing.`,
           productId: input.productId,
           productName: input.productName,
           sellerUid: input.sellerUid,
@@ -208,7 +233,7 @@ export function setReportStatus(reportId: string, status: ReportStatus) {
       ? {
           ...r,
           status,
-          reviewedAt: status === "open" ? undefined : new Date().toISOString(),
+          reviewedAt: status === "new" ? undefined : new Date().toISOString(),
         }
       : r
   );
@@ -219,6 +244,7 @@ export function listOpenFlags(): ModerationFlag[] {
   return loadFlags().filter((f) => f.status === "open");
 }
 
+/** New (unreviewed) listing reports. */
 export function listOpenReports(): ProductReport[] {
-  return loadReports().filter((r) => r.status === "open");
+  return loadReports().filter((r) => r.status === "new");
 }

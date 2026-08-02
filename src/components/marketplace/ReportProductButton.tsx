@@ -67,6 +67,7 @@ export function ReportProductButton({
       sellerUid,
       shopName,
       reporterUid: user?.uid,
+      reporterEmail: user?.email ?? null,
       reason,
       note: noteResult.value,
     });

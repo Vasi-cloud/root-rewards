@@ -10,6 +10,7 @@ export {
 } from "./trust";
 export {
   REPORT_FLAG_THRESHOLD,
+  countNewReports,
   countOpenReportsForProduct,
   countOpenReportsForSeller,
   listOpenFlags,

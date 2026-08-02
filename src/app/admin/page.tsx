@@ -39,6 +39,8 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useModeration } from "@/contexts/moderation-context";
 import { useSeller } from "@/contexts/seller-context";
+import { AdminReportsPanel } from "@/components/admin/admin-reports-panel";
+import { isAdminUser } from "@/lib/admin";
 import {
   deleteFeedback,
   feedbackStats,
@@ -61,12 +63,11 @@ import type { ProductApprovalStatus, SellerStatus, SellerTrustTier } from "@/typ
 import { REPORT_REASON_LABELS } from "@/types/moderation";
 import type { ProductReviewRecord, ReviewStatus } from "@/types/reviews";
 
-const ADMIN_EMAIL = "cvasi.crisan@gmail.com";
-
 type AdminTab =
   | "overview"
   | "products"
   | "sellers"
+  | "reports"
   | "moderation"
   | "reviews"
   | "feedback"
@@ -389,7 +390,7 @@ export default function AdminDashboard() {
     "pending"
   );
 
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = isAdminUser(user?.email);
 
   useEffect(() => {
     if (isAdmin) {
@@ -565,6 +566,7 @@ export default function AdminDashboard() {
     { id: "overview", label: "Overview", icon: TrendingUp },
     { id: "products", label: "Products", icon: ShoppingBag },
     { id: "sellers", label: "Sellers", icon: Store },
+    { id: "reports", label: "Reports", icon: Flag },
     { id: "moderation", label: "Moderation", icon: Shield },
     { id: "reviews", label: "Reviews", icon: Star },
     { id: "feedback", label: "Feedback", icon: MessageCircleHeart },
@@ -621,6 +623,17 @@ export default function AdminDashboard() {
             >
               <item.icon className="size-4" />
               <span className="max-sm:text-xs">{item.label}</span>
+              {item.id === "reports" && openReports.length > 0 ? (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                    tab === item.id
+                      ? "bg-cream/20 text-cream"
+                      : "bg-amber-100 text-amber-950"
+                  }`}
+                >
+                  {openReports.length}
+                </span>
+              ) : null}
             </button>
           ))}
         </nav>
@@ -1457,6 +1470,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {tab === "reports" && <AdminReportsPanel />}
+
         {tab === "moderation" && (
           <div className="space-y-8">
             <div>
@@ -1554,14 +1569,21 @@ export default function AdminDashboard() {
               <CardHeader className="border-b border-primary/10 bg-gold/10">
                 <CardTitle className="font-heading">User reports</CardTitle>
                 <CardDescription>
-                  From marketplace report buttons. {REPORT_FLAG_THRESHOLD}+ open
-                  reports escalate to a high flag automatically.
+                  New listing reports also appear under Reports.{" "}
+                  {REPORT_FLAG_THRESHOLD}+ new reports escalate to a high flag.
                 </CardDescription>
               </CardHeader>
               <CardContent className="divide-y p-0">
                 {openReports.length === 0 ? (
                   <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-                    No open reports.
+                    No new reports.{" "}
+                    <button
+                      type="button"
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                      onClick={() => setTab("reports")}
+                    >
+                      Open Reports inbox
+                    </button>
                   </p>
                 ) : (
                   openReports.map((report) => (
@@ -1591,14 +1613,14 @@ export default function AdminDashboard() {
                           size="sm"
                           onClick={() => setReportStatus(report.id, "reviewed")}
                         >
-                          Mark reviewed
+                          Reviewed
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setReportStatus(report.id, "dismissed")}
+                          onClick={() => setReportStatus(report.id, "resolved")}
                         >
-                          Dismiss
+                          Resolved
                         </Button>
                       </div>
                     </div>
