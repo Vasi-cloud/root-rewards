@@ -59,13 +59,17 @@ const exploreNavItems: NavItem[] = [
   { href: "/marketplace", label: "Marketplace" },
   { href: "/seller", label: "Sell" },
   { href: "/affiliates", label: "Affiliates" },
-  { href: "/membership", label: "Membership" },
   { href: "/feedback", label: "Feedback" },
   { href: "/about", label: "About" },
 ];
 
 const accountNavItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", description: "Overview & membership" },
+  { href: "/dashboard", label: "Dashboard", description: "Overview & account" },
+  {
+    href: "/membership",
+    label: "Membership",
+    description: "Impact Member benefits",
+  },
   {
     href: "/dashboard/my-forest",
     label: "My Forest",

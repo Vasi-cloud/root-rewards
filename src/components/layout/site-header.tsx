@@ -299,11 +299,8 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* Below xl: voice/chat from sm+ (also in menu); cart always */}
-          <VoiceNavControl
-            variant="icon"
-            className="hidden sm:inline-flex xl:hidden"
-          />
+          {/* Below xl: mic for one-tap voice; chat from sm+; cart always */}
+          <VoiceNavControl variant="icon" className="xl:hidden" />
           <Button
             type="button"
             variant="ghost"
@@ -364,7 +361,7 @@ export function SiteHeader() {
               {/* Scrollable body — Settings / Sign out reachable at the bottom */}
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-3 sm:px-5 [-webkit-overflow-scrolling:touch] pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))]">
                 {!user ? (
-                  <div className="mb-4 grid grid-cols-2 gap-2">
+                  <div className="mb-3 grid grid-cols-2 gap-2">
                     <Button
                       nativeButton={false}
                       render={
@@ -393,6 +390,13 @@ export function SiteHeader() {
                   </div>
                 ) : null}
 
+                <div className="mb-5">
+                  <VoiceNavControl
+                    variant="menu"
+                    onAfterNavigate={() => setMenuOpen(false)}
+                  />
+                </div>
+
                 <MainNav variant="full" />
 
                 <div className="mt-6 flex flex-col gap-2.5 border-t border-border pt-4">
@@ -403,10 +407,6 @@ export function SiteHeader() {
                     Language
                   </label>
                   <LanguageSelect id="lang-switcher-menu" />
-                  <VoiceNavControl
-                    variant="menu"
-                    onAfterNavigate={() => setMenuOpen(false)}
-                  />
                   <Button
                     type="button"
                     variant="outline"
@@ -429,31 +429,8 @@ export function SiteHeader() {
                     Cart
                     {totalItems > 0 ? ` (${totalItems})` : ""}
                   </Button>
-                  <Button
-                    nativeButton={false}
-                    render={<Link href="/membership" />}
-                    variant="outline"
-                    className="min-h-11 w-full justify-start"
-                  >
-                    Membership
-                  </Button>
-                  <Button
-                    nativeButton={false}
-                    render={<Link href="/seller" />}
-                    variant="outline"
-                    className="min-h-11 w-full justify-start"
-                  >
-                    Become a seller
-                  </Button>
                   {user ? (
                     <div className="grid grid-cols-1 gap-2 pt-1">
-                      <Button
-                        nativeButton={false}
-                        render={<Link href="/dashboard" />}
-                        className="min-h-11 w-full xl:hidden"
-                      >
-                        Dashboard
-                      </Button>
                       <Button
                         nativeButton={false}
                         render={<Link href="/dashboard/settings" />}

@@ -189,12 +189,15 @@ export function VoiceNavControl({
   if (variant === "menu") {
     return (
       <div className={cn("flex flex-col gap-2", className)}>
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Voice help
+        </p>
         <div className="flex gap-2">
           <Button
             type="button"
             variant={listening ? "default" : "outline"}
             className={cn(
-              "min-h-11 flex-1 justify-start gap-2",
+              "min-h-12 flex-1 justify-start gap-2.5 text-sm font-semibold",
               listening && "bg-red-600 text-white hover:bg-red-600/90"
             )}
             aria-pressed={listening}
@@ -206,9 +209,9 @@ export function VoiceNavControl({
             onClick={toggleListen}
           >
             {listening ? (
-              <Square className="size-4 shrink-0" />
+              <Square className="size-5 shrink-0" aria-hidden />
             ) : (
-              <Mic className="size-4 shrink-0" />
+              <Mic className="size-5 shrink-0" aria-hidden />
             )}
             {listening ? "Listening… tap to stop" : "Voice help"}
           </Button>
@@ -216,13 +219,13 @@ export function VoiceNavControl({
             type="button"
             variant="outline"
             size="icon"
-            className="size-11 shrink-0"
+            className="size-12 shrink-0"
             aria-label="Show site voice commands"
             aria-expanded={showHelp}
             aria-controls={panelId}
             onClick={() => setShowHelp((v) => !v)}
           >
-            <HelpCircle className="size-4" />
+            <HelpCircle className="size-5" />
           </Button>
         </div>
         {statusBlock}
