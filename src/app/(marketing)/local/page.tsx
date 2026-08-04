@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Store,
   Tent,
+  Trees,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,7 +19,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
-import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { LocalEmptyState } from "@/components/local/local-empty-state";
 import { LocalMakerCard } from "@/components/local/local-maker-card";
 import { LocalMarketCard } from "@/components/local/local-market-card";
@@ -775,7 +775,18 @@ function BuyLocalPageInner() {
           open markets close by — then plan the trip and verify before you go.
         </p>
 
-        <LeafyHubLinks omitHref="/local" className="mt-4" dense />
+        <div className="mt-4">
+          <Button
+            nativeButton={false}
+            render={<Link href="/dashboard/my-forest" />}
+            variant="outline"
+            size="sm"
+            className="h-10 gap-1.5 border-emerald-200/90 bg-white/90 text-emerald-950 sm:h-9"
+          >
+            <Trees className="size-3.5 text-emerald-800" aria-hidden />
+            My Forest
+          </Button>
+        </div>
 
         {/* Single page-level stock notice */}
         <div
