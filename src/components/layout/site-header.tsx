@@ -299,18 +299,8 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* Below xl: mic for one-tap voice; chat from sm+; cart always */}
+          {/* Below xl: brand · mic · cart · Sign in · menu (chat lives in the drawer) */}
           <VoiceNavControl variant="icon" className="xl:hidden" />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="hidden size-9 shrink-0 p-0 sm:inline-flex xl:hidden"
-            aria-label="Open support chat"
-            onClick={() => openSupportChat()}
-          >
-            <MessageCircle className="size-5" />
-          </Button>
           <CartButton className="size-9 xl:hidden sm:size-10" />
 
           {/* Signed-out: keep full “Sign in” in the top bar below xl */}
@@ -330,7 +320,7 @@ export function SiteHeader() {
               render={<Link href={loginHref} />}
               size="sm"
               variant="outline"
-              className="inline-flex h-9 min-h-9 shrink-0 items-center overflow-visible px-2.5 text-xs whitespace-nowrap sm:h-9 sm:px-3 sm:text-[0.8rem] xl:hidden"
+              className="inline-flex h-9 min-h-9 shrink-0 items-center overflow-visible px-2 text-xs whitespace-nowrap sm:px-3 sm:text-[0.8rem] xl:hidden"
             >
               Sign in
             </Button>

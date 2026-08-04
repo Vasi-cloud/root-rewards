@@ -128,7 +128,7 @@ export default function HomePage() {
               style={{ animationDelay: "220ms" }}
             >
               A sustainable marketplace with Leafy helpers for cooking, parts,
-              local shopping, and smarter eco finds.
+              local shopping, and smarter product finds.
             </p>
             <div
               className="animate-fb-fade-up mt-6 flex w-full max-w-sm flex-col gap-2.5 sm:mt-8 sm:max-w-none sm:flex-row sm:flex-wrap sm:gap-3"
@@ -140,7 +140,7 @@ export default function HomePage() {
                 size="lg"
                 className="min-h-12 w-full gap-2 bg-cream text-forest hover:bg-cream/90 sm:min-h-11 sm:w-auto"
               >
-                Shop eco finds
+                Start shopping
                 <ArrowRight className="size-4" />
               </Button>
               <Button
