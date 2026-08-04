@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Sparkles,
   Trash2,
+  Trees,
   Users,
   Wand2,
 } from "lucide-react";
@@ -31,7 +32,6 @@ import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { KitchenDietaryNotes } from "@/components/kitchen/kitchen-dietary-notes";
 import { KitchenSavedLink } from "@/components/kitchen/kitchen-saved-link";
 import { KitchenVoiceInput } from "@/components/kitchen/kitchen-voice-input";
-import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,8 +51,10 @@ import {
   DIETARY_FILTERS,
   SAMPLE_RECIPES,
   SEASONAL_SAMPLE_RECIPES,
-  SERVING_OPTIONS,
+  SERVING_MAX,
+  SERVING_MIN,
   buildRecipePlan,
+  clampServings,
   detectDietaryNotes,
   estimateIngredientLineTotal,
   estimateRecipeCarbon,
@@ -130,7 +132,7 @@ function KitchenAssistantPageInner() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [recipeCollapsed, setRecipeCollapsed] = useState(false);
   const [leafyTip, setLeafyTip] = useState(
-    "Paste a recipe or pick a sample — I’ll sort your shopping list by aisle."
+    "Pick a recipe → adjust servings → cart or local → plan time."
   );
 
   const cartIds = useMemo(() => new Set(cart.map((item) => item.id)), [cart]);
@@ -189,11 +191,6 @@ function KitchenAssistantPageInner() {
       ),
     [dietaryFilter]
   );
-
-  const servingChoices = useMemo(() => {
-    const set = new Set<number>([...SERVING_OPTIONS, baseServings, servings]);
-    return [...set].filter((n) => n > 0).sort((a, b) => a - b);
-  }, [baseServings, servings]);
 
   const livePlan = useMemo(() => {
     if (ingredients.length === 0) return null;
@@ -255,10 +252,11 @@ function KitchenAssistantPageInner() {
     setRecipeText(item.recipeText);
     setSelectedSampleId(item.sampleId);
     const kind = getSavedItemKind(item);
-    const restoredServings =
+    const restoredServings = clampServings(
       item.servings > 0
         ? item.servings
-        : resolveBaseServings(item.recipeText, item.sampleId);
+        : resolveBaseServings(item.recipeText, item.sampleId)
+    );
     setBaseServings(restoredServings);
     setServings(restoredServings);
     setIngredients(
@@ -298,10 +296,11 @@ function KitchenAssistantPageInner() {
     openedHistoryRef.current = historyId;
     setRecipeText(item.recipeText);
     setSelectedSampleId(item.sampleId);
-    const restoredServings =
+    const restoredServings = clampServings(
       item.servings > 0
         ? item.servings
-        : resolveBaseServings(item.recipeText, item.sampleId);
+        : resolveBaseServings(item.recipeText, item.sampleId)
+    );
     setBaseServings(restoredServings);
     setServings(restoredServings);
     setIngredients(
@@ -416,15 +415,16 @@ function KitchenAssistantPageInner() {
   }
 
   function handleServingsChange(next: number) {
-    if (next === servings) return;
-    setServings(next);
+    const clamped = clampServings(next);
+    if (clamped === servings) return;
+    setServings(clamped);
     setIngredients((prev) =>
-      scaleIngredientsForServings(prev, baseServings, next)
+      scaleIngredientsForServings(prev, baseServings, clamped)
     );
     setListSaved(false);
     setSavedMode(null);
     setLeafyTip(
-      `Scaled to ${next} servings — quantities and basket estimate updated.`
+      `Scaled to ${clamped} servings — quantities and basket estimate updated.`
     );
   }
 
@@ -664,11 +664,21 @@ function KitchenAssistantPageInner() {
           From recipe to basket — with Leafy
         </h1>
         <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
-          Pick a sample or paste a recipe. Leafy builds your shopping list,
-          then helps you buy online, check local stores, and plan cook time.
+          Pick a recipe → adjust servings → cart or local → plan time.
         </p>
 
-        <LeafyHubLinks omitHref="/kitchen" className="mt-4" dense />
+        <div className="mt-4 print:hidden">
+          <Button
+            nativeButton={false}
+            render={<Link href="/dashboard/my-forest" />}
+            variant="outline"
+            size="sm"
+            className="h-10 gap-1.5 border-emerald-200/90 bg-white/90 text-emerald-950 sm:h-9"
+          >
+            <Trees className="size-3.5 text-emerald-800" aria-hidden />
+            My Forest
+          </Button>
+        </div>
 
         <div className="mt-4 flex gap-2.5 rounded-2xl border border-emerald-200/80 bg-white/90 p-3 shadow-sm print:hidden sm:mt-5 sm:gap-3 sm:p-4">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm sm:size-10">
@@ -868,20 +878,25 @@ function KitchenAssistantPageInner() {
                 className="flex w-full items-center justify-between gap-2 text-left lg:pointer-events-none"
                 onClick={() => setRecipeCollapsed((c) => !c)}
               >
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Wand2 className="size-4 text-primary" />
-                  Your recipe
-                </CardTitle>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
+                    Step 1 · Recipe
+                  </p>
+                  <CardTitle className="mt-1 flex items-center gap-2 text-lg">
+                    <Wand2 className="size-4 text-primary" />
+                    Your recipe
+                  </CardTitle>
+                </div>
                 <ChevronDown
                   className={cn(
-                    "size-4 text-muted-foreground transition-transform lg:hidden",
+                    "size-4 shrink-0 text-muted-foreground transition-transform lg:hidden",
                     !recipeCollapsed && "rotate-180"
                   )}
                 />
               </button>
               <CardDescription className={cn(recipeCollapsed && "hidden lg:block")}>
                 Paste ingredients and method, speak a recipe, or use a sample
-                above.
+                above — then make your shopping list.
               </CardDescription>
             </CardHeader>
             <CardContent
@@ -1008,19 +1023,19 @@ Ingredients:
                       <span className="font-heading text-base font-semibold text-emerald-800">
                         1
                       </span>
-                      <span>Pick a sample or paste a recipe</span>
+                      <span>Recipe — pick a sample or paste yours</span>
                     </li>
                     <li className="flex gap-2.5 rounded-xl border border-emerald-100 bg-white/80 px-3 py-2.5">
                       <span className="font-heading text-base font-semibold text-emerald-800">
                         2
                       </span>
-                      <span>Adjust servings &amp; tick pantry items</span>
+                      <span>Shopping list — adjust servings, then cart or local</span>
                     </li>
                     <li className="flex gap-2.5 rounded-xl border border-emerald-100 bg-white/80 px-3 py-2.5">
                       <span className="font-heading text-base font-semibold text-emerald-800">
                         3
                       </span>
-                      <span>Add to cart, check local, or save the list</span>
+                      <span>Plan cook — time it and add to your calendar</span>
                     </li>
                   </ol>
                   <div className="flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
@@ -1077,12 +1092,14 @@ Ingredients:
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
-                          Step 1
+                          Step 2 · Shopping list
                         </p>
                         <CardTitle className="mt-1 text-xl sm:text-2xl">
-                          Shopping list
+                          {livePlan?.title ?? "Shopping list"}
                         </CardTitle>
                         <CardDescription className="mt-1">
+                          Servings: {servings}
+                          {" · "}
                           {checkedCount}/{ingredients.length} checked
                           {pantryCount > 0 ? ` · ${pantryCount} in pantry` : ""}
                           {" · "}by aisle
@@ -1205,39 +1222,52 @@ Ingredients:
 
                     {/* Servings adjuster */}
                     <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 px-3 py-3.5 print:border-border sm:px-3.5 sm:py-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
                         <div className="flex items-center gap-2.5">
                           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-800/10 text-emerald-900 sm:size-8">
                             <Users className="size-4" />
                           </span>
                           <div>
                             <p className="text-sm font-medium text-emerald-950">
-                              Servings
+                              Adjust servings
                             </p>
                             <p className="text-[11px] text-muted-foreground">
-                              Scales quantities from {baseServings} base
+                              Recipe base {baseServings} · scales the list
                             </p>
                           </div>
                         </div>
-                        <div className="grid grid-cols-4 gap-2 print:hidden sm:flex sm:flex-wrap sm:gap-1.5">
-                          {servingChoices.map((n) => (
-                            <button
-                              key={n}
-                              type="button"
-                              onClick={() => handleServingsChange(n)}
-                              className={cn(
-                                "min-h-11 rounded-xl border px-2.5 text-base font-semibold tabular-nums transition-all active:scale-[0.97] sm:min-h-0 sm:min-w-[2.5rem] sm:py-1.5 sm:text-sm",
-                                servings === n
-                                  ? "border-emerald-800 bg-emerald-800 text-cream shadow-sm"
-                                  : "border-emerald-200 bg-white text-emerald-950 hover:border-emerald-400"
-                              )}
-                            >
-                              {n}
-                            </button>
-                          ))}
+                        <div className="flex items-center gap-2 print:hidden">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="size-11 shrink-0 border-emerald-200 bg-white sm:size-9"
+                            disabled={servings <= SERVING_MIN}
+                            aria-label="Decrease servings"
+                            onClick={() => handleServingsChange(servings - 1)}
+                          >
+                            <Minus className="size-4" />
+                          </Button>
+                          <p
+                            className="min-w-[5.5rem] text-center text-sm font-semibold tabular-nums text-emerald-950"
+                            aria-live="polite"
+                          >
+                            Servings: {servings}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="size-11 shrink-0 border-emerald-200 bg-white sm:size-9"
+                            disabled={servings >= SERVING_MAX}
+                            aria-label="Increase servings"
+                            onClick={() => handleServingsChange(servings + 1)}
+                          >
+                            <Plus className="size-4" />
+                          </Button>
                         </div>
                         <p className="hidden text-sm font-semibold tabular-nums print:block">
-                          Serves {servings}
+                          Servings: {servings}
                         </p>
                       </div>
                     </div>
@@ -1632,19 +1662,20 @@ Ingredients:
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-10 sm:h-8"
+                        className="h-10 gap-1.5 sm:h-8"
                         nativeButton={false}
                         render={
                           <Link
                             href={
                               ingredients[0]
                                 ? kitchenLocalHref(ingredients[0])
-                                : "/local"
+                                : "/local?from=kitchen"
                             }
                           />
                         }
                       >
-                        Buy Local
+                        <MapPin className="size-3.5" />
+                        Find ingredients nearby
                       </Button>
                       <Button
                         variant="ghost"
@@ -1653,7 +1684,7 @@ Ingredients:
                         nativeButton={false}
                         render={<a href="#cook-plan" />}
                       >
-                        Plan My Cook
+                        Plan cook
                       </Button>
                     </div>
                   </CardFooter>
@@ -1667,14 +1698,14 @@ Ingredients:
                   >
                     <CardHeader className="space-y-1 px-3.5 pb-2 sm:px-6">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800/70">
-                        Step 2 · Plan My Cook
+                        Step 3 · Plan cook
                       </p>
                       <CardTitle className="flex flex-wrap items-center gap-2 text-xl text-emerald-950 sm:text-2xl">
                         <Clock className="size-5 shrink-0" />
                         ~{timePreview.total} minutes total
                       </CardTitle>
                       <CardDescription className="text-sm leading-relaxed text-emerald-900/75">
-                        {livePlan.title} · Serves {servings}
+                        {livePlan.title} · Servings: {servings}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4 px-3.5 sm:px-6">
@@ -1746,23 +1777,6 @@ Ingredients:
                         <CalendarPlus className="size-4" />
                         Add to Google Calendar
                         <ExternalLink className="size-3.5 opacity-70" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-12 w-full sm:h-8 sm:w-auto"
-                        nativeButton={false}
-                        render={
-                          <Link
-                            href={
-                              ingredients[0]
-                                ? kitchenLocalHref(ingredients[0])
-                                : "/local"
-                            }
-                          />
-                        }
-                      >
-                        Find ingredients nearby
                       </Button>
                     </CardFooter>
                   </Card>

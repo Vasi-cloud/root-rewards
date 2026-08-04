@@ -859,7 +859,15 @@ export function formatIngredientLabel(ing: ShoppingIngredient): string {
   return ing.name;
 }
 
+/** Legacy chip set — prefer SERVING_MIN/MAX + stepper in the UI. */
 export const SERVING_OPTIONS = [2, 4, 6, 8] as const;
+export const SERVING_MIN = 1;
+export const SERVING_MAX = 12;
+
+export function clampServings(n: number): number {
+  if (!Number.isFinite(n)) return 2;
+  return Math.min(SERVING_MAX, Math.max(SERVING_MIN, Math.round(n)));
+}
 
 const VAGUE_QTY_RE =
   /^(?:to taste|(?:small |large |heaped )?(handful|pinch|dash|splash|sprinkle))$/i;
@@ -969,9 +977,9 @@ export function resolveBaseServings(
   sampleId?: string | null
 ): number {
   const fromText = extractServings(recipeText);
-  if (fromText && fromText > 0) return fromText;
+  if (fromText && fromText > 0) return clampServings(fromText);
   const sample = sampleId ? findSampleRecipe(sampleId) : undefined;
-  return sample?.servings ?? 2;
+  return clampServings(sample?.servings ?? 2);
 }
 
 /** Cleaner grocery search term for Amazon / Buy Local. */
