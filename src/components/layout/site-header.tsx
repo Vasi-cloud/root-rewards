@@ -230,16 +230,16 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-1.5 px-2.5 sm:h-16 sm:gap-3 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-1 px-2 sm:h-16 sm:gap-3 sm:px-6">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-1.5 font-heading text-sm font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2 sm:text-lg"
+          className="group flex shrink-0 items-center gap-1 font-heading text-sm font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2 sm:text-lg"
           aria-label="Forest Buddies® home"
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
-            <Leaf className="size-4 sm:size-5" aria-hidden />
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
+            <Leaf className="size-3.5 sm:size-5" aria-hidden />
           </span>
-          <BrandMark className="text-[0.95rem] sm:text-inherit" />
+          <BrandMark className="text-[0.78rem] leading-none tracking-tight sm:text-base sm:leading-normal sm:tracking-normal md:text-lg" />
         </Link>
 
         <MainNav

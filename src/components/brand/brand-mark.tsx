@@ -5,17 +5,22 @@ import { cn } from "@/lib/utils";
 /** Canonical registered brand string for prominent display */
 export const BRAND_NAME_REGISTERED = "Forest Buddies®";
 
-/** Compact registered short form — narrow viewports / crowded headers */
-export const BRAND_NAME_SHORT = "Forest®";
+/** Full name without ® — only when the bar is extremely narrow */
+export const BRAND_NAME_COMPACT = "Forest Buddies";
+
+/**
+ * @deprecated Prefer BRAND_NAME_COMPACT / BRAND_NAME_REGISTERED.
+ * Kept so older imports still compile; no longer used in the header.
+ */
+export const BRAND_NAME_SHORT = BRAND_NAME_COMPACT;
 
 /**
  * Nav wordmark with ®.
- * Defaults to the full “Forest Buddies®” on marketing and app headers.
- * Only one label is visible at a time — never truncate a dual-label wrapper
- * (that caused “FBFB®” / incomplete marks on small screens).
+ * Defaults to the full “Forest Buddies®”. Only one label is visible at a time —
+ * never truncate a dual-label wrapper (that caused incomplete marks).
  *
- * @param compactOnNarrow — when true (default), may show “Forest®” only below
- *   ~420px width if space is tight; otherwise always the full name.
+ * @param compactOnNarrow — when true (default), may omit ® below ~340px;
+ *   otherwise always “Forest Buddies®”. Never shortens to “Forest®”.
  */
 export function BrandMark({
   className = "",
@@ -40,9 +45,11 @@ export function BrandMark({
 
   return (
     <span className={cn("whitespace-nowrap", className)}>
-      {/* Full name by default; short form on narrow phones so header CTAs fit */}
-      <span className="hidden max-[419px]:inline">{BRAND_NAME_SHORT}</span>
-      <span className="inline max-[419px]:hidden">{BRAND_NAME_REGISTERED}</span>
+      {/* Full name; drop ® only on extremely narrow phones */}
+      <span className="hidden max-[339px]:inline">{BRAND_NAME_COMPACT}</span>
+      <span className="inline max-[339px]:hidden">
+        {BRAND_NAME_REGISTERED}
+      </span>
     </span>
   );
 }
