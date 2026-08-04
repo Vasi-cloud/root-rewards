@@ -121,7 +121,7 @@ export default function HomePage() {
               className="animate-fb-fade-up mt-2 font-heading text-[1.75rem] font-semibold leading-[1.15] tracking-tight text-cream sm:mt-3 sm:text-5xl lg:text-6xl"
               style={{ animationDelay: "120ms" }}
             >
-              Shop kindly. Fund causes. Grow the wild together.
+              Shop, fund causes, and grow the wild together.
             </h1>
             <p
               className="animate-fb-fade-up mt-3 max-w-md text-sm leading-relaxed text-cream/80 sm:mt-5 sm:max-w-xl sm:text-lg"

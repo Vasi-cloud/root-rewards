@@ -330,7 +330,7 @@ export function SiteHeader() {
               render={<Link href={loginHref} />}
               size="sm"
               variant="outline"
-              className="hidden shrink-0 px-2.5 lg:inline-flex xl:hidden"
+              className="inline-flex shrink-0 whitespace-nowrap px-2.5 xl:hidden"
             >
               Sign in
             </Button>
@@ -354,12 +354,42 @@ export function SiteHeader() {
                   Forest Buddies®
                 </SheetTitle>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Shop kindly · Leafy tools · Local &amp; eco
+                  Shop, fund causes, and grow the wild together.
                 </p>
               </SheetHeader>
 
               {/* Scrollable body — Settings / Sign out reachable at the bottom */}
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-3 sm:px-5 [-webkit-overflow-scrolling:touch] pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))]">
+                {!user ? (
+                  <div className="mb-4 grid grid-cols-2 gap-2">
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={loginHref}
+                          onClick={() => setMenuOpen(false)}
+                        />
+                      }
+                      variant="outline"
+                      className="min-h-11 w-full"
+                    >
+                      Sign in
+                    </Button>
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          href={registerHref}
+                          onClick={() => setMenuOpen(false)}
+                        />
+                      }
+                      className="min-h-11 w-full whitespace-nowrap"
+                    >
+                      Get started
+                    </Button>
+                  </div>
+                ) : null}
+
                 <MainNav variant="full" />
 
                 <div className="mt-6 flex flex-col gap-2.5 border-t border-border pt-4">
@@ -431,25 +461,7 @@ export function SiteHeader() {
                       </Button>
                       <DashboardSignOut className="min-h-11 w-full justify-center" />
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-2 pt-1 sm:grid-cols-2">
-                      <Button
-                        nativeButton={false}
-                        render={<Link href={loginHref} />}
-                        variant="outline"
-                        className="min-h-11 w-full xl:hidden"
-                      >
-                        Sign in
-                      </Button>
-                      <Button
-                        nativeButton={false}
-                        render={<Link href={registerHref} />}
-                        className="min-h-11 w-full whitespace-nowrap"
-                      >
-                        Get started
-                      </Button>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </SheetContent>

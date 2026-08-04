@@ -173,8 +173,8 @@ export default function CheckoutPage() {
           Your cart is empty
         </h1>
         <p className="mt-3 text-base text-muted-foreground">
-          Add eco products from the marketplace — or send a list from Leafy
-          Kitchen with Add All to Cart.
+          Add products from the marketplace — or build a list in Leafy Kitchen
+          and tap Add All to Cart.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button

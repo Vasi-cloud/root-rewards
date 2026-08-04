@@ -51,8 +51,8 @@ export default function CartPage() {
           Your cart is empty
         </h1>
         <p className="mx-auto mt-3 max-w-sm text-base text-muted-foreground">
-          Add eco products from the marketplace — or build a list in Leafy
-          Kitchen and tap Add All to Cart.
+          Add products from the marketplace — or build a list in Leafy Kitchen
+          and tap Add All to Cart.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button
@@ -73,6 +73,23 @@ export default function CartPage() {
             Open Leafy Kitchen
           </Button>
         </div>
+        <p className="mt-5 text-sm text-muted-foreground">
+          <Link
+            href="/local"
+            className="underline-offset-4 hover:text-primary hover:underline"
+          >
+            Buy Local
+          </Link>
+          <span className="mx-2 text-border" aria-hidden>
+            ·
+          </span>
+          <Link
+            href="/recommend"
+            className="underline-offset-4 hover:text-primary hover:underline"
+          >
+            Ask Leafy
+          </Link>
+        </p>
       </div>
     );
   }
