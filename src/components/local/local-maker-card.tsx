@@ -21,6 +21,7 @@ import {
   googleMapsStoreUrl,
   inferMakerType,
   visitMakerWebsiteUrl,
+  type DistanceUnit,
   type GeoPoint,
   type LocalMaker,
   type LocationCountry,
@@ -31,6 +32,7 @@ type LocalMakerCardProps = {
   maker: LocalMaker;
   distanceMi: number;
   country: LocationCountry;
+  unit?: DistanceUnit;
   from: GeoPoint;
   markerIndex?: number;
   saved?: boolean;
@@ -42,13 +44,14 @@ export function LocalMakerCard({
   maker,
   distanceMi,
   country,
+  unit,
   from,
   markerIndex,
   saved = false,
   highlighted = false,
   onToggleFavourite,
 }: LocalMakerCardProps) {
-  const distance = formatDistance(distanceMi, country);
+  const distance = formatDistance(distanceMi, unit ?? country);
   const directionsUrl = googleMapsDirectionsUrl(maker, from);
   const mapsUrl = googleMapsStoreUrl(maker);
   const websiteUrl = visitMakerWebsiteUrl(maker) ?? mapsUrl;

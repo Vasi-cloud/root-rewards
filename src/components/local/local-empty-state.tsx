@@ -8,17 +8,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   USER_LOCATION_OPTIONS,
   distanceOptionLabel,
+  type DistanceUnit,
   type LocationCountry,
 } from "@/lib/local-commerce";
+import { nextExpandMiles } from "@/lib/local-prefs";
 
 type LocalEmptyStateProps = {
   icon?: LucideIcon;
   title: string;
   description: string;
   country: LocationCountry;
+  /** Overrides country for distance chip labels */
+  unit?: DistanceUnit;
   currentCityId: string;
   maxMiles: number;
-  onExpandRadius?: (miles: 50 | 100) => void;
+  onExpandRadius?: (miles: number) => void;
   onSelectCity?: (cityId: string) => void;
   secondaryAction?: {
     label: string;
@@ -31,6 +35,7 @@ export function LocalEmptyState({
   title,
   description,
   country,
+  unit,
   currentCityId,
   maxMiles,
   onExpandRadius,
@@ -41,8 +46,8 @@ export function LocalEmptyState({
     (c) => c.id !== currentCityId
   ).slice(0, 3);
 
-  const nextRadius: 50 | 100 | null =
-    maxMiles < 50 ? 50 : maxMiles < 100 ? 100 : null;
+  const labelUnit = unit ?? country;
+  const nextRadius = nextExpandMiles(maxMiles);
 
   return (
     <Card className="border-dashed border-emerald-200/80 bg-emerald-50/30">
@@ -62,7 +67,7 @@ export function LocalEmptyState({
               className="h-11 w-full sm:h-10"
               onClick={() => onExpandRadius(nextRadius)}
             >
-              Widen search to {distanceOptionLabel(nextRadius, country)}
+              Widen search to {distanceOptionLabel(nextRadius, labelUnit)}
             </Button>
           )}
           {secondaryAction && (

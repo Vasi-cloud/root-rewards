@@ -529,7 +529,21 @@ export const LOCAL_MARKETS: LocalMarket[] = [
   },
 ];
 
+/** Wider options for Ask Leafy / recommend nearest-store UX */
 export const DISTANCE_OPTIONS_MI = [10, 25, 50, 100, 500] as const;
+
+/** Display unit for distances (filtering always uses miles internally). */
+export type DistanceUnit = "mi" | "km";
+
+export function distanceUnitFromCountry(
+  country: LocationCountry
+): DistanceUnit {
+  return country === "gb" ? "km" : "mi";
+}
+
+function usesKm(countryOrUnit: LocationCountry | DistanceUnit): boolean {
+  return countryOrUnit === "gb" || countryOrUnit === "km";
+}
 
 /** Haversine distance in miles. */
 export function milesBetween(a: GeoPoint, b: GeoPoint): number {
@@ -1154,9 +1168,9 @@ export function pinPosition(
 
 export function formatDistance(
   mi: number,
-  country: LocationCountry = "us"
+  countryOrUnit: LocationCountry | DistanceUnit = "us"
 ): string {
-  if (country === "gb") {
+  if (usesKm(countryOrUnit)) {
     const km = mi * 1.60934;
     if (km < 1) return "< 1 km";
     if (km < 10) return `${km.toFixed(1)} km`;
@@ -1169,9 +1183,13 @@ export function formatDistance(
 
 export function distanceOptionLabel(
   mi: number,
-  country: LocationCountry = "us"
+  countryOrUnit: LocationCountry | DistanceUnit = "us"
 ): string {
-  if (country === "gb") return `${Math.round(mi * 1.60934)} km`;
+  if (usesKm(countryOrUnit)) {
+    const km = mi * 1.60934;
+    if (km < 10) return `${km.toFixed(km < 5 ? 1 : 0)} km`;
+    return `${Math.round(km)} km`;
+  }
   return `${mi} mi`;
 }
 

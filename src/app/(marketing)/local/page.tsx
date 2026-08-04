@@ -44,7 +44,6 @@ import {
 import { useAppToast } from "@/components/ui/app-toast";
 import { useCart } from "@/contexts/cart-context";
 import {
-  DISTANCE_OPTIONS_MI,
   LOCAL_STOCK_DISCLAIMER,
   USER_LOCATION_OPTIONS,
   distanceOptionLabel,
@@ -55,7 +54,9 @@ import {
   getNearbyMarkets,
   googleMapsDirectionsUrl,
   retailChainToNearbyStore,
+  type DistanceUnit,
   type NearbyStore,
+  type UserLocationOption,
 } from "@/lib/local-commerce";
 import {
   getLocalFavourites,
@@ -63,6 +64,15 @@ import {
   toggleLocalFavourite,
   type LocalFavourite,
 } from "@/lib/local-favourites";
+import {
+  BUY_LOCAL_DEFAULT_MILES,
+  BUY_LOCAL_DISTANCE_OPTIONS_MI,
+  BUY_LOCAL_MAX_MILES,
+  BUY_LOCAL_MIN_MILES,
+  getLocalPrefs,
+  nextExpandMiles,
+  setLocalPrefs,
+} from "@/lib/local-prefs";
 import { ensureDemoShops } from "@/lib/seller-storage";
 import { cn } from "@/lib/utils";
 import {
@@ -109,7 +119,15 @@ function BuyLocalPageInner() {
     USER_LOCATION_OPTIONS[0].id;
 
   const [locationId, setLocationId] = useState(initialCity);
-  const [maxMiles, setMaxMiles] = useState<(typeof DISTANCE_OPTIONS_MI)[number]>(25);
+  const [maxMiles, setMaxMiles] = useState(BUY_LOCAL_DEFAULT_MILES);
+  const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>("mi");
+  const [prefsReady, setPrefsReady] = useState(false);
+  const [geoCentre, setGeoCentre] = useState<{
+    lat: number;
+    lng: number;
+    label: string;
+  } | null>(null);
+  const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [onlineProductId, setOnlineProductId] = useState<string | null>(null);
   const [nearbyStores, setNearbyStores] = useState<NearbyStore[]>([]);
@@ -150,8 +168,40 @@ function BuyLocalPageInner() {
   }, []);
 
   useEffect(() => {
+    const prefs = getLocalPrefs();
+    const cityFromQuery =
+      cityParam && USER_LOCATION_OPTIONS.some((l) => l.id === cityParam)
+        ? cityParam
+        : null;
+    if (cityFromQuery) {
+      setLocationId(cityFromQuery);
+    } else if (
+      prefs.locationId &&
+      USER_LOCATION_OPTIONS.some((l) => l.id === prefs.locationId)
+    ) {
+      setLocationId(prefs.locationId);
+    }
+    if (typeof prefs.maxMiles === "number") {
+      setMaxMiles(prefs.maxMiles);
+    }
+    // Default miles (with mi/km toggle); restore saved unit when present
+    setDistanceUnit(prefs.distanceUnit ?? "mi");
+    setPrefsReady(true);
+  }, [cityParam]);
+
+  useEffect(() => {
+    if (!prefsReady) return;
+    setLocalPrefs({
+      maxMiles,
+      distanceUnit,
+      locationId,
+    });
+  }, [prefsReady, maxMiles, distanceUnit, locationId]);
+
+  useEffect(() => {
     if (cityParam && USER_LOCATION_OPTIONS.some((l) => l.id === cityParam)) {
       setLocationId(cityParam);
+      setGeoCentre(null);
     }
   }, [cityParam]);
 
@@ -192,12 +242,25 @@ function BuyLocalPageInner() {
     setFocusProductName(null);
   }, [ingredientParam, partParam, fromKitchen, fromParts, productParam]);
 
-  const user = useMemo(
+  const city = useMemo(
     () =>
       USER_LOCATION_OPTIONS.find((l) => l.id === locationId) ??
       USER_LOCATION_OPTIONS[0],
     [locationId]
   );
+
+  /** City preset, or a one-shot browser location centre (not live tracking). */
+  const user = useMemo((): UserLocationOption => {
+    if (!geoCentre) return city;
+    return {
+      ...city,
+      id: "geo",
+      label: geoCentre.label,
+      region: "Near you",
+      lat: geoCentre.lat,
+      lng: geoCentre.lng,
+    };
+  }, [city, geoCentre]);
 
   const makers = useMemo(
     () => getNearbyMakers(user, maxMiles),
@@ -208,6 +271,42 @@ function BuyLocalPageInner() {
     () => getNearbyMarkets(user, maxMiles),
     [user, maxMiles]
   );
+
+  function updateMaxMiles(miles: number) {
+    const next = Math.min(
+      BUY_LOCAL_MAX_MILES,
+      Math.max(BUY_LOCAL_MIN_MILES, Math.round(miles))
+    );
+    setMaxMiles(next);
+  }
+
+  function handleUseMyLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoStatus(
+        "Location isn’t available in this browser — pick a city instead."
+      );
+      return;
+    }
+    setGeoStatus("Getting a one-time location fix…");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoCentre({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          label: "Your current location",
+        });
+        setGeoStatus(
+          "Using your current location once — not live tracking. You can switch back to a city anytime."
+        );
+      },
+      () => {
+        setGeoStatus(
+          "Couldn’t read your location. Allow access in the browser, or pick a city."
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60_000 }
+    );
+  }
 
   const favouriteStoreIds = useMemo(
     () =>
@@ -247,7 +346,7 @@ function BuyLocalPageInner() {
       name: store.name,
       kind: "store" as const,
       distanceMi: store.distanceMi,
-      distanceLabel: formatDistance(store.distanceMi, user.country),
+      distanceLabel: formatDistance(store.distanceMi, distanceUnit),
       directionsUrl: store.directionsUrl,
     }));
     const makerPlaces = makers.map(({ maker, distanceMi }) => ({
@@ -255,11 +354,11 @@ function BuyLocalPageInner() {
       name: maker.name,
       kind: "maker" as const,
       distanceMi,
-      distanceLabel: formatDistance(distanceMi, user.country),
+      distanceLabel: formatDistance(distanceMi, distanceUnit),
       directionsUrl: googleMapsDirectionsUrl(maker, user),
     }));
     setVoiceNavPlaces([...storePlaces, ...makerPlaces]);
-  }, [nearbyStores, makers, user]);
+  }, [nearbyStores, makers, user, distanceUnit]);
 
   // Honour pending voice-nav focus (e.g. “Where is Tesco near me” / nearest store)
   useEffect(() => {
@@ -366,12 +465,12 @@ function BuyLocalPageInner() {
       let highlightId: string | null = null;
 
       if (matchedStore) {
-        const dist = formatDistance(matchedStore.distanceMi, user.country);
+        const dist = formatDistance(matchedStore.distanceMi, distanceUnit);
         banner = `Showing nearby stores — ${matchedStore.name} is about ${dist} away`;
         highlightId = matchedStore.id;
         matchKind = "store";
       } else if (matchedMaker) {
-        const dist = formatDistance(matchedMaker.distanceMi, user.country);
+        const dist = formatDistance(matchedMaker.distanceMi, distanceUnit);
         banner = `Showing nearby stores — ${matchedMaker.maker.name} is about ${dist} away`;
         highlightId = matchedMaker.maker.id;
         matchKind = "maker";
@@ -388,8 +487,8 @@ function BuyLocalPageInner() {
         (matchedStore || matchedMaker)
       ) {
         const spoken = matchedStore
-          ? `${matchedStore.name} is about ${formatDistance(matchedStore.distanceMi, user.country)} away.`
-          : `${matchedMaker!.maker.name} is about ${formatDistance(matchedMaker!.distanceMi, user.country)} away.`;
+          ? `${matchedStore.name} is about ${formatDistance(matchedStore.distanceMi, distanceUnit)} away.`
+          : `${matchedMaker!.maker.name} is about ${formatDistance(matchedMaker!.distanceMi, distanceUnit)} away.`;
         speakFeedback(spoken);
       }
 
@@ -838,8 +937,8 @@ function BuyLocalPageInner() {
                 Your area
               </CardTitle>
               <CardDescription className="text-sm">
-                Choose a city to see nearby stores and distance. Maps uses
-                Google Places when configured.
+                Choose a city (or a one-time location fix) and how far to search.
+                Stock is not live on Forest Buddies®.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3.5 px-3.5 pb-4 sm:space-y-4 sm:px-6 sm:pb-6">
@@ -853,7 +952,11 @@ function BuyLocalPageInner() {
                 <select
                   id="local-city"
                   value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
+                  onChange={(e) => {
+                    setLocationId(e.target.value);
+                    setGeoCentre(null);
+                    setGeoStatus(null);
+                  }}
                   className="h-11 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-ring sm:h-auto"
                 >
                   {USER_LOCATION_OPTIONS.map((loc) => (
@@ -862,16 +965,73 @@ function BuyLocalPageInner() {
                     </option>
                   ))}
                 </select>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-10 gap-1.5"
+                    onClick={handleUseMyLocation}
+                  >
+                    <Navigation className="size-3.5" />
+                    Use my location
+                  </Button>
+                  {geoCentre ? (
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-emerald-900 underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setGeoCentre(null);
+                        setGeoStatus(null);
+                      }}
+                    >
+                      Use city centre instead
+                    </button>
+                  ) : null}
+                </div>
+                {geoStatus ? (
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    {geoStatus}
+                  </p>
+                ) : null}
+                {geoCentre ? (
+                  <p className="mt-1 text-xs font-medium text-emerald-900">
+                    Searching from: {geoCentre.label}
+                  </p>
+                ) : null}
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-medium">Search within</p>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Search within</p>
+                  <div
+                    className="inline-flex rounded-full border border-emerald-200 bg-emerald-50/60 p-0.5"
+                    role="group"
+                    aria-label="Distance units"
+                  >
+                    {(["mi", "km"] as const).map((u) => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => setDistanceUnit(u)}
+                        className={cn(
+                          "min-h-8 rounded-full px-2.5 text-xs font-semibold uppercase transition-colors",
+                          distanceUnit === u
+                            ? "bg-emerald-800 text-white"
+                            : "text-emerald-950 hover:bg-white/80"
+                        )}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {DISTANCE_OPTIONS_MI.map((mi) => (
+                  {BUY_LOCAL_DISTANCE_OPTIONS_MI.map((mi) => (
                     <button
                       key={mi}
                       type="button"
-                      onClick={() => setMaxMiles(mi)}
+                      onClick={() => updateMaxMiles(mi)}
                       className={cn(
                         "min-h-11 rounded-full border px-3.5 py-2.5 text-sm font-medium transition-all duration-200 active:scale-[0.98] sm:min-h-0 sm:px-3 sm:py-1.5",
                         maxMiles === mi
@@ -879,11 +1039,38 @@ function BuyLocalPageInner() {
                           : "border-emerald-200 bg-emerald-50/80 text-emerald-950 hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-sm"
                       )}
                     >
-                      {mi >= 500
-                        ? "Anywhere"
-                        : distanceOptionLabel(mi, user.country)}
+                      {distanceOptionLabel(mi, distanceUnit)}
                     </button>
                   ))}
+                </div>
+                <div className="mt-3">
+                  <label
+                    className="mb-1.5 flex items-center justify-between gap-2 text-xs text-muted-foreground"
+                    htmlFor="local-radius-slider"
+                  >
+                    <span>Custom distance</span>
+                    <span className="font-medium text-foreground">
+                      {distanceOptionLabel(maxMiles, distanceUnit)}
+                    </span>
+                  </label>
+                  <input
+                    id="local-radius-slider"
+                    type="range"
+                    min={BUY_LOCAL_MIN_MILES}
+                    max={BUY_LOCAL_MAX_MILES}
+                    step={1}
+                    value={maxMiles}
+                    onChange={(e) => updateMaxMiles(Number(e.target.value))}
+                    className="h-2 w-full cursor-pointer accent-emerald-800"
+                  />
+                  <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+                    <span>
+                      {distanceOptionLabel(BUY_LOCAL_MIN_MILES, distanceUnit)}
+                    </span>
+                    <span>
+                      {distanceOptionLabel(BUY_LOCAL_MAX_MILES, distanceUnit)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -964,6 +1151,7 @@ function BuyLocalPageInner() {
             user={user}
             pins={mapPins}
             placesEngine={placesEngine}
+            unit={distanceUnit}
             onSelectPin={handleSelectPin}
           />
         </div>
@@ -1023,20 +1211,24 @@ function BuyLocalPageInner() {
               title={
                 showFavouritesOnly
                   ? "No saved stores nearby"
-                  : "No stores in this radius"
+                  : "No places in this range"
               }
               description={
                 showFavouritesOnly
                   ? favourites.some((f) => f.kind === "store")
                     ? "You’ve saved stores, but none are in this city or distance. Widen the radius, switch cities, or show all nearby."
                     : "Tap the heart on a store card to save it here for quick access next time."
-                  : `Nothing matched near ${user.label} within your current distance${focusProductName ? ` for “${focusProductName}”` : ""}. Try a wider search or another city — local options often appear within 25–50 miles.`
+                  : "No places in this range — try a larger area or another location."
               }
-              country={user.country}
+              country={city.country}
+              unit={distanceUnit}
               currentCityId={locationId}
               maxMiles={maxMiles}
-              onExpandRadius={(mi) => setMaxMiles(mi)}
-              onSelectCity={setLocationId}
+              onExpandRadius={updateMaxMiles}
+              onSelectCity={(id) => {
+                setLocationId(id);
+                setGeoCentre(null);
+              }}
               secondaryAction={
                 showFavouritesOnly
                   ? {
@@ -1057,7 +1249,8 @@ function BuyLocalPageInner() {
                 <LocalStoreCard
                   key={store.id}
                   store={store}
-                  country={user.country}
+                  country={city.country}
+                  unit={distanceUnit}
                   focusLabel={focusProductName}
                   markerIndex={markerIndexById.get(store.id)}
                   saved={favouriteStoreIds.has(store.id)}
@@ -1101,20 +1294,24 @@ function BuyLocalPageInner() {
               title={
                 showFavouritesOnly
                   ? "No saved makers nearby"
-                  : "No makers in this radius"
+                  : "No places in this range"
               }
               description={
                 showFavouritesOnly
                   ? favourites.some((f) => f.kind === "maker")
                     ? "Your saved makers aren’t in this city or distance. Widen the search, try another city, or show all nearby."
                     : "Tap the heart on a maker card to save refill shops, studios, and producers you like."
-                  : `No independent makers near ${user.label} right now. Widen the distance or pick another city — makers often show up alongside the store list.`
+                  : "No places in this range — try a larger area or another location."
               }
-              country={user.country}
+              country={city.country}
+              unit={distanceUnit}
               currentCityId={locationId}
               maxMiles={maxMiles}
-              onExpandRadius={(mi) => setMaxMiles(mi)}
-              onSelectCity={setLocationId}
+              onExpandRadius={updateMaxMiles}
+              onSelectCity={(id) => {
+                setLocationId(id);
+                setGeoCentre(null);
+              }}
               secondaryAction={
                 showFavouritesOnly
                   ? {
@@ -1131,7 +1328,8 @@ function BuyLocalPageInner() {
                   key={maker.id}
                   maker={maker}
                   distanceMi={distanceMi}
-                  country={user.country}
+                  country={city.country}
+                  unit={distanceUnit}
                   from={user}
                   markerIndex={markerIndexById.get(maker.id)}
                   saved={favouriteMakerIds.has(maker.id)}
@@ -1175,7 +1373,8 @@ function BuyLocalPageInner() {
               icon={Tent}
               title="Markets aren’t in Saved yet"
               description="Favourites currently cover stores and makers. Clear the Favourites filter to browse open markets nearby."
-              country={user.country}
+              country={city.country}
+              unit={distanceUnit}
               currentCityId={locationId}
               maxMiles={maxMiles}
               secondaryAction={{
@@ -1186,13 +1385,17 @@ function BuyLocalPageInner() {
           ) : visibleMarkets.length === 0 ? (
             <LocalEmptyState
               icon={Tent}
-              title="No markets in this radius"
-              description={`No curated markets near ${user.label} within your current distance. Widen the search or try another city.`}
-              country={user.country}
+              title="No places in this range"
+              description="No places in this range — try a larger area or another location."
+              country={city.country}
+              unit={distanceUnit}
               currentCityId={locationId}
               maxMiles={maxMiles}
-              onExpandRadius={(mi) => setMaxMiles(mi)}
-              onSelectCity={setLocationId}
+              onExpandRadius={updateMaxMiles}
+              onSelectCity={(id) => {
+                setLocationId(id);
+                setGeoCentre(null);
+              }}
             />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1201,7 +1404,8 @@ function BuyLocalPageInner() {
                   key={market.id}
                   market={market}
                   distanceMi={distanceMi}
-                  country={user.country}
+                  country={city.country}
+                  unit={distanceUnit}
                   from={user}
                 />
               ))}
@@ -1239,7 +1443,8 @@ function BuyLocalPageInner() {
               icon={Heart}
               title="No favourites yet"
               description="Tap the heart on any store or maker card to save it. Your list stays on this device — handy when you shop the same neighbourhood again."
-              country={user.country}
+              country={city.country}
+              unit={distanceUnit}
               currentCityId={locationId}
               maxMiles={maxMiles}
               secondaryAction={{
@@ -1284,7 +1489,9 @@ function BuyLocalPageInner() {
                           className="h-11 px-3 text-xs sm:h-8"
                           onClick={() => {
                             setShowFavouritesOnly(true);
-                            if (!inRange && maxMiles < 100) setMaxMiles(100);
+                            if (!inRange && maxMiles < BUY_LOCAL_MAX_MILES) {
+                              updateMaxMiles(BUY_LOCAL_MAX_MILES);
+                            }
                             const target =
                               fav.kind === "store"
                                 ? storesSectionRef
@@ -1375,13 +1582,20 @@ function BuyLocalPageInner() {
                   eco options.
                 </p>
                 <div className="mt-4 flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
-                  {maxMiles < 50 && (
+                  {nextExpandMiles(maxMiles) != null && (
                     <Button
                       type="button"
                       className="h-11 sm:h-10"
-                      onClick={() => setMaxMiles(50)}
+                      onClick={() => {
+                        const next = nextExpandMiles(maxMiles);
+                        if (next != null) updateMaxMiles(next);
+                      }}
                     >
-                      Expand to {distanceOptionLabel(50, user.country)}
+                      Expand to{" "}
+                      {distanceOptionLabel(
+                        nextExpandMiles(maxMiles)!,
+                        distanceUnit
+                      )}
                     </Button>
                   )}
                   <Button
@@ -1412,7 +1626,7 @@ function BuyLocalPageInner() {
                       <div className="flex items-center justify-between gap-2">
                         <Badge variant="outline">{product.category}</Badge>
                         <span className="text-xs font-medium text-emerald-800">
-                          Maker {formatDistance(distanceMi, user.country)} away
+                          Maker {formatDistance(distanceMi, distanceUnit)} away
                         </span>
                       </div>
                       {productParam === product.id && (

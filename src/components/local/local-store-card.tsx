@@ -18,6 +18,7 @@ import {
   formatDistance,
   inferNearbyStoreType,
   visitWebsiteUrl,
+  type DistanceUnit,
   type LocationCountry,
   type NearbyStore,
 } from "@/lib/local-commerce";
@@ -26,6 +27,8 @@ import { cn } from "@/lib/utils";
 type LocalStoreCardProps = {
   store: NearbyStore;
   country: LocationCountry;
+  /** Overrides country for distance labels */
+  unit?: DistanceUnit;
   focusLabel?: string | null;
   markerIndex?: number;
   saved?: boolean;
@@ -37,6 +40,7 @@ type LocalStoreCardProps = {
 export function LocalStoreCard({
   store,
   country,
+  unit,
   focusLabel,
   markerIndex,
   saved = false,
@@ -44,7 +48,7 @@ export function LocalStoreCard({
   onToggleFavourite,
 }: LocalStoreCardProps) {
   const storeType = inferNearbyStoreType(store);
-  const distance = formatDistance(store.distanceMi, country);
+  const distance = formatDistance(store.distanceMi, unit ?? country);
   const checkInUrl = checkInStoreUrl(store);
   const websiteUrl = visitWebsiteUrl(store);
 

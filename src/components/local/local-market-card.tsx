@@ -24,6 +24,7 @@ import {
   formatDistance,
   googleMapsDirectionsUrl,
   googleMapsSearchUrl,
+  type DistanceUnit,
   type GeoPoint,
   type LocalMarket,
   type LocationCountry,
@@ -33,6 +34,7 @@ type LocalMarketCardProps = {
   market: LocalMarket;
   distanceMi: number;
   country: LocationCountry;
+  unit?: DistanceUnit;
   from: GeoPoint;
 };
 
@@ -40,9 +42,10 @@ export function LocalMarketCard({
   market,
   distanceMi,
   country,
+  unit,
   from,
 }: LocalMarketCardProps) {
-  const distance = formatDistance(distanceMi, country);
+  const distance = formatDistance(distanceMi, unit ?? country);
   const directionsUrl = googleMapsDirectionsUrl(market, from);
   const mapsUrl = market.address
     ? googleMapsSearchUrl(market.address)

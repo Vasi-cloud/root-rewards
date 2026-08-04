@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import {
   formatDistance,
   pinPosition,
+  type DistanceUnit,
   type UserLocationOption,
 } from "@/lib/local-commerce";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ type LocalStoresMapProps = {
   user: UserLocationOption;
   pins: LocalMapPin[];
   placesEngine: string;
+  unit?: DistanceUnit;
   onSelectPin?: (id: string) => void;
 };
 
@@ -33,8 +35,10 @@ export function LocalStoresMap({
   user,
   pins,
   placesEngine,
+  unit,
   onSelectPin,
 }: LocalStoresMapProps) {
+  const distanceUnit = unit ?? user.country;
   const live =
     placesEngine === "hybrid" ||
     placesEngine === "google-places" ||
@@ -136,13 +140,13 @@ export function LocalStoresMap({
                   type="button"
                   className="absolute z-10 -translate-x-1/2 -translate-y-full text-left"
                   style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
-                  title={`${pin.name} · ~${formatDistance(pin.distanceMi, user.country)}`}
+                  title={`${pin.name} · ~${formatDistance(pin.distanceMi, distanceUnit)}`}
                   onClick={() => onSelectPin?.(pin.id)}
                 >
                   <span className="flex flex-col items-center">
                     <span className="mb-0.5 max-w-[7.5rem] truncate rounded-md bg-cream/95 px-1.5 py-0.5 text-[10px] font-medium text-forest shadow-sm">
                       {pin.name.split(/[\s&'/]/)[0]} · ~
-                      {formatDistance(pin.distanceMi, user.country)}
+                      {formatDistance(pin.distanceMi, distanceUnit)}
                     </span>
                     <span
                       className={cn(
@@ -193,7 +197,7 @@ export function LocalStoresMap({
                         {pin.name}
                       </span>
                       <span className="shrink-0 tabular-nums opacity-80">
-                        ~{formatDistance(pin.distanceMi, user.country)}
+                        ~{formatDistance(pin.distanceMi, distanceUnit)}
                       </span>
                     </button>
                   </li>
