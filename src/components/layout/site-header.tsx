@@ -230,16 +230,16 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-1.5 px-2.5 sm:h-16 sm:gap-3 sm:px-6">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-2 font-heading text-base font-semibold text-primary transition-opacity hover:opacity-90 sm:text-lg"
+          className="group flex shrink-0 items-center gap-1.5 font-heading text-sm font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2 sm:text-lg"
           aria-label="Forest Buddies® home"
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
             <Leaf className="size-4 sm:size-5" aria-hidden />
           </span>
-          <BrandMark />
+          <BrandMark className="text-[0.95rem] sm:text-inherit" />
         </Link>
 
         <MainNav
@@ -247,7 +247,7 @@ export function SiteHeader() {
           className="hidden min-w-0 flex-1 justify-center lg:flex"
         />
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
           {/* xl+: language · utilities · auth — CTAs never shrink/clip */}
           <div className="hidden items-center gap-1 xl:flex 2xl:gap-1.5">
             <LanguageSelect id="lang-switcher-desktop" compact />
@@ -299,21 +299,24 @@ export function SiteHeader() {
             )}
           </div>
 
-          {/* Below xl: voice · chat · cart icons */}
-          <VoiceNavControl variant="icon" className="xl:hidden" />
+          {/* Below xl: voice/chat from sm+ (also in menu); cart always */}
+          <VoiceNavControl
+            variant="icon"
+            className="hidden sm:inline-flex xl:hidden"
+          />
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="size-10 shrink-0 p-0 xl:hidden"
+            className="hidden size-9 shrink-0 p-0 sm:inline-flex xl:hidden"
             aria-label="Open support chat"
             onClick={() => openSupportChat()}
           >
             <MessageCircle className="size-5" />
           </Button>
-          <CartButton className="xl:hidden" />
+          <CartButton className="size-9 xl:hidden sm:size-10" />
 
-          {/* Keep Dashboard visible on lg–xl without crowding Sign out into the bar */}
+          {/* Signed-out: keep full “Sign in” in the top bar below xl */}
           {user ? (
             <Button
               nativeButton={false}
@@ -330,7 +333,7 @@ export function SiteHeader() {
               render={<Link href={loginHref} />}
               size="sm"
               variant="outline"
-              className="inline-flex shrink-0 whitespace-nowrap px-2.5 xl:hidden"
+              className="inline-flex h-9 min-h-9 shrink-0 items-center overflow-visible px-2.5 text-xs whitespace-nowrap sm:h-9 sm:px-3 sm:text-[0.8rem] xl:hidden"
             >
               Sign in
             </Button>
@@ -339,7 +342,7 @@ export function SiteHeader() {
           {/* Mobile / mid-width menu only — never sits beside the desktop account avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-white/80 xl:hidden"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-white/80 sm:size-11 xl:hidden"
               aria-label="Open menu"
             >
               <Menu className="size-5" />

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 /** Canonical registered brand string for prominent display */
 export const BRAND_NAME_REGISTERED = "Forest Buddies®";
 
-/** Compact registered short form — only for very narrow viewports */
+/** Compact registered short form — narrow viewports / crowded headers */
 export const BRAND_NAME_SHORT = "Forest®";
 
 /**
@@ -15,7 +15,7 @@ export const BRAND_NAME_SHORT = "Forest®";
  * (that caused “FBFB®” / incomplete marks on small screens).
  *
  * @param compactOnNarrow — when true (default), may show “Forest®” only below
- *   ~360px width if space is extremely tight; otherwise always the full name.
+ *   ~420px width if space is tight; otherwise always the full name.
  */
 export function BrandMark({
   className = "",
@@ -40,9 +40,9 @@ export function BrandMark({
 
   return (
     <span className={cn("whitespace-nowrap", className)}>
-      {/* Full name by default; short form only on very narrow phones */}
-      <span className="hidden max-[359px]:inline">{BRAND_NAME_SHORT}</span>
-      <span className="inline max-[359px]:hidden">{BRAND_NAME_REGISTERED}</span>
+      {/* Full name by default; short form on narrow phones so header CTAs fit */}
+      <span className="hidden max-[419px]:inline">{BRAND_NAME_SHORT}</span>
+      <span className="inline max-[419px]:hidden">{BRAND_NAME_REGISTERED}</span>
     </span>
   );
 }
