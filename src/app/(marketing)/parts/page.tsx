@@ -16,7 +16,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
-import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { PartOptionCard } from "@/components/parts/part-option-card";
 import { PartsDisclaimers } from "@/components/parts/parts-disclaimers";
 import { PartsGarageLink } from "@/components/parts/parts-garage-link";
@@ -315,8 +314,6 @@ export default function LeafyPartsFinderPage() {
         <p className="mt-2.5 max-w-2xl text-sm text-muted-foreground sm:mt-3 sm:text-lg">
           Snap the old part. Find the right replacement. Plant a tree.
         </p>
-
-        <LeafyHubLinks omitHref="/parts" className="mt-4" dense />
 
         <div className="mt-4 flex gap-3 rounded-2xl border border-emerald-200/80 bg-white/95 p-3.5 shadow-sm sm:mt-5 sm:p-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
