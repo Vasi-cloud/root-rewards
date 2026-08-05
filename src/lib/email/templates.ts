@@ -130,7 +130,7 @@ export function abandonedCartEmailHtml(opts: {
 }): { subject: string; html: string; text: string } {
   const appUrl = getAppUrlForEmail();
   const names = opts.previewNames.slice(0, 3);
-  const subject = "Your sustainable picks are waiting";
+  const subject = "Your cart is waiting";
   const list = names
     .map((n) => `<li style="margin:0 0 6px;">${escapeHtml(n)}</li>`)
     .join("");
@@ -157,7 +157,7 @@ export function abandonedCartEmailHtml(opts: {
     </p>
   `;
 
-  const text = `Your Forest Buddies cart is waiting.
+  const text = `Your cart is waiting.
 
 ${opts.itemCount} item(s) · $${opts.totalPrice.toFixed(2)}
 ${names.map((n) => `- ${n}`).join("\n")}
@@ -169,8 +169,8 @@ Resume checkout: ${appUrl}/checkout
   return {
     subject,
     html: emailLayout({
-      preheader: "Your eco cart is still here when you’re ready.",
-      title: "Still thinking it over?",
+      preheader: "Your cart is still here when you’re ready.",
+      title: "Your cart is waiting",
       bodyHtml,
     }),
     text,

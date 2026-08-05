@@ -186,7 +186,7 @@ export function recordAbandonedEmail(opts: {
   const mail: MockReminderEmail = {
     id: opts.providerId ?? `mail-${Date.now()}`,
     to: opts.email.trim() || "you@example.com",
-    subject: "Your sustainable picks are waiting",
+    subject: "Your cart is waiting",
     preview: `Still thinking it over? ${names}${
       opts.cart.length > 2 ? ", and more" : ""
     } — $${totalPrice.toFixed(2)} in your Forest Buddies cart.${
