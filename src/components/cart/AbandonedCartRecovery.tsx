@@ -63,7 +63,12 @@ export function AbandonedCartRecovery() {
     const t = window.setTimeout(() => {
       const state = loadAbandonedCart();
       const items = cartRef.current;
-      if (!shouldShowAbandonedReminder(items.length, state)) {
+      // Never auto-open when the live cart is empty
+      if (
+        items.length === 0 ||
+        !shouldShowAbandonedReminder(items.length, state)
+      ) {
+        if (items.length === 0) clearAbandonedFlag();
         evaluatedRef.current = true;
         return;
       }
@@ -172,7 +177,7 @@ export function AbandonedCartRecovery() {
                 id="abandoned-cart-title"
                 className="font-heading text-lg font-semibold leading-snug text-primary"
               >
-                Your eco picks are waiting
+                Your cart is waiting
               </h2>
             </div>
           </div>
