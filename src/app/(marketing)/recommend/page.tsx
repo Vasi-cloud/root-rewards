@@ -13,6 +13,7 @@ import {
   ShoppingBag,
   Square,
   Store,
+  Trees,
   Volume2,
   VolumeX,
   Wand2,
@@ -23,7 +24,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
-import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { AskLeafyExamples } from "@/components/recommend/ask-leafy-examples";
 import {
   AskLeafyDisclaimer,
@@ -729,11 +729,22 @@ export default function RecommendPage() {
           Upload a photo or ask a question
         </h1>
         <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-lg">
-          Leafy helps you find eco-friendly products — snap something you like,
-          or type what you need. Guidance only, not medical or legal advice.
+          Leafy helps you find matching products — snap something you like, or
+          type what you need. Guidance only, not medical or legal advice.
         </p>
 
-        <LeafyHubLinks omitHref="/recommend" className="mt-4" dense />
+        <div className="mt-4">
+          <Button
+            nativeButton={false}
+            render={<Link href="/dashboard/my-forest" />}
+            variant="outline"
+            size="sm"
+            className="h-10 gap-1.5 border-emerald-200/90 bg-white/90 text-emerald-950 sm:h-9"
+          >
+            <Trees className="size-3.5 text-emerald-800" aria-hidden />
+            My Forest
+          </Button>
+        </div>
 
         {/* Equal entry paths */}
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -755,7 +766,7 @@ export default function RecommendPage() {
                 mode === "text" ? "text-cream/85" : "text-muted-foreground"
               }`}
             >
-              Ask for eco alternatives, local ideas, materials, or gift picks.
+              Ask for alternatives, local ideas, materials, or gift ideas.
             </span>
           </button>
           <button
