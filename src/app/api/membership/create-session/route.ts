@@ -63,7 +63,7 @@ export async function POST(request: Request) {
             product_data: {
               name: "Forest Buddies Impact Member",
               description:
-                "25% of eligible commissions as credit, £5 monthly cause credit, Impact badge",
+                "25% of eligible commissions as account credit; £5 monthly cause credit toward causes (not product cashback); Impact badge",
             },
           },
         },

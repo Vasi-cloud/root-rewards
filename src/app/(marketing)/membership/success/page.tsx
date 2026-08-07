@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Sparkles, Trees } from "lucide-react";
+import { CheckCircle2, LayoutDashboard, Leaf, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -94,7 +94,7 @@ function MembershipSuccessInner() {
         {isImpactMember && periodEndsAt
           ? ` through ${formatMembershipDate(periodEndsAt)}`
           : ""}
-        . Affiliate boost and cause credit are ready.
+        . Affiliate tools and monthly cause credit are ready.
       </p>
       {orderNumber && (
         <p className="mt-2 font-mono text-sm text-muted-foreground">
@@ -103,12 +103,22 @@ function MembershipSuccessInner() {
       )}
 
       <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 text-left text-sm text-emerald-950">
-        <div className="mb-2 flex items-center gap-2 font-medium">
+        <div className="mb-1 flex items-center gap-2 font-medium">
+          <Leaf className="size-4" /> £5 monthly cause credit
+        </div>
+        <p className="text-emerald-900/85">
+          Applies at checkout toward trees and causes (partner programmes) —
+          not a product discount or shopping balance.
+        </p>
+        <div className="mt-4 mb-2 flex items-center gap-2 font-medium">
           <CheckCircle2 className="size-4" /> What&apos;s unlocked
         </div>
         <ul className="list-inside list-disc space-y-1 text-emerald-900/90">
           <li>25% of eligible partner commissions as account credit</li>
-          <li>£5 monthly cause credit at checkout</li>
+          <li>
+            £5 monthly cause credit at checkout (toward causes — not product
+            cashback)
+          </li>
           <li>Impact Member badge on your profile</li>
         </ul>
       </div>
@@ -120,17 +130,26 @@ function MembershipSuccessInner() {
           size="lg"
           className="min-h-12 gap-2"
         >
-          <Trees className="size-4" />
-          Start shopping with credit
+          Continue to marketplace
         </Button>
         <Button
           nativeButton={false}
-          render={<Link href="/membership" />}
+          render={<Link href="/dashboard" />}
           variant="outline"
+          size="lg"
+          className="min-h-12 gap-2"
+        >
+          <LayoutDashboard className="size-4" />
+          Go to dashboard
+        </Button>
+        <Button
+          nativeButton={false}
+          render={<Link href="/donate" />}
+          variant="ghost"
           size="lg"
           className="min-h-12"
         >
-          Manage membership
+          Support a cause
         </Button>
       </div>
     </div>

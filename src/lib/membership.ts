@@ -40,7 +40,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     perks: [
       "Everything in Free",
       "Share link + 25% of eligible commissions as account credit (after partners pay us)",
-      "£5 monthly cause credit at checkout",
+      "£5 monthly cause credit at checkout (toward causes — not product cashback)",
       "Impact Member badge on your profile",
       "Affiliate tools & share activity",
     ],

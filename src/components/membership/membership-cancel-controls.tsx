@@ -53,7 +53,7 @@ export function MembershipCancelControls({
           {daysLeft > 0 ? ` (${daysLeft} day${daysLeft === 1 ? "" : "s"} left)` : ""}
           : {tier.affiliateBoost}× affiliate boost
           {tier.monthlyCauseCredit > 0
-            ? `, £${tier.monthlyCauseCredit} cause credit`
+            ? `, £${tier.monthlyCauseCredit} monthly cause credit`
             : ""}
           , and your Impact badge.
         </p>
@@ -117,7 +117,8 @@ export function MembershipCancelControls({
             </li>
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
-              £{tier.monthlyCauseCredit} monthly cause credit
+              £{tier.monthlyCauseCredit} monthly cause credit (toward causes —
+              not product cashback)
             </li>
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />

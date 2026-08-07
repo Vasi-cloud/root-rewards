@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getAppUrl } from "@/lib/app-url";
+
 export function isEmailConfigured(): boolean {
   const key = process.env.RESEND_API_KEY?.trim();
   return Boolean(key && key.startsWith("re_"));
@@ -13,11 +15,7 @@ export function getEmailFrom(): string {
 }
 
 export function getAppUrlForEmail(): string {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  const vercel = process.env.VERCEL_URL?.trim();
-  if (vercel) return `https://${vercel.replace(/\/$/, "")}`;
-  return "http://localhost:3000";
+  return getAppUrl();
 }
 
 export type EmailSendResult =

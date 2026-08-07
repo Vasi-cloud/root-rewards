@@ -474,8 +474,8 @@ export default function CheckoutPage() {
                   onChange={(e) => setApplyMemberCredit(e.target.checked)}
                 />
                 <span>
-                  Apply this month&apos;s £{tier.monthlyCauseCredit} Impact
-                  Member cause credit
+                  Apply this month&apos;s £{tier.monthlyCauseCredit} cause
+                  credit (toward causes — not product cashback)
                 </span>
               </label>
             )}

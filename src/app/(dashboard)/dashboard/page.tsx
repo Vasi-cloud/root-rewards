@@ -231,7 +231,8 @@ export default function DashboardPage() {
                         variant="outline"
                         className="border-emerald-300 bg-white/80 text-emerald-950"
                       >
-                        £{tier.monthlyCauseCredit} cause credit ready
+                        £{tier.monthlyCauseCredit} cause credit ready (toward
+                        causes)
                       </Badge>
                     ) : null}
                   </span>

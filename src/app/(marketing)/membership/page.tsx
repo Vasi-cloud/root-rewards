@@ -44,7 +44,8 @@ const UPGRADE_HIGHLIGHTS = [
   },
   {
     title: "£5 monthly cause credit",
-    detail: "Auto-fund trees, ocean, or climate at checkout each month.",
+    detail:
+      "Applies at checkout toward trees/causes (partner programmes) — not a product discount.",
     icon: Trees,
   },
   {

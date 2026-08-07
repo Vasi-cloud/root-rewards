@@ -3,6 +3,8 @@
  * Demo mode is the default until STRIPE_SECRET_KEY is set.
  */
 
+export { getAppUrl, PRODUCTION_APP_URL } from "@/lib/app-url";
+
 export type PaymentsMode = "live" | "demo";
 
 export function getPaymentsMode(): PaymentsMode {
@@ -28,14 +30,6 @@ export function getStripePublishableKey(): string | undefined {
 export function getImpactMemberPriceId(): string | undefined {
   const id = process.env.STRIPE_PRICE_IMPACT_MEMBER?.trim();
   return id && id.startsWith("price_") ? id : undefined;
-}
-
-export function getAppUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  const vercel = process.env.VERCEL_URL?.trim();
-  if (vercel) return `https://${vercel.replace(/\/$/, "")}`;
-  return "http://localhost:3000";
 }
 
 /** Impact Member list price in pence — must match membership catalog (£5). */
