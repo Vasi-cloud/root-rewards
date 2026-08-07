@@ -100,7 +100,7 @@ export default function DashboardPage() {
     const mine = ensureMyAffiliateCode(profile?.affiliateCode);
     setCode(mine);
     setStats(getMyAffiliateStats(mine));
-    setEvents(getMyAffiliateEvents(8));
+    setEvents(getMyAffiliateEvents(15));
     setOrigin(window.location.origin);
 
     const refreshImpact = () => {
@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
     const refreshAffiliate = () => {
       setStats(getMyAffiliateStats(mine));
-      setEvents(getMyAffiliateEvents(8));
+      setEvents(getMyAffiliateEvents(15));
     };
     window.addEventListener("forest-buddies-affiliate-updated", refreshAffiliate);
     const unsubImpact = subscribeUserImpact(refreshImpact);
@@ -296,13 +296,13 @@ export default function DashboardPage() {
             <CreditMiniStat
               label="Pending"
               value={`£${(stats.pendingPartnerReports ?? 0).toFixed(2)}`}
-              hint="Waiting on partner confirmation"
+              hint="Estimates until partners confirm"
               tone="pending"
             />
             <CreditMiniStat
               label="Confirmed"
               value={`£${stats.earnings.toFixed(2)}`}
-              hint="Account credit available"
+              hint="Account credit available when confirmed"
               tone="confirmed"
             />
             <CreditMiniStat

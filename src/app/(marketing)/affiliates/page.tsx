@@ -41,20 +41,22 @@ export default function AffiliatesPage() {
   const [showActivity, setShowActivity] = useState(false);
 
   const refresh = useCallback(() => {
+    if (!isImpactMember) return;
     const mine = ensureMyAffiliateCode(profile?.affiliateCode);
     setCode(mine);
     setStats(getMyAffiliateStats(mine));
-    setEvents(getMyAffiliateEvents(8));
-  }, [profile?.affiliateCode]);
+    setEvents(getMyAffiliateEvents(15));
+  }, [profile?.affiliateCode, isImpactMember]);
 
   useEffect(() => {
+    if (!isImpactMember) return;
     refresh();
     setOrigin(window.location.origin);
     const onUpdate = () => refresh();
     window.addEventListener("forest-buddies-affiliate-updated", onUpdate);
     return () =>
       window.removeEventListener("forest-buddies-affiliate-updated", onUpdate);
-  }, [refresh]);
+  }, [refresh, isImpactMember]);
 
   const shareUrl = buildReferralUrl({ origin, code, path: "/marketplace" });
   const pending = stats.pendingPartnerReports ?? 0;
@@ -131,13 +133,13 @@ export default function AffiliatesPage() {
         <CreditStat
           label="Pending"
           value={`£${pending.toFixed(2)}`}
-          hint="Waiting on partner confirmation"
+          hint="Estimates until partners confirm"
           tone="pending"
         />
         <CreditStat
           label="Confirmed"
           value={`£${confirmed.toFixed(2)}`}
-          hint="Account credit available"
+          hint="Account credit available when confirmed"
           tone="confirmed"
         />
         <CreditStat
