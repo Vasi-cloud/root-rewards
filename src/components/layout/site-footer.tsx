@@ -97,6 +97,26 @@ export function SiteFooter({
           ))}
         </div>
         <Separator className="my-8 bg-primary-foreground/20" />
+        <p className="mb-5 max-w-3xl text-xs leading-relaxed text-primary-foreground/70 sm:text-[13px]">
+          Partner links may earn Forest Buddies® a commission.{" "}
+          <Link
+            href="/membership#how-earnings-work"
+            className="font-medium text-sage underline-offset-2 hover:underline"
+          >
+            Impact Members
+          </Link>{" "}
+          receive 25% of eligible commissions as account credit after partners
+          pay us; the free plan has no share for now. Membership fees support
+          the platform; cause and tree payments fund partner programmes, not
+          cashback. See{" "}
+          <Link
+            href="/terms"
+            className="font-medium text-sage underline-offset-2 hover:underline"
+          >
+            Terms
+          </Link>
+          .
+        </p>
         <TrustBadges variant="footer" className="mb-4" />
         {trademarkMode === "minimal" ? (
           <MinimalTrademarkFooter />

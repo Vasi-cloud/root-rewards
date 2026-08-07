@@ -107,7 +107,7 @@ function MembershipSuccessInner() {
           <CheckCircle2 className="size-4" /> What&apos;s unlocked
         </div>
         <ul className="list-inside list-disc space-y-1 text-emerald-900/90">
-          <li>+25% first-party affiliate commission boost</li>
+          <li>25% of eligible partner commissions as account credit</li>
           <li>$8 monthly cause credit at checkout</li>
           <li>Impact Member badge on your profile</li>
         </ul>

@@ -37,8 +37,9 @@ import { cn } from "@/lib/utils";
 
 const UPGRADE_HIGHLIGHTS = [
   {
-    title: "+25% commissions",
-    detail: "Boost first-party affiliate earnings on Forest Buddies® sales.",
+    title: "25% commission share",
+    detail:
+      "Eligible partner commissions we receive — as account credit, after the partner pays us.",
     icon: Sparkles,
   },
   {
@@ -283,6 +284,44 @@ export default function MembershipPage() {
               );
             })}
           </ul>
+        </section>
+
+        {/* How earnings work — policy copy only */}
+        <section
+          id="how-earnings-work"
+          className="mt-8 scroll-mt-24 rounded-2xl border border-border/80 bg-white/90 px-3.5 py-4 sm:mt-10 sm:px-5 sm:py-5"
+        >
+          <h2 className="font-heading text-lg font-semibold text-primary sm:text-xl">
+            How earnings work
+          </h2>
+          <ul className="mt-3 space-y-2 text-sm leading-relaxed text-muted-foreground">
+            <li>
+              Partner links may earn Forest Buddies® a commission.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Impact Members:</span>{" "}
+              25% of eligible commissions we receive, as account credit, after
+              the partner pays us.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Free plan:</span> no
+              commission share for now.
+            </li>
+            <li>
+              Membership fees support the platform; cause and tree payments fund
+              partner programmes — not cashback.
+            </li>
+          </ul>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Full details in our{" "}
+            <Link
+              href="/terms"
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Terms of Service
+            </Link>
+            .
+          </p>
         </section>
 
         {isImpactMember && (

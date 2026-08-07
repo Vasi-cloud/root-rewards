@@ -24,7 +24,7 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     monthlyCauseCredit: 0,
     perks: [
       "Marketplace shopping & cause checkout",
-      "Standard affiliate commissions",
+      "No commission share for now",
       "Personal impact dashboard",
       "Referral link with attribution up to 30 days depending on partner platform",
     ],
@@ -39,10 +39,10 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     highlight: true,
     perks: [
       "Everything in Free",
-      "+25% first-party affiliate commission boost",
+      "25% of eligible partner commissions as account credit (after partners pay us)",
       "$8 monthly cause credit at checkout",
       "Impact Member badge on your profile",
-      "Priority affiliate insights & payout tips",
+      "Priority affiliate insights",
     ],
   },
 ];
