@@ -50,15 +50,15 @@ const CAUSE_ICONS = {
   sun: Sun,
 } as const;
 
-/** Quick dollar picks for Trees; other causes use 1 / 3 / 5 units. */
+/** Quick GBP picks for Trees; other causes use 1 / 3 / 5 units. */
 function quickPicksForCause(
   cause: Cause
 ): Array<{ dollars: number; label: string }> {
   if (cause.id === "trees") {
     return [
-      { dollars: 8, label: "1 tree" },
-      { dollars: 24, label: "3 trees" },
-      { dollars: 40, label: "5 trees" },
+      { dollars: 5, label: "1 tree" },
+      { dollars: 15, label: "3 trees" },
+      { dollars: 25, label: "5 trees" },
     ];
   }
   return [1, 3, 5].map((n) => ({
@@ -75,7 +75,7 @@ function initialSelection(): CauseSelection {
 
 function initialCustomAmounts(): Record<CauseId, string> {
   return {
-    trees: "8",
+    trees: "5",
     ocean: "",
     animals: "",
     education: "",
@@ -231,7 +231,7 @@ export default function DonatePage() {
         >
           <p className="font-medium">Honest impact</p>
           <p className="mt-1 text-xs leading-relaxed text-amber-900/85 sm:text-sm">
-            For Trees, about <strong>$8 ≈ 1 tree</strong> (illustrative /
+            For Trees, about <strong>£5 ≈ 1 tree</strong> (illustrative /
             partner-funded). Cause and tree payments fund partner programmes —
             not affiliate cashback. Totals below are estimates — not a guarantee
             of a specific planted tree or CO₂ offset.
@@ -303,7 +303,7 @@ export default function DonatePage() {
                         </span>
                         {selected ? (
                           <span className="text-sm font-semibold tabular-nums">
-                            ${lineCost.toFixed(2)}
+                            £{lineCost.toFixed(2)}
                           </span>
                         ) : null}
                       </span>
@@ -311,7 +311,7 @@ export default function DonatePage() {
                         {cause.tagline}
                       </span>
                       <span className="mt-1.5 block text-[11px] font-medium tabular-nums opacity-80">
-                        ${cause.unitPrice} / {cause.unitSingular}
+                        £{cause.unitPrice} / {cause.unitSingular}
                         {cause.id === "trees" ? " · ≈ 1 tree" : ""}
                         {selected
                           ? ` · ${formatCauseUnits(cause, units)}`
@@ -341,7 +341,7 @@ export default function DonatePage() {
                                   : "border-emerald-300/80 bg-white/85 hover:bg-white"
                               )}
                             >
-                              <span className="tabular-nums">${pick.dollars}</span>
+                              <span className="tabular-nums">£{pick.dollars}</span>
                               <span className="ml-1 opacity-80">
                                 ({pick.label})
                               </span>
@@ -354,7 +354,7 @@ export default function DonatePage() {
                         htmlFor={`donate-custom-${cause.id}`}
                         className="mt-3 block text-sm font-medium"
                       >
-                        Custom amount ($)
+                        Custom amount (£)
                       </label>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <input
@@ -391,7 +391,7 @@ export default function DonatePage() {
                         </button>
                       </div>
                       <p className="mt-1.5 text-xs opacity-75">
-                        Whole units only — ${cause.unitPrice} funds 1{" "}
+                        Whole units only — £{cause.unitPrice} funds 1{" "}
                         {cause.unitSingular}.
                       </p>
                     </div>
@@ -428,7 +428,7 @@ export default function DonatePage() {
                       </span>
                     </span>
                     <span className="shrink-0 tabular-nums">
-                      ${cost.toFixed(2)}
+                      £{cost.toFixed(2)}
                     </span>
                   </li>
                 );
@@ -439,7 +439,7 @@ export default function DonatePage() {
             <div>
               <p className="text-xs text-muted-foreground">Total</p>
               <p className="font-heading text-2xl font-semibold tabular-nums text-primary">
-                ${total.toFixed(2)}
+                £{total.toFixed(2)}
               </p>
             </div>
             <p className="max-w-[14rem] text-right text-xs text-muted-foreground">
@@ -523,7 +523,7 @@ export default function DonatePage() {
                 </>
               ) : (
                 <>
-                  Continue · ${total.toFixed(2)}
+                  Continue · £{total.toFixed(2)}
                   <ArrowRight className="size-4" />
                 </>
               )}

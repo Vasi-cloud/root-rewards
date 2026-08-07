@@ -454,14 +454,14 @@ export default function CheckoutPage() {
                 <span className="min-w-0">
                   {cause.name}: {formatCauseUnits(cause, units)}
                 </span>
-                <span className="shrink-0 tabular-nums">+${cost.toFixed(2)}</span>
+                <span className="shrink-0 tabular-nums">+£{cost.toFixed(2)}</span>
               </div>
             ))}
 
             {memberCredit > 0 && (
               <div className="mt-2 flex justify-between gap-3 text-base text-emerald-900">
                 <span>Impact Member cause credit</span>
-                <span className="tabular-nums">−${memberCredit.toFixed(2)}</span>
+                <span className="tabular-nums">−£{memberCredit.toFixed(2)}</span>
               </div>
             )}
 
@@ -474,7 +474,7 @@ export default function CheckoutPage() {
                   onChange={(e) => setApplyMemberCredit(e.target.checked)}
                 />
                 <span>
-                  Apply this month&apos;s ${tier.monthlyCauseCredit} Impact
+                  Apply this month&apos;s £{tier.monthlyCauseCredit} Impact
                   Member cause credit
                 </span>
               </label>
@@ -483,7 +483,7 @@ export default function CheckoutPage() {
             <div className="mt-3 flex justify-between border-t pt-4 text-2xl font-semibold">
               <span>Total</span>
               <span className="tabular-nums text-primary">
-                ${finalTotal.toFixed(2)}
+                £{finalTotal.toFixed(2)}
               </span>
             </div>
           </div>
@@ -571,7 +571,7 @@ export default function CheckoutPage() {
                 </>
               ) : (
                 <p className="text-base leading-relaxed">
-                  Add any amount above to see your live impact — e.g. “$24
+                  Add any amount above to see your live impact — e.g. “£15
                   plants 3 trees”.
                 </p>
               )}
@@ -745,7 +745,7 @@ export default function CheckoutPage() {
                 {isSubmitting
                   ? t("checkout.processing")
                   : stripeEnabled
-                    ? `Pay $${finalTotal.toFixed(2)} with Stripe`
+                    ? `Pay £${finalTotal.toFixed(2)} with Stripe`
                     : t("checkout.place")}
               </Button>
               <p className="mt-3 text-center text-sm font-medium text-emerald-900">
@@ -797,7 +797,7 @@ export default function CheckoutPage() {
           {isSubmitting
             ? t("checkout.processing")
             : stripeEnabled
-              ? `Pay $${finalTotal.toFixed(2)}`
+              ? `Pay £${finalTotal.toFixed(2)}`
               : t("checkout.place")}
         </Button>
       </div>
@@ -835,7 +835,7 @@ function CausePicker({
         <Icon className="size-5" />
         <span className="font-heading text-lg font-semibold">{cause.name}</span>
         <span className="text-sm opacity-80">
-          ${cause.unitPrice} per {cause.unitSingular}
+          £{cause.unitPrice} per {cause.unitSingular}
         </span>
       </div>
       <p className="mb-5 text-base leading-relaxed opacity-90">{cause.tagline}</p>
@@ -845,7 +845,7 @@ function CausePicker({
           htmlFor={`custom-amount-${cause.id}`}
           className="mb-2 block text-sm font-semibold uppercase tracking-wide opacity-80"
         >
-          Custom amount ($)
+          Custom amount (£)
         </label>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
           <div className="relative flex-1">
@@ -875,19 +875,19 @@ function CausePicker({
         <p className="mt-2.5 text-base font-medium leading-snug">
           {previewUnits > 0 ? (
             <>
-              ${Number(customAmount).toFixed(Number(customAmount) % 1 ? 2 : 0)} →{" "}
+              £{Number(customAmount).toFixed(Number(customAmount) % 1 ? 2 : 0)} →{" "}
               <span className="font-semibold">
                 {formatCauseUnits(cause, previewUnits)}
               </span>
               {remainder > 0.009 && (
                 <span className="mt-1 block text-sm font-normal opacity-75 sm:mt-0 sm:inline sm:ml-1">
-                  (${remainder.toFixed(2)} shy of another {cause.unitSingular})
+                  (£{remainder.toFixed(2)} shy of another {cause.unitSingular})
                 </span>
               )}
             </>
           ) : customAmount.trim() !== "" && Number(customAmount) > 0 ? (
             <span className="opacity-80">
-              Enter at least ${cause.unitPrice} to fund 1 {cause.unitSingular}
+              Enter at least £{cause.unitPrice} to fund 1 {cause.unitSingular}
             </span>
           ) : (
             <span className="opacity-70">
@@ -916,7 +916,7 @@ function CausePicker({
             <span className="block leading-tight">
               {formatCauseUnits(cause, n)}
             </span>
-            <span className="text-sm opacity-75">${n * cause.unitPrice}</span>
+            <span className="text-sm opacity-75">£{n * cause.unitPrice}</span>
           </button>
         ))}
       </div>
@@ -927,14 +927,14 @@ function CausePicker({
           onClick={() => onRoundUp(5)}
           className="min-h-12 rounded-xl border border-current/20 bg-white/85 px-3 py-3 text-base font-medium hover:bg-white"
         >
-          Round up +$5
+          Round up +£5
         </button>
         <button
           type="button"
           onClick={() => onRoundUp(10)}
           className="min-h-12 rounded-xl border border-current/20 bg-white/85 px-3 py-3 text-base font-medium hover:bg-white"
         >
-          Round up +$10
+          Round up +£10
         </button>
       </div>
     </div>

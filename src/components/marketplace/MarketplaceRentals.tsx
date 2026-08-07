@@ -276,7 +276,7 @@ export function MarketplaceRentals({
                 <CardFooter className="flex items-center justify-between border-t border-emerald-100 pt-3">
                   <div>
                     <div className="text-lg font-semibold tabular-nums text-emerald-800">
-                      ${totalPrice}
+                      £{totalPrice}
                     </div>
                     <div className="-mt-0.5 text-[10px] text-emerald-600">
                       for {selectedDuration} day

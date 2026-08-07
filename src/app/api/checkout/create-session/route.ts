@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     data.lineItems.map((item) => ({
       quantity: item.quantity,
       price_data: {
-        currency: "usd",
+        currency: "gbp",
         unit_amount: item.unitAmountCents,
         product_data: {
           name: item.name,
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     stripeLineItems.push({
       quantity: units,
       price_data: {
-        currency: "usd",
+        currency: "gbp",
         unit_amount: Math.round(cause.unitPrice * 100),
         product_data: {
           name: `Impact: ${cause.name}`,
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   if (data.memberCreditCents > 0) {
     const coupon = await stripe.coupons.create({
       amount_off: data.memberCreditCents,
-      currency: "usd",
+      currency: "gbp",
       duration: "once",
       name: "Impact Member cause credit",
       max_redemptions: 1,

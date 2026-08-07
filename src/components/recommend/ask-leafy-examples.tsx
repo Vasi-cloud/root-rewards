@@ -42,7 +42,7 @@ export const ASK_LEAFY_EXAMPLES: AskLeafyExample[] = [
     id: "care",
     label: "Care tips",
     hint: "Self-care finds & gentle routines",
-    query: "self-care beauty eco under $35",
+    query: "self-care beauty under £35",
     budget: 35,
     icon: "care",
   },

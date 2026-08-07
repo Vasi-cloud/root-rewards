@@ -25,6 +25,7 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
+import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import type { SellerProfile } from "@/types";
 
 type Tab = "overview" | "products" | "analytics" | "earnings" | "profile";
@@ -67,7 +68,7 @@ export function SellerOverviewPanel({
     },
     {
       done: (seller.earnings.available ?? 0) >= 10,
-      label: "Reach $10 available to payout",
+      label: "Reach £10 available to payout",
       action: () => onTab("earnings"),
     },
   ];
@@ -78,13 +79,13 @@ export function SellerOverviewPanel({
         <SellerStat
           icon={DollarSign}
           label="Total earnings"
-          value={`$${seller.earnings.total.toFixed(2)}`}
-          hint={`~$${aov.toFixed(0)} avg order`}
+          value={formatMoney(seller.earnings.total)}
+          hint={`~${formatMoneyCompact(Math.round(aov))} avg order`}
         />
         <SellerStat
           icon={TrendingUp}
           label="This month"
-          value={`$${seller.earnings.thisMonth.toFixed(2)}`}
+          value={formatMoney(seller.earnings.thisMonth)}
           hint={`${analytics.salesThisMonth} sales`}
           accent
         />
@@ -112,10 +113,10 @@ export function SellerOverviewPanel({
               </span>
             </div>
             <p className="font-heading text-3xl font-semibold tabular-nums text-emerald-900">
-              ${(seller.earnings.available ?? 0).toFixed(2)}
+              {formatMoney(seller.earnings.available ?? 0)}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              ${seller.earnings.pending.toFixed(2)} still in escrow
+              {formatMoney(seller.earnings.pending)} still in escrow
             </p>
           </div>
           <Button onClick={() => onTab("earnings")} className="gap-1.5">

@@ -24,7 +24,7 @@ export function getStripePublishableKey(): string | undefined {
   return key && key.startsWith("pk_") ? key : undefined;
 }
 
-/** Optional pre-created Price ID for Impact Member ($9/mo). */
+/** Optional pre-created Price ID for Impact Member (£5/mo). */
 export function getImpactMemberPriceId(): string | undefined {
   const id = process.env.STRIPE_PRICE_IMPACT_MEMBER?.trim();
   return id && id.startsWith("price_") ? id : undefined;
@@ -38,5 +38,8 @@ export function getAppUrl(): string {
   return "http://localhost:3000";
 }
 
-/** Impact Member list price in cents — must match membership catalog. */
-export const IMPACT_MEMBER_UNIT_AMOUNT_CENTS = 900;
+/** Impact Member list price in pence — must match membership catalog (£5). */
+export const IMPACT_MEMBER_UNIT_AMOUNT_CENTS = 500;
+
+/** Stripe Checkout currency for Forest Buddies® UK soft launch. */
+export const STRIPE_CHECKOUT_CURRENCY = "gbp" as const;

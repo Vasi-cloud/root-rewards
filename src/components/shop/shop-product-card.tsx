@@ -67,7 +67,7 @@ export function ShopProductCard({
           </div>
           <div className="flex items-end justify-between gap-2 pt-1">
             <p className="font-heading text-2xl font-semibold tabular-nums text-primary">
-              ${product.price.toFixed(2)}
+              £{product.price.toFixed(2)}
             </p>
             {product.sales > 0 && (
               <span className="text-xs text-muted-foreground">

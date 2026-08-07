@@ -12,9 +12,9 @@ import { validateEmail, validateName, validatePostalCode } from "@/lib/validatio
 
 const MAX_LINE_ITEMS = 40;
 const MAX_QTY = 50;
-const MAX_UNIT_CENTS = 500_000; // $5,000
-const MAX_ORDER_CENTS = 2_000_000; // $20,000
-const MAX_MEMBER_CREDIT_CENTS = 800; // $8 Impact credit
+const MAX_UNIT_CENTS = 500_000; // £5,000
+const MAX_ORDER_CENTS = 2_000_000; // £20,000
+const MAX_MEMBER_CREDIT_CENTS = 500; // £5 Impact credit
 
 export type ValidatedCheckout = {
   email: string;
@@ -131,7 +131,7 @@ export function validateCheckoutBody(body: unknown): {
   if (totalCents < 50) {
     return {
       ok: false,
-      error: "Order total must be at least $0.50 for card payment.",
+      error: "Order total must be at least £0.50 for card payment.",
     };
   }
   if (totalCents > MAX_ORDER_CENTS) {

@@ -108,7 +108,7 @@ function MembershipSuccessInner() {
         </div>
         <ul className="list-inside list-disc space-y-1 text-emerald-900/90">
           <li>25% of eligible partner commissions as account credit</li>
-          <li>$8 monthly cause credit at checkout</li>
+          <li>£5 monthly cause credit at checkout</li>
           <li>Impact Member badge on your profile</li>
         </ul>
       </div>

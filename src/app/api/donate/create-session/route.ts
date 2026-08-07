@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   const totalDollars = selectionCost(causeSelection);
   if (totalDollars < 0.5) {
     return NextResponse.json(
-      { error: "Donation must be at least $0.50." },
+      { error: "Donation must be at least £0.50." },
       { status: 400 }
     );
   }
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     lineItems.push({
       quantity: units,
       price_data: {
-        currency: "usd",
+        currency: "gbp",
         unit_amount: Math.round(cause.unitPrice * 100),
         product_data: {
           name: `Support: ${cause.name}`,

@@ -1253,9 +1253,7 @@ export function estimateShoppingListTotal(
 
 /** Match cart / Amazon marketplace currency so Kitchen totals align with checkout. */
 export function formatKitchenMoney(amount: number): string {
-  return getAmazonMarketplace() === "uk"
-    ? `£${amount.toFixed(2)}`
-    : `$${amount.toFixed(2)}`;
+  return `£${amount.toFixed(2)}`;
 }
 
 export function ingredientToCartProduct(ing: ShoppingIngredient): Product {

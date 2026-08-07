@@ -43,7 +43,7 @@ const UPGRADE_HIGHLIGHTS = [
     icon: Sparkles,
   },
   {
-    title: "$8 monthly cause credit",
+    title: "£5 monthly cause credit",
     detail: "Auto-fund trees, ocean, or climate at checkout each month.",
     icon: Trees,
   },
@@ -399,7 +399,7 @@ export default function MembershipPage() {
                   </CardDescription>
                   <div className="pt-2">
                     <span className="font-heading text-4xl font-semibold text-primary">
-                      {t.priceMonthly === 0 ? "$0" : `$${t.priceMonthly}`}
+                      {t.priceMonthly === 0 ? "£0" : `£${t.priceMonthly}`}
                     </span>
                     <span className="text-muted-foreground"> / month</span>
                   </div>
@@ -409,7 +409,7 @@ export default function MembershipPage() {
                     {t.perks.map((perk) => {
                       const emphasize =
                         t.highlight &&
-                        /(\+25%|\$8|badge|Everything in Free)/i.test(perk);
+                        /(\+25%|£5|badge|Everything in Free)/i.test(perk);
                       return (
                         <li
                           key={perk}
@@ -496,7 +496,7 @@ export default function MembershipPage() {
                     >
                       <Trees className="size-4" />
                       {stripeEnabled
-                        ? "Upgrade with Stripe — $9/mo"
+                        ? "Upgrade with Stripe — £5/mo"
                         : "Become Impact Member (demo)"}
                     </Button>
                   )}

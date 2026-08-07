@@ -200,7 +200,7 @@ export function AbandonedCartRecovery() {
             </strong>{" "}
             (
             <strong className="font-medium text-foreground">
-              ${(preview.totalPrice || totalPrice).toFixed(2)}
+              £{(preview.totalPrice || totalPrice).toFixed(2)}
             </strong>
             ). Resume when you&apos;re ready.
           </p>

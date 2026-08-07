@@ -141,12 +141,12 @@ export default function AffiliatesPage() {
         <Stat label="Confirmed conversions" value={String(stats.conversions)} />
         <Stat
           label="Confirmed earnings"
-          value={`$${stats.earnings.toFixed(2)}`}
+          value={`£${stats.earnings.toFixed(2)}`}
           highlight
         />
         <Stat
           label="Pending partner reports"
-          value={`$${pendingExternal.toFixed(2)}`}
+          value={`£${pendingExternal.toFixed(2)}`}
         />
       </div>
 
@@ -245,12 +245,12 @@ export default function AffiliatesPage() {
                     <span>
                       Earned:{" "}
                       <strong className="tabular-nums">
-                        ${(row?.earnings ?? 0).toFixed(2)}
+                        £{(row?.earnings ?? 0).toFixed(2)}
                       </strong>
                     </span>
                     {(row?.pendingPartnerReports ?? 0) > 0 && (
                       <span className="text-amber-800">
-                        Pending: $
+                        Pending: £
                         {(row?.pendingPartnerReports ?? 0).toFixed(2)}
                       </span>
                     )}
@@ -331,7 +331,7 @@ export default function AffiliatesPage() {
                       }
                     >
                       {ev.type === "conversion"
-                        ? `${ev.status === "pending" ? "~" : "+"}$${(
+                        ? `${ev.status === "pending" ? "~" : "+"}£${(
                             ev.commission ?? 0
                           ).toFixed(2)}`
                         : "—"}

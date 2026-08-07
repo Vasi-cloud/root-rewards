@@ -4,7 +4,7 @@ import type { Product } from "@/types";
 export interface RecommendInput {
   /** Free-text occasion / vibe, e.g. "gift for birthday" */
   query: string;
-  /** Soft budget ceiling in USD (0 = no limit) */
+  /** Soft budget ceiling in GBP (0 = no limit) */
   budget?: number;
   /** How many picks to return */
   limit?: number;
@@ -113,11 +113,11 @@ const FUN_OPENERS = [
 function extractBudget(text: string, explicit?: number): number | null {
   if (explicit && explicit > 0) return explicit;
   const under = text.match(
-    /(?:under|below|max|less than|up to|budget(?:\s+of)?)\s*\$?\s*(\d+(?:\.\d+)?)/i
+    /(?:under|below|max|less than|up to|budget(?:\s+of)?)\s*[£$]?\s*(\d+(?:\.\d+)?)/i
   );
   if (under) return Number(under[1]);
-  const dollar = text.match(/\$\s*(\d+(?:\.\d+)?)/);
-  if (dollar) return Number(dollar[1]);
+  const money = text.match(/[£$]\s*(\d+(?:\.\d+)?)/);
+  if (money) return Number(money[1]);
   return null;
 }
 
@@ -181,7 +181,7 @@ function scoreProduct(
       const headroom = (budget - product.price) / budget;
       score += 6 + headroom * 6;
       tags.push("in budget");
-      reasonBits.push(`comfortably under $${budget}`);
+      reasonBits.push(`comfortably under £${budget}`);
     } else {
       score -= 40;
     }
@@ -202,7 +202,7 @@ function scoreProduct(
 function craftReason(product: Product, bits: string[]): string {
   const unique = [...new Set(bits)].slice(0, 2);
   if (unique.length === 0) {
-    return `${product.name} is a solid eco pick at $${product.price}.`;
+    return `${product.name} is a solid match at £${product.price}.`;
   }
   return `${unique.join(" · ")}.`;
 }
@@ -215,14 +215,14 @@ function craftMessage(
   const opener = FUN_OPENERS[Math.floor(Math.random() * FUN_OPENERS.length)];
   if (picks.length === 0) {
     return parsed.budget
-      ? `Hmm — nothing clear under $${parsed.budget} for “${query}”. Try raising the budget or widening the occasion.`
-      : `I couldn't find a strong match for “${query}”. Try “eco kitchen under $50” or “birthday gift”.`;
+      ? `Hmm — nothing clear under £${parsed.budget} for “${query}”. Try raising the budget or widening the occasion.`
+      : `I couldn't find a strong match for “${query}”. Try “kitchen under £50” or “birthday gift”.`;
   }
   const total = picks.reduce((s, p) => s + p.product.price, 0);
   const budgetNote =
     parsed.budget != null
-      ? ` Combined ≈ $${total.toFixed(0)} of your $${parsed.budget} budget.`
-      : ` Combined ≈ $${total.toFixed(0)}.`;
+      ? ` Combined ≈ £${total.toFixed(0)} of your £${parsed.budget} budget.`
+      : ` Combined ≈ £${total.toFixed(0)}.`;
   return `${opener}${budgetNote}`;
 }
 
@@ -315,7 +315,7 @@ export const SUGGESTED_PROMPTS = [
     budget: 45,
   },
   {
-    label: "Birthday under $30",
+    label: "Birthday under £30",
     query: "gift for birthday",
     budget: 30,
   },

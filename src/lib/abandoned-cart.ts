@@ -189,7 +189,7 @@ export function recordAbandonedEmail(opts: {
     subject: "Your cart is waiting",
     preview: `Still thinking it over? ${names}${
       opts.cart.length > 2 ? ", and more" : ""
-    } — $${totalPrice.toFixed(2)} in your Forest Buddies cart.${
+    } — £${totalPrice.toFixed(2)} in your Forest Buddies cart.${
       opts.mode === "live" ? "" : " (demo inbox)"
     }`,
     sentAt: new Date().toISOString(),

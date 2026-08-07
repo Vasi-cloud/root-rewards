@@ -304,7 +304,7 @@ export default function HomePage() {
                 </p>
                 <div className="mt-4 flex items-center justify-between">
                   <span className="text-lg font-semibold tabular-nums text-primary">
-                    ${product.price}
+                    £{product.price}
                   </span>
                   <Link
                     href="/marketplace"
@@ -347,7 +347,7 @@ export default function HomePage() {
                     {cause.tagline}
                   </p>
                   <p className="mt-3 text-xs font-medium opacity-80">
-                    From ${cause.unitPrice} / {cause.unitSingular}
+                    From £{cause.unitPrice} / {cause.unitSingular}
                   </p>
                 </div>
               );

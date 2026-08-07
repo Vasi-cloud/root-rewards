@@ -382,7 +382,7 @@ export function consumeLastDonation(): LastDonation | null {
         selection,
         totalCost:
           parsed.cost ??
-          selection.trees * (getCause("trees")?.unitPrice ?? 8),
+          selection.trees * (getCause("trees")?.unitPrice ?? 5),
         totalCo2:
           selection.trees * (getCause("trees")?.co2PerUnit ?? 22),
         createdAt: new Date().toISOString(),

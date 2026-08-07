@@ -1,4 +1,5 @@
 import { CAUSES } from "@/lib/causes";
+import { formatMoney } from "@/lib/money";
 
 const TREE_CAUSE = CAUSES.find((c) => c.id === "trees") ?? CAUSES[0];
 
@@ -13,7 +14,7 @@ export function estimateCo2FromTrees(trees: number): number {
 }
 
 export function formatCartMoney(amount: number): string {
-  return `$${amount.toFixed(2)}`;
+  return formatMoney(amount);
 }
 
 export function treeUnitPrice(): number {

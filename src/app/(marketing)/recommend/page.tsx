@@ -273,7 +273,7 @@ export default function RecommendPage() {
     addToCart(product);
     setAddedId(product.id);
     window.setTimeout(() => setAddedId(null), 1600);
-    const line = `Added ${product.name} to your cart. About $${product.price.toFixed(0)}.`;
+    const line = `Added ${product.name} to your cart. About £${product.price.toFixed(0)}.`;
     setVoiceStatus(line);
     setVoiceError(null);
     speakFeedback(line, {
@@ -1022,7 +1022,7 @@ export default function RecommendPage() {
                 rows={3}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder='e.g. "eco alternatives to plastic wrap" or "birthday gift under $30"'
+                placeholder='e.g. "alternatives to plastic wrap" or "birthday gift under £30"'
                 className="w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <p className="mt-1.5 text-xs text-muted-foreground sm:text-sm">
@@ -1038,7 +1038,7 @@ export default function RecommendPage() {
                   htmlFor="rec-budget"
                   className="mb-1.5 block text-sm font-medium"
                 >
-                  Budget ($)
+                  Budget (£)
                 </label>
                 <input
                   id="rec-budget"
@@ -1468,7 +1468,7 @@ export default function RecommendPage() {
                   {result.engine === "mock" ? "Leafy guidance" : "Grok"}
                 </Badge>
                 {result.parsed.budget != null && (
-                  <Badge variant="outline">≤ ${result.parsed.budget}</Badge>
+                  <Badge variant="outline">≤ £{result.parsed.budget}</Badge>
                 )}
                 {result.parsed.isGift && (
                   <Badge variant="secondary">Gift mode</Badge>
@@ -1603,7 +1603,7 @@ function PickList({
                   </h2>
                 </div>
                 <p className="font-heading text-2xl font-semibold tabular-nums text-primary">
-                  ${pick.product.price.toFixed(2)}
+                  £{pick.product.price.toFixed(2)}
                 </p>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -2180,7 +2180,7 @@ function LocalStoresPanel({
                             />
                           </div>
                           <span className="text-sm font-semibold tabular-nums text-primary">
-                            ${product.price.toFixed(2)}
+                            £{product.price.toFixed(2)}
                           </span>
                         </div>
                         <div className="mt-2">

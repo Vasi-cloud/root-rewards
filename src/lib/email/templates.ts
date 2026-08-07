@@ -65,7 +65,7 @@ export function orderConfirmationEmailHtml(opts: {
           ${escapeHtml(item.name)}${item.quantity > 1 ? ` × ${item.quantity}` : ""}
         </td>
         <td style="padding:8px 0;border-bottom:1px solid #e8f0ea;font-size:14px;text-align:right;white-space:nowrap;">
-          $${(item.amountCents / 100).toFixed(2)}
+          £${(item.amountCents / 100).toFixed(2)}
         </td>
       </tr>`
     )
@@ -88,10 +88,10 @@ export function orderConfirmationEmailHtml(opts: {
     <p style="margin:0 0 6px;font-size:13px;color:#5c7366;">Order number</p>
     <p style="margin:0 0 16px;font-family:ui-monospace,monospace;font-weight:600;">${escapeHtml(opts.orderNumber)}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
-      ${rows || `<tr><td style="padding:8px 0;font-size:14px;">Your Forest Buddies order</td><td style="text-align:right;">$${total}</td></tr>`}
+      ${rows || `<tr><td style="padding:8px 0;font-size:14px;">Your Forest Buddies order</td><td style="text-align:right;">£${total}</td></tr>`}
       <tr>
         <td style="padding:12px 0 0;font-weight:600;">Total</td>
-        <td style="padding:12px 0 0;font-weight:600;text-align:right;">$${total}</td>
+        <td style="padding:12px 0 0;font-weight:600;text-align:right;">£${total}</td>
       </tr>
     </table>
     ${impact}
@@ -104,9 +104,9 @@ export function orderConfirmationEmailHtml(opts: {
   const text = `Hi ${name},
 
 Your Forest Buddies order ${opts.orderNumber} is confirmed.
-Total: $${total}
+Total: £${total}
 
-${opts.lineItems.map((i) => `- ${i.name} × ${i.quantity}: $${(i.amountCents / 100).toFixed(2)}`).join("\n")}
+${opts.lineItems.map((i) => `- ${i.name} × ${i.quantity}: £${(i.amountCents / 100).toFixed(2)}`).join("\n")}
 
 Dashboard: ${appUrl}/dashboard
 
@@ -115,7 +115,7 @@ Dashboard: ${appUrl}/dashboard
   return {
     subject,
     html: emailLayout({
-      preheader: `Order ${opts.orderNumber} confirmed — $${total}.`,
+      preheader: `Order ${opts.orderNumber} confirmed — £${total}.`,
       title: "Order confirmed",
       bodyHtml,
     }),
@@ -139,7 +139,7 @@ export function abandonedCartEmailHtml(opts: {
     <p style="margin:0 0 14px;">Hi there,</p>
     <p style="margin:0 0 14px;">
       You left <strong>${opts.itemCount} item${opts.itemCount === 1 ? "" : "s"}</strong>
-      (<strong>$${opts.totalPrice.toFixed(2)}</strong>) in your Forest Buddies cart.
+      (<strong>£${opts.totalPrice.toFixed(2)}</strong>) in your Forest Buddies cart.
       No rush — they’re still saved for you.
     </p>
     ${
@@ -159,7 +159,7 @@ export function abandonedCartEmailHtml(opts: {
 
   const text = `Your cart is waiting.
 
-${opts.itemCount} item(s) · $${opts.totalPrice.toFixed(2)}
+${opts.itemCount} item(s) · £${opts.totalPrice.toFixed(2)}
 ${names.map((n) => `- ${n}`).join("\n")}
 
 Resume checkout: ${appUrl}/checkout

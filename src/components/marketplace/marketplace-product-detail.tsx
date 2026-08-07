@@ -86,7 +86,7 @@ export function MarketplaceProductDetail({
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-heading text-3xl font-semibold tabular-nums text-primary">
-                ${product.price}
+                £{product.price}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Badge
@@ -148,8 +148,8 @@ export function MarketplaceProductDetail({
               <Leaf className="size-4" />
               {addLabel ??
                 (isService
-                  ? `Book session — $${product.price}`
-                  : `Add to cart — $${product.price}`)}
+                  ? `Book session — £${product.price}`
+                  : `Add to cart — £${product.price}`)}
             </Button>
             {addedLabel && (
               <p className="mt-2 text-center text-sm text-emerald-800">{addedLabel}</p>

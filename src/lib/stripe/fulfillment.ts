@@ -94,7 +94,7 @@ export async function fulfillCheckoutSession(
     sessionId: session.id,
     paymentStatus: session.payment_status,
     amountTotalCents: session.amount_total ?? 0,
-    currency: session.currency ?? "usd",
+    currency: session.currency ?? "gbp",
     customerEmail:
       session.customer_details?.email ?? session.customer_email ?? null,
     customerId: customerIdOf(session),

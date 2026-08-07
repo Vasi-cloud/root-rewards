@@ -93,7 +93,7 @@ export function ShopProductDetail({
             <div>
               <p className="text-base text-muted-foreground">{product.subtitle}</p>
               <p className="font-heading mt-2 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">
-                ${product.price.toFixed(2)}
+                £{product.price.toFixed(2)}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge className="gap-1 bg-emerald-100 text-emerald-900">
@@ -229,8 +229,8 @@ export function ShopProductDetail({
               >
                 <Leaf className="size-4" />
                 {isService
-                  ? `Book session — $${product.price.toFixed(2)}`
-                  : `Add to cart — $${product.price.toFixed(2)}`}
+                  ? `Book session — £${product.price.toFixed(2)}`
+                  : `Add to cart — £${product.price.toFixed(2)}`}
               </Button>
             </div>
           </div>

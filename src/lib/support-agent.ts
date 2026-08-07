@@ -81,7 +81,7 @@ const FAQ: FaqEntry[] = [
       "checkout",
     ],
     answer:
-      "At checkout you can fund Trees, Ocean, Animals, Education, or Climate — even a few dollars converts into real units (e.g. $24 ≈ 3 trees). Your lifetime impact shows on the Dashboard. Impact Members also get a monthly cause credit.",
+      "At checkout you can fund Trees, Ocean, Animals, Education, or Climate — amounts are in GBP and convert into illustrative partner-funded units (e.g. £15 ≈ 3 trees). Your lifetime impact shows on the Dashboard. Impact Members also get a monthly cause credit.",
     suggestions: [
       "What is Impact Member?",
       "Ask Leafy for a gift idea",
@@ -102,7 +102,7 @@ const FAQ: FaqEntry[] = [
       "boost",
     ],
     answer:
-      "Forest Buddies has Free and Impact Member plans. Impact Member ($9/mo in the demo) adds a +25% first-party affiliate boost and an $8 monthly cause credit at checkout. Cancel anytime from your Dashboard → Membership — you keep benefits until the end of the billing period. No real card is charged in this demo.",
+      "Forest Buddies has Free and Impact Member plans. Impact Member (£5/mo) earns 25% of eligible partner commissions as account credit after partners pay us, plus a £5 monthly cause credit at checkout. Cancel anytime from your Dashboard → Membership — you keep benefits until the end of the billing period. Demo billing until Stripe keys are live.",
     suggestions: [
       "How do affiliates work?",
       "How do causes work?",

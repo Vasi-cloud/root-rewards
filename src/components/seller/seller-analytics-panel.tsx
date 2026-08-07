@@ -26,6 +26,7 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { listingTypeLabel } from "@/lib/listing-categories";
+import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import type { SellerProfile } from "@/types";
 
 export function SellerAnalyticsPanel({ seller }: { seller: SellerProfile }) {
@@ -85,8 +86,8 @@ export function SellerAnalyticsPanel({ seller }: { seller: SellerProfile }) {
         <SellerStat
           icon={DollarSign}
           label="Revenue (month)"
-          value={`$${seller.earnings.thisMonth.toFixed(2)}`}
-          hint={`~$${aov.toFixed(0)} avg order · ${seller.earnings.orders} lifetime`}
+          value={formatMoney(seller.earnings.thisMonth)}
+          hint={`~${formatMoneyCompact(Math.round(aov))} avg order · ${seller.earnings.orders} lifetime`}
         />
       </div>
 

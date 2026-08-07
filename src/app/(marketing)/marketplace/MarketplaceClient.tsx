@@ -1022,7 +1022,7 @@ function ListingGrid({
 
             <CardFooter className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t px-4 pt-4 sm:px-6">
               <span className="text-lg font-semibold tabular-nums text-primary sm:text-xl">
-                ${product.price}
+                £{product.price}
               </span>
               <div className="flex flex-wrap gap-2">
                 <Button

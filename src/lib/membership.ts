@@ -7,7 +7,7 @@ export interface MembershipTier {
   priceMonthly: number;
   /** Multiplier on base affiliate commission (1 = 100%) */
   affiliateBoost: number;
-  /** Demo monthly cause credit in USD applied at checkout */
+  /** Demo monthly cause credit in GBP applied at checkout */
   monthlyCauseCredit: number;
   perks: string[];
   highlight?: boolean;
@@ -33,14 +33,14 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     id: "impact",
     name: "Impact Member",
     tagline: "Amplify earnings and fund a little good every month.",
-    priceMonthly: 9,
+    priceMonthly: 5,
     affiliateBoost: 1.25,
-    monthlyCauseCredit: 8,
+    monthlyCauseCredit: 5,
     highlight: true,
     perks: [
       "Everything in Free",
       "25% of eligible partner commissions as account credit (after partners pay us)",
-      "$8 monthly cause credit at checkout",
+      "£5 monthly cause credit at checkout",
       "Impact Member badge on your profile",
       "Priority affiliate insights",
     ],

@@ -256,7 +256,7 @@ export default function DashboardPage() {
                         variant="outline"
                         className="border-emerald-300 bg-white/80 text-emerald-950"
                       >
-                        ${tier.monthlyCauseCredit} cause credit ready
+                        £{tier.monthlyCauseCredit} cause credit ready
                       </Badge>
                     ) : null}
                   </span>
@@ -396,8 +396,8 @@ export default function DashboardPage() {
             value={
               isImpactMember
                 ? stats.earnings > 0 || stats.pendingPayout > 0
-                  ? `$${(stats.earnings + stats.pendingPayout).toFixed(2)}`
-                  : "$0.00"
+                  ? `£${(stats.earnings + stats.pendingPayout).toFixed(2)}`
+                  : "£0.00"
                 : "0% · Free"
             }
             muted={!isImpactMember}
@@ -537,7 +537,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <span className="tabular-nums text-emerald-900">
-                      ${cost.toFixed(2)}
+                      £{cost.toFixed(2)}
                     </span>
                   </div>
                 );

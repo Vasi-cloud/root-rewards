@@ -57,13 +57,13 @@ export async function POST(request: Request) {
         {
           quantity: 1,
           price_data: {
-            currency: "usd",
+            currency: "gbp",
             unit_amount: IMPACT_MEMBER_UNIT_AMOUNT_CENTS,
             recurring: { interval: "month" },
             product_data: {
               name: "Forest Buddies Impact Member",
               description:
-                "+25% affiliate boost, $8 monthly cause credit, Impact badge",
+                "25% of eligible commissions as credit, £5 monthly cause credit, Impact badge",
             },
           },
         },

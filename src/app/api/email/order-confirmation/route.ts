@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       0,
       Math.floor(Number(raw.amountTotalCents) || 0)
     ),
-    currency: "usd",
+    currency: "gbp",
     customerEmail: emailResult.value,
     customerId: null,
     subscriptionId: null,

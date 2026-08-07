@@ -20,6 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatMoney } from "@/lib/money";
 import type { SellerProfile } from "@/types";
 
 export function SellerEarningsPanel({
@@ -59,22 +60,22 @@ export function SellerEarningsPanel({
           <div>
             <p className="text-sm text-muted-foreground">Available balance</p>
             <p className="mt-1 font-heading text-4xl font-semibold tabular-nums text-emerald-900">
-              ${available.toFixed(2)}
+              {formatMoney(available)}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              ${seller.earnings.pending.toFixed(2)} in escrow · $
-              {seller.earnings.thisMonth.toFixed(2)} earned this month
+              {formatMoney(seller.earnings.pending)} in escrow ·{" "}
+              {formatMoney(seller.earnings.thisMonth)} earned this month
             </p>
             {nextPayout ? (
               <p className="mt-3 text-sm text-primary">
-                Next: ${nextPayout.amount.toFixed(2)} ·{" "}
+                Next: {formatMoney(nextPayout.amount)} ·{" "}
                 {payoutStatusBadge(nextPayout.status).label.toLowerCase()} for{" "}
                 {nextPayout.scheduledFor}
               </p>
             ) : null}
             <div className="mt-4">
               <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                <span>Minimum payout $10</span>
+                <span>Minimum payout £10</span>
                 <span className="tabular-nums">{Math.round(payoutProgress)}%</span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-emerald-100">
@@ -94,15 +95,15 @@ export function SellerEarningsPanel({
                 setPayoutMessage(
                   ok
                     ? "Payout requested — status set to processing."
-                    : "Need at least $10 available to request a payout."
+                    : "Need at least £10 available to request a payout."
                 );
               }}
             >
               <Wallet className="size-4" />
-              Request ${available.toFixed(2)}
+              Request {formatMoney(available)}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Minimum $10 · transfer to{" "}
+              Minimum £10 · transfer to{" "}
               {seller.payoutMethod ?? "Bank transfer ····4821"}
             </p>
           </div>
@@ -119,19 +120,19 @@ export function SellerEarningsPanel({
         <SellerStat
           icon={DollarSign}
           label="Lifetime"
-          value={`$${seller.earnings.total.toFixed(2)}`}
+          value={formatMoney(seller.earnings.total)}
           hint="Paid + pending"
         />
         <SellerStat
           icon={Package}
           label="In escrow"
-          value={`$${seller.earnings.pending.toFixed(2)}`}
+          value={formatMoney(seller.earnings.pending)}
           hint="Settles after delivery"
         />
         <SellerStat
           icon={TrendingUp}
           label="This month"
-          value={`$${seller.earnings.thisMonth.toFixed(2)}`}
+          value={formatMoney(seller.earnings.thisMonth)}
           hint={`${seller.earnings.orders} orders lifetime`}
           accent
         />
@@ -161,25 +162,25 @@ export function SellerEarningsPanel({
                   <div className="flex justify-between rounded-xl border px-4 py-3">
                     <span>Gross product sales</span>
                     <span className="font-medium tabular-nums">
-                      ${b.productSales.toFixed(2)}
+                      {formatMoney(b.productSales)}
                     </span>
                   </div>
                   <div className="flex justify-between rounded-xl border px-4 py-3">
                     <span>Platform fee (15%)</span>
                     <span className="font-medium tabular-nums text-muted-foreground">
-                      −${b.platformFee.toFixed(2)}
+                      −{formatMoney(b.platformFee)}
                     </span>
                   </div>
                   <div className="flex justify-between rounded-xl border border-emerald-100 bg-emerald-50/50 px-4 py-3">
                     <span>Cause contribution</span>
                     <span className="font-medium tabular-nums text-emerald-800">
-                      −${b.causeContribution.toFixed(2)}
+                      −{formatMoney(b.causeContribution)}
                     </span>
                   </div>
                   <div className="flex justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
                     <span className="font-medium">Your net share</span>
                     <span className="font-semibold tabular-nums text-primary">
-                      ${b.sellerShare.toFixed(2)}
+                      {formatMoney(b.sellerShare)}
                     </span>
                   </div>
                   <div className="pt-2">
@@ -192,7 +193,7 @@ export function SellerEarningsPanel({
                           <div className="mb-1 flex justify-between text-xs">
                             <span>{row.category}</span>
                             <span className="tabular-nums">
-                              ${row.amount.toFixed(2)}
+                              {formatMoney(row.amount)}
                             </span>
                           </div>
                           <div className="h-1.5 overflow-hidden rounded-full bg-emerald-100">
@@ -255,7 +256,7 @@ export function SellerEarningsPanel({
             "Shop sales credit your earnings automatically",
             "Part settles to available; part stays in escrow briefly",
             "A small slice can fund causes tied to your shop",
-            "Request payout anytime once you hit $10 available",
+            "Request payout anytime once you hit £10 available",
           ].map((step, i) => (
             <div key={step} className="flex gap-3">
               <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -290,7 +291,7 @@ export function SellerEarningsPanel({
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium tabular-nums">
-                        ${payout.amount.toFixed(2)}
+                        {formatMoney(payout.amount)}
                       </span>
                       <Badge className={badge.className}>{badge.label}</Badge>
                     </div>

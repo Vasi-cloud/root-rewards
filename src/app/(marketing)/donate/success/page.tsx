@@ -221,7 +221,7 @@ function DonateSuccessInner() {
           Gift summary
         </p>
         <p className="mt-1 font-heading text-2xl font-semibold tabular-nums text-primary">
-          ${view.total.toFixed(2)}
+          £{view.total.toFixed(2)}
         </p>
         {lines.length > 0 && (
           <ul className="mt-4 space-y-2">
@@ -236,7 +236,7 @@ function DonateSuccessInner() {
                   <span className="flex-1">
                     {cause.name}: {formatCauseUnits(cause, units)}
                   </span>
-                  <span className="tabular-nums">${cost.toFixed(2)}</span>
+                  <span className="tabular-nums">£{cost.toFixed(2)}</span>
                 </li>
               );
             })}

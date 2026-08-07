@@ -28,7 +28,7 @@ export const CAUSES: Cause[] = [
     tagline: "Plant forests that clean the air we share.",
     unitSingular: "tree",
     unitPlural: "trees",
-    unitPrice: 8,
+    unitPrice: 5,
     co2PerUnit: 22,
     accentClass: "bg-emerald-50/80 border-emerald-200 text-emerald-900",
     icon: "trees",
@@ -39,7 +39,7 @@ export const CAUSES: Cause[] = [
     tagline: "Fund cleanups that protect reefs and coasts.",
     unitSingular: "cleanup kit",
     unitPlural: "cleanup kits",
-    unitPrice: 6,
+    unitPrice: 4,
     co2PerUnit: 8,
     accentClass: "bg-sky-50/80 border-sky-200 text-sky-900",
     icon: "waves",
@@ -50,7 +50,7 @@ export const CAUSES: Cause[] = [
     tagline: "Support habitats for wildlife at risk.",
     unitSingular: "habitat day",
     unitPlural: "habitat days",
-    unitPrice: 10,
+    unitPrice: 6,
     co2PerUnit: 5,
     accentClass: "bg-amber-50/70 border-amber-200 text-amber-950",
     icon: "paw",
@@ -61,7 +61,7 @@ export const CAUSES: Cause[] = [
     tagline: "Teach kids how to care for the planet.",
     unitSingular: "lesson pack",
     unitPlural: "lesson packs",
-    unitPrice: 5,
+    unitPrice: 3,
     co2PerUnit: 3,
     accentClass: "bg-violet-50/70 border-violet-200 text-violet-950",
     icon: "book",
@@ -72,7 +72,7 @@ export const CAUSES: Cause[] = [
     tagline: "Accelerate clean energy for communities.",
     unitSingular: "kWh funded",
     unitPlural: "kWh funded",
-    unitPrice: 4,
+    unitPrice: 3,
     co2PerUnit: 12,
     accentClass: "bg-lime-50/80 border-lime-200 text-lime-950",
     icon: "sun",
@@ -137,15 +137,15 @@ const IMPACT_VERBS: Record<CauseId, string> = {
 
 /**
  * Live checkout copy, e.g.
- * "$24 plants 3 trees"
- * "$36 plants 2 trees and funds 2 cleanup kits"
+ * "£15 plants 3 trees"
+ * "£15 plants 2 trees and funds 2 cleanup kits"
  */
 export function formatLiveImpactSummary(selection: CauseSelection): string | null {
   const lines = selectionLines(selection);
   if (lines.length === 0) return null;
 
   const total = selectionCost(selection);
-  const dollar = `$${total % 1 === 0 ? total.toFixed(0) : total.toFixed(2)}`;
+  const money = `£${total % 1 === 0 ? total.toFixed(0) : total.toFixed(2)}`;
 
   const phrases = lines.map(({ cause, units }) => {
     const verb = IMPACT_VERBS[cause.id];
@@ -162,10 +162,10 @@ export function formatLiveImpactSummary(selection: CauseSelection): string | nul
     impactPhrase = `${phrases.slice(0, -1).join(", ")}, and ${phrases[phrases.length - 1]}`;
   }
 
-  return `${dollar} ${impactPhrase}`;
+  return `${money} ${impactPhrase}`;
 }
 
-/** Convert a dollar donation into whole units for a cause (floor). */
+/** Convert a GBP donation into whole units for a cause (floor). */
 export function dollarsToUnits(cause: Cause, dollars: number): number {
   if (!Number.isFinite(dollars) || dollars <= 0) return 0;
   return Math.floor(dollars / cause.unitPrice);

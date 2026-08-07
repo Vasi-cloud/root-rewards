@@ -99,7 +99,7 @@ function CheckoutSuccessInner() {
             kind: "marketplace_order",
             sessionId: "demo",
             amountTotalCents: Math.round((pending?.orderTotal ?? 0) * 100),
-            currency: "usd",
+            currency: "gbp",
             customerEmail: pending?.email ?? null,
             customerId: null,
             subscriptionId: null,
@@ -244,7 +244,7 @@ function CheckoutSuccessInner() {
         <div className="flex items-center justify-between gap-3 text-base">
           <span className="text-muted-foreground">Amount paid</span>
           <span className="font-semibold tabular-nums text-primary">
-            ${total}
+            £{total}
           </span>
         </div>
         {order.customerEmail && (
@@ -269,7 +269,7 @@ function CheckoutSuccessInner() {
                   {item.quantity > 1 ? ` × ${item.quantity}` : ""}
                 </span>
                 <span className="tabular-nums">
-                  ${(item.amountCents / 100).toFixed(2)}
+                  £{(item.amountCents / 100).toFixed(2)}
                 </span>
               </div>
             ))}
@@ -292,7 +292,7 @@ function CheckoutSuccessInner() {
                   <span className="flex-1">
                     {cause.name}: {formatCauseUnits(cause, units)}
                   </span>
-                  <span className="tabular-nums">+${cost.toFixed(2)}</span>
+                  <span className="tabular-nums">+£{cost.toFixed(2)}</span>
                 </div>
               );
             })}

@@ -266,7 +266,7 @@ export default function PersonalImpactPage() {
                             </div>
                           </div>
                           <span className="shrink-0 text-sm font-medium tabular-nums text-emerald-950">
-                            ${row.cost.toFixed(2)}
+                            £{row.cost.toFixed(2)}
                           </span>
                         </li>
                       );
