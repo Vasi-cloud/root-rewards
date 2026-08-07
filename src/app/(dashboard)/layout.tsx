@@ -1,32 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { Leaf, LogOut } from "lucide-react";
+import { Leaf, LogOut, Shield } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useMemo } from "react";
 
 import { BrandMark } from "@/components/brand/brand-mark";
 import { DashboardSignOut } from "@/components/dashboard/sign-out-button";
 import { LanguageComingSoonBanner } from "@/components/layout/language-coming-soon-banner";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/auth-context";
+import { useSeller } from "@/contexts/seller-context";
+import { isAdminUser } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
-const primaryNav = [
+type NavItem = { href: string; label: string; short: string };
+
+const basePrimaryNav: NavItem[] = [
   { href: "/dashboard", label: "Overview", short: "Home" },
   { href: "/dashboard/my-forest", label: "My Forest", short: "Forest" },
   { href: "/dashboard/impact", label: "Your impact", short: "Impact" },
   { href: "/donate", label: "Support a cause", short: "Donate" },
   { href: "/membership", label: "Membership", short: "Plan" },
   { href: "/dashboard/settings", label: "Account settings", short: "Settings" },
-  { href: "/seller", label: "Become a seller", short: "Sell" },
-] as const;
+];
 
-const secondaryNav = [
+const secondaryNav: NavItem[] = [
   { href: "/marketplace", label: "Marketplace", short: "Shop" },
+  { href: "/local", label: "Buy Local", short: "Local" },
+  { href: "/kitchen", label: "Leafy Kitchen", short: "Kitchen" },
+  { href: "/parts", label: "Leafy Parts", short: "Parts" },
+  { href: "/recommend", label: "Ask Leafy", short: "Ask" },
   { href: "/affiliates", label: "Affiliate tools", short: "Affiliate" },
-] as const;
-
-/** Full list for mobile chips + sidebar (routes/labels unchanged). */
-const dashboardNav = [...primaryNav, ...secondaryNav];
+];
 
 function navActive(pathname: string, href: string) {
   if (href === "/dashboard") {
@@ -65,6 +71,24 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() ?? "";
+  const { user } = useAuth();
+  const { seller } = useSeller();
+  const isAdmin = isAdminUser(user?.email);
+  const sellerLabel =
+    seller?.status === "approved" ? "Seller hub" : "Become a seller";
+
+  const primaryNav = useMemo((): NavItem[] => {
+    const items: NavItem[] = [
+      ...basePrimaryNav,
+      { href: "/seller", label: sellerLabel, short: "Sell" },
+    ];
+    return items;
+  }, [sellerLabel]);
+
+  const dashboardNav = useMemo(
+    () => [...primaryNav, ...secondaryNav],
+    [primaryNav]
+  );
 
   return (
     <div className="flex min-h-full flex-col overflow-x-hidden bg-cream">
@@ -114,7 +138,7 @@ export default function DashboardLayout({
           </nav>
         </div>
 
-        {/* Mobile / tablet: horizontal chips — unchanged pattern */}
+        {/* Mobile / tablet: horizontal chips */}
         <nav
           className="mx-auto flex max-w-6xl gap-1.5 overflow-x-auto px-3 pb-3 [-ms-overflow-style:none] [scrollbar-width:none] lg:hidden sm:px-6 [&::-webkit-scrollbar]:hidden"
           aria-label="Dashboard sections"
@@ -164,6 +188,23 @@ export default function DashboardLayout({
               );
             })}
           </ul>
+          {isAdmin ? (
+            <>
+              <Separator className="my-4" />
+              <Link
+                href="/admin"
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm transition-colors",
+                  pathname.startsWith("/admin")
+                    ? "bg-amber-100 font-medium text-amber-950"
+                    : "text-amber-900/80 hover:bg-amber-50"
+                )}
+              >
+                <Shield className="size-3.5 shrink-0" />
+                Admin
+              </Link>
+            </>
+          ) : null}
           <Separator className="my-4" />
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <LogOut className="size-3.5 shrink-0" />

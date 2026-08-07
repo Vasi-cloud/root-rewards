@@ -497,8 +497,8 @@ export default function CheckoutPage() {
               </h3>
             </div>
             <p className="mb-5 text-base leading-relaxed text-emerald-800/85">
-              Pick a cause, then enter any dollar amount. We convert it into
-              real impact units for you.
+              Pick a cause, then enter any dollar amount. Cause and tree
+              payments fund partner programmes — not affiliate cashback.
             </p>
 
             <div className="scrollbar-none -mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 touch-pan-x">

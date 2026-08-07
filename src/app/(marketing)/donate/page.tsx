@@ -232,8 +232,9 @@ export default function DonatePage() {
           <p className="font-medium">Honest impact</p>
           <p className="mt-1 text-xs leading-relaxed text-amber-900/85 sm:text-sm">
             For Trees, about <strong>$8 ≈ 1 tree</strong> (illustrative /
-            partner-funded). Totals below are estimates — not a guarantee of a
-            specific planted tree or CO₂ offset.
+            partner-funded). Cause and tree payments fund partner programmes —
+            not affiliate cashback. Totals below are estimates — not a guarantee
+            of a specific planted tree or CO₂ offset.
           </p>
         </div>
 
