@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  BarChart3,
-  Copy,
-  ExternalLink,
-  Gift,
-  Link2,
-  MousePointerClick,
-  Wallet,
-} from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, Link2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -23,49 +15,18 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { useMembership } from "@/contexts/membership-context";
-import { ATTRIBUTION_WINDOW_LABEL, buildReferralUrl } from "@/lib/affiliate";
+import { buildReferralUrl } from "@/lib/affiliate";
 import {
-  AFFILIATE_PLATFORMS,
-  attributionWindowLabel,
-} from "@/lib/affiliate-platforms";
-import {
-  confirmPendingPartnerReports,
   describeEvent,
   ensureMyAffiliateCode,
   getMyAffiliateEvents,
   getMyAffiliateStats,
-  getStatsByPlatform,
 } from "@/lib/affiliate-storage";
-import { affiliateRateWithMembership } from "@/lib/membership";
-import type {
-  AffiliateEvent,
-  AffiliatePlatformId,
-  AffiliateStats,
-} from "@/types";
-
-const steps = [
-  {
-    icon: Link2,
-    title: "Share first-party or partner links",
-    description:
-      "Use your Forest Buddies ?ref= URL, or outbound Amazon / Target / REI / Etsy / Walmart / ClickBank links from product cards.",
-  },
-  {
-    icon: MousePointerClick,
-    title: "Track by platform",
-    description: `${ATTRIBUTION_WINDOW_LABEL} — Amazon is often ~24 hours; other networks vary.`,
-  },
-  {
-    icon: Wallet,
-    title: "Confirm when partners report",
-    description:
-      "External sales stay pending until the platform posts them. First-party checkout confirms instantly.",
-  },
-];
+import type { AffiliateEvent, AffiliateStats } from "@/types";
 
 export default function AffiliatesPage() {
   const { profile } = useAuth();
-  const { tier, isImpactMember } = useMembership();
+  const { isImpactMember } = useMembership();
   const [code, setCode] = useState("…");
   const [stats, setStats] = useState<AffiliateStats>({
     clicks: 0,
@@ -74,20 +35,16 @@ export default function AffiliatesPage() {
     pendingPayout: 0,
     pendingPartnerReports: 0,
   });
-  const [byPlatform, setByPlatform] = useState<
-    Partial<Record<AffiliatePlatformId, AffiliateStats>>
-  >({});
   const [events, setEvents] = useState<AffiliateEvent[]>([]);
   const [copied, setCopied] = useState(false);
-  const [origin, setOrigin] = useState("https://forestbuddies.app");
-  const [confirmMsg, setConfirmMsg] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("https://www.forestbuddies.com");
+  const [showActivity, setShowActivity] = useState(false);
 
   const refresh = useCallback(() => {
     const mine = ensureMyAffiliateCode(profile?.affiliateCode);
     setCode(mine);
     setStats(getMyAffiliateStats(mine));
-    setByPlatform(getStatsByPlatform(mine));
-    setEvents(getMyAffiliateEvents(14));
+    setEvents(getMyAffiliateEvents(8));
   }, [profile?.affiliateCode]);
 
   useEffect(() => {
@@ -100,8 +57,9 @@ export default function AffiliatesPage() {
   }, [refresh]);
 
   const shareUrl = buildReferralUrl({ origin, code, path: "/marketplace" });
-  const sampleRate = affiliateRateWithMembership(12, tier.id);
-  const pendingExternal = stats.pendingPartnerReports ?? 0;
+  const pending = stats.pendingPartnerReports ?? 0;
+  const confirmed = stats.earnings;
+  const lifetime = Number((confirmed + pending).toFixed(2));
 
   async function copyLink() {
     try {
@@ -113,28 +71,16 @@ export default function AffiliatesPage() {
     }
   }
 
-  function handleConfirmReports() {
-    const n = confirmPendingPartnerReports();
-    setConfirmMsg(
-      n > 0
-        ? `Confirmed ${n} partner report${n === 1 ? "" : "s"} (demo of delayed Amazon-style posting).`
-        : "No pending partner reports right now. Open a Via Amazon link from the marketplace first."
-    );
-    refresh();
-  }
-
   if (!isImpactMember) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
         <Badge className="mb-3 bg-gold/20 text-primary">Affiliate program</Badge>
         <h1 className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
           Affiliate tools for Impact Members
         </h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
+        <p className="mt-3 text-muted-foreground">
           Upgrade to unlock your share link and 25% of eligible commissions we
-          receive, as account credit, after partners pay us. Earnings are not a
-          cash wallet. Marketplace, Buy Local, Kitchen, Parts, and Ask Leafy
-          stay free.
+          receive, as account credit, after partners pay us. Not a cash wallet.
         </p>
         <Card className="mt-8 border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-cream to-cream">
           <CardHeader>
@@ -142,8 +88,8 @@ export default function AffiliatesPage() {
               Unlock sharing with Impact Member
             </CardTitle>
             <CardDescription>
-              Free plans have no commission share. Membership fees support the
-              platform; cause payments fund partner programmes — not cashback.
+              Free plans have no commission share. Marketplace, Buy Local,
+              Kitchen, Parts, and Ask Leafy stay free.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
@@ -169,41 +115,46 @@ export default function AffiliatesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-      <Badge className="mb-3 bg-gold/20 text-primary">Affiliate program</Badge>
+    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
+      <Badge className="mb-3 bg-gold/20 text-primary">Your earnings</Badge>
       <h1 className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
-        Earn while you advocate for the planet
+        Affiliate credit
       </h1>
-      <p className="mt-3 max-w-2xl text-muted-foreground">
-        Share your Forest Buddies link and partner outbounds. You earn 25% of
-        eligible commissions we receive, as account credit, after partners pay
-        us — not a cash wallet. Attribution lasts{" "}
-        {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}.
+      <p className="mt-2 text-sm text-muted-foreground">
+        Account credit after partners pay us — not a cash wallet.
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        You earn 25% of eligible commissions we receive.
       </p>
 
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Clicks / outbounds" value={stats.clicks.toLocaleString()} />
-        <Stat label="Confirmed conversions" value={String(stats.conversions)} />
-        <Stat
-          label="Account credit (confirmed)"
-          value={`£${stats.earnings.toFixed(2)}`}
-          highlight
+      <div className="mt-8 grid gap-3 sm:grid-cols-3">
+        <CreditStat
+          label="Pending"
+          value={`£${pending.toFixed(2)}`}
+          hint="Waiting on partner confirmation"
+          tone="pending"
         />
-        <Stat
-          label="Pending partner reports"
-          value={`£${pendingExternal.toFixed(2)}`}
+        <CreditStat
+          label="Confirmed"
+          value={`£${confirmed.toFixed(2)}`}
+          hint="Account credit available"
+          tone="confirmed"
+        />
+        <CreditStat
+          label="Lifetime"
+          value={`£${lifetime.toFixed(2)}`}
+          hint="Pending + confirmed"
         />
       </div>
 
       <Card className="mt-8 border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-cream to-cream">
         <CardHeader>
-          <CardTitle className="font-heading flex items-center gap-2">
-            <Link2 className="size-5 text-primary" /> Your Forest Buddies link
+          <CardTitle className="font-heading flex items-center gap-2 text-lg">
+            <Link2 className="size-5 text-primary" /> Your share link
           </CardTitle>
           <CardDescription>
-            Code <strong className="text-foreground">{code}</strong> · sample
-            first-party rate on a 12% product: <strong>{sampleRate}%</strong>{" "}
-            with Impact Member
+            Share this link. Credit appears here after partners pay us — empty
+            until then is normal.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -211,7 +162,7 @@ export default function AffiliatesPage() {
             {shareUrl}
           </code>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <Button className="gap-2" onClick={copyLink}>
+            <Button className="gap-2" onClick={() => void copyLink()}>
               <Copy className="size-4" />
               {copied ? "Copied" : "Copy link"}
             </Button>
@@ -222,214 +173,123 @@ export default function AffiliatesPage() {
               className="gap-2"
             >
               <ExternalLink className="size-4" />
-              Marketplace partner links
-            </Button>
-            <Button
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/membership" />}
-            >
-              Membership perks
+              Browse products to share
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <section className="mt-12">
-        <h2 className="font-heading text-2xl font-semibold text-primary">
-          Partner platforms
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Windows and rates mirror common public program norms. External sales
-          are cookie- or network-reported — not instant like our checkout.
-        </p>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {AFFILIATE_PLATFORMS.map((platform) => {
-            const row = byPlatform[platform.id];
-            return (
-              <Card
-                key={platform.id}
-                className={
-                  platform.kind === "first_party"
-                    ? "border-emerald-200 bg-emerald-50/40"
-                    : undefined
-                }
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <CardTitle className="font-heading text-lg">
-                      {platform.name}
-                    </CardTitle>
-                    <Badge variant="secondary" className="text-xs capitalize">
-                      {platform.kind === "first_party" ? "First-party" : "External"}
-                    </Badge>
-                  </div>
-                  <CardDescription>
-                    {attributionWindowLabel(platform)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <p className="text-muted-foreground">{platform.trackingNote}</p>
-                  <p className="text-muted-foreground">{platform.commissionNote}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {platform.payoutNote}
-                  </p>
-                  <div className="flex flex-wrap gap-3 border-t pt-3 text-xs">
-                    <span>
-                      Clicks:{" "}
-                      <strong className="tabular-nums">
-                        {row?.clicks ?? 0}
-                      </strong>
-                    </span>
-                    <span>
-                      Confirmed:{" "}
-                      <strong className="tabular-nums">
-                        {row?.conversions ?? 0}
-                      </strong>
-                    </span>
-                    <span>
-                      Earned:{" "}
-                      <strong className="tabular-nums">
-                        £{(row?.earnings ?? 0).toFixed(2)}
-                      </strong>
-                    </span>
-                    {(row?.pendingPartnerReports ?? 0) > 0 && (
-                      <span className="text-amber-800">
-                        Pending: £
-                        {(row?.pendingPartnerReports ?? 0).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-
-      <div className="mt-12 grid gap-6 md:grid-cols-3">
-        {steps.map((step, index) => (
-          <Card key={step.title}>
-            <CardHeader>
-              <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                {index + 1}
-              </div>
-              <step.icon className="size-6 text-primary" />
-              <CardTitle className="font-heading">{step.title}</CardTitle>
-              <CardDescription>{step.description}</CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="mt-10">
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle className="font-heading flex items-center gap-2">
-              <BarChart3 className="size-5" /> Tracking activity
-            </CardTitle>
-            <CardDescription>
-              First-party clicks, outbound partner tags, and delayed reports.
-            </CardDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleConfirmReports}>
-            Confirm pending reports (demo)
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {confirmMsg && (
-            <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-sm text-emerald-900">
-              {confirmMsg}
-            </p>
-          )}
-          {events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No events yet. Share your link or tap{" "}
-              <strong>Via Amazon</strong> on a marketplace product to log an
-              outbound click.
-            </p>
-          ) : (
-            <div className="divide-y text-sm">
-              {events.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium">{describeEvent(ev)}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {ev.productName || ev.productId || ev.destination || "—"}
-                      {ev.status === "pending" ? " · awaiting partner" : ""}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {new Date(ev.createdAt).toLocaleDateString()}
-                    </div>
-                    <div
-                      className={
-                        ev.type === "conversion" && ev.status !== "reversed"
-                          ? ev.status === "pending"
-                            ? "font-medium text-amber-800"
-                            : "font-medium text-primary"
-                          : ""
-                      }
-                    >
-                      {ev.type === "conversion"
-                        ? `${ev.status === "pending" ? "~" : "+"}£${(
-                            ev.commission ?? 0
-                          ).toFixed(2)}`
-                        : "—"}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="mt-12 rounded-2xl border border-border bg-card p-8 text-center">
-        <Gift className="mx-auto size-8 text-primary" />
-        <h2 className="font-heading mt-3 text-2xl font-semibold text-primary">
-          Keep sharing
-        </h2>
-        <p className="mx-auto mt-2 max-w-md text-muted-foreground">
-          Copy your link, browse the marketplace, and track partner reports from
-          one ledger. Credit lands after partners pay us — not a cash wallet.
-        </p>
-        <Button
-          nativeButton={false}
-          render={<Link href="/marketplace" />}
-          className="mt-6"
-          size="lg"
+      <div className="mt-6">
+        <button
+          type="button"
+          onClick={() => setShowActivity((v) => !v)}
+          className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+          aria-expanded={showActivity}
         >
-          Browse products to share
-        </Button>
+          Recent activity
+          <ChevronDown
+            className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+              showActivity ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+        {showActivity ? (
+          <Card className="mt-2 border-border/80">
+            <CardContent className="pt-4">
+              {events.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No activity yet. Copy your link or share a marketplace product
+                  — zeros are fine until partners report.
+                </p>
+              ) : (
+                <div className="divide-y text-sm">
+                  {events.map((ev) => (
+                    <div
+                      key={ev.id}
+                      className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium">{describeEvent(ev)}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {ev.productName ||
+                            ev.productId ||
+                            ev.destination ||
+                            "—"}
+                          {ev.status === "pending"
+                            ? " · awaiting partner"
+                            : ""}
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {new Date(ev.createdAt).toLocaleDateString()}
+                        </div>
+                        {ev.type === "conversion" ? (
+                          <div
+                            className={
+                              ev.status === "pending"
+                                ? "font-medium text-amber-800"
+                                : ev.status !== "reversed"
+                                  ? "font-medium text-primary"
+                                  : "text-muted-foreground"
+                            }
+                          >
+                            {ev.status === "pending" ? "~" : "+"}£
+                            {(ev.commission ?? 0).toFixed(2)}
+                          </div>
+                        ) : (
+                          <div className="text-muted-foreground">—</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
+
+      <p className="mt-8 text-center text-xs text-muted-foreground">
+        Membership fees support the platform. Cause payments fund partner
+        programmes — not cashback.{" "}
+        <Link
+          href="/membership#how-earnings-work"
+          className="font-medium text-primary underline-offset-2 hover:underline"
+        >
+          How earnings work
+        </Link>
+      </p>
     </div>
   );
 }
 
-function Stat({
+function CreditStat({
   label,
   value,
-  highlight,
+  hint,
+  tone,
 }: {
   label: string;
   value: string;
-  highlight?: boolean;
+  hint: string;
+  tone?: "pending" | "confirmed";
 }) {
   return (
     <div
       className={`rounded-2xl border p-4 ${
-        highlight ? "border-gold/40 bg-gold/5" : "bg-card"
+        tone === "confirmed"
+          ? "border-emerald-200 bg-emerald-50/50"
+          : tone === "pending"
+            ? "border-amber-200/80 bg-amber-50/40"
+            : "bg-card"
       }`}
     >
       <div className="text-sm text-muted-foreground">{label}</div>
       <div className="mt-1 font-heading text-2xl font-semibold tabular-nums">
         {value}
       </div>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
     </div>
   );
 }

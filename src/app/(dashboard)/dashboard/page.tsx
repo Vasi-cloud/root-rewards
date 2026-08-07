@@ -5,10 +5,10 @@ import {
   BadgeCheck,
   BookOpen,
   ChefHat,
+  ChevronDown,
   Copy,
   Leaf,
   MapPin,
-  MousePointerClick,
   PawPrint,
   Shield,
   ShoppingBag,
@@ -90,6 +90,7 @@ export default function DashboardPage() {
   const [code, setCode] = useState("YOUR_CODE");
   const [origin, setOrigin] = useState("https://forestbuddies.app");
   const [copied, setCopied] = useState(false);
+  const [showShareActivity, setShowShareActivity] = useState(false);
 
   const isAdmin = isAdminUser(user?.email);
   const isApprovedSeller = seller?.status === "approved";
@@ -286,9 +287,31 @@ export default function DashboardPage() {
               Affiliate &amp; sharing
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              You earn 25% of eligible commissions we receive, as account
-              credit, after partners pay us. Earnings are not a cash wallet.
+              You earn 25% of eligible commissions we receive. Account credit
+              after partners pay us — not a cash wallet.
             </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <CreditMiniStat
+              label="Pending"
+              value={`£${(stats.pendingPartnerReports ?? 0).toFixed(2)}`}
+              hint="Waiting on partner confirmation"
+              tone="pending"
+            />
+            <CreditMiniStat
+              label="Confirmed"
+              value={`£${stats.earnings.toFixed(2)}`}
+              hint="Account credit available"
+              tone="confirmed"
+            />
+            <CreditMiniStat
+              label="Lifetime"
+              value={`£${(
+                stats.earnings + (stats.pendingPartnerReports ?? 0)
+              ).toFixed(2)}`}
+              hint="Pending + confirmed"
+            />
           </div>
 
           <Card>
@@ -298,8 +321,7 @@ export default function DashboardPage() {
               </CardTitle>
               <CardDescription>
                 Attribution for {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}. 25% of
-                eligible commissions we receive, as account credit, after
-                partners pay us.
+                eligible commissions we receive, as account credit.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -336,89 +358,77 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <MiniStat
-              icon={MousePointerClick}
-              label="Link clicks"
-              value={stats.clicks.toLocaleString()}
-            />
-            <MiniStat
-              icon={ShoppingBag}
-              label="Conversions"
-              value={stats.conversions.toString()}
-            />
-            <MiniStat
-              icon={Sparkles}
-              label="Account credit (after partners pay)"
-              value={
-                stats.earnings > 0 || stats.pendingPayout > 0
-                  ? `£${(stats.earnings + stats.pendingPayout).toFixed(2)}`
-                  : "£0.00"
-              }
-            />
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading text-lg">
-                Recent share activity
-              </CardTitle>
-              <CardDescription>
-                Local referral ledger on this device. Empty until you share your
-                link — no fake balances. Credit only — not a cash wallet.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No activity yet. Copy your link above to start tracking
-                  clicks.
-                </p>
-              ) : (
-                <div className="divide-y text-sm">
-                  {events.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          {describeEvent(item)}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.productName || item.productId || "Referral"}
-                          {item.status === "pending"
-                            ? " · awaiting partner payout"
-                            : ""}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono text-xs text-muted-foreground">
-                          {new Date(item.createdAt).toLocaleDateString()}
-                        </div>
-                        {item.type === "conversion" ? (
-                          <div
-                            className={
-                              item.status === "pending"
-                                ? "font-medium text-amber-800"
-                                : item.status !== "reversed"
-                                  ? "font-medium text-primary"
-                                  : ""
-                            }
-                          >
-                            {item.status === "pending" ? "~" : "+"}£
-                            {(item.commission ?? 0).toFixed(2)}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowShareActivity((v) => !v)}
+              className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-muted/50"
+              aria-expanded={showShareActivity}
+            >
+              Recent activity
+              <ChevronDown
+                className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                  showShareActivity ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {showShareActivity ? (
+              <Card className="mt-2">
+                <CardContent className="pt-4">
+                  {events.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No activity yet. Zeros are fine until partners report —
+                      no fake balances.
+                    </p>
+                  ) : (
+                    <div className="divide-y text-sm">
+                      {events.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+                        >
+                          <div>
+                            <div className="font-medium">
+                              {describeEvent(item)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {item.productName ||
+                                item.productId ||
+                                "Referral"}
+                              {item.status === "pending"
+                                ? " · awaiting partner"
+                                : ""}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="text-muted-foreground">—</div>
-                        )}
-                      </div>
+                          <div className="text-right">
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </div>
+                            {item.type === "conversion" ? (
+                              <div
+                                className={
+                                  item.status === "pending"
+                                    ? "font-medium text-amber-800"
+                                    : item.status !== "reversed"
+                                      ? "font-medium text-primary"
+                                      : ""
+                                }
+                              >
+                                {item.status === "pending" ? "~" : "+"}£
+                                {(item.commission ?? 0).toFixed(2)}
+                              </div>
+                            ) : (
+                              <div className="text-muted-foreground">—</div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
         </section>
       ) : (
         <Card id="sharing" className="scroll-mt-20">
@@ -610,27 +620,30 @@ export default function DashboardPage() {
   );
 }
 
-function MiniStat({
-  icon: Icon,
+function CreditMiniStat({
   label,
   value,
-  muted,
+  hint,
+  tone,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
-  muted?: boolean;
+  hint: string;
+  tone?: "pending" | "confirmed";
 }) {
   return (
-    <Card className={cn(muted && "bg-muted/40")}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardDescription className="text-xs leading-snug">{label}</CardDescription>
-          <Icon className="size-4 shrink-0 text-primary" />
-        </div>
+    <Card
+      className={cn(
+        tone === "confirmed" && "border-emerald-200 bg-emerald-50/40",
+        tone === "pending" && "border-amber-200/80 bg-amber-50/30"
+      )}
+    >
+      <CardHeader className="pb-3">
+        <CardDescription className="text-xs leading-snug">{label}</CardDescription>
         <CardTitle className="text-xl font-semibold tabular-nums sm:text-2xl">
           {value}
         </CardTitle>
+        <p className="text-xs text-muted-foreground">{hint}</p>
       </CardHeader>
     </Card>
   );
