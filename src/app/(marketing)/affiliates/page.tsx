@@ -123,6 +123,51 @@ export default function AffiliatesPage() {
     refresh();
   }
 
+  if (!isImpactMember) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <Badge className="mb-3 bg-gold/20 text-primary">Affiliate program</Badge>
+        <h1 className="font-heading text-3xl font-semibold text-primary sm:text-4xl">
+          Affiliate tools for Impact Members
+        </h1>
+        <p className="mt-3 max-w-2xl text-muted-foreground">
+          Upgrade to unlock your share link and 25% of eligible commissions we
+          receive, as account credit, after partners pay us. Earnings are not a
+          cash wallet. Marketplace, Buy Local, Kitchen, Parts, and Ask Leafy
+          stay free.
+        </p>
+        <Card className="mt-8 border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-cream to-cream">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl">
+              Unlock sharing with Impact Member
+            </CardTitle>
+            <CardDescription>
+              Free plans have no commission share. Membership fees support the
+              platform; cause payments fund partner programmes — not cashback.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button
+              nativeButton={false}
+              render={<Link href="/membership" />}
+              size="lg"
+            >
+              Upgrade to earn
+            </Button>
+            <Button
+              nativeButton={false}
+              render={<Link href="/membership#how-earnings-work" />}
+              variant="outline"
+              size="lg"
+            >
+              How earnings work
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <Badge className="mb-3 bg-gold/20 text-primary">Affiliate program</Badge>
@@ -130,17 +175,17 @@ export default function AffiliatesPage() {
         Earn while you advocate for the planet
       </h1>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        First-party Forest Buddies links plus external partners (Amazon,
-        Target, REI). Attribution lasts {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}
-        . Impact Members boost first-party rates only
-        {isImpactMember ? " (active)" : ""}.
+        Share your Forest Buddies link and partner outbounds. You earn 25% of
+        eligible commissions we receive, as account credit, after partners pay
+        us — not a cash wallet. Attribution lasts{" "}
+        {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}.
       </p>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Clicks / outbounds" value={stats.clicks.toLocaleString()} />
         <Stat label="Confirmed conversions" value={String(stats.conversions)} />
         <Stat
-          label="Confirmed earnings"
+          label="Account credit (confirmed)"
           value={`£${stats.earnings.toFixed(2)}`}
           highlight
         />
@@ -157,8 +202,8 @@ export default function AffiliatesPage() {
           </CardTitle>
           <CardDescription>
             Code <strong className="text-foreground">{code}</strong> · sample
-            first-party rate on a 12% product: <strong>{sampleRate}%</strong>
-            {isImpactMember ? " with Impact boost" : ""}
+            first-party rate on a 12% product: <strong>{sampleRate}%</strong>{" "}
+            with Impact Member
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -184,7 +229,7 @@ export default function AffiliatesPage() {
               nativeButton={false}
               render={<Link href="/membership" />}
             >
-              {isImpactMember ? "Membership perks" : "Boost with Impact Member"}
+              Membership perks
             </Button>
           </div>
         </CardContent>
@@ -347,19 +392,19 @@ export default function AffiliatesPage() {
       <div className="mt-12 rounded-2xl border border-border bg-card p-8 text-center">
         <Gift className="mx-auto size-8 text-primary" />
         <h2 className="font-heading mt-3 text-2xl font-semibold text-primary">
-          Start earning today
+          Keep sharing
         </h2>
         <p className="mx-auto mt-2 max-w-md text-muted-foreground">
-          Create an account, copy your link, and track Forest Buddies plus
-          external partners from one ledger.
+          Copy your link, browse the marketplace, and track partner reports from
+          one ledger. Credit lands after partners pay us — not a cash wallet.
         </p>
         <Button
           nativeButton={false}
-          render={<Link href="/register" />}
+          render={<Link href="/marketplace" />}
           className="mt-6"
           size="lg"
         >
-          Join as affiliate
+          Browse products to share
         </Button>
       </div>
     </div>

@@ -10,20 +10,17 @@ import {
   MapPin,
   MousePointerClick,
   PawPrint,
-  Settings,
   Shield,
   ShoppingBag,
   Sparkles,
   Store,
   Sun,
-  Trees,
   Waves,
   Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { DashboardSignOut } from "@/components/dashboard/sign-out-button";
 import { MembershipCancelControls } from "@/components/membership/membership-cancel-controls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -192,32 +189,10 @@ export default function DashboardPage() {
           Hello, {displayName}
         </h1>
         <p className="mt-2 max-w-xl text-muted-foreground">
-          Your plan, impact, and sharing tools — Marketplace, Buy Local,
-          Kitchen, Parts, and Ask Leafy stay available on Free.
+          Your plan and impact — Marketplace, Buy Local, Kitchen, Parts, and
+          Ask Leafy stay available on Free. Affiliate tools unlock with Impact
+          Member.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button
-            nativeButton={false}
-            render={<Link href="/dashboard/my-forest" />}
-            variant="outline"
-            size="sm"
-            className="h-10 gap-1.5"
-          >
-            <Trees className="size-3.5" />
-            My Forest
-          </Button>
-          <Button
-            nativeButton={false}
-            render={<Link href="/dashboard/settings" />}
-            variant="outline"
-            size="sm"
-            className="h-10 gap-1.5"
-          >
-            <Settings className="size-3.5" />
-            Account settings
-          </Button>
-          <DashboardSignOut className="h-10 px-3 text-sm" />
-        </div>
       </section>
 
       {/* Plan block */}
@@ -265,8 +240,9 @@ export default function DashboardPage() {
                 <span className="block">
                   <span className="font-medium text-emerald-950">Free plan</span>
                   {" — "}
-                  no commission share for now. Upgrade for 25% of eligible
-                  commissions as account credit (after partners pay us).
+                  no commission share. Upgrade to Impact Member to unlock your
+                  share link and 25% of eligible commissions as account credit
+                  (after partners pay us).
                 </span>
               )}
               <span className="block text-xs text-emerald-800/70">
@@ -281,7 +257,7 @@ export default function DashboardPage() {
               render={<Link href="/membership" />}
               variant={isImpactMember ? "outline" : "default"}
             >
-              {isImpactMember ? "Manage plan" : "Upgrade to Impact Member"}
+              {isImpactMember ? "Manage plan" : "Upgrade to earn"}
             </Button>
           </div>
         </CardHeader>
@@ -301,168 +277,173 @@ export default function DashboardPage() {
         )}
       </Card>
 
-      {/* Affiliate / sharing block */}
-      <section className="space-y-4" id="sharing">
-        <div>
-          <h2 className="font-heading text-xl font-semibold text-primary">
-            Affiliate &amp; sharing
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Partner links may earn Forest Buddies® a commission. Earnings appear
-            after partners pay us — shown here as account credit, not a
-            cash wallet.
-          </p>
-        </div>
+      {/* Affiliate / sharing — Impact Members only */}
+      {isImpactMember ? (
+        <section className="space-y-4" id="sharing">
+          <div>
+            <h2 className="font-heading text-xl font-semibold text-primary">
+              Affiliate &amp; sharing
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              You earn 25% of eligible commissions we receive, as account
+              credit, after partners pay us. Earnings are not a cash wallet.
+            </p>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">Your share link</CardTitle>
-            <CardDescription>
-              Attribution for {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}.{" "}
-              {isImpactMember ? (
-                <>
-                  You earn{" "}
-                  <strong className="font-medium text-foreground">
-                    25% of eligible commissions we receive
-                  </strong>{" "}
-                  (account credit).
-                </>
-              ) : (
-                <>
-                  Free plan:{" "}
-                  <strong className="font-medium text-foreground">
-                    0% commission share
-                  </strong>{" "}
-                  for now.{" "}
-                  <Link
-                    href="/membership#how-earnings-work"
-                    className="font-medium text-primary underline-offset-2 hover:underline"
-                  >
-                    Upgrade to Impact Member
-                  </Link>{" "}
-                  to earn 25% of eligible commissions.
-                </>
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <code className="block w-full overflow-x-auto rounded-lg border border-border bg-muted px-4 py-3 text-sm">
-              {shareUrl}
-            </code>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button size="sm" className="gap-2" onClick={() => void copyLink()}>
-                <Copy className="size-4" />
-                {copied ? "Copied" : "Copy link"}
-              </Button>
-              <Button
-                nativeButton={false}
-                render={<Link href="/marketplace" />}
-                size="sm"
-                variant="outline"
-                className="gap-2"
-              >
-                Browse products to share <ArrowRight className="size-4" />
-              </Button>
-              <Button
-                nativeButton={false}
-                render={<Link href="/affiliates" />}
-                size="sm"
-                variant="ghost"
-              >
-                Affiliate tools
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-heading text-lg">
+                Your share link
+              </CardTitle>
+              <CardDescription>
+                Attribution for {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}. 25% of
+                eligible commissions we receive, as account credit, after
+                partners pay us.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <code className="block w-full overflow-x-auto rounded-lg border border-border bg-muted px-4 py-3 text-sm">
+                {shareUrl}
+              </code>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => void copyLink()}
+                >
+                  <Copy className="size-4" />
+                  {copied ? "Copied" : "Copy link"}
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={<Link href="/marketplace" />}
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                >
+                  Browse products to share <ArrowRight className="size-4" />
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={<Link href="/affiliates" />}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Affiliate tools
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <MiniStat
-            icon={MousePointerClick}
-            label="Link clicks"
-            value={stats.clicks.toLocaleString()}
-          />
-          <MiniStat
-            icon={ShoppingBag}
-            label="Conversions"
-            value={stats.conversions.toString()}
-          />
-          <MiniStat
-            icon={Sparkles}
-            label={
-              isImpactMember
-                ? "Account credit (after partners pay)"
-                : "Commission share"
-            }
-            value={
-              isImpactMember
-                ? stats.earnings > 0 || stats.pendingPayout > 0
+          <div className="grid gap-3 sm:grid-cols-3">
+            <MiniStat
+              icon={MousePointerClick}
+              label="Link clicks"
+              value={stats.clicks.toLocaleString()}
+            />
+            <MiniStat
+              icon={ShoppingBag}
+              label="Conversions"
+              value={stats.conversions.toString()}
+            />
+            <MiniStat
+              icon={Sparkles}
+              label="Account credit (after partners pay)"
+              value={
+                stats.earnings > 0 || stats.pendingPayout > 0
                   ? `£${(stats.earnings + stats.pendingPayout).toFixed(2)}`
                   : "£0.00"
-                : "0% · Free"
-            }
-            muted={!isImpactMember}
-          />
-        </div>
+              }
+            />
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-heading text-lg">
-              Recent share activity
-            </CardTitle>
-            <CardDescription>
-              Local referral ledger on this device. Empty until you share your
-              link — no fake balances.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {events.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No activity yet. Copy your link above to start tracking clicks.
-              </p>
-            ) : (
-              <div className="divide-y text-sm">
-                {events.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
-                  >
-                    <div>
-                      <div className="font-medium">{describeEvent(item)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.productName || item.productId || "Referral"}
-                        {item.status === "pending"
-                          ? " · awaiting partner payout"
-                          : ""}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-mono text-xs text-muted-foreground">
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </div>
-                      {isImpactMember && item.type === "conversion" ? (
-                        <div
-                          className={
-                            item.status === "pending"
-                              ? "font-medium text-amber-800"
-                              : item.status !== "reversed"
-                                ? "font-medium text-primary"
-                                : ""
-                          }
-                        >
-                          {item.status === "pending" ? "~" : "+"}$
-                          {(item.commission ?? 0).toFixed(2)}
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-heading text-lg">
+                Recent share activity
+              </CardTitle>
+              <CardDescription>
+                Local referral ledger on this device. Empty until you share your
+                link — no fake balances. Credit only — not a cash wallet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {events.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No activity yet. Copy your link above to start tracking
+                  clicks.
+                </p>
+              ) : (
+                <div className="divide-y text-sm">
+                  {events.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+                    >
+                      <div>
+                        <div className="font-medium">
+                          {describeEvent(item)}
                         </div>
-                      ) : (
-                        <div className="text-muted-foreground">—</div>
-                      )}
+                        <div className="text-xs text-muted-foreground">
+                          {item.productName || item.productId || "Referral"}
+                          {item.status === "pending"
+                            ? " · awaiting partner payout"
+                            : ""}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </div>
+                        {item.type === "conversion" ? (
+                          <div
+                            className={
+                              item.status === "pending"
+                                ? "font-medium text-amber-800"
+                                : item.status !== "reversed"
+                                  ? "font-medium text-primary"
+                                  : ""
+                            }
+                          >
+                            {item.status === "pending" ? "~" : "+"}£
+                            {(item.commission ?? 0).toFixed(2)}
+                          </div>
+                        ) : (
+                          <div className="text-muted-foreground">—</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      ) : (
+        <Card id="sharing" className="scroll-mt-20">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="font-heading text-lg">
+                Affiliate &amp; sharing
+              </CardTitle>
+              <CardDescription>
+                Impact Members unlock a share link and 25% of eligible
+                commissions as account credit (after partners pay us). Not a
+                cash wallet.
+              </CardDescription>
+            </div>
+            <Button
+              nativeButton={false}
+              render={<Link href="/membership" />}
+              size="sm"
+              className="h-10 shrink-0 gap-1.5 sm:h-9"
+            >
+              Upgrade to earn
+              <ArrowRight className="size-3.5" />
+            </Button>
+          </CardHeader>
         </Card>
-      </section>
+      )}
 
       {/* Your impact (illustrative) */}
       <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/50">

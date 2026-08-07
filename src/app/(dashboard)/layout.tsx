@@ -10,6 +10,7 @@ import { DashboardSignOut } from "@/components/dashboard/sign-out-button";
 import { LanguageComingSoonBanner } from "@/components/layout/language-coming-soon-banner";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/auth-context";
+import { useMembership } from "@/contexts/membership-context";
 import { useSeller } from "@/contexts/seller-context";
 import { isAdminUser } from "@/lib/admin";
 import { cn } from "@/lib/utils";
@@ -25,14 +26,19 @@ const basePrimaryNav: NavItem[] = [
   { href: "/dashboard/settings", label: "Account settings", short: "Settings" },
 ];
 
-const secondaryNav: NavItem[] = [
+const freeToolsNav: NavItem[] = [
   { href: "/marketplace", label: "Marketplace", short: "Shop" },
   { href: "/local", label: "Buy Local", short: "Local" },
   { href: "/kitchen", label: "Leafy Kitchen", short: "Kitchen" },
   { href: "/parts", label: "Leafy Parts", short: "Parts" },
   { href: "/recommend", label: "Ask Leafy", short: "Ask" },
-  { href: "/affiliates", label: "Affiliate tools", short: "Affiliate" },
 ];
+
+const affiliateNavItem: NavItem = {
+  href: "/affiliates",
+  label: "Affiliate tools",
+  short: "Affiliate",
+};
 
 function navActive(pathname: string, href: string) {
   if (href === "/dashboard") {
@@ -72,6 +78,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname() ?? "";
   const { user } = useAuth();
+  const { isImpactMember } = useMembership();
   const { seller } = useSeller();
   const isAdmin = isAdminUser(user?.email);
   const sellerLabel =
@@ -85,9 +92,15 @@ export default function DashboardLayout({
     return items;
   }, [sellerLabel]);
 
+  const secondaryNav = useMemo((): NavItem[] => {
+    return isImpactMember
+      ? [...freeToolsNav, affiliateNavItem]
+      : freeToolsNav;
+  }, [isImpactMember]);
+
   const dashboardNav = useMemo(
     () => [...primaryNav, ...secondaryNav],
-    [primaryNav]
+    [primaryNav, secondaryNav]
   );
 
   return (

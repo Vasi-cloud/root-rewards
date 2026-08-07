@@ -54,7 +54,7 @@ const IMPACT = [
   { value: "Shop", label: "Eco-scored goods from makers & partners" },
   { value: "Fund", label: "Illustrative cause gifts at checkout or Donate" },
   { value: "Local", label: "Stores, makers & markets to check in person" },
-  { value: "Share", label: "Affiliate tools for kind referrals" },
+  { value: "Share", label: "Impact Member share tools" },
 ];
 
 const FEATURED = [
@@ -426,13 +426,13 @@ export default function HomePage() {
             </Button>
             <Button
               nativeButton={false}
-              render={<Link href="/affiliates" />}
+              render={<Link href="/membership" />}
               size="lg"
               variant="outline"
               className="min-h-12 w-full gap-2 border-cream/35 bg-transparent text-cream hover:bg-cream/10 sm:min-h-11 sm:w-auto"
             >
               <Users className="size-4" />
-              Join as affiliate
+              Upgrade to earn
             </Button>
           </div>
         </div>

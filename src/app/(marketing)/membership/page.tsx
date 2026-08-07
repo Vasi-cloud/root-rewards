@@ -37,9 +37,9 @@ import { cn } from "@/lib/utils";
 
 const UPGRADE_HIGHLIGHTS = [
   {
-    title: "25% commission share",
+    title: "Share link & 25% credit",
     detail:
-      "Eligible partner commissions we receive — as account credit, after the partner pays us.",
+      "25% of eligible commissions we receive, as account credit, after partners pay us — not a cash wallet.",
     icon: Sparkles,
   },
   {
@@ -305,7 +305,8 @@ export default function MembershipPage() {
             </li>
             <li>
               <span className="font-medium text-foreground">Free plan:</span> no
-              commission share for now.
+              commission share — upgrade to unlock your share link and affiliate
+              tools.
             </li>
             <li>
               Membership fees support the platform; cause and tree payments fund
