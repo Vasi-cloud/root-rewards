@@ -42,6 +42,8 @@ export async function POST(request: Request) {
   });
 
   if (!result.ok) {
+    // Do not mark as welcomed — allow a later retry. Caller must not block sign-up.
+    console.error("[email] welcome send failed", result.error);
     return NextResponse.json({ error: result.error }, { status: 502 });
   }
 

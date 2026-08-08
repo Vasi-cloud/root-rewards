@@ -6,7 +6,7 @@ import { Resend } from "resend";
 
 import {
   getEmailFrom,
-  isEmailConfigured,
+  hasResendApiKey,
   type EmailSendResult,
 } from "@/lib/email/config";
 
@@ -62,7 +62,8 @@ export async function sendTransactionalEmail(opts: {
     return { ok: false, error: "Invalid recipient email." };
   }
 
-  if (!isEmailConfigured()) {
+  // Demo path when Resend is not configured (local / preview without keys).
+  if (!hasResendApiKey()) {
     const id = logDemoEmail({
       to,
       subject: opts.subject,
@@ -72,10 +73,22 @@ export async function sendTransactionalEmail(opts: {
     return { ok: true, mode: "demo", id };
   }
 
+  const from = getEmailFrom();
+  if (!from) {
+    console.error(
+      "[email] EMAIL_FROM is missing — refusing to send. Set EMAIL_FROM to e.g. Forest Buddies <noreply@forestbuddies.com>"
+    );
+    return {
+      ok: false,
+      error:
+        "EMAIL_FROM is not configured. Set EMAIL_FROM to Forest Buddies <noreply@forestbuddies.com>.",
+    };
+  }
+
   try {
     const resend = getResend();
     const { data, error } = await resend.emails.send({
-      from: getEmailFrom(),
+      from,
       to: [to],
       subject: opts.subject,
       html: opts.html,
@@ -92,6 +105,7 @@ export async function sendTransactionalEmail(opts: {
       };
     }
 
+    console.info("[email] sent", { kind: opts.kind, id: data.id, to });
     return { ok: true, mode: "live", id: data.id };
   } catch (err) {
     console.error("[email] send failed", err);

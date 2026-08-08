@@ -142,12 +142,11 @@ export async function ensureUserProfile(user: User): Promise<UserProfile | null>
 
   await upsertUserProfile(profile);
 
-  // Welcome email for first-time profiles (email + Google). Fire-and-forget.
+  // Welcome email once on first profile create (not on later logins). Fire-and-forget.
   if (profile.email) {
     const key = `fb-welcome-sent:${profile.uid}`;
     try {
-      if (typeof window !== "undefined" && !sessionStorage.getItem(key)) {
-        sessionStorage.setItem(key, "1");
+      if (typeof window !== "undefined" && !localStorage.getItem(key)) {
         void fetch("/api/email/welcome", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -156,10 +155,16 @@ export async function ensureUserProfile(user: User): Promise<UserProfile | null>
             name: profile.displayName,
             userId: profile.uid,
           }),
-        });
+        })
+          .then(async (res) => {
+            if (res.ok) localStorage.setItem(key, "1");
+          })
+          .catch((err) => {
+            console.warn("[email] welcome request failed", err);
+          });
       }
     } catch {
-      // ignore
+      // ignore — never block sign-up
     }
   }
 

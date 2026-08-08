@@ -20,7 +20,8 @@ export function welcomeEmailHtml(opts: {
     <ul style="margin:0 0 18px;padding-left:18px;color:#2d6a4f;">
       <li>Shop eco brands &amp; solo makers</li>
       <li>Book legal, repair, workshop &amp; wellness services</li>
-      <li>Earn affiliate rewards when friends shop green</li>
+      <li>Fund trees and causes at checkout (partner programmes)</li>
+      <li>Impact Members unlock share-link credit (25% after partners pay us)</li>
     </ul>
     ${ctaButton(`${appUrl}/marketplace`, "Explore the marketplace")}
     <p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
@@ -95,6 +96,13 @@ export function orderConfirmationEmailHtml(opts: {
       </tr>
     </table>
     ${impact}
+    ${
+      opts.causeLines && opts.causeLines.length > 0
+        ? `<p style="margin:0 0 16px;font-size:13px;color:#5c7366;">
+             Cause funding supports partner programmes — not product cashback or a shopping balance.
+           </p>`
+        : ""
+    }
     ${ctaButton(`${appUrl}/dashboard`, "Track your impact")}
     <p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
       Questions? Reply to this email or visit our returns guide anytime.
@@ -107,7 +115,11 @@ Your Forest Buddies order ${opts.orderNumber} is confirmed.
 Total: £${total}
 
 ${opts.lineItems.map((i) => `- ${i.name} × ${i.quantity}: £${(i.amountCents / 100).toFixed(2)}`).join("\n")}
-
+${
+  opts.causeLines && opts.causeLines.length > 0
+    ? `\nImpact: ${opts.causeLines.join("; ")}\nCause funding supports partner programmes — not product cashback.\n`
+    : ""
+}
 Dashboard: ${appUrl}/dashboard
 
 — Forest Buddies`;
@@ -171,6 +183,66 @@ Resume checkout: ${appUrl}/checkout
     html: emailLayout({
       preheader: "Your cart is still here when you’re ready.",
       title: "Your cart is waiting",
+      bodyHtml,
+    }),
+    text,
+  };
+}
+
+export function membershipSuccessEmailHtml(opts: {
+  name?: string | null;
+}): { subject: string; html: string; text: string } {
+  const name = opts.name?.trim() || "there";
+  const appUrl = getAppUrlForEmail();
+  const subject = "You’re an Impact Member — welcome to the grove";
+
+  const bodyHtml = `
+    <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
+    <p style="margin:0 0 14px;">
+      Your Impact Member subscription is active. Here’s what’s unlocked:
+    </p>
+    <ul style="margin:0 0 18px;padding-left:18px;color:#2d6a4f;">
+      <li>
+        <strong>Share-link credit:</strong> 25% of eligible commissions we
+        receive, as account credit, after partners pay us — not a cash wallet.
+      </li>
+      <li>
+        <strong>£5 monthly cause credit</strong> at checkout toward trees and
+        causes (partner programmes) — not a product discount or shopping balance.
+      </li>
+      <li>Impact Member badge on your profile</li>
+    </ul>
+    ${ctaButton(`${appUrl}/dashboard`, "Go to your dashboard")}
+    <p style="margin:16px 0 0;">
+      <a href="${appUrl}/marketplace" style="color:#1b4332;font-weight:600;">Continue to marketplace</a>
+      &nbsp;·&nbsp;
+      <a href="${appUrl}/donate" style="color:#1b4332;font-weight:600;">Support a cause</a>
+    </p>
+    <p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
+      Manage or cancel anytime from Membership — you keep benefits until the end
+      of the billing period.
+    </p>
+  `;
+
+  const text = `Hi ${name},
+
+You're an Impact Member. Here's what's unlocked:
+
+- Share-link credit: 25% of eligible commissions we receive, as account credit, after partners pay us — not a cash wallet.
+- £5 monthly cause credit at checkout toward trees/causes (partner programmes) — not a product discount.
+- Impact Member badge on your profile
+
+Dashboard: ${appUrl}/dashboard
+Marketplace: ${appUrl}/marketplace
+Donate: ${appUrl}/donate
+
+— Forest Buddies`;
+
+  return {
+    subject,
+    html: emailLayout({
+      preheader: "Impact Member is active — cause credit toward causes, not products.",
+      title: "You’re an Impact Member",
       bodyHtml,
     }),
     text,

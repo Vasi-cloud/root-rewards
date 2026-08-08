@@ -2,7 +2,10 @@ import "server-only";
 
 import type Stripe from "stripe";
 
-import { sendOrderConfirmationEmail } from "@/lib/email/messages";
+import {
+  sendMembershipSuccessEmail,
+  sendOrderConfirmationEmail,
+} from "@/lib/email/messages";
 import {
   getOrderBySessionId,
   makeOrderNumber,
@@ -118,9 +121,11 @@ export async function fulfillCheckoutSession(
 
   const saved = saveConfirmedOrder(order);
 
-  // Only the first fulfillment sends mail (idempotent via early return above)
-  if (saved.kind === "marketplace_order" && saved.customerEmail) {
-    try {
+  // First fulfillment only (idempotent — duplicates return early above)
+  if (!saved.customerEmail) return saved;
+
+  try {
+    if (saved.kind === "marketplace_order") {
       const mail = await sendOrderConfirmationEmail(saved);
       return (
         updateConfirmedOrder(saved.sessionId, {
@@ -128,14 +133,30 @@ export async function fulfillCheckoutSession(
           confirmationEmailMode: mail.ok ? mail.mode : "skipped",
         }) ?? saved
       );
-    } catch (err) {
-      console.warn("[email] order confirmation error", err);
+    }
+
+    if (saved.kind === "impact_member") {
+      const mail = await sendMembershipSuccessEmail({
+        to: saved.customerEmail,
+        name: saved.customerName,
+      });
+      if (!mail.ok) {
+        console.warn("[email] membership success send failed", mail.error);
+      }
       return (
         updateConfirmedOrder(saved.sessionId, {
-          confirmationEmailMode: "skipped",
+          confirmationEmailId: mail.ok ? mail.id : null,
+          confirmationEmailMode: mail.ok ? mail.mode : "skipped",
         }) ?? saved
       );
     }
+  } catch (err) {
+    console.warn("[email] confirmation mail error", err);
+    return (
+      updateConfirmedOrder(saved.sessionId, {
+        confirmationEmailMode: "skipped",
+      }) ?? saved
+    );
   }
 
   return saved;

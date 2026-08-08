@@ -3,6 +3,7 @@ import "server-only";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import {
   abandonedCartEmailHtml,
+  membershipSuccessEmailHtml,
   orderConfirmationEmailHtml,
   welcomeEmailHtml,
 } from "@/lib/email/templates";
@@ -21,6 +22,20 @@ export async function sendWelcomeEmail(opts: {
     html: content.html,
     text: content.text,
     kind: "welcome",
+  });
+}
+
+export async function sendMembershipSuccessEmail(opts: {
+  to: string;
+  name?: string | null;
+}): Promise<EmailSendResult> {
+  const content = membershipSuccessEmailHtml({ name: opts.name });
+  return sendTransactionalEmail({
+    to: opts.to,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+    kind: "membership_success",
   });
 }
 
