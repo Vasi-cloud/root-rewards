@@ -238,6 +238,13 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (finalTotal < 0.5) {
+      setFormError(
+        "Order total must be at least £0.50 after cause credit. Add items or adjust your cause donation."
+      );
+      return;
+    }
+
     const rate = consumeRateLimit("checkout");
     if (!rate.allowed) {
       setFormError(rate.message);
@@ -497,7 +504,7 @@ export default function CheckoutPage() {
               </h3>
             </div>
             <p className="mb-5 text-base leading-relaxed text-emerald-800/85">
-              Pick a cause, then enter any dollar amount. Cause and tree
+              Pick a cause, then enter any pound amount (£). Cause and tree
               payments fund partner programmes — not affiliate cashback.
             </p>
 
@@ -646,14 +653,15 @@ export default function CheckoutPage() {
                     required
                     maxLength={200}
                     autoComplete="street-address"
-                    defaultValue="42 Forest Lane, Portland, OR"
+                    defaultValue="14 Grove Street"
+                    placeholder="14 Grove Street"
                     className={fieldClass}
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div>
                     <label className="text-base font-medium" htmlFor="ship-city">
-                      City
+                      City / town
                     </label>
                     <input
                       id="ship-city"
@@ -662,13 +670,14 @@ export default function CheckoutPage() {
                       required
                       maxLength={80}
                       autoComplete="address-level2"
-                      defaultValue="Portland"
+                      defaultValue="Bristol"
+                      placeholder="Bristol"
                       className={fieldClass}
                     />
                   </div>
                   <div>
                     <label className="text-base font-medium" htmlFor="ship-zip">
-                      ZIP / postal
+                      Postcode
                     </label>
                     <input
                       id="ship-zip"
@@ -677,8 +686,8 @@ export default function CheckoutPage() {
                       required
                       maxLength={20}
                       autoComplete="postal-code"
-                      inputMode="numeric"
-                      defaultValue="97201"
+                      defaultValue="BS1 4DJ"
+                      placeholder="BS1 4DJ"
                       className={fieldClass}
                     />
                   </div>
@@ -850,7 +859,7 @@ function CausePicker({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-base font-medium opacity-60">
-              $
+              £
             </span>
             <input
               id={`custom-amount-${cause.id}`}
@@ -859,7 +868,7 @@ function CausePicker({
               step={1}
               inputMode="decimal"
               value={customAmount}
-              placeholder="e.g. 24"
+              placeholder="e.g. 15"
               onChange={(e) => onCustomAmount(e.target.value)}
               className="w-full rounded-xl border border-current/25 bg-white py-3.5 pr-3 pl-8 text-lg font-medium tabular-nums shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-600/40"
             />
@@ -891,7 +900,7 @@ function CausePicker({
             </span>
           ) : (
             <span className="opacity-70">
-              Type any dollar amount — we&apos;ll convert it to{" "}
+              Type any amount in £ — we&apos;ll convert it to{" "}
               {cause.unitPlural}.
             </span>
           )}

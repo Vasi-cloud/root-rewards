@@ -89,9 +89,9 @@ export function validateMessage(
 
 export function validatePostalCode(raw: string): ValidationResult {
   const value = clampString(raw, 20);
-  if (!value) return { ok: false, error: "ZIP / postal code is required." };
+  if (!value) return { ok: false, error: "Postcode is required." };
   if (!/^[A-Za-z0-9\s-]{3,20}$/.test(value)) {
-    return { ok: false, error: "Enter a valid ZIP / postal code." };
+    return { ok: false, error: "Enter a valid postcode." };
   }
   return { ok: true, value };
 }

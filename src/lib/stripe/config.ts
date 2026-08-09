@@ -18,7 +18,12 @@ export function isStripeConfigured(): boolean {
 }
 
 export function isStripeWebhookConfigured(): boolean {
-  return Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim());
+  const secrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_LIVE,
+    process.env.STRIPE_WEBHOOK_SECRET_TEST,
+  ];
+  return secrets.some((s) => Boolean(s?.trim()?.startsWith("whsec_")));
 }
 
 export function getStripePublishableKey(): string | undefined {
