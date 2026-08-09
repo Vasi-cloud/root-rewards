@@ -14,6 +14,10 @@ export interface UserProfile {
   role: "customer" | "affiliate" | "admin" | "seller";
   affiliateCode?: string;
   membershipTier?: MembershipTierId;
+  /** Stripe Customer id — linked when Impact Member is reconciled / purchased */
+  stripeCustomerId?: string | null;
+  /** Stripe Subscription id for Impact Member */
+  stripeSubscriptionId?: string | null;
   /** Soft-delete flag — data retained for legal / compliance */
   accountStatus?: AccountStatus;
   /** When the account was soft-deactivated (ISO) */

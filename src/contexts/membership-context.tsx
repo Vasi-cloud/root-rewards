@@ -15,8 +15,10 @@ import {
 } from "@/lib/membership";
 import {
   MEMBERSHIP_STORAGE_KEY,
+  applyReconcileResult,
   applyStripeMembership,
   canUseCauseCredit,
+  clearMembershipToFree,
   loadMembership,
   markCauseCreditUsed,
   resumeMembership,
@@ -25,8 +27,10 @@ import {
   type MembershipState,
 } from "@/lib/membership-storage";
 import { upsertAdminMember } from "@/lib/admin-members-ledger";
+import { syncMembershipToUserProfile } from "@/lib/firebase/firestore";
 import {
   openBillingPortal,
+  reconcileMembership,
   startMembershipCheckout,
   verifyCheckoutSession,
 } from "@/lib/stripe/client";
@@ -58,6 +62,8 @@ interface MembershipContextValue {
   manageBilling: () => Promise<"portal" | "demo" | "error">;
   /** Sync membership after returning from Stripe Checkout */
   syncFromCheckoutSession: (sessionId: string) => Promise<boolean>;
+  /** Re-read plan from Stripe (login reconcile) */
+  reconcileFromStripe: () => Promise<void>;
   consumeCauseCredit: () => boolean;
   refresh: () => void;
 }
@@ -71,7 +77,7 @@ export function MembershipProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [state, setState] = useState<MembershipState>(() => ({
     tierId: "free",
     startedAt: null,
@@ -112,9 +118,72 @@ export function MembershipProvider({
     [user?.email, user?.displayName]
   );
 
+  const persistProfileMembership = useCallback(
+    async (next: MembershipState) => {
+      if (!user?.uid) return;
+      try {
+        await syncMembershipToUserProfile({
+          uid: user.uid,
+          membershipTier: next.tierId,
+          stripeCustomerId: next.stripeCustomerId,
+          stripeSubscriptionId: next.stripeSubscriptionId,
+        });
+      } catch (err) {
+        console.warn("[membership] could not sync profile", err);
+      }
+    },
+    [user?.uid]
+  );
+
   const refresh = useCallback(() => {
     setState(loadMembership());
   }, []);
+
+  const reconcileFromStripe = useCallback(async () => {
+    const email = user?.email ?? profile?.email ?? null;
+    const local = loadMembership();
+    const customerId =
+      local.stripeCustomerId || profile?.stripeCustomerId || null;
+
+    if (!email && !customerId) {
+      // Signed-out / anonymous: do not invent Impact from stale local flags alone
+      if (local.tierId === "impact" && !local.stripeSubscriptionId) {
+        // keep demo local Impact without Stripe ids
+        setState(local);
+      }
+      return;
+    }
+
+    const result = await reconcileMembership({
+      email,
+      customerId,
+      userId: user?.uid ?? null,
+    });
+
+    if ("error" in result) {
+      console.warn("[membership] reconcile error", result.error);
+      setState(loadMembership());
+      return;
+    }
+
+    // Demo mode (no Stripe keys): keep local cache; do not clear Impact demos
+    if (result.mode === "demo" || !result.reconciled) {
+      setState(loadMembership());
+      return;
+    }
+
+    const next = applyReconcileResult(result);
+    setState(next);
+    syncAdminLedger(next, email);
+    await persistProfileMembership(next);
+  }, [
+    user?.email,
+    user?.uid,
+    profile?.email,
+    profile?.stripeCustomerId,
+    syncAdminLedger,
+    persistProfileMembership,
+  ]);
 
   useEffect(() => {
     refresh();
@@ -131,6 +200,19 @@ export function MembershipProvider({
     };
   }, [refresh]);
 
+  // On login / sign-up: Stripe is source of truth (reconcile only — does not cancel).
+  // On sign-out: drop Stripe-backed local cache so guests aren't treated as Impact.
+  useEffect(() => {
+    if (!user?.uid) {
+      const local = loadMembership();
+      if (local.stripeSubscriptionId || local.stripeCustomerId) {
+        setState(clearMembershipToFree());
+      }
+      return;
+    }
+    void reconcileFromStripe();
+  }, [user?.uid, user?.email, reconcileFromStripe]);
+
   // Keep admin ledger in sync when this device has Impact Member
   useEffect(() => {
     if (state.tierId === "impact") {
@@ -143,15 +225,18 @@ export function MembershipProvider({
       const current = loadMembership();
       const checkoutEmail =
         email?.trim() || user?.email || "member@forestbuddies.eco";
+      const customerId =
+        current.stripeCustomerId || profile?.stripeCustomerId || null;
       const result = await startMembershipCheckout({
         email: checkoutEmail,
         userId: user?.uid ?? null,
-        customerId: current.stripeCustomerId,
+        customerId,
       });
       if ("demo" in result) {
         const next = setMembershipTier("impact");
         setState(next);
         syncAdminLedger(next, checkoutEmail);
+        await persistProfileMembership(next);
         return "demo";
       }
       if ("error" in result) {
@@ -161,17 +246,14 @@ export function MembershipProvider({
       window.location.href = result.url;
       return "stripe";
     },
-    [user?.email, user?.uid, syncAdminLedger]
+    [
+      user?.email,
+      user?.uid,
+      profile?.stripeCustomerId,
+      syncAdminLedger,
+      persistProfileMembership,
+    ]
   );
-
-  const downgradeToFree = useCallback(() => {
-    const prev = loadMembership();
-    syncAdminLedger(
-      { ...prev, tierId: "free", cancelAtPeriodEnd: true },
-      user?.email
-    );
-    setState(setMembershipTier("free"));
-  }, [syncAdminLedger, user?.email]);
 
   const cancelMembership = useCallback(async () => {
     const current = loadMembership();
@@ -190,22 +272,46 @@ export function MembershipProvider({
             cancelAtPeriodEnd?: boolean;
             currentPeriodEnd?: string | null;
           };
-          setState(
-            applyStripeMembership({
-              customerId: current.stripeCustomerId,
-              subscriptionId: current.stripeSubscriptionId,
-              periodEndsAt: data.currentPeriodEnd ?? current.periodEndsAt,
-              cancelAtPeriodEnd: true,
-            })
-          );
+          const next = applyStripeMembership({
+            customerId: current.stripeCustomerId,
+            subscriptionId: current.stripeSubscriptionId,
+            periodEndsAt: data.currentPeriodEnd ?? current.periodEndsAt,
+            cancelAtPeriodEnd: true,
+          });
+          setState(next);
+          await persistProfileMembership(next);
           return;
         }
       } catch {
         // fall through to demo cancel
       }
     }
-    setState(scheduleMembershipCancel());
-  }, []);
+    const next = scheduleMembershipCancel();
+    setState(next);
+    await persistProfileMembership(next);
+  }, [persistProfileMembership]);
+
+  const downgradeToFree = useCallback(() => {
+    const prev = loadMembership();
+    // Never strip Impact while a Stripe subscription id is still linked —
+    // schedule cancel-at-period-end instead (Stripe remains source of truth).
+    if (prev.stripeSubscriptionId) {
+      void cancelMembership();
+      return;
+    }
+    syncAdminLedger(
+      { ...prev, tierId: "free", cancelAtPeriodEnd: true },
+      user?.email
+    );
+    const next = setMembershipTier("free");
+    setState(next);
+    void persistProfileMembership(next);
+  }, [
+    cancelMembership,
+    syncAdminLedger,
+    user?.email,
+    persistProfileMembership,
+  ]);
 
   const keepMembership = useCallback(async () => {
     const current = loadMembership();
@@ -223,48 +329,56 @@ export function MembershipProvider({
           const data = (await res.json()) as {
             currentPeriodEnd?: string | null;
           };
-          setState(
-            applyStripeMembership({
-              customerId: current.stripeCustomerId,
-              subscriptionId: current.stripeSubscriptionId,
-              periodEndsAt: data.currentPeriodEnd ?? current.periodEndsAt,
-              cancelAtPeriodEnd: false,
-            })
-          );
+          const next = applyStripeMembership({
+            customerId: current.stripeCustomerId,
+            subscriptionId: current.stripeSubscriptionId,
+            periodEndsAt: data.currentPeriodEnd ?? current.periodEndsAt,
+            cancelAtPeriodEnd: false,
+          });
+          setState(next);
+          await persistProfileMembership(next);
           return;
         }
       } catch {
         // fall through
       }
     }
-    setState(resumeMembership());
-  }, []);
+    const next = resumeMembership();
+    setState(next);
+    await persistProfileMembership(next);
+  }, [persistProfileMembership]);
 
   const manageBilling = useCallback(async (): Promise<"portal" | "demo" | "error"> => {
     const current = loadMembership();
-    if (!current.stripeCustomerId) return "demo";
-    const result = await openBillingPortal(current.stripeCustomerId);
+    const customerId =
+      current.stripeCustomerId || profile?.stripeCustomerId || null;
+    if (!customerId) return "demo";
+    const result = await openBillingPortal(customerId);
     if ("error" in result) return "error";
     window.location.href = result.url;
     return "portal";
-  }, []);
+  }, [profile?.stripeCustomerId]);
 
-  const syncFromCheckoutSession = useCallback(async (sessionId: string) => {
-    const verified = await verifyCheckoutSession(sessionId);
-    if ("error" in verified || !verified.paid) return false;
-    if (verified.kind !== "impact_member" && !verified.subscriptionId) {
-      return false;
-    }
-    setState(
-      applyStripeMembership({
+  const syncFromCheckoutSession = useCallback(
+    async (sessionId: string) => {
+      const verified = await verifyCheckoutSession(sessionId);
+      if ("error" in verified || !verified.paid) return false;
+      if (verified.kind !== "impact_member" && !verified.subscriptionId) {
+        return false;
+      }
+      const next = applyStripeMembership({
         customerId: verified.customerId,
         subscriptionId: verified.subscriptionId,
         periodEndsAt: verified.currentPeriodEnd,
         cancelAtPeriodEnd: verified.cancelAtPeriodEnd,
-      })
-    );
-    return true;
-  }, []);
+      });
+      setState(next);
+      syncAdminLedger(next, verified.customerEmail ?? user?.email);
+      await persistProfileMembership(next);
+      return true;
+    },
+    [persistProfileMembership, syncAdminLedger, user?.email]
+  );
 
   const consumeCauseCredit = useCallback(() => {
     const current = loadMembership();
@@ -290,6 +404,7 @@ export function MembershipProvider({
       keepMembership,
       manageBilling,
       syncFromCheckoutSession,
+      reconcileFromStripe,
       consumeCauseCredit,
       refresh,
     }),
@@ -302,6 +417,7 @@ export function MembershipProvider({
       keepMembership,
       manageBilling,
       syncFromCheckoutSession,
+      reconcileFromStripe,
       consumeCauseCredit,
       refresh,
     ]

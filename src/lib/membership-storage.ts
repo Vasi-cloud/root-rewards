@@ -90,11 +90,17 @@ function normalizeState(parsed: Partial<MembershipState>): MembershipState {
   };
 }
 
-/** If cancel was scheduled and the period has ended, move to Free. */
+/**
+ * Local-only expire for demo memberships without a Stripe subscription id.
+ * Stripe-backed plans are cleared only via reconcile (Stripe is source of truth).
+ */
 export function finalizeExpiredCancellation(
   state: MembershipState,
   now = new Date()
 ): MembershipState {
+  if (state.stripeSubscriptionId) {
+    return state;
+  }
   if (
     state.tierId !== "impact" ||
     !state.cancelAtPeriodEnd ||
@@ -108,6 +114,22 @@ export function finalizeExpiredCancellation(
   const next: MembershipState = {
     ...emptyState(),
     updatedAt: now.toISOString(),
+  };
+  saveMembership(next);
+  return next;
+}
+
+/** Clear stale Impact flags to Free (Stripe reported no active subscription). */
+export function clearMembershipToFree(opts?: {
+  keepCustomerId?: string | null;
+}): MembershipState {
+  const next: MembershipState = {
+    ...emptyState(),
+    stripeCustomerId:
+      opts?.keepCustomerId?.startsWith("cus_")
+        ? opts.keepCustomerId
+        : null,
+    updatedAt: new Date().toISOString(),
   };
   saveMembership(next);
   return next;
@@ -225,7 +247,7 @@ export function markCauseCreditUsed(
   return next;
 }
 
-/** Apply Stripe subscription details after successful Checkout / verify. */
+/** Apply Stripe subscription details after successful Checkout / verify / reconcile. */
 export function applyStripeMembership(params: {
   customerId?: string | null;
   subscriptionId?: string | null;
@@ -254,4 +276,25 @@ export function applyStripeMembership(params: {
   };
   saveMembership(next);
   return next;
+}
+
+/** Apply a reconcile API payload — Impact if active, else Free (clears stale flags). */
+export function applyReconcileResult(result: {
+  tierId: MembershipTierId;
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  periodEndsAt?: string | null;
+  cancelAtPeriodEnd?: boolean;
+}): MembershipState {
+  if (result.tierId === "impact" && result.subscriptionId) {
+    return applyStripeMembership({
+      customerId: result.customerId,
+      subscriptionId: result.subscriptionId,
+      periodEndsAt: result.periodEndsAt,
+      cancelAtPeriodEnd: result.cancelAtPeriodEnd,
+    });
+  }
+  return clearMembershipToFree({
+    keepCustomerId: result.customerId ?? null,
+  });
 }

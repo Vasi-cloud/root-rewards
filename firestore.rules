@@ -48,6 +48,8 @@ service cloud.firestore {
         'role',
         'affiliateCode',
         'membershipTier',
+        'stripeCustomerId',
+        'stripeSubscriptionId',
         'accountStatus',
         'deactivatedAt',
         'createdAt',
@@ -63,6 +65,8 @@ service cloud.firestore {
           'photoURL',
           'affiliateCode',
           'membershipTier',
+          'stripeCustomerId',
+          'stripeSubscriptionId',
           'accountStatus',
           'deactivatedAt',
           'updatedAt'
@@ -75,6 +79,8 @@ service cloud.firestore {
         && optionalNullableString('photoURL', 2048)
         && optionalNullableString('affiliateCode', 32)
         && optionalNullableString('membershipTier', 32)
+        && optionalNullableString('stripeCustomerId', 64)
+        && optionalNullableString('stripeSubscriptionId', 64)
         && optionalNullableString('accountStatus', 32)
         && optionalIsoString('deactivatedAt')
         && optionalIsoString('createdAt')

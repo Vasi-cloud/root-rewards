@@ -93,6 +93,46 @@ export async function startMembershipCheckout(
   return { url: data.url };
 }
 
+export type MembershipReconcileClient = {
+  mode: "live" | "demo";
+  tierId: "free" | "impact";
+  customerId: string | null;
+  subscriptionId: string | null;
+  periodEndsAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  status: string | null;
+  reconciled: boolean;
+};
+
+/** Login/sign-up: resolve plan from Stripe (source of truth). */
+export async function reconcileMembership(opts: {
+  email?: string | null;
+  customerId?: string | null;
+  userId?: string | null;
+}): Promise<MembershipReconcileClient | { error: string }> {
+  try {
+    const res = await fetch("/api/membership/reconcile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: opts.email ?? undefined,
+        customerId: opts.customerId ?? undefined,
+        userId: opts.userId ?? undefined,
+      }),
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as MembershipReconcileClient & {
+      error?: string;
+    };
+    if (!res.ok) {
+      return { error: data.error ?? "Could not reconcile membership." };
+    }
+    return data;
+  } catch {
+    return { error: "Could not reconcile membership." };
+  }
+}
+
 export async function openBillingPortal(
   customerId: string
 ): Promise<{ url: string } | { error: string }> {

@@ -90,9 +90,15 @@ export async function POST(request: Request) {
       }
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
+        // Primary Stripe writer for cancel/renew lifecycle.
+        // Client membership cache reconciles from Stripe on login / dashboard load.
         const sub = event.data.object as Stripe.Subscription;
         const payload = membershipPayloadFromSubscription(sub);
-        console.info(`[stripe] ${event.type}`, payload);
+        console.info(`[stripe] ${event.type}`, {
+          ...payload,
+          status: sub.status,
+          kind: sub.metadata?.kind ?? null,
+        });
         break;
       }
       case "invoice.payment_failed": {

@@ -60,6 +60,16 @@ export async function upsertUserProfile(profile: UserProfile) {
     32
   );
 
+  const membershipTier = profile.membershipTier ?? existing?.membershipTier;
+  const stripeCustomerId =
+    profile.stripeCustomerId !== undefined
+      ? profile.stripeCustomerId
+      : existing?.stripeCustomerId ?? null;
+  const stripeSubscriptionId =
+    profile.stripeSubscriptionId !== undefined
+      ? profile.stripeSubscriptionId
+      : existing?.stripeSubscriptionId ?? null;
+
   if (!existing) {
     await setDoc(doc(db, "users", profile.uid), {
       email,
@@ -67,6 +77,9 @@ export async function upsertUserProfile(profile: UserProfile) {
       photoURL,
       role: "customer",
       affiliateCode,
+      membershipTier: membershipTier ?? "free",
+      stripeCustomerId: stripeCustomerId ?? null,
+      stripeSubscriptionId: stripeSubscriptionId ?? null,
       accountStatus: profile.accountStatus ?? "active",
       createdAt: profile.createdAt ?? now,
       updatedAt: now,
@@ -81,7 +94,31 @@ export async function upsertUserProfile(profile: UserProfile) {
       displayName,
       photoURL,
       affiliateCode: existing.affiliateCode ?? affiliateCode,
+      ...(membershipTier ? { membershipTier } : {}),
+      stripeCustomerId: stripeCustomerId ?? null,
+      stripeSubscriptionId: stripeSubscriptionId ?? null,
       updatedAt: now,
+    },
+    { merge: true }
+  );
+}
+
+/** Persist Stripe membership linkage on the Firebase user profile. */
+export async function syncMembershipToUserProfile(opts: {
+  uid: string;
+  membershipTier: "free" | "impact";
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+}) {
+  const db = getFirebaseFirestore();
+  if (!db) return;
+  await setDoc(
+    doc(db, "users", opts.uid),
+    {
+      membershipTier: opts.membershipTier,
+      stripeCustomerId: opts.stripeCustomerId ?? null,
+      stripeSubscriptionId: opts.stripeSubscriptionId ?? null,
+      updatedAt: new Date().toISOString(),
     },
     { merge: true }
   );
