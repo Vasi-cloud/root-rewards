@@ -85,7 +85,7 @@ const translations: Record<Language, Record<string, string>> = {
     // Marketplace
     "marketplace.title": "Shop sustainable goods",
     "marketplace.subtitle": "Every item is handpicked for low environmental impact and high quality.",
-    "marketplace.search": "Search name, description, or category...",
+    "marketplace.search": "Search products…",
     "marketplace.filter.category": "Category",
     "marketplace.filter.minprice": "Min price",
     "marketplace.filter.maxprice": "Max price",

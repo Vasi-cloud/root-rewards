@@ -7,6 +7,7 @@ import {
   Mic,
   Package,
   RefreshCw,
+  Search,
   ShoppingBag,
   Tag,
   X,
@@ -450,8 +451,8 @@ export default function MarketplaceClient() {
           </div>
 
           <ListingFilters
-            searchLabel="Search all listings"
-            searchPlaceholder={t("marketplace.search")}
+            searchLabel="Search listings"
+            searchPlaceholder="Search products…"
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             onVoiceSearch={startVoiceSearch}
@@ -509,7 +510,7 @@ export default function MarketplaceClient() {
 
           <ListingFilters
             searchLabel="Search products"
-            searchPlaceholder={t("marketplace.search")}
+            searchPlaceholder="Search products…"
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             onVoiceSearch={startVoiceSearch}
@@ -568,7 +569,7 @@ export default function MarketplaceClient() {
 
           <ListingFilters
             searchLabel="Search services"
-            searchPlaceholder="Legal, repair, workshop…"
+            searchPlaceholder="Search services…"
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             onVoiceSearch={startVoiceSearch}
@@ -739,129 +740,149 @@ function ListingFilters({
 }) {
   return (
     <div className="mb-6 rounded-2xl border border-border bg-card p-4 sm:mb-8 sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="w-full flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            {searchLabel}
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 pr-11 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <button
-              type="button"
-              onClick={onVoiceSearch}
-              disabled={isListening}
-              className={`absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-2 transition-all ${
-                isListening
-                  ? "animate-pulse bg-red-100 text-red-600"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-              aria-label="Voice search"
-            >
-              <Mic className="size-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:w-auto lg:flex lg:items-end">
-          <div className="col-span-2 sm:col-span-1">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              {categoryLabel}
-            </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => onCategoryChange(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="All">All categories</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              {minPriceLabel}
-            </label>
-            <input
-              type="number"
-              value={minPrice}
-              onChange={(e) => onMinPriceChange(e.target.value)}
-              placeholder="0"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              {maxPriceLabel}
-            </label>
-            <input
-              type="number"
-              value={maxPrice}
-              onChange={(e) => onMaxPriceChange(e.target.value)}
-              placeholder="100"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
-          <div className="col-span-2 md:col-span-1">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              {ecoLabel}:{" "}
-              <span className="font-mono tabular-nums">{minEcoScore}</span>
-            </label>
-            <input
-              type="range"
-              min={50}
-              max={100}
-              step={1}
-              value={minEcoScore}
-              onChange={(e) => onEcoScoreChange(Number(e.target.value))}
-              className="w-full accent-primary"
-            />
-          </div>
-        </div>
-
-        {showBestDeals && (
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={onBestDealsToggle}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                bestDealsOnly
-                  ? "border-gold bg-gold/20 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <Tag className="size-3.5" />
-              Best deals only
-              <span className="tabular-nums opacity-70">({bestDealCount})</span>
-            </button>
-            <p className="text-xs text-muted-foreground">
-              Compared with Amazon, Target, REI & more (demo prices).
-            </p>
-          </div>
-        )}
-
-        {activeFilterCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearFilters}
-            className="gap-1 self-start lg:self-auto"
+      {/* Text search is primary — typing filters name/description immediately */}
+      <div className="mb-4">
+        <label
+          htmlFor="marketplace-product-search"
+          className="mb-1.5 block text-sm font-medium text-foreground"
+        >
+          {searchLabel}
+        </label>
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <input
+            id="marketplace-product-search"
+            type="search"
+            name="q"
+            autoComplete="off"
+            enterKeyHint="search"
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="h-11 w-full rounded-xl border border-input bg-background py-2.5 pr-12 pl-10 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:text-sm"
+            aria-label={searchLabel}
+          />
+          <button
+            type="button"
+            onClick={onVoiceSearch}
+            disabled={isListening}
+            title="Optional: fill search by voice"
+            className={`absolute top-1/2 right-1.5 -translate-y-1/2 rounded-lg p-2 transition-all ${
+              isListening
+                ? "animate-pulse bg-red-100 text-red-600"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+            aria-label="Optional voice fill for search"
           >
-            <X className="size-4" /> Clear filters ({activeFilterCount})
-          </Button>
-        )}
+            <Mic className="size-4" />
+          </button>
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Type to filter by name or description. Mic is optional.
+        </p>
       </div>
+
+      <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:flex lg:flex-wrap lg:items-end">
+        <div className="col-span-2 sm:col-span-1 lg:min-w-[11rem] lg:flex-1">
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            {categoryLabel}
+          </label>
+          <select
+            value={selectedCategory}
+            onChange={(e) => onCategoryChange(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="All">All categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            {minPriceLabel}
+          </label>
+          <input
+            type="number"
+            value={minPrice}
+            onChange={(e) => onMinPriceChange(e.target.value)}
+            placeholder="0"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            {maxPriceLabel}
+          </label>
+          <input
+            type="number"
+            value={maxPrice}
+            onChange={(e) => onMaxPriceChange(e.target.value)}
+            placeholder="100"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        <div className="col-span-2 md:col-span-1 lg:min-w-[10rem]">
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            {ecoLabel}:{" "}
+            <span className="font-mono tabular-nums">{minEcoScore}</span>
+          </label>
+          <input
+            type="range"
+            min={50}
+            max={100}
+            step={1}
+            value={minEcoScore}
+            onChange={(e) => onEcoScoreChange(Number(e.target.value))}
+            className="w-full accent-primary"
+          />
+        </div>
+      </div>
+
+      {(showBestDeals || activeFilterCount > 0) && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {showBestDeals && (
+            <>
+              <button
+                type="button"
+                onClick={onBestDealsToggle}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  bestDealsOnly
+                    ? "border-gold bg-gold/20 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Tag className="size-3.5" />
+                Best deals only
+                <span className="tabular-nums opacity-70">
+                  ({bestDealCount})
+                </span>
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Compared with Amazon, Target, REI & more (demo prices).
+              </p>
+            </>
+          )}
+          {activeFilterCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClearFilters}
+              className="gap-1"
+            >
+              <X className="size-4" /> Clear filters ({activeFilterCount})
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
