@@ -6,7 +6,8 @@ rules_version = '2';
  *
  * Clients may only manage their own user profile.
  * Role is locked to "customer" on create and cannot be changed by the client.
- * Products are public read; all product writes go through Admin SDK later.
+ * Products are public read; catalog writes allowed for soft-launch admin email
+ * (see products match). Prefer Admin SDK for production writes when available.
  */
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -111,7 +112,11 @@ service cloud.firestore {
 
     match /products/{productId} {
       allow read: if true;
-      allow write: if false;
+      // Soft-launch: allowlisted admin email may manage catalog from the client.
+      // Prefer Admin SDK writes in production when available.
+      allow create, update, delete: if isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'cvasi.crisan@gmail.com';
     }
 
     // Deny everything else by default

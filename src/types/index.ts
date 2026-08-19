@@ -60,6 +60,9 @@ export interface SellerApplicationInput {
 /** Goods vs bookable / deliverable services */
 export type ListingType = "product" | "service";
 
+/** How the shopper buys: Stripe/stock cart vs outbound Amazon Associates */
+export type CommerceType = "first_party" | "affiliate";
+
 export type ServiceDeliveryMode = "in_person" | "remote" | "hybrid";
 
 /** Regional size row for apparel / soft goods (aligned EU · UK · US). */
@@ -247,6 +250,18 @@ export interface Product {
   sellerUid?: string;
   /** Goods (default) or service offering */
   listingType?: ListingType;
+  /**
+   * first_party = Stripe/cart; affiliate = Shop Amazon with saved Associates URL.
+   * Default first_party when omitted.
+   */
+  commerceType?: CommerceType;
+  /**
+   * Full Amazon Associates product URL (required when commerceType is affiliate).
+   * Opened by Shop Amazon CTA; tag should already be present.
+   */
+  amazonAffiliateUrl?: string;
+  /** Units in stock — N/A / omitted for pure affiliate listings */
+  stock?: number | null;
   rentalDuration?: number; // days, only for rental items
   /** Optional external price comparisons (Amazon, etc.) */
   competitorPrices?: CompetitorPrice[];

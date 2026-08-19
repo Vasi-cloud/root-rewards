@@ -10,6 +10,7 @@ import { ProductReviews } from "@/components/product/product-reviews";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { isAffiliateProduct } from "@/lib/commerce-type";
 import {
   DELIVERY_MODE_LABELS,
   listingTypeLabel,
@@ -30,6 +31,7 @@ export function MarketplaceProductDetail({
   addLabel?: string;
 }) {
   const isService = product.listingType === "service";
+  const isAffiliate = isAffiliateProduct(product);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -89,12 +91,18 @@ export function MarketplaceProductDetail({
                 £{product.price}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Badge
-                  variant="secondary"
-                  className={isService ? "bg-sky-100 text-sky-900" : undefined}
-                >
-                  {listingTypeLabel(product.listingType)}
-                </Badge>
+                {isAffiliate ? (
+                  <Badge className="bg-emerald-100 text-emerald-900">
+                    Amazon affiliate
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="secondary"
+                    className={isService ? "bg-sky-100 text-sky-900" : undefined}
+                  >
+                    {listingTypeLabel(product.listingType)}
+                  </Badge>
+                )}
                 <Badge variant="outline">{product.category}</Badge>
                 {isService && product.duration && (
                   <Badge variant="outline">{product.duration}</Badge>
@@ -122,20 +130,24 @@ export function MarketplaceProductDetail({
           </p>
 
           <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-900/90 sm:text-sm">
-            {isService
-              ? "Clear duration, delivery, and what’s included help you book the right session — once."
-              : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet."}
+            {isAffiliate
+              ? "Sold on Amazon via our Associates link — stock and fulfilment are handled by Amazon."
+              : isService
+                ? "Clear duration, delivery, and what’s included help you book the right session — once."
+                : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet."}
           </p>
 
           <TrustBadges variant="product" />
 
           {!isService && <ProductPartnerLinks product={product} />}
 
-          <ProductDetailsPanel
-            details={product}
-            category={product.category}
-            fallbackSizeGuide={!isService && product.category === "Apparel"}
-          />
+          {!isAffiliate && (
+            <ProductDetailsPanel
+              details={product}
+              category={product.category}
+              fallbackSizeGuide={!isService && product.category === "Apparel"}
+            />
+          )}
 
           <ProductReviews
             productId={product.id}
@@ -143,18 +155,26 @@ export function MarketplaceProductDetail({
             listingType={isService ? "service" : "product"}
           />
 
-          <div className="sticky bottom-0 -mx-4 border-t border-border/60 bg-cream/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
-            <Button size="lg" className="min-h-12 w-full gap-2 text-base" onClick={onAdd}>
-              <Leaf className="size-4" />
-              {addLabel ??
-                (isService
-                  ? `Book session — £${product.price}`
-                  : `Add to cart — £${product.price}`)}
-            </Button>
-            {addedLabel && (
-              <p className="mt-2 text-center text-sm text-emerald-800">{addedLabel}</p>
-            )}
-          </div>
+          {!isAffiliate && (
+            <div className="sticky bottom-0 -mx-4 border-t border-border/60 bg-cream/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+              <Button
+                size="lg"
+                className="min-h-12 w-full gap-2 text-base"
+                onClick={onAdd}
+              >
+                <Leaf className="size-4" />
+                {addLabel ??
+                  (isService
+                    ? `Book session — £${product.price}`
+                    : `Add to cart — £${product.price}`)}
+              </Button>
+              {addedLabel && (
+                <p className="mt-2 text-center text-sm text-emerald-800">
+                  {addedLabel}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

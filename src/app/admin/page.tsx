@@ -46,6 +46,13 @@ import { AdminOverviewPanel } from "@/components/admin/admin-overview-panel";
 import { AdminReportsPanel } from "@/components/admin/admin-reports-panel";
 import { isAdminUser } from "@/lib/admin";
 import {
+  type AdminCatalogProduct,
+  deleteAdminCatalogProduct,
+  listAdminCatalogProducts,
+  saveAdminCatalogProduct,
+} from "@/lib/admin-catalog-products";
+import { commerceTypeLabel } from "@/lib/commerce-type";
+import {
   deleteFeedback,
   feedbackStats,
   loadFeedback,
@@ -63,7 +70,12 @@ import {
 } from "@/lib/review-storage";
 import type { FeedbackItem, FeedbackStatus } from "@/types/feedback";
 import { FEEDBACK_CATEGORY_LABELS } from "@/types/feedback";
-import type { ProductApprovalStatus, SellerStatus, SellerTrustTier } from "@/types";
+import type {
+  CommerceType,
+  ProductApprovalStatus,
+  SellerStatus,
+  SellerTrustTier,
+} from "@/types";
 import { REPORT_REASON_LABELS } from "@/types/moderation";
 import type { ProductReviewRecord, ReviewStatus } from "@/types/reviews";
 
@@ -81,16 +93,6 @@ type AdminTab =
   | "users"
   | "trees";
 type OrderStatus = "Processing" | "Shipped" | "Delivered" | "Cancelled";
-
-interface AdminProduct {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  ecoScore: number;
-  stock: number;
-  description: string;
-}
 
 interface AdminOrder {
   id: string;
@@ -127,54 +129,6 @@ const ORDER_STATUSES: OrderStatus[] = [
   "Shipped",
   "Delivered",
   "Cancelled",
-];
-
-const INITIAL_PRODUCTS: AdminProduct[] = [
-  {
-    id: "1",
-    name: "Organic Cotton Tote",
-    category: "Accessories",
-    price: 28,
-    ecoScore: 92,
-    stock: 84,
-    description: "Reusable tote made from GOTS-certified organic cotton.",
-  },
-  {
-    id: "9",
-    name: "Stainless Steel Water Bottle",
-    category: "Kitchen",
-    price: 24,
-    ecoScore: 94,
-    stock: 120,
-    description: "18/8 food-grade steel, insulated, 24h cold retention.",
-  },
-  {
-    id: "11",
-    name: "Organic Hemp T-Shirt",
-    category: "Apparel",
-    price: 32,
-    ecoScore: 89,
-    stock: 56,
-    description: "Breathable, ethically made in fair-trade workshops.",
-  },
-  {
-    id: "13",
-    name: "Seed Paper Greeting Cards",
-    category: "Stationery",
-    price: 19,
-    ecoScore: 99,
-    stock: 200,
-    description: "6-pack of plantable wildflower cards.",
-  },
-  {
-    id: "10",
-    name: "Bamboo Toothbrush Set",
-    category: "Beauty",
-    price: 16,
-    ecoScore: 96,
-    stock: 175,
-    description: "4-pack with compostable bristles and travel cases.",
-  },
 ];
 
 const INITIAL_ORDERS: AdminOrder[] = [
@@ -289,6 +243,9 @@ const emptyProductForm = {
   ecoScore: "90",
   stock: "50",
   description: "",
+  commerceType: "affiliate" as CommerceType,
+  amazonAffiliateUrl: "",
+  imageUrl: "",
 };
 
 function statusBadgeClass(status: OrderStatus) {
@@ -374,7 +331,10 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   const [tab, setTab] = useState<AdminTab>("overview");
-  const [products, setProducts] = useState<AdminProduct[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<AdminCatalogProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productSaveError, setProductSaveError] = useState<string | null>(null);
+  const [productSaving, setProductSaving] = useState(false);
   const [orders, setOrders] = useState<AdminOrder[]>(INITIAL_ORDERS);
   const [users] = useState<AdminUser[]>(INITIAL_USERS);
   const [formOpen, setFormOpen] = useState(false);
@@ -398,12 +358,23 @@ export default function AdminDashboard() {
 
   const isAdmin = isAdminUser(user?.email);
 
+  async function refreshCatalogProducts() {
+    setProductsLoading(true);
+    try {
+      const rows = await listAdminCatalogProducts();
+      setProducts(rows);
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (isAdmin) {
       refreshSellers();
       refreshModeration();
       setFeedbackItems(loadFeedback());
       setReviewItems(loadAllReviews());
+      void refreshCatalogProducts();
     }
   }, [isAdmin, refreshSellers, refreshModeration]);
 
@@ -439,7 +410,12 @@ export default function AdminDashboard() {
         ? totalSales /
           orders.filter((o) => o.status !== "Cancelled").length
         : 0;
-    const lowStock = products.filter((p) => p.stock < 60).length;
+    const lowStock = products.filter(
+      (p) =>
+        p.commerceType !== "affiliate" &&
+        p.stock != null &&
+        p.stock < 60
+    ).length;
     const co2OffsetKg = treesPlanted * 22;
 
     return {
@@ -470,50 +446,80 @@ export default function AdminDashboard() {
 
   function openAddForm() {
     setEditingId(null);
+    setProductSaveError(null);
     setForm(emptyProductForm);
     setFormOpen(true);
   }
 
-  function openEditForm(product: AdminProduct) {
+  function openEditForm(product: AdminCatalogProduct) {
     setEditingId(product.id);
+    setProductSaveError(null);
     setForm({
       name: product.name,
       category: product.category,
       price: String(product.price),
-      ecoScore: String(product.ecoScore),
-      stock: String(product.stock),
+      ecoScore: String(product.sustainabilityScore),
+      stock: product.stock == null ? "" : String(product.stock),
       description: product.description,
+      commerceType: product.commerceType,
+      amazonAffiliateUrl: product.amazonAffiliateUrl ?? "",
+      imageUrl: product.imageUrl ?? "",
     });
     setFormOpen(true);
   }
 
-  function saveProduct(e: React.FormEvent) {
+  async function saveProduct(e: React.FormEvent) {
     e.preventDefault();
-    const payload: AdminProduct = {
-      id: editingId ?? `p-${Date.now()}`,
-      name: form.name.trim(),
-      category: form.category,
-      price: Number(form.price) || 0,
-      ecoScore: Math.min(100, Math.max(0, Number(form.ecoScore) || 0)),
-      stock: Math.max(0, Number(form.stock) || 0),
-      description: form.description.trim(),
-    };
-
-    if (!payload.name) return;
-
-    setProducts((prev) =>
-      editingId
-        ? prev.map((p) => (p.id === editingId ? payload : p))
-        : [payload, ...prev]
-    );
-    setFormOpen(false);
-    setEditingId(null);
-    setForm(emptyProductForm);
+    setProductSaveError(null);
+    setProductSaving(true);
+    try {
+      const existing = editingId
+        ? products.find((p) => p.id === editingId)
+        : undefined;
+      await saveAdminCatalogProduct(
+        {
+          id: editingId ?? undefined,
+          name: form.name.trim(),
+          category: form.category,
+          price: Number(form.price) || 0,
+          ecoScore: Math.min(100, Math.max(0, Number(form.ecoScore) || 0)),
+          stock:
+            form.commerceType === "affiliate"
+              ? null
+              : Math.max(0, Number(form.stock) || 0),
+          description: form.description.trim(),
+          commerceType: form.commerceType,
+          amazonAffiliateUrl: form.amazonAffiliateUrl.trim(),
+          imageUrl: form.imageUrl.trim(),
+        },
+        {
+          adminEmail: user?.email,
+          existingCreatedAt: existing?.createdAt,
+        }
+      );
+      await refreshCatalogProducts();
+      setFormOpen(false);
+      setEditingId(null);
+      setForm(emptyProductForm);
+    } catch (err) {
+      setProductSaveError(
+        err instanceof Error ? err.message : "Could not save product."
+      );
+    } finally {
+      setProductSaving(false);
+    }
   }
 
-  function deleteProduct(id: string) {
-    if (!confirm("Delete this product?")) return;
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+  async function deleteProduct(id: string) {
+    if (!confirm("Delete this product? It will leave the live marketplace.")) {
+      return;
+    }
+    try {
+      await deleteAdminCatalogProduct(id, { adminEmail: user?.email });
+      await refreshCatalogProducts();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not delete product.");
+    }
   }
 
   function updateOrderStatus(id: string, status: OrderStatus) {
@@ -696,7 +702,8 @@ export default function AdminDashboard() {
                   Product management
                 </h2>
                 <p className="mt-1 text-muted-foreground">
-                  Add, edit, or remove catalog items.
+                  Save Amazon affiliate or first-party items to the live
+                  marketplace catalog (Firestore when configured).
                 </p>
               </div>
               <Button onClick={openAddForm} className="gap-1.5">
@@ -714,7 +721,9 @@ export default function AdminDashboard() {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:max-w-sm"
               />
               <span className="text-sm text-muted-foreground">
-                {filteredProducts.length} products
+                {productsLoading
+                  ? "Loading…"
+                  : `${filteredProducts.length} products`}
               </span>
             </div>
 
@@ -726,7 +735,7 @@ export default function AdminDashboard() {
                       {editingId ? "Edit product" : "Add product"}
                     </CardTitle>
                     <CardDescription>
-                      Demo form — changes stay in this session.
+                      Persists to the live marketplace after save.
                     </CardDescription>
                   </div>
                   <Button
@@ -744,6 +753,28 @@ export default function AdminDashboard() {
                   >
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                        Type
+                      </label>
+                      <select
+                        value={form.commerceType}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            commerceType: e.target.value as CommerceType,
+                          }))
+                        }
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="affiliate">
+                          Affiliate (Amazon) — Shop Amazon CTA
+                        </option>
+                        <option value="first_party">
+                          First-party — Stripe / stock cart
+                        </option>
+                      </select>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
                         Name
                       </label>
                       <input
@@ -752,6 +783,45 @@ export default function AdminDashboard() {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, name: e.target.value }))
                         }
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    {form.commerceType === "affiliate" && (
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Amazon affiliate URL
+                        </label>
+                        <input
+                          required
+                          type="url"
+                          value={form.amazonAffiliateUrl}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              amazonAffiliateUrl: e.target.value,
+                            }))
+                          }
+                          placeholder="https://www.amazon.co.uk/dp/…?tag=forestbuddies-20"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                        />
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Required. We ensure the Associates tag is present on
+                          save.
+                        </p>
+                      </div>
+                    )}
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                        Image URL{" "}
+                        <span className="font-normal">(optional)</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={form.imageUrl}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, imageUrl: e.target.value }))
+                        }
+                        placeholder="https://…"
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                     </div>
@@ -775,7 +845,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        Price ($)
+                        Price (£)
                       </label>
                       <input
                         required
@@ -808,15 +878,21 @@ export default function AdminDashboard() {
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
                         Stock
                       </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={form.stock}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, stock: e.target.value }))
-                        }
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                      />
+                      {form.commerceType === "affiliate" ? (
+                        <p className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+                          N/A — Amazon fulfils affiliate listings
+                        </p>
+                      ) : (
+                        <input
+                          type="number"
+                          min="0"
+                          value={form.stock}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, stock: e.target.value }))
+                          }
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                        />
+                      )}
                     </div>
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -834,9 +910,18 @@ export default function AdminDashboard() {
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                     </div>
+                    {productSaveError && (
+                      <p className="sm:col-span-2 text-sm text-destructive">
+                        {productSaveError}
+                      </p>
+                    )}
                     <div className="flex gap-2 sm:col-span-2">
-                      <Button type="submit">
-                        {editingId ? "Save changes" : "Create product"}
+                      <Button type="submit" disabled={productSaving}>
+                        {productSaving
+                          ? "Saving…"
+                          : editingId
+                            ? "Save changes"
+                            : "Create product"}
                       </Button>
                       <Button
                         type="button"
@@ -862,11 +947,22 @@ export default function AdminDashboard() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{product.name}</span>
                         <Badge variant="outline">{product.category}</Badge>
-                        {product.stock < 60 && (
-                          <Badge className="bg-gold/25 text-primary">
-                            Low stock
-                          </Badge>
-                        )}
+                        <Badge
+                          className={
+                            product.commerceType === "affiliate"
+                              ? "bg-emerald-100 text-emerald-900"
+                              : "bg-secondary text-secondary-foreground"
+                          }
+                        >
+                          {commerceTypeLabel(product.commerceType)}
+                        </Badge>
+                        {product.commerceType !== "affiliate" &&
+                          product.stock != null &&
+                          product.stock < 60 && (
+                            <Badge className="bg-gold/25 text-primary">
+                              Low stock
+                            </Badge>
+                          )}
                       </div>
                       <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
                         {product.description}
@@ -875,10 +971,13 @@ export default function AdminDashboard() {
                     <div className="flex flex-wrap items-center gap-4">
                       <div className="text-right text-sm">
                         <div className="font-semibold tabular-nums">
-                          ${product.price}
+                          £{product.price}
                         </div>
                         <div className="text-xs text-emerald-700">
-                          {product.ecoScore}% eco · {product.stock} in stock
+                          {product.sustainabilityScore}% eco ·{" "}
+                          {product.commerceType === "affiliate"
+                            ? "Stock N/A"
+                            : `${product.stock ?? 0} in stock`}
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -905,7 +1004,11 @@ export default function AdminDashboard() {
                 ))}
                 {filteredProducts.length === 0 && (
                   <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-                    No products match your search.
+                    {productsLoading
+                      ? "Loading products…"
+                      : productQuery
+                        ? "No products match your search."
+                        : "No saved products yet — add an Amazon affiliate or first-party item."}
                   </p>
                 )}
               </CardContent>

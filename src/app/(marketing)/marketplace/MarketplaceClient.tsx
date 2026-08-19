@@ -40,6 +40,11 @@ import {
 import { useCart } from "@/contexts/cart-context";
 import { useI18n } from "@/contexts/i18n-context";
 import { getPriceComparison } from "@/lib/price-comparison";
+import {
+  listLiveMarketplaceProducts,
+  mergeMarketplaceCatalog,
+} from "@/lib/admin-catalog-products";
+import { isAffiliateProduct } from "@/lib/commerce-type";
 import { MARKETPLACE_PRODUCTS } from "@/lib/marketplace-catalog";
 import { DELIVERY_MODE_LABELS, listingTypeLabel } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
@@ -49,8 +54,6 @@ import {
   filterRentalItems,
 } from "@/lib/rental-catalog";
 import type { CartItem, Product } from "@/types";
-
-const allProducts = MARKETPLACE_PRODUCTS;
 
 type MarketSection = "all" | "products" | "services" | "rentals";
 
@@ -84,17 +87,25 @@ function isServiceListing(product: Product): boolean {
   return product.listingType === "service";
 }
 
-const PRODUCT_POOL = allProducts.filter((p) => !isServiceListing(p));
-const SERVICE_POOL = allProducts.filter(isServiceListing);
-/** Products + services only (rentals are a separate catalog). */
-const GOODS_AND_SERVICES_POOL = [...PRODUCT_POOL, ...SERVICE_POOL];
-const FULL_CATALOG_COUNT =
-  GOODS_AND_SERVICES_POOL.length + RENTAL_COUNT;
+function poolsFromCatalog(catalog: Product[]) {
+  const PRODUCT_POOL = catalog.filter((p) => !isServiceListing(p));
+  const SERVICE_POOL = catalog.filter(isServiceListing);
+  const GOODS_AND_SERVICES_POOL = [...PRODUCT_POOL, ...SERVICE_POOL];
+  return {
+    PRODUCT_POOL,
+    SERVICE_POOL,
+    GOODS_AND_SERVICES_POOL,
+    FULL_CATALOG_COUNT: GOODS_AND_SERVICES_POOL.length + RENTAL_COUNT,
+  };
+}
 
-function poolForSection(section: MarketSection): Product[] {
-  if (section === "services") return SERVICE_POOL;
-  if (section === "all") return GOODS_AND_SERVICES_POOL;
-  if (section === "products") return PRODUCT_POOL;
+function poolForSection(
+  section: MarketSection,
+  pools: ReturnType<typeof poolsFromCatalog>
+): Product[] {
+  if (section === "services") return pools.SERVICE_POOL;
+  if (section === "all") return pools.GOODS_AND_SERVICES_POOL;
+  if (section === "products") return pools.PRODUCT_POOL;
   return [];
 }
 
@@ -119,6 +130,7 @@ function formatResultsLabel(
 export default function MarketplaceClient() {
   const { addToCart, cart } = useCart();
   const { t, lang } = useI18n(); // lang forces re-render on change
+  const [catalog, setCatalog] = useState<Product[]>(MARKETPLACE_PRODUCTS);
   const [section, setSection] = useState<MarketSection>("products");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -138,6 +150,24 @@ export default function MarketplaceClient() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  useEffect(() => {
+    let cancelled = false;
+    listLiveMarketplaceProducts()
+      .then((live) => {
+        if (cancelled) return;
+        setCatalog(mergeMarketplaceCatalog(MARKETPLACE_PRODUCTS, live));
+      })
+      .catch(() => {
+        /* seed catalog already shown */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pools = useMemo(() => poolsFromCatalog(catalog), [catalog]);
+  const { PRODUCT_POOL, SERVICE_POOL, FULL_CATALOG_COUNT } = pools;
+
   const resetListingFilters = () => {
     setSelectedCategory("All");
     setSearchTerm("");
@@ -153,7 +183,7 @@ export default function MarketplaceClient() {
     resetListingFilters();
   };
 
-  const pool = poolForSection(section);
+  const pool = poolForSection(section, pools);
 
   const filteredListings = useMemo(() => {
     if (section === "rentals") return [];
@@ -1023,16 +1053,22 @@ function ListingGrid({
             </CardHeader>
 
             <CardContent className="flex flex-1 flex-col gap-2 px-4 sm:px-6">
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <Badge variant="outline">{product.category}</Badge>
-                <Badge
-                  variant="secondary"
-                  className={
-                    isService ? "bg-sky-100 text-sky-900" : "text-xs"
-                  }
-                >
-                  {listingTypeLabel(product.listingType)}
-                </Badge>
+                {isAffiliateProduct(product) ? (
+                  <Badge className="bg-emerald-100 text-xs text-emerald-900">
+                    Amazon
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="secondary"
+                    className={
+                      isService ? "bg-sky-100 text-sky-900" : "text-xs"
+                    }
+                  >
+                    {listingTypeLabel(product.listingType)}
+                  </Badge>
+                )}
                 {isService && product.duration && (
                   <Badge variant="outline" className="text-xs">
                     {product.duration}
@@ -1087,22 +1123,24 @@ function ListingGrid({
                 >
                   Details
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => onAdd(product)}
-                  disabled={isAdded}
-                  className={`min-h-11 px-4 text-base ${isAdded ? "bg-emerald-600 hover:bg-emerald-600" : ""}`}
-                >
-                  {isAdded
-                    ? t("marketplace.added")
-                    : isService
-                      ? qtyInCart > 0
-                        ? "Book another"
-                        : "Book session"
-                      : qtyInCart > 0
-                        ? t("marketplace.addmore")
-                        : t("marketplace.add")}
-                </Button>
+                {!isAffiliateProduct(product) && (
+                  <Button
+                    size="sm"
+                    onClick={() => onAdd(product)}
+                    disabled={isAdded}
+                    className={`min-h-11 px-4 text-base ${isAdded ? "bg-emerald-600 hover:bg-emerald-600" : ""}`}
+                  >
+                    {isAdded
+                      ? t("marketplace.added")
+                      : isService
+                        ? qtyInCart > 0
+                          ? "Book another"
+                          : "Book session"
+                        : qtyInCart > 0
+                          ? t("marketplace.addmore")
+                          : t("marketplace.add")}
+                  </Button>
+                )}
               </div>
             </CardFooter>
           </Card>

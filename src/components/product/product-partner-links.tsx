@@ -2,6 +2,7 @@
 
 import { PartnerOutboundButton } from "@/components/affiliate/PartnerOutboundButton";
 import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
+import { isAffiliateProduct } from "@/lib/commerce-type";
 import { LIVE_EXTERNAL_PARTNER_IDS } from "@/lib/affiliate-platforms";
 import {
   getPartnerCompareLinks,
@@ -12,6 +13,7 @@ import type { Product } from "@/types";
 /**
  * Live affiliate CTAs only (see LIVE_EXTERNAL_PARTNER_IDS).
  * Amazon is approved today; other networks stay off until toggled live.
+ * Pure Amazon affiliate listings open the saved Associates URL.
  */
 export function ProductPartnerLinks({
   product,
@@ -23,6 +25,33 @@ export function ProductPartnerLinks({
   /** Tighter layout for dense cards */
   compact?: boolean;
 }) {
+  const affiliateListing = isAffiliateProduct(product);
+
+  // Dedicated Amazon affiliate SKU — only Shop Amazon with saved URL
+  if (affiliateListing && product.amazonAffiliateUrl?.trim()) {
+    return (
+      <div className={`space-y-1.5 ${className}`}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <PartnerOutboundButton
+            platformId="amazon"
+            productId={product.id}
+            productName={product.name}
+            amazonAsin={product.amazonAsin}
+            amazonAffiliateUrl={product.amazonAffiliateUrl}
+            listPrice={product.price}
+            label={`Shop ${getAmazonStoreLabel()}`}
+            primary
+          />
+        </div>
+        {!compact && (
+          <p className="text-[11px] text-muted-foreground">
+            Amazon Associates · opens in a new tab
+          </p>
+        )}
+      </div>
+    );
+  }
+
   const links = getPartnerCompareLinks(product);
   if (links.length === 0) return null;
 
@@ -66,6 +95,7 @@ export function ProductPartnerLinks({
             productId={product.id}
             productName={product.name}
             amazonAsin={product.amazonAsin}
+            amazonAffiliateUrl={product.amazonAffiliateUrl}
             listPrice={amazon.listPrice ?? product.price}
             label={`Shop ${getAmazonStoreLabel()}`}
             primary

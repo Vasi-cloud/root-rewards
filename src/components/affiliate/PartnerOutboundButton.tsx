@@ -19,6 +19,7 @@ export function PartnerOutboundButton({
   productId,
   productName,
   amazonAsin,
+  amazonAffiliateUrl,
   listPrice,
   className,
   label,
@@ -31,6 +32,8 @@ export function PartnerOutboundButton({
   productId?: string;
   productName: string;
   amazonAsin?: string | null;
+  /** Saved full Amazon Associates URL (preferred for affiliate listings) */
+  amazonAffiliateUrl?: string | null;
   listPrice?: number;
   className?: string;
   /** Override button label (e.g. "Amazon UK") */
@@ -63,6 +66,7 @@ export function PartnerOutboundButton({
       productId,
       productName,
       amazonAsin,
+      amazonAffiliateUrl,
       listPrice,
     });
     window.open(url, "_blank", "noopener,noreferrer");

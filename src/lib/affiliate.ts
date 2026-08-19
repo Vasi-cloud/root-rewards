@@ -62,6 +62,8 @@ export function buildPartnerOutboundUrl(opts: {
   productName: string;
   productId?: string;
   amazonAsin?: string | null;
+  /** Saved full Amazon Associates URL (preferred when set) */
+  amazonAffiliateUrl?: string | null;
   affiliateCode: string;
 }): string {
   const platform = getAffiliatePlatform(opts.platformId);
@@ -74,6 +76,7 @@ export function buildPartnerOutboundUrl(opts: {
       return buildAmazonAffiliateUrl({
         productName: opts.productName,
         amazonAsin: opts.amazonAsin,
+        amazonAffiliateUrl: opts.amazonAffiliateUrl,
         affiliateCode: opts.affiliateCode,
       });
     case "target":
