@@ -13,10 +13,14 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ReportProductButton } from "@/components/marketplace/ReportProductButton";
 import { MarketplaceProductDetail } from "@/components/marketplace/marketplace-product-detail";
+import {
+  MarketplaceRentals,
+  RentalListingGrid,
+} from "@/components/marketplace/MarketplaceRentals";
 import { FeaturedSoloMakers } from "@/components/marketplace/FeaturedSoloMakers";
 import { SellerShopsStrip } from "@/components/marketplace/SellerShopsStrip";
 import { BuyLocalStrip } from "@/components/marketplace/BuyLocalStrip";
@@ -39,16 +43,12 @@ import { getPriceComparison } from "@/lib/price-comparison";
 import { MARKETPLACE_PRODUCTS } from "@/lib/marketplace-catalog";
 import { DELIVERY_MODE_LABELS, listingTypeLabel } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
+import {
+  RENTAL_COUNT,
+  RENTAL_ITEMS,
+  filterRentalItems,
+} from "@/lib/rental-catalog";
 import type { CartItem, Product } from "@/types";
-
-const MarketplaceRentals = lazy(() =>
-  import("@/components/marketplace/MarketplaceRentals").then((m) => ({
-    default: m.MarketplaceRentals,
-  }))
-);
-
-/** Keep in sync with rentalItems in MarketplaceRentals */
-const RENTAL_COUNT = 6;
 
 const allProducts = MARKETPLACE_PRODUCTS;
 
@@ -86,11 +86,14 @@ function isServiceListing(product: Product): boolean {
 
 const PRODUCT_POOL = allProducts.filter((p) => !isServiceListing(p));
 const SERVICE_POOL = allProducts.filter(isServiceListing);
-const ALL_POOL = [...PRODUCT_POOL, ...SERVICE_POOL];
+/** Products + services only (rentals are a separate catalog). */
+const GOODS_AND_SERVICES_POOL = [...PRODUCT_POOL, ...SERVICE_POOL];
+const FULL_CATALOG_COUNT =
+  GOODS_AND_SERVICES_POOL.length + RENTAL_COUNT;
 
 function poolForSection(section: MarketSection): Product[] {
   if (section === "services") return SERVICE_POOL;
-  if (section === "all") return ALL_POOL;
+  if (section === "all") return GOODS_AND_SERVICES_POOL;
   if (section === "products") return PRODUCT_POOL;
   return [];
 }
@@ -98,10 +101,11 @@ function poolForSection(section: MarketSection): Product[] {
 function formatResultsLabel(
   section: MarketSection,
   products: number,
-  services: number
+  services: number,
+  rentals: number
 ): string {
   if (section === "all") {
-    return `Showing ${products} product${products === 1 ? "" : "s"} · ${services} service${services === 1 ? "" : "s"}`;
+    return `Showing ${products} product${products === 1 ? "" : "s"} · ${services} service${services === 1 ? "" : "s"} · ${rentals} rental${rentals === 1 ? "" : "s"}`;
   }
   if (section === "products") {
     return `Showing ${products} product${products === 1 ? "" : "s"}`;
@@ -109,7 +113,7 @@ function formatResultsLabel(
   if (section === "services") {
     return `Showing ${services} service${services === 1 ? "" : "s"}`;
   }
-  return `Showing ${RENTAL_COUNT} rentals`;
+  return `Showing ${rentals} rental${rentals === 1 ? "" : "s"}`;
 }
 
 export default function MarketplaceClient() {
@@ -201,15 +205,28 @@ export default function MarketplaceClient() {
     bestDealsOnly,
   ]);
 
+  /** Rentals in All share search + category; price/eco/best-deal apply to goods only. */
+  const filteredRentals = useMemo(() => {
+    if (section !== "all") return [];
+    return filterRentalItems(RENTAL_ITEMS, {
+      search: debouncedSearchTerm,
+      category: selectedCategory,
+    });
+  }, [section, debouncedSearchTerm, selectedCategory]);
+
   const shownProductCount = filteredListings.filter(
     (p) => !isServiceListing(p)
   ).length;
   const shownServiceCount = filteredListings.filter(isServiceListing).length;
+  const shownRentalCount =
+    section === "all" ? filteredRentals.length : section === "rentals" ? RENTAL_COUNT : 0;
 
-  const categories = useMemo(
-    () => Array.from(new Set(pool.map((p) => p.category))).sort(),
-    [pool]
-  );
+  const categories = useMemo(() => {
+    const fromPool = pool.map((p) => p.category);
+    const fromRentals =
+      section === "all" ? RENTAL_ITEMS.map((r) => r.category) : [];
+    return Array.from(new Set([...fromPool, ...fromRentals])).sort();
+  }, [pool, section]);
 
   const bestDealCount = useMemo(
     () => pool.filter((p) => getPriceComparison(p)?.isBestDeal).length,
@@ -296,9 +313,9 @@ export default function MarketplaceClient() {
     {
       id: "all",
       label: "All",
-      count: ALL_POOL.length,
+      count: FULL_CATALOG_COUNT,
       icon: LayoutGrid,
-      hint: "Products & services together — rentals one tap away",
+      hint: "Products, services, and rentals in one list",
     },
     {
       id: "products",
@@ -326,7 +343,8 @@ export default function MarketplaceClient() {
   const resultsLabel = formatResultsLabel(
     section,
     shownProductCount,
-    shownServiceCount
+    shownServiceCount,
+    shownRentalCount
   );
 
   void lang; // keep i18n subscription active
@@ -421,7 +439,7 @@ export default function MarketplaceClient() {
 
           <SectionHeading
             title="All listings"
-            description="Products first, then services. Jump into a focused tab anytime."
+            description="Products, services, and rentals in one list."
             showAllLink={false}
             onGoToAll={() => goToSection("all")}
           />
@@ -446,13 +464,13 @@ export default function MarketplaceClient() {
               onClick={() => goToSection("rentals")}
               className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-100 sm:text-sm"
             >
-              Rentals ({RENTAL_COUNT})
+              Rentals only
             </button>
           </div>
 
           <ListingFilters
             searchLabel="Search listings"
-            searchPlaceholder="Search products…"
+            searchPlaceholder="Search products, services, or rentals…"
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             onVoiceSearch={startVoiceSearch}
@@ -483,17 +501,45 @@ export default function MarketplaceClient() {
             <div className="hidden md:block">{t("marketplace.sort")}</div>
           </div>
 
-          <ListingGrid
-            items={filteredListings}
-            emptyLabel={t("marketplace.empty")}
-            clearLabel={t("marketplace.clear")}
-            onClear={clearFilters}
-            justAddedId={justAddedId}
-            cart={cart}
-            t={t}
-            onDetail={setDetailProduct}
-            onAdd={handleAddToCart}
-          />
+          {filteredListings.length === 0 && filteredRentals.length === 0 ? (
+            <ListingGrid
+              items={[]}
+              emptyLabel={t("marketplace.empty")}
+              clearLabel={t("marketplace.clear")}
+              onClear={clearFilters}
+              justAddedId={justAddedId}
+              cart={cart}
+              t={t}
+              onDetail={setDetailProduct}
+              onAdd={handleAddToCart}
+            />
+          ) : (
+            <div className="space-y-8">
+              {filteredListings.length > 0 && (
+                <ListingGrid
+                  items={filteredListings}
+                  emptyLabel={t("marketplace.empty")}
+                  clearLabel={t("marketplace.clear")}
+                  onClear={clearFilters}
+                  justAddedId={justAddedId}
+                  cart={cart}
+                  t={t}
+                  onDetail={setDetailProduct}
+                  onAdd={handleAddToCart}
+                />
+              )}
+              {filteredRentals.length > 0 && (
+                <div>
+                  {filteredListings.length > 0 && (
+                    <h3 className="mb-3 font-heading text-lg font-semibold text-primary">
+                      Rentals
+                    </h3>
+                  )}
+                  <RentalListingGrid items={filteredRentals} />
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -617,15 +663,7 @@ export default function MarketplaceClient() {
       )}
 
       {section === "rentals" && (
-        <Suspense
-          fallback={
-            <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-16 text-center text-sm text-muted-foreground">
-              Loading rentals…
-            </div>
-          }
-        >
-          <MarketplaceRentals onGoToAll={() => goToSection("all")} />
-        </Suspense>
+        <MarketplaceRentals onGoToAll={() => goToSection("all")} />
       )}
 
       <div className="mt-12 rounded-2xl border border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">
