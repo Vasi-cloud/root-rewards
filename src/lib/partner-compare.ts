@@ -1,6 +1,8 @@
 import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import {
+  COMPARE_PLATFORM_ORDER,
   SECONDARY_COMPARE_PLATFORMS,
+  isLiveExternalPartner,
   partnerButtonLabel,
   platformIdFromStoreName,
 } from "@/lib/affiliate-platforms";
@@ -12,11 +14,11 @@ export type PartnerCompareLink = {
   label: string;
   /** Demo / comparison list price when known */
   listPrice?: number;
-  /** Amazon is always primary in the UI */
+  /** Amazon is always primary in the UI when live */
   primary: boolean;
 };
 
-/** Category → preferred secondary order (all platforms still shown). */
+/** Category → preferred secondary order among *live* secondaries only. */
 const CATEGORY_PRIORITY: Record<string, AffiliatePlatformId[]> = {
   accessories: ["target", "etsy", "walmart", "rei", "clickbank"],
   kitchen: ["target", "walmart", "etsy", "rei", "clickbank"],
@@ -42,26 +44,26 @@ function outdoorish(product: Product): boolean {
 
 /**
  * Build partner compare links for a product.
- * Amazon is always first; Target, REI, Etsy, Walmart, ClickBank follow
- * (ordered by category relevance) so shoppers can compare and buy easily.
+ * Only LIVE_EXTERNAL_PARTNER_IDS are returned (Amazon today).
+ * Re-enable others by adding their id to that list when approved.
  */
 export function getPartnerCompareLinks(
   product: Product,
   opts?: { maxSecondary?: number; amazonOnly?: boolean }
 ): PartnerCompareLink[] {
+  const liveSecondaries = SECONDARY_COMPARE_PLATFORMS;
   const maxSecondary = Math.min(
-    SECONDARY_COMPARE_PLATFORMS.length,
-    Math.max(0, opts?.maxSecondary ?? SECONDARY_COMPARE_PLATFORMS.length)
+    liveSecondaries.length,
+    Math.max(0, opts?.maxSecondary ?? liveSecondaries.length)
   );
   const comparison = getPriceComparison(product);
   const priceByPlatform = new Map<AffiliatePlatformId, number>();
 
   for (const row of comparison?.competitors ?? []) {
     const id = platformIdFromStoreName(row.store);
-    if (id) priceByPlatform.set(id, row.price);
+    if (id && isLiveExternalPartner(id)) priceByPlatform.set(id, row.price);
   }
 
-  // Estimate demo list prices for platforms without a competitor row
   const estimate = (platformId: AffiliatePlatformId): number => {
     const known = priceByPlatform.get(platformId);
     if (known != null) return known;
@@ -80,15 +82,15 @@ export function getPartnerCompareLinks(
 
   const priority =
     CATEGORY_PRIORITY[categoryKey(product.category)] ??
-    ([...SECONDARY_COMPARE_PLATFORMS] as AffiliatePlatformId[]);
+    ([...liveSecondaries] as AffiliatePlatformId[]);
 
   const orderedSecondary: AffiliatePlatformId[] = [];
   for (const id of priority) {
-    if (SECONDARY_COMPARE_PLATFORMS.includes(id) && !orderedSecondary.includes(id)) {
+    if (liveSecondaries.includes(id) && !orderedSecondary.includes(id)) {
       orderedSecondary.push(id);
     }
   }
-  for (const id of SECONDARY_COMPARE_PLATFORMS) {
+  for (const id of liveSecondaries) {
     if (!orderedSecondary.includes(id)) orderedSecondary.push(id);
   }
 
@@ -100,27 +102,49 @@ export function getPartnerCompareLinks(
     }
   }
 
-  const secondary = opts?.amazonOnly
-    ? []
-    : orderedSecondary.slice(0, maxSecondary);
+  const secondary =
+    opts?.amazonOnly || liveSecondaries.length === 0
+      ? []
+      : orderedSecondary.slice(0, maxSecondary);
 
-  return [
-    {
+  const links: PartnerCompareLink[] = [];
+
+  if (isLiveExternalPartner("amazon")) {
+    links.push({
       platformId: "amazon",
       label: getAmazonStoreLabel(),
       listPrice: priceByPlatform.get("amazon") ?? estimate("amazon"),
       primary: true,
-    },
-    ...secondary.map((platformId) => ({
+    });
+  }
+
+  for (const platformId of secondary) {
+    if (!isLiveExternalPartner(platformId)) continue;
+    links.push({
       platformId,
       label: partnerButtonLabel(platformId),
       listPrice: estimate(platformId),
-      primary: false as const,
-    })),
-  ];
+      primary: false,
+    });
+  }
+
+  // If Amazon isn't live but other partners are, still return them
+  if (links.length === 0) {
+    for (const platformId of COMPARE_PLATFORM_ORDER) {
+      if (!isLiveExternalPartner(platformId)) continue;
+      links.push({
+        platformId,
+        label: partnerButtonLabel(platformId),
+        listPrice: estimate(platformId),
+        primary: platformId === COMPARE_PLATFORM_ORDER[0],
+      });
+    }
+  }
+
+  return links;
 }
 
-/** Lowest known partner list price (excludes Forest Buddies). */
+/** Lowest known partner list price among live partners only. */
 export function lowestPartnerListPrice(
   links: PartnerCompareLink[]
 ): number | null {

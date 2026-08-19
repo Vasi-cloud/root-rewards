@@ -22,8 +22,25 @@ export interface AffiliatePlatform {
 }
 
 /**
+ * Live shopper-facing outbound partners on product cards / detail.
+ * Add an id here when that network is approved with a real tagged URL.
+ * Placeholder networks stay in AFFILIATE_PLATFORMS for admin/docs only.
+ */
+export const LIVE_EXTERNAL_PARTNER_IDS: readonly AffiliatePlatformId[] = [
+  "amazon",
+] as const;
+
+export function isLiveExternalPartner(
+  id: AffiliatePlatformId | string | null | undefined
+): boolean {
+  return Boolean(
+    id && LIVE_EXTERNAL_PARTNER_IDS.includes(id as AffiliatePlatformId)
+  );
+}
+
+/**
  * Scalable partner catalog — add platforms here without rewriting UI.
- * Windows & rates mirror common public program norms (demo, not legal advice).
+ * Shopper CTAs only render for ids in LIVE_EXTERNAL_PARTNER_IDS.
  */
 export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
   {
@@ -55,7 +72,6 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
       "Outbound clicks tagged with your Associate ID on Amazon UK/US; Amazon reports sales later.",
     conversionLatency: "delayed",
     payoutNote: "Earnings stay pending until the partner confirms (often 1–3 days+).",
-    /** Associates tag — forestbuddies-20 (see amazon-affiliate.ts) */
     publisherTag: "forestbuddies-20",
   },
   {
@@ -177,27 +193,27 @@ export function platformIdFromStoreName(
   return null;
 }
 
-/** External partners shown for price compare (Amazon first). */
-export const COMPARE_PLATFORM_ORDER: AffiliatePlatformId[] = [
-  "amazon",
-  "target",
-  "rei",
-  "etsy",
-  "walmart",
-  "clickbank",
-];
+/** Live external partners for price compare / CTAs (Amazon first when live). */
+export const COMPARE_PLATFORM_ORDER: AffiliatePlatformId[] =
+  LIVE_EXTERNAL_PARTNER_IDS.includes("amazon")
+    ? [
+        "amazon",
+        ...LIVE_EXTERNAL_PARTNER_IDS.filter((id) => id !== "amazon"),
+      ]
+    : [...LIVE_EXTERNAL_PARTNER_IDS];
 
-/** Secondary partners always offered for compare (Amazon is separate / primary). */
-export const SECONDARY_COMPARE_PLATFORMS: AffiliatePlatformId[] = [
-  "target",
-  "rei",
-  "etsy",
-  "walmart",
-  "clickbank",
-];
+/** Live secondary partners (everything live except Amazon). */
+export const SECONDARY_COMPARE_PLATFORMS: AffiliatePlatformId[] =
+  LIVE_EXTERNAL_PARTNER_IDS.filter((id) => id !== "amazon");
 
 export function listExternalPlatforms(): AffiliatePlatform[] {
   return AFFILIATE_PLATFORMS.filter((p) => p.kind === "external");
+}
+
+export function listLiveExternalPlatforms(): AffiliatePlatform[] {
+  return AFFILIATE_PLATFORMS.filter(
+    (p) => p.kind === "external" && isLiveExternalPartner(p.id)
+  );
 }
 
 export function attributionWindowLabel(platform: AffiliatePlatform): string {

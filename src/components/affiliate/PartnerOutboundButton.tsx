@@ -7,6 +7,7 @@ import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
   getAffiliatePlatform,
+  isLiveExternalPartner,
   partnerButtonLabel,
   platformIdFromStoreName,
 } from "@/lib/affiliate-platforms";
@@ -44,6 +45,8 @@ export function PartnerOutboundButton({
     (store ? platformIdFromStoreName(store) : null) ??
     null;
   if (!id || id === "forest-buddies") return null;
+  // Hide non-approved networks (placeholders stay in catalog until toggled live)
+  if (!isLiveExternalPartner(id)) return null;
 
   const platform = getAffiliatePlatform(id);
   const name =
@@ -51,7 +54,7 @@ export function PartnerOutboundButton({
     (id === "amazon" ? getAmazonStoreLabel() : partnerButtonLabel(id));
   const priceBit =
     showPrice && listPrice != null
-      ? ` · $${listPrice.toFixed(0)}`
+      ? ` · £${listPrice.toFixed(0)}`
       : "";
 
   function handleClick() {
@@ -62,7 +65,6 @@ export function PartnerOutboundButton({
       amazonAsin,
       listPrice,
     });
-    // New tab + Associates tag / ascsubtag tracking
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
@@ -83,7 +85,7 @@ export function PartnerOutboundButton({
       } ${className ?? ""}`}
       onClick={handleClick}
       title={tip}
-      aria-label={`${name}${priceBit} (opens in new tab)`}
+      aria-label={`${name}${priceBit} (opens in a new tab)`}
     >
       {name}
       {priceBit}

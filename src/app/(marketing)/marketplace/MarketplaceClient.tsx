@@ -867,7 +867,7 @@ function ListingFilters({
                 </span>
               </button>
               <p className="text-xs text-muted-foreground">
-                Compared with Amazon, Target, REI & more (demo prices).
+                Compared with Amazon where we have live partner pricing.
               </p>
             </>
           )}
@@ -1014,11 +1014,6 @@ function ListingGrid({
                 >
                   {product.sustainabilityScore}% eco
                 </Badge>
-                {!isService && (
-                  <Badge variant="secondary" className="text-xs sm:ml-auto">
-                    {product.affiliateCommissionPercent}% aff.
-                  </Badge>
-                )}
                 {qtyInCart > 0 && (
                   <Badge className="bg-primary text-primary-foreground">
                     {t("marketplace.incart").replace(

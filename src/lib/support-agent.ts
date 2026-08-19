@@ -122,7 +122,7 @@ const FAQ: FaqEntry[] = [
       "partner",
     ],
     answer:
-      "Share your Forest Buddies link with ?ref=yourcode, or use Via Amazon / Target / REI tags on marketplace products. First-party checkouts track in your dashboard; external partners often report later (sometimes ~24h windows). Attribution lasts up to 30 days depending on partner platform.",
+      "Share your Forest Buddies link with ?ref=yourcode, or use Shop Amazon tags on marketplace products. First-party checkouts track in your dashboard; Amazon and other partners often report later (sometimes ~24h windows). Attribution lasts up to 30 days depending on partner platform.",
     suggestions: [
       "What is Impact Member?",
       "Where is my order?",
@@ -133,7 +133,7 @@ const FAQ: FaqEntry[] = [
     topic: "local",
     keywords: ["local", "nearby", "distance", "pickup", "buy local", "map"],
     answer:
-      "Buy Local (/local) and Ask Leafy’s Find local stores show simulated shelf status (in stock, limited, pickup, out). That’s demo data — live inventory comes later. You can also open Via Amazon / Target / REI links to compare; those are partner search pages, not confirmed aisle stock.",
+      "Buy Local (/local) and Ask Leafy’s Find local stores show simulated shelf status (in stock, limited, pickup, out). That’s demo data — live inventory comes later. You can also open Shop Amazon when you want a big-store option; that’s a partner search page, not confirmed aisle stock.",
     suggestions: [
       "How do causes work?",
       "Ask Leafy for a gift idea",
@@ -154,7 +154,7 @@ const FAQ: FaqEntry[] = [
       "picture",
     ],
     answer:
-      "Ask Leafy (/recommend) can take a shopping note, voice, or photo. Snap & match uses Grok Vision when XAI_API_KEY is set (otherwise a friendly mock) to suggest similar marketplace products with confidence scores. Find local stores shows simulated availability nearby, plus Amazon / Target / REI links when you want a big-store option.",
+      "Ask Leafy (/recommend) can take a shopping note, voice, or photo. Snap & match uses Grok Vision when XAI_API_KEY is set (otherwise a friendly mock) to suggest similar marketplace products with confidence scores. Find local stores shows simulated availability nearby, plus Shop Amazon when you want a big-store option.",
     suggestions: [
       "Buy Local nearby",
       "How do returns work?",

@@ -1,4 +1,8 @@
 import type { Product } from "@/types";
+import {
+  isLiveExternalPartner,
+  platformIdFromStoreName,
+} from "@/lib/affiliate-platforms";
 
 export interface CompetitorPrice {
   store: string;
@@ -106,9 +110,19 @@ const COMPETITOR_PRICES: Record<string, CompetitorPrice[]> = {
   ],
 };
 
+/** Only live partner stores are used for compare / best-deal badges. */
+function liveCompetitors(rows: CompetitorPrice[]): CompetitorPrice[] {
+  return rows.filter((row) => {
+    const id = platformIdFromStoreName(row.store);
+    return id != null && isLiveExternalPartner(id);
+  });
+}
+
 export function getPriceComparison(product: Product): PriceComparison | null {
-  const competitors = COMPETITOR_PRICES[product.id];
-  if (!competitors?.length) return null;
+  const raw = COMPETITOR_PRICES[product.id];
+  if (!raw?.length) return null;
+  const competitors = liveCompetitors(raw);
+  if (!competitors.length) return null;
 
   const lowestCompetitor = Math.min(...competitors.map((c) => c.price));
   const savings = Math.max(
