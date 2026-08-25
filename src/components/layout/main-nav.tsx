@@ -117,7 +117,9 @@ export function MainNav({
     return (
       <nav
         className={cn(
-          "flex min-w-0 items-center justify-center gap-1 overflow-x-auto xl:gap-1.5 2xl:gap-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          // No overflow-x-auto: that clipped “Marketplace” to “…tplace”.
+          // Tighter gaps so full labels fit; shrink-0 links never clip.
+          "flex items-center justify-center gap-0.5 xl:gap-1 2xl:gap-2",
           className
         )}
         aria-label="Primary"
@@ -125,14 +127,14 @@ export function MainNav({
         {desktopPrimaryItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           const featured = Boolean(item.featured);
+          const shortAsk = item.href === "/recommend";
           return (
             <Link
               key={item.href}
               href={item.href}
-              title={item.description}
+              title={item.description ?? item.label}
               className={cn(
-                // shrink-0 + whitespace-nowrap: never clip labels like “Leafy Kitchen”
-                "shrink-0 rounded-lg px-2 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-2.5 2xl:px-3.5",
+                "shrink-0 rounded-lg px-1.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-2 2xl:px-3",
                 active
                   ? "bg-primary/10 text-primary shadow-sm"
                   : featured
@@ -140,7 +142,14 @@ export function MainNav({
                     : "text-foreground/80 hover:bg-muted hover:text-primary active:scale-[0.98]"
               )}
             >
-              {item.label}
+              {shortAsk ? (
+                <>
+                  <span className="2xl:hidden">Ask</span>
+                  <span className="hidden 2xl:inline">Ask Leafy</span>
+                </>
+              ) : (
+                item.label
+              )}
             </Link>
           );
         })}

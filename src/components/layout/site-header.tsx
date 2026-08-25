@@ -37,30 +37,25 @@ import { cn } from "@/lib/utils";
 import { openSupportChat } from "@/lib/support-agent";
 import { VoiceNavControl } from "@/components/voice/voice-nav-control";
 
+const TAP = "min-h-11 min-w-11";
+
 function LanguageSelect({
   id,
-  compact = false,
+  className,
 }: {
   id: string;
-  /** Narrow closed control for crowded desktop header */
-  compact?: boolean;
+  className?: string;
 }) {
   const { lang, setLang, isLangReady } = useI18n();
   const selected = SUPPORTED_LANGUAGES.find((l) => l.code === lang);
 
   return (
-    <div className="flex min-w-0 flex-col gap-1">
+    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
       <select
         id={id}
         value={lang}
         onChange={(e) => setLang(e.target.value as Language)}
-        className={cn(
-          "h-11 w-full rounded-lg border border-border bg-background px-2 text-base font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring",
-          compact
-            ? // xl: short footprint so “Get started” isn’t clipped; 2xl: readable again
-              "xl:h-8 xl:w-[3.5rem] xl:max-w-[3.5rem] xl:truncate xl:px-1.5 xl:text-xs 2xl:w-[8.75rem] 2xl:max-w-[8.75rem] 2xl:px-2"
-            : "xl:h-8 xl:max-w-[9.5rem] xl:text-xs"
-        )}
+        className="h-11 w-full rounded-lg border border-border bg-background px-2.5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring lg:h-11 lg:max-w-[10.5rem] lg:text-xs xl:max-w-[11.5rem] xl:text-sm"
         aria-label="Select language"
         title={selected ? formatLanguageOptionLabel(selected) : "Language"}
       >
@@ -88,7 +83,11 @@ function CartButton({ className }: { className?: string }) {
       render={<Link href="/cart" />}
       variant="ghost"
       size="sm"
-      className={cn("relative size-10 shrink-0 p-0 sm:size-11", className)}
+      className={cn(
+        "relative shrink-0 p-0",
+        TAP,
+        className
+      )}
       aria-label={totalItems > 0 ? `Cart, ${totalItems} items` : "Cart"}
     >
       <ShoppingCart className="size-4" />
@@ -101,7 +100,7 @@ function CartButton({ className }: { className?: string }) {
   );
 }
 
-/** Account dropdown — Settings + Sign out stay reachable without clipping. */
+/** Account dropdown — Settings + Sign out. */
 function AccountMenu() {
   const { user, profile, signOut } = useAuth();
   const router = useRouter();
@@ -150,9 +149,12 @@ function AccountMenu() {
         aria-controls={menuId}
         aria-label="Account menu"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-white/90 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-white/90 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          TAP
+        )}
       >
-        <Avatar size="sm" className="size-7">
+        <Avatar size="sm" className="size-8">
           {profile?.photoURL ? (
             <AvatarImage src={profile.photoURL} alt="" />
           ) : null}
@@ -180,7 +182,7 @@ function AccountMenu() {
           <Link
             href="/dashboard/settings"
             role="menuitem"
-            className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-emerald-50"
+            className="flex min-h-11 items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-emerald-50"
             onClick={() => setOpen(false)}
           >
             <Settings className="size-3.5 text-emerald-800" />
@@ -189,7 +191,7 @@ function AccountMenu() {
           <button
             type="button"
             role="menuitem"
-            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-foreground hover:bg-emerald-50"
+            className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-foreground hover:bg-emerald-50"
             onClick={() => void handleSignOut()}
           >
             <LogOut className="size-3.5 text-emerald-800" />
@@ -202,11 +204,10 @@ function AccountMenu() {
 }
 
 /**
- * Collapse strategy:
- * - < lg: brand + icons + menu
- * - lg–xl: brand + primary nav (full labels) + Dashboard + menu
- *   Settings / Sign out / language stay in the menu — never clipped
- * - xl+: brand + primary nav + language + cart + Dashboard + account menu + More
+ * Header layout (V2-clear pattern):
+ * - < lg: brand (full name) · mic · cart · Sign in/Account · menu
+ * - lg+: brand · primary nav (full labels, never clipped) · language · mic · cart · auth
+ * - Get started / language / chat stay out of the mobile top bar when crowded
  */
 export function SiteHeader() {
   const { user } = useAuth();
@@ -220,7 +221,6 @@ export function SiteHeader() {
     setMenuOpen(false);
   }, [pathname]);
 
-  // Hide floating chat FAB while the nav drawer is open (it sat above Sign out)
   useEffect(() => {
     document.body.dataset.navDrawerOpen = menuOpen ? "1" : "";
     return () => {
@@ -229,107 +229,107 @@ export function SiteHeader() {
   }, [menuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-cream/90 shadow-[0_1px_0_0_rgba(27,67,50,0.04)] backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl min-w-0 items-center justify-between gap-1 px-2 sm:h-16 sm:gap-3 sm:px-6">
+    <header className="sticky top-0 z-50 border-b border-border bg-cream shadow-[0_1px_0_0_rgba(27,67,50,0.06)]">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
+        {/* Left: mark + full Forest Buddies® — never truncated / overlapped */}
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-1 font-heading text-sm font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2 sm:text-lg"
+          className="group flex shrink-0 items-center gap-1.5 font-heading font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2"
           aria-label="Forest Buddies® home"
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 sm:size-9">
-            <Leaf className="size-3.5 sm:size-5" aria-hidden />
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105">
+            <Leaf className="size-4 sm:size-5" aria-hidden />
           </span>
-          <BrandMark className="text-[0.78rem] leading-none tracking-tight sm:text-base sm:leading-normal sm:tracking-normal md:text-lg" />
+          <BrandMark
+            compactOnNarrow={false}
+            className="whitespace-nowrap text-sm leading-none tracking-tight sm:text-base md:text-lg"
+          />
         </Link>
 
+        {/* Desktop primary nav — only when utilities are also desktop (lg+) */}
         <MainNav
           variant="primary"
-          className="hidden min-w-0 flex-1 justify-center lg:flex"
+          className="mx-1 hidden flex-1 justify-center lg:flex"
         />
 
-        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
-          {/* xl+: language · utilities · auth — CTAs never shrink/clip */}
-          <div className="hidden items-center gap-1 xl:flex 2xl:gap-1.5">
-            <LanguageSelect id="lang-switcher-desktop" compact />
-            <VoiceNavControl variant="icon" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-9 w-9 shrink-0 p-0"
-              aria-label="Open support chat"
-              onClick={() => openSupportChat()}
-            >
-              <MessageCircle className="size-4" />
-            </Button>
-            <CartButton />
-            {user ? (
-              <>
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/dashboard" />}
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0 whitespace-nowrap px-3"
-                >
-                  Dashboard
-                </Button>
-                <AccountMenu />
-              </>
-            ) : (
-              <div className="flex shrink-0 items-center gap-1.5 pl-0.5">
-                <Button
-                  nativeButton={false}
-                  render={<Link href={loginHref} />}
-                  variant="outline"
-                  size="sm"
-                  className="h-9 shrink-0 whitespace-nowrap px-3"
-                >
-                  Sign in
-                </Button>
-                <Button
-                  nativeButton={false}
-                  render={<Link href={registerHref} />}
-                  size="sm"
-                  className="h-9 shrink-0 whitespace-nowrap px-3"
-                >
-                  Get started
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Below xl: brand · mic · cart · Sign in · menu (chat lives in the drawer) */}
-          <VoiceNavControl variant="icon" className="xl:hidden" />
-          <CartButton className="size-9 xl:hidden sm:size-10" />
-
-          {/* Signed-out: keep full “Sign in” in the top bar below xl */}
+        {/* Desktop utilities (lg+): language · mic · chat · cart · auth */}
+        <div className="ml-auto hidden shrink-0 items-center gap-1 lg:flex xl:gap-1.5">
+          <LanguageSelect id="lang-switcher-desktop" />
+          <VoiceNavControl variant="icon" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn("shrink-0 p-0", TAP)}
+            aria-label="Open support chat"
+            onClick={() => openSupportChat()}
+          >
+            <MessageCircle className="size-4" />
+          </Button>
+          <CartButton />
           {user ? (
-            <Button
-              nativeButton={false}
-              render={<Link href="/dashboard" />}
-              size="sm"
-              variant="outline"
-              className="hidden shrink-0 px-2.5 lg:inline-flex xl:hidden"
-            >
-              Dashboard
-            </Button>
+            <>
+              <Button
+                nativeButton={false}
+                render={<Link href="/dashboard" />}
+                size="sm"
+                variant="outline"
+                className={cn("shrink-0 whitespace-nowrap px-3", TAP)}
+              >
+                Dashboard
+              </Button>
+              <AccountMenu />
+            </>
+          ) : (
+            <div className="flex shrink-0 items-center gap-1.5 pl-0.5">
+              <Button
+                nativeButton={false}
+                render={<Link href={loginHref} />}
+                variant="outline"
+                size="sm"
+                className={cn("shrink-0 whitespace-nowrap px-3", TAP)}
+              >
+                Sign in
+              </Button>
+              <Button
+                nativeButton={false}
+                render={<Link href={registerHref} />}
+                size="sm"
+                className={cn("shrink-0 whitespace-nowrap px-3", TAP)}
+              >
+                Get started
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile / tablet (< lg): mic · cart · Sign in/Account · menu */}
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1 lg:hidden">
+          <VoiceNavControl variant="icon" className={TAP} />
+          <CartButton />
+          {user ? (
+            <AccountMenu />
           ) : (
             <Button
               nativeButton={false}
               render={<Link href={loginHref} />}
               size="sm"
               variant="outline"
-              className="inline-flex h-9 min-h-9 shrink-0 items-center overflow-visible px-2 text-xs whitespace-nowrap sm:px-3 sm:text-[0.8rem] xl:hidden"
+              className={cn(
+                "inline-flex shrink-0 items-center overflow-visible px-2.5 text-xs whitespace-nowrap sm:px-3 sm:text-sm",
+                TAP
+              )}
             >
               Sign in
             </Button>
           )}
 
-          {/* Mobile / mid-width menu only — never sits beside the desktop account avatar */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-white/80 sm:size-11 xl:hidden"
+              className={cn(
+                "inline-flex shrink-0 items-center justify-center rounded-xl border border-border bg-white",
+                TAP
+              )}
               aria-label="Open menu"
             >
               <Menu className="size-5" />
@@ -338,7 +338,6 @@ export function SiteHeader() {
               side="right"
               className="flex h-dvh max-h-dvh w-[min(100vw-0.75rem,22.5rem)] max-w-full flex-col gap-0 overflow-hidden p-0"
             >
-              {/* Sticky drawer header — brand + close stay visible while body scrolls */}
               <SheetHeader className="shrink-0 space-y-1 border-b border-border/70 bg-cream px-4 py-3.5 pr-14 text-left sm:px-5">
                 <SheetTitle className="font-heading text-lg text-primary">
                   Forest Buddies®
@@ -348,7 +347,6 @@ export function SiteHeader() {
                 </p>
               </SheetHeader>
 
-              {/* Scrollable body — Settings / Sign out reachable at the bottom */}
               <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-3 sm:px-5 [-webkit-overflow-scrolling:touch] pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))]">
                 {!user ? (
                   <div className="mb-3 grid grid-cols-2 gap-2">

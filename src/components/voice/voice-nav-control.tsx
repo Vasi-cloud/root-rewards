@@ -293,7 +293,7 @@ export function VoiceNavControl({
         variant="ghost"
         size="sm"
         className={cn(
-          "size-9 shrink-0 p-0 sm:size-10",
+          "min-h-11 min-w-11 shrink-0 p-0",
           listening && "bg-red-600 text-white hover:bg-red-600/90"
         )}
         aria-pressed={listening}
