@@ -127,40 +127,50 @@ export default function HomePage() {
               className="animate-fb-fade-up mt-3 max-w-md text-sm leading-relaxed text-cream/80 sm:mt-5 sm:max-w-xl sm:text-lg"
               style={{ animationDelay: "220ms" }}
             >
-              A sustainable marketplace with Leafy helpers for cooking, parts,
-              local shopping, and smarter product finds.
+              Catalogue listings and partner-funded programmes — not live
+              supermarket stock, and not a GPS pin for a tree.
             </p>
             <div
-              className="animate-fb-fade-up mt-6 flex w-full max-w-sm flex-col gap-2.5 sm:mt-8 sm:max-w-none sm:flex-row sm:flex-wrap sm:gap-3"
+              className="animate-fb-fade-up mt-6 flex w-full max-w-sm flex-col gap-2.5 sm:mt-8 sm:max-w-none sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
               style={{ animationDelay: "320ms" }}
             >
               <Button
                 nativeButton={false}
                 render={<Link href="/marketplace" />}
                 size="lg"
-                className="min-h-12 w-full gap-2 bg-cream text-forest hover:bg-cream/90 sm:min-h-11 sm:w-auto"
+                className="min-h-12 w-full gap-2 bg-cream text-forest shadow-md hover:bg-cream/90 sm:min-h-11 sm:w-auto"
               >
-                Start shopping
+                Browse the shop
                 <ArrowRight className="size-4" />
               </Button>
               <Button
                 nativeButton={false}
-                render={<Link href="#leafy-tools" />}
+                render={<Link href="/donate" />}
                 size="lg"
-                variant="outline"
-                className="min-h-12 w-full border-cream/40 bg-transparent text-cream hover:bg-cream/10 sm:min-h-11 sm:w-auto"
+                className="min-h-12 w-full gap-2 border-2 border-cream bg-forest/40 text-cream shadow-md hover:bg-cream/15 sm:min-h-11 sm:w-auto"
               >
-                Explore Leafy tools
+                Fund a cause
               </Button>
-              <Button
-                nativeButton={false}
-                render={<Link href="/seller" />}
-                size="lg"
-                variant="ghost"
-                className="min-h-12 w-full text-sage hover:bg-cream/10 hover:text-cream sm:min-h-11 sm:w-auto"
-              >
-                Become a seller
-              </Button>
+              <div className="flex w-full flex-col gap-1.5 pt-1 sm:w-auto sm:flex-row sm:items-center sm:gap-1 sm:pt-0 sm:pl-1">
+                <Button
+                  nativeButton={false}
+                  render={<Link href="#leafy-tools" />}
+                  size="lg"
+                  variant="ghost"
+                  className="min-h-11 w-full justify-center text-cream/85 underline-offset-4 hover:bg-transparent hover:text-cream hover:underline sm:w-auto sm:px-3"
+                >
+                  Explore Leafy tools
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={<Link href="/seller" />}
+                  size="lg"
+                  variant="ghost"
+                  className="min-h-11 w-full justify-center text-cream/85 underline-offset-4 hover:bg-transparent hover:text-cream hover:underline sm:w-auto sm:px-3"
+                >
+                  Become a seller
+                </Button>
+              </div>
             </div>
           </div>
         </div>
