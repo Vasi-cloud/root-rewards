@@ -17,18 +17,21 @@ import { useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
-  CAUSES,
+  emptyCauseGifts,
   emptyCauseSelection,
   formatCauseUnits,
-  getCause,
+  giftLines,
+  giftTotal,
+  giftsToIllustrativeUnits,
+  parseCauseGifts,
   selectionCo2,
-  selectionCost,
-  selectionLines,
+  type CauseGiftAmounts,
   type CauseSelection,
 } from "@/lib/causes";
 import {
   clearPendingDonation,
   loadPendingDonation,
+  parseDonationCauseGifts,
   parseDonationCauseSelection,
 } from "@/lib/donate";
 import { saveLastDonation } from "@/lib/impact-storage";
@@ -46,6 +49,7 @@ type ViewState =
   | { status: "loading" }
   | {
       status: "ok";
+      gifts: CauseGiftAmounts;
       selection: CauseSelection;
       total: number;
       co2: number;
@@ -67,6 +71,10 @@ function DonateSuccessInner() {
       if (isDemo) {
         const pending = loadPendingDonation();
         const selection = pending?.selection ?? emptyCauseSelection();
+        const gifts =
+          pending && giftTotal(pending.gifts) >= 1
+            ? pending.gifts
+            : emptyCauseGifts();
         if (!pending?.recorded) {
           saveLastDonation(selection, {
             source: "donate",
@@ -77,9 +85,14 @@ function DonateSuccessInner() {
         if (!cancelled) {
           setView({
             status: "ok",
+            gifts,
             selection,
-            total: selectionCost(selection),
-            co2: selectionCo2(selection),
+            total: giftTotal(gifts) >= 1 ? giftTotal(gifts) : 0,
+            co2: selectionCo2(
+              giftTotal(gifts) >= 1
+                ? giftsToIllustrativeUnits(gifts)
+                : selection
+            ),
             mode: "demo",
           });
         }
@@ -97,11 +110,20 @@ function DonateSuccessInner() {
           }
           clearPendingDonation();
           if (!cancelled) {
+            const gifts =
+              giftTotal(pending.gifts) >= 1
+                ? pending.gifts
+                : emptyCauseGifts();
             setView({
               status: "ok",
+              gifts,
               selection: pending.selection,
-              total: selectionCost(pending.selection),
-              co2: selectionCo2(pending.selection),
+              total: giftTotal(gifts) >= 1 ? giftTotal(gifts) : 0,
+              co2: selectionCo2(
+                giftTotal(gifts) >= 1
+                  ? giftsToIllustrativeUnits(gifts)
+                  : pending.selection
+              ),
               mode: "demo",
             });
           }
@@ -110,7 +132,8 @@ function DonateSuccessInner() {
         if (!cancelled) {
           setView({
             status: "error",
-            message: "Missing donation session. Return to Support a cause to try again.",
+            message:
+              "Missing donation session. Return to Support a cause to try again.",
           });
         }
         return;
@@ -133,31 +156,49 @@ function DonateSuccessInner() {
       }
 
       const pending = loadPendingDonation();
+      let gifts: CauseGiftAmounts =
+        pending && giftTotal(pending.gifts) >= 1
+          ? pending.gifts
+          : parseDonationCauseGifts(verified.metadata?.causeGifts);
+
+      if (giftTotal(gifts) < 1) {
+        gifts = parseCauseGifts(emptyCauseGifts());
+      }
+
       let selection: CauseSelection =
         pending?.selection ??
         parseDonationCauseSelection(verified.metadata?.causeSelection);
 
       if (Object.values(selection).every((n) => !n)) {
-        selection = emptyCauseSelection();
+        selection =
+          giftTotal(gifts) >= 1
+            ? giftsToIllustrativeUnits(gifts)
+            : emptyCauseSelection();
       }
 
       if (!pending?.recorded) {
         saveLastDonation(selection, {
           source: "donate",
-          userEmail:
-            pending?.email ?? verified.customerEmail ?? null,
+          userEmail: pending?.email ?? verified.customerEmail ?? null,
         });
       }
       clearPendingDonation();
 
+      const exactTotal =
+        giftTotal(gifts) >= 1
+          ? giftTotal(gifts)
+          : verified.amountTotal != null
+            ? verified.amountTotal / 100
+            : 0;
+
       setView({
         status: "ok",
+        gifts,
         selection,
-        total:
-          verified.amountTotal != null
-            ? verified.amountTotal / 100
-            : selectionCost(selection),
-        co2: selectionCo2(selection),
+        total: exactTotal,
+        co2: selectionCo2(
+          giftTotal(gifts) >= 1 ? giftsToIllustrativeUnits(gifts) : selection
+        ),
         mode: "live",
       });
     }
@@ -192,7 +233,7 @@ function DonateSuccessInner() {
     );
   }
 
-  const lines = selectionLines(view.selection);
+  const lines = giftLines(view.gifts);
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10 sm:py-16">
@@ -206,8 +247,9 @@ function DonateSuccessInner() {
         Thank you for funding impact
       </h1>
       <p className="mt-3 text-center text-sm leading-relaxed text-muted-foreground sm:text-base">
-        Your gift helps Forest Buddies® support partner causes. Numbers below
-        are illustrative estimates — not a live carbon audit.
+        Your gift helps Forest Buddies® support partner causes. Amounts match
+        what you selected; unit counts are illustrative estimates — not a GPS
+        pin for a tree or a live carbon audit.
         {view.mode === "demo" ? (
           <span className="mt-1 block text-xs">
             Demo mode — impact is saved on this device.
@@ -225,7 +267,7 @@ function DonateSuccessInner() {
         </p>
         {lines.length > 0 && (
           <ul className="mt-4 space-y-2">
-            {lines.map(({ cause, units, cost }) => {
+            {lines.map(({ cause, units, amount }) => {
               const Icon = CAUSE_ICONS[cause.icon];
               return (
                 <li
@@ -233,47 +275,43 @@ function DonateSuccessInner() {
                   className="flex items-start gap-2 text-sm text-emerald-900"
                 >
                   <Icon className="mt-0.5 size-4 shrink-0" />
-                  <span className="flex-1">
-                    {cause.name}: {formatCauseUnits(cause, units)}
+                  <span className="min-w-0 flex-1">
+                    {cause.name}
+                    <span className="mt-0.5 block text-xs text-emerald-800/80">
+                      ≈ {formatCauseUnits(cause, units)} illustrative
+                    </span>
                   </span>
-                  <span className="tabular-nums">£{cost.toFixed(2)}</span>
+                  <span className="shrink-0 tabular-nums font-medium">
+                    £{amount.toFixed(2)}
+                  </span>
                 </li>
               );
             })}
           </ul>
         )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          ~{Math.round(view.co2)} kg CO₂e equivalent (estimate)
+        <p className="mt-3 text-xs text-emerald-900/75">
+          ~{Math.round(view.co2)} kg CO₂e equivalent (illustrative)
         </p>
       </div>
 
       <div className="mt-8 flex flex-col gap-3">
         <Button
           nativeButton={false}
-          render={<Link href="/dashboard/impact" />}
+          render={<Link href="/marketplace" />}
           size="lg"
-          className="min-h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900"
+          className="min-h-12 w-full gap-2"
         >
-          View Your Impact
+          Browse the shop
           <ArrowRight className="size-4" />
         </Button>
         <Button
           nativeButton={false}
-          render={<Link href="/marketplace" />}
+          render={<Link href="/dashboard/impact" />}
           variant="outline"
           size="lg"
           className="min-h-12 w-full"
         >
-          Browse Marketplace
-        </Button>
-        <Button
-          nativeButton={false}
-          render={<Link href="/recommend" />}
-          variant="outline"
-          size="lg"
-          className="min-h-12 w-full"
-        >
-          Ask Leafy tools
+          View your impact
         </Button>
         <Button
           nativeButton={false}
@@ -282,14 +320,9 @@ function DonateSuccessInner() {
           size="lg"
           className="min-h-12 w-full"
         >
-          Support another cause
+          Fund another cause
         </Button>
       </div>
-
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        Causes available:{" "}
-        {CAUSES.map((c) => getCause(c.id)?.name).filter(Boolean).join(", ")}.
-      </p>
     </div>
   );
 }
@@ -298,8 +331,8 @@ export default function DonateSuccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-lg px-4 py-16 text-center text-muted-foreground">
-          <Loader2 className="mx-auto mb-3 size-8 animate-spin opacity-40" />
+        <div className="mx-auto flex max-w-lg flex-col items-center px-4 py-16 text-muted-foreground">
+          <Loader2 className="mb-3 size-8 animate-spin opacity-50" />
           Loading…
         </div>
       }

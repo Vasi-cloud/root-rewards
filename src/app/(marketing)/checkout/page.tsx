@@ -256,6 +256,7 @@ export default function CheckoutPage() {
 
     savePendingCheckout({
       selection: causeSelection,
+      gifts,
       memberCreditApplied: memberCredit > 0,
       orderTotal: finalTotal,
       cartSubtotal: firstPartySubtotal,
@@ -445,7 +446,7 @@ export default function CheckoutPage() {
                   {units > 0 ? ` (≈ ${units} illustrative)` : ""}
                 </span>
                 <span className="shrink-0 tabular-nums">
-                  +£{amount.toFixed(amount % 1 ? 2 : 0)}
+                  +£{amount.toFixed(2)}
                 </span>
               </div>
             ))}

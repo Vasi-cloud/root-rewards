@@ -132,7 +132,9 @@ export function deliveryEstimateForCart(
     label,
     detail: mixed
       ? `Partner dropship based on your basket — most items ${label.toLowerCase()}. Tracking arrives by email.`
-      : `${estimates[0].detail} Tracking arrives by email.`,
+      : estimates[0].detail.includes("Tracking arrives by email")
+        ? estimates[0].detail
+        : `${estimates[0].detail} Tracking arrives by email.`,
     summary: mixed
       ? `Partner dropship · ${label.toLowerCase()} (mixed speeds in basket)`
       : `Partner dropship · ${label.toLowerCase()}`,

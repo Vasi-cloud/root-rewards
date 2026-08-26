@@ -8,8 +8,8 @@ import {
   CAUSE_GIFT_PRESETS,
   CAUSES,
   clampCauseGiftGbp,
-  dollarsToUnits,
   formatCauseUnits,
+  illustrativeUnitsForGift,
   type CauseGiftAmounts,
   type CauseId,
 } from "@/lib/causes";
@@ -51,7 +51,9 @@ export function CauseGiftPicker({
         const Icon = CAUSE_ICONS[cause.icon];
         const amount = Number(gifts[cause.id]) || 0;
         const selected = amount >= CAUSE_GIFT_MIN_GBP;
-        const units = selected ? Math.max(1, dollarsToUnits(cause, amount)) : 0;
+        const units = selected
+          ? illustrativeUnitsForGift(cause, amount)
+          : 0;
 
         return (
           <div
@@ -97,7 +99,7 @@ export function CauseGiftPicker({
                   </span>
                   {selected ? (
                     <span className="text-sm font-semibold tabular-nums">
-                      £{amount.toFixed(amount % 1 ? 2 : 0)}
+                      £{amount.toFixed(2)}
                     </span>
                   ) : null}
                 </span>

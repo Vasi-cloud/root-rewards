@@ -195,6 +195,7 @@ export type ConfirmedOrderClient = {
     zip: string | null;
   };
   causeSelection: Record<string, number>;
+  causeGifts?: Record<string, number>;
   memberCreditCents: number;
   lineItems: Array<{
     name: string;

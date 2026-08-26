@@ -3,14 +3,20 @@
  */
 
 import {
+  emptyCauseGifts,
   emptyCauseSelection,
+  parseCauseGifts,
+  type CauseGiftAmounts,
   type CauseSelection,
 } from "@/lib/causes";
 
 const PENDING_KEY = "fb-pending-donation";
 
 export type PendingDonation = {
+  /** Illustrative units (impact storage) */
   selection: CauseSelection;
+  /** Exact £ gifts submitted — thank-you / totals must use this */
+  gifts: CauseGiftAmounts;
   email?: string;
   name?: string;
   /** True when impact was already written (demo submit). */
@@ -34,11 +40,18 @@ export function loadPendingDonation(): PendingDonation | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PendingDonation>;
     if (!parsed || typeof parsed !== "object") return null;
+    const selection = {
+      ...emptyCauseSelection(),
+      ...(parsed.selection ?? {}),
+    };
+    const gifts = parseCauseGifts(
+      parsed.gifts ??
+        // Legacy pending without gifts: do not invent catalog remap
+        emptyCauseGifts()
+    );
     return {
-      selection: {
-        ...emptyCauseSelection(),
-        ...(parsed.selection ?? {}),
-      },
+      selection,
+      gifts,
       email: typeof parsed.email === "string" ? parsed.email : undefined,
       name: typeof parsed.name === "string" ? parsed.name : undefined,
       recorded: Boolean(parsed.recorded),
@@ -58,6 +71,18 @@ export function clearPendingDonation() {
     localStorage.removeItem(PENDING_KEY);
   } catch {
     // ignore
+  }
+}
+
+/** Parse Stripe metadata causeGifts JSON (exact £). */
+export function parseDonationCauseGifts(
+  raw: string | null | undefined
+): CauseGiftAmounts {
+  if (!raw) return emptyCauseGifts();
+  try {
+    return parseCauseGifts(JSON.parse(raw));
+  } catch {
+    return emptyCauseGifts();
   }
 }
 

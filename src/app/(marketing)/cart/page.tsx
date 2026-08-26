@@ -149,7 +149,7 @@ export default function CartPage() {
           <p className="mt-1 text-base text-muted-foreground">
             {totalItems} item{totalItems === 1 ? "" : "s"}
             {causeGiftTotal > 0
-              ? ` · £${causeGiftTotal.toFixed(causeGiftTotal % 1 ? 2 : 0)} cause gifts`
+              ? ` · £${causeGiftTotal.toFixed(2)} cause gifts`
               : ""}
           </p>
         </div>
@@ -259,7 +259,7 @@ export default function CartPage() {
                 Cause gift · {cause.name}
               </span>
               <span className="tabular-nums font-medium">
-                £{amount.toFixed(amount % 1 ? 2 : 0)}
+                £{amount.toFixed(2)}
               </span>
             </li>
           ))}
@@ -290,7 +290,7 @@ export default function CartPage() {
             {firstParty.length > 0
               ? "Proceed to checkout"
               : causeGiftTotal >= 1
-                ? `Checkout selected (£${causeGiftTotal.toFixed(causeGiftTotal % 1 ? 2 : 0)})`
+                ? `Checkout selected (£${causeGiftTotal.toFixed(2)})`
                 : "Add items to continue"}
             <ArrowRight className="size-4" />
           </Button>

@@ -146,7 +146,7 @@ export function giftLines(gifts: CauseGiftAmounts) {
     (c) => (Number(gifts[c.id]) || 0) >= CAUSE_GIFT_MIN_GBP
   ).map((cause) => {
     const amount = Number(gifts[cause.id]) || 0;
-    const units = dollarsToUnits(cause, amount);
+    const units = illustrativeUnitsForGift(cause, amount);
     return {
       cause,
       amount,
@@ -156,6 +156,16 @@ export function giftLines(gifts: CauseGiftAmounts) {
   });
 }
 
+/**
+ * Illustrative units for a selected £ gift.
+ * Never returns 0 when amount ≥ min gift (£1) — so £5 Animals ≈ 1 habitat day,
+ * not floor(5/6)=0. When amount ≥ unit price, uses floor(amount/price).
+ */
+export function illustrativeUnitsForGift(cause: Cause, amount: number): number {
+  if (!Number.isFinite(amount) || amount < CAUSE_GIFT_MIN_GBP) return 0;
+  return Math.max(1, dollarsToUnits(cause, amount));
+}
+
 /** Map £ gifts → illustrative unit counts for impact storage / copy. */
 export function giftsToIllustrativeUnits(
   gifts: CauseGiftAmounts
@@ -163,9 +173,7 @@ export function giftsToIllustrativeUnits(
   const next = emptyCauseSelection();
   for (const cause of CAUSES) {
     const amount = Number(gifts[cause.id]) || 0;
-    if (amount >= CAUSE_GIFT_MIN_GBP) {
-      next[cause.id] = Math.max(1, dollarsToUnits(cause, amount));
-    }
+    next[cause.id] = illustrativeUnitsForGift(cause, amount);
   }
   return next;
 }
@@ -235,9 +243,29 @@ export function formatLiveImpactSummary(selection: CauseSelection): string | nul
   return `${money} ${impactPhrase}`;
 }
 
-/** Honest gift summary from exact £ amounts. */
+/** Honest gift summary from exact £ amounts (not remapped unit catalog totals). */
 export function formatGiftImpactSummary(gifts: CauseGiftAmounts): string | null {
-  return formatLiveImpactSummary(giftsToIllustrativeUnits(gifts));
+  const lines = giftLines(gifts);
+  if (lines.length === 0) return null;
+
+  const total = giftTotal(gifts);
+  const money = `£${total.toFixed(2)}`;
+
+  const phrases = lines.map(({ cause, units }) => {
+    const verb = IMPACT_VERBS[cause.id];
+    return `${verb} ${formatCauseUnits(cause, units)}`;
+  });
+
+  let impactPhrase: string;
+  if (phrases.length === 1) {
+    impactPhrase = phrases[0];
+  } else if (phrases.length === 2) {
+    impactPhrase = `${phrases[0]} and ${phrases[1]}`;
+  } else {
+    impactPhrase = `${phrases.slice(0, -1).join(", ")}, and ${phrases[phrases.length - 1]}`;
+  }
+
+  return `${money} ${impactPhrase}`;
 }
 
 const CART_GIFTS_KEY = "forest-buddies-cart-cause-gifts";

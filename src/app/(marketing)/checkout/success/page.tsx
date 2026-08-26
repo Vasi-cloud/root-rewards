@@ -18,9 +18,12 @@ import { useCart } from "@/contexts/cart-context";
 import { useMembership } from "@/contexts/membership-context";
 import { recordAffiliateConversion } from "@/lib/affiliate-storage";
 import {
-  emptyCauseSelection,
+  emptyCauseGifts,
   formatCauseUnits,
-  selectionLines,
+  giftLines,
+  giftTotal,
+  parseCauseGifts,
+  type CauseGiftAmounts,
   type CauseSelection,
 } from "@/lib/causes";
 import { recordEcoPurchase, saveLastDonation } from "@/lib/impact-storage";
@@ -50,6 +53,9 @@ function CheckoutSuccessInner() {
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
+  const [pendingGifts, setPendingGifts] = useState<CauseGiftAmounts | null>(
+    null
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -91,9 +97,14 @@ function CheckoutSuccessInner() {
             }),
           });
         }
+        const gifts =
+          pending && giftTotal(pending.gifts) >= 1
+            ? pending.gifts
+            : emptyCauseGifts();
         clearPendingCheckout();
         clearCart();
         if (!cancelled) {
+          setPendingGifts(gifts);
           setOrder({
             orderNumber,
             kind: "marketplace_order",
@@ -106,6 +117,7 @@ function CheckoutSuccessInner() {
             customerName: pending?.name ?? null,
             shipping: { address: null, city: null, zip: null },
             causeSelection: pending?.selection ?? {},
+            causeGifts: gifts,
             memberCreditCents: 0,
             lineItems: [],
             fulfilledAt: new Date().toISOString(),
@@ -137,6 +149,9 @@ function CheckoutSuccessInner() {
 
       const pending = loadPendingCheckout();
       if (pending) {
+        if (giftTotal(pending.gifts) >= 1) {
+          setPendingGifts(pending.gifts);
+        }
         saveLastDonation(pending.selection, {
           source: "checkout",
           userEmail: pending.email ?? null,
@@ -208,11 +223,14 @@ function CheckoutSuccessInner() {
     );
   }
 
-  const selection: CauseSelection = {
-    ...emptyCauseSelection(),
-    ...(order.causeSelection as Partial<CauseSelection>),
-  };
-  const lines = selectionLines(selection);
+  const giftsFromOrder = parseCauseGifts(order.causeGifts ?? emptyCauseGifts());
+  const gifts: CauseGiftAmounts =
+    pendingGifts && giftTotal(pendingGifts) >= 1
+      ? pendingGifts
+      : giftTotal(giftsFromOrder) >= 1
+        ? giftsFromOrder
+        : emptyCauseGifts();
+  const impactLines = giftLines(gifts);
   const total = (order.amountTotalCents / 100).toFixed(2);
 
   return (
@@ -276,12 +294,12 @@ function CheckoutSuccessInner() {
           </div>
         )}
 
-        {lines.length > 0 && (
+        {impactLines.length > 0 && (
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
               Your impact
             </p>
-            {lines.map(({ cause, units, cost }) => {
+            {impactLines.map(({ cause, units, amount }) => {
               const Icon = CAUSE_ICONS[cause.icon];
               return (
                 <div
@@ -290,9 +308,10 @@ function CheckoutSuccessInner() {
                 >
                   <Icon className="mt-0.5 size-4 shrink-0" />
                   <span className="flex-1">
-                    {cause.name}: {formatCauseUnits(cause, units)}
+                    {cause.name}: ≈ {formatCauseUnits(cause, units)}{" "}
+                    illustrative
                   </span>
-                  <span className="tabular-nums">+£{cost.toFixed(2)}</span>
+                  <span className="tabular-nums">+£{amount.toFixed(2)}</span>
                 </div>
               );
             })}

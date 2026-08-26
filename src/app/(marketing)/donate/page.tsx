@@ -107,6 +107,7 @@ export default function DonatePage() {
 
     const pending = {
       selection,
+      gifts: payload,
       email: emailTrim || undefined,
       name: name.trim() || undefined,
       recorded: false,
@@ -232,7 +233,7 @@ export default function DonatePage() {
                       </span>
                     </span>
                     <span className="shrink-0 tabular-nums font-medium">
-                      £{amount.toFixed(amount % 1 ? 2 : 0)}
+                      £{amount.toFixed(2)}
                     </span>
                   </li>
                 );

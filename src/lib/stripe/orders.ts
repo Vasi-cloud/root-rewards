@@ -3,8 +3,8 @@ import "server-only";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import path from "path";
 
-import type { CauseSelection } from "@/lib/causes";
-import { emptyCauseSelection } from "@/lib/causes";
+import type { CauseGiftAmounts, CauseSelection } from "@/lib/causes";
+import { emptyCauseGifts, emptyCauseSelection, parseCauseGifts } from "@/lib/causes";
 import { CAUSE_IDS } from "@/lib/stripe/checkout-types";
 
 export type OrderKind = "marketplace_order" | "impact_member";
@@ -28,6 +28,8 @@ export type ConfirmedOrder = {
     zip: string | null;
   };
   causeSelection: CauseSelection;
+  /** Exact £ gifts from Stripe metadata (when present) */
+  causeGifts?: CauseGiftAmounts;
   memberCreditCents: number;
   lineItems: Array<{
     name: string;
@@ -157,6 +159,17 @@ export function parseCauseSelectionFromMetadata(
     // ignore
   }
   return base;
+}
+
+export function parseCauseGiftsFromMetadata(
+  raw: string | null | undefined
+): CauseGiftAmounts {
+  if (!raw) return emptyCauseGifts();
+  try {
+    return parseCauseGifts(JSON.parse(raw));
+  } catch {
+    return emptyCauseGifts();
+  }
 }
 
 export function makeOrderNumber(sessionId: string): string {

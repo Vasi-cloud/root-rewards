@@ -9,6 +9,7 @@ import {
 import {
   getOrderBySessionId,
   makeOrderNumber,
+  parseCauseGiftsFromMetadata,
   parseCauseSelectionFromMetadata,
   saveConfirmedOrder,
   updateConfirmedOrder,
@@ -110,6 +111,7 @@ export async function fulfillCheckoutSession(
       zip: meta.shippingZip ?? null,
     },
     causeSelection: parseCauseSelectionFromMetadata(meta.causeSelection),
+    causeGifts: parseCauseGiftsFromMetadata(meta.causeGifts),
     memberCreditCents,
     lineItems,
     fulfilledAt: new Date().toISOString(),
