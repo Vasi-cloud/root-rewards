@@ -113,12 +113,10 @@ function normalizeAdminProduct(
 
 /** Map admin / Firestore doc → marketplace Product. */
 export function toMarketplaceProduct(p: AdminCatalogProduct): Product {
-  const {
-    stock: _stock,
-    createdAt: _c,
-    updatedAt: _u,
-    ...product
-  } = p;
+  const { stock, createdAt, updatedAt, ...product } = p;
+  void stock;
+  void createdAt;
+  void updatedAt;
   return product;
 }
 

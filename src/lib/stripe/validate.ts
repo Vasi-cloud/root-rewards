@@ -128,7 +128,7 @@ export function validateCheckoutBody(body: unknown): {
   }
 
   // Prefer exact £ gifts; fall back to legacy unit × catalog price
-  let causeGifts = parseCauseGifts(b.causeGifts);
+  const causeGifts = parseCauseGifts(b.causeGifts);
   let catalogCausesCents = Math.round(giftTotal(causeGifts) * 100);
   let causeSelection = giftsToIllustrativeUnits(causeGifts);
 

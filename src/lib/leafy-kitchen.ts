@@ -3,7 +3,6 @@
  * First version: local parsing (no live LLM). Feels smart, stays honest.
  */
 
-import { getAmazonMarketplace } from "@/lib/amazon-affiliate";
 import type { Product } from "@/types";
 
 export type SampleRecipe = {

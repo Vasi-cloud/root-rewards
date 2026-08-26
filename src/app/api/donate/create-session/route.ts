@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     if (nameResult.value) name = nameResult.value;
   }
 
-  let causeGifts = parseCauseGifts(b.causeGifts);
+  const causeGifts = parseCauseGifts(b.causeGifts);
   let totalDollars = giftTotal(causeGifts);
   let causeSelection = giftsToIllustrativeUnits(causeGifts);
 
