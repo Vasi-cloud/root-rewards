@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
-import { CAUSES, selectionCost, selectionTotalUnits } from "@/lib/causes";
+import {
+  CAUSES,
+  giftTotal,
+  giftsToIllustrativeUnits,
+  parseCauseGifts,
+} from "@/lib/causes";
 import { getAppUrl, isStripeConfigured } from "@/lib/stripe/config";
 import { getStripe } from "@/lib/stripe/server";
 import { parseCauseSelection } from "@/lib/stripe/validate";
@@ -11,6 +16,7 @@ export const runtime = "nodejs";
 
 /**
  * Donation-only Stripe Checkout — causes, no shipping / cart goods.
+ * Charges exact £ gifts (causeGifts); falls back to legacy unit pricing.
  */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
@@ -38,6 +44,7 @@ export async function POST(request: Request) {
     email?: string;
     name?: string;
     causeSelection?: unknown;
+    causeGifts?: unknown;
     userId?: string | null;
   };
 
@@ -60,18 +67,24 @@ export async function POST(request: Request) {
     if (nameResult.value) name = nameResult.value;
   }
 
-  const causeSelection = parseCauseSelection(b.causeSelection);
-  if (selectionTotalUnits(causeSelection) < 1) {
-    return NextResponse.json(
-      { error: "Choose a cause amount to continue." },
-      { status: 400 }
-    );
+  let causeGifts = parseCauseGifts(b.causeGifts);
+  let totalDollars = giftTotal(causeGifts);
+  let causeSelection = giftsToIllustrativeUnits(causeGifts);
+
+  if (totalDollars < 0.5) {
+    // Legacy: units × catalog unitPrice
+    causeSelection = parseCauseSelection(b.causeSelection);
+    for (const cause of CAUSES) {
+      const units = causeSelection[cause.id] || 0;
+      causeGifts[cause.id] = units > 0 ? units * cause.unitPrice : 0;
+    }
+    totalDollars = giftTotal(causeGifts);
+    causeSelection = giftsToIllustrativeUnits(causeGifts);
   }
 
-  const totalDollars = selectionCost(causeSelection);
   if (totalDollars < 0.5) {
     return NextResponse.json(
-      { error: "Donation must be at least £0.50." },
+      { error: "Choose at least £1 for one or more causes." },
       { status: 400 }
     );
   }
@@ -81,20 +94,29 @@ export async function POST(request: Request) {
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   for (const cause of CAUSES) {
-    const units = causeSelection[cause.id] || 0;
-    if (units <= 0) continue;
+    const pounds = causeGifts[cause.id] || 0;
+    if (pounds < 1) continue;
+    const cents = Math.round(pounds * 100);
+    if (cents < 50) continue;
     lineItems.push({
-      quantity: units,
+      quantity: 1,
       price_data: {
         currency: "gbp",
-        unit_amount: Math.round(cause.unitPrice * 100),
+        unit_amount: cents,
         product_data: {
           name: `Support: ${cause.name}`,
-          description: `${cause.tagline} (illustrative partner-funded impact)`,
+          description: `${cause.tagline} (partner-funded / illustrative — not a GPS pin for a tree)`,
           metadata: { causeId: cause.id, kind: "cause_donation" },
         },
       },
     });
+  }
+
+  if (lineItems.length === 0) {
+    return NextResponse.json(
+      { error: "Choose a cause amount to continue." },
+      { status: 400 }
+    );
   }
 
   try {
@@ -114,6 +136,7 @@ export async function POST(request: Request) {
         kind: "cause_donation",
         customerName: name.slice(0, 100),
         causeSelection: JSON.stringify(causeSelection).slice(0, 450),
+        causeGifts: JSON.stringify(causeGifts).slice(0, 450),
         userId:
           typeof b.userId === "string" && b.userId ? b.userId.slice(0, 128) : "",
       },

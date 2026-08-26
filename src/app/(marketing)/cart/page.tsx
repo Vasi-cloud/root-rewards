@@ -4,43 +4,88 @@ import {
   ArrowLeft,
   ArrowRight,
   ExternalLink,
+  HeartHandshake,
   Leaf,
   ShoppingCart,
-  TreePine,
   Truck,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { CauseGiftPicker } from "@/components/causes/cause-gift-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
 import {
-  buildAmazonAffiliateUrl,
   getAmazonStoreLabel,
 } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
-  estimateCo2FromTrees,
-  estimateTreesFromSubtotal,
-  formatCartMoney,
-  treeUnitPrice,
-} from "@/lib/cart-impact";
+  emptyCauseGifts,
+  giftLines,
+  giftTotal,
+  loadCartCauseGifts,
+  saveCartCauseGifts,
+  type CauseGiftAmounts,
+} from "@/lib/causes";
+import { formatCartMoney } from "@/lib/cart-impact";
+import {
+  isAffiliateProduct,
+  isFirstPartyProduct,
+} from "@/lib/commerce-type";
 import {
   deliveryEstimateForCart,
   deliveryEstimateForProduct,
 } from "@/lib/delivery-estimates";
+import type { CartItem } from "@/types";
 
 export default function CartPage() {
-  const { cart, removeFromCart, updateQuantity, totalPrice, totalItems } =
-    useCart();
+  const { cart, removeFromCart, updateQuantity, totalItems } = useCart();
+  const [gifts, setGifts] = useState<CauseGiftAmounts>(emptyCauseGifts);
 
-  const treesEstimate = estimateTreesFromSubtotal(totalPrice);
-  const co2Estimate = estimateCo2FromTrees(treesEstimate);
-  const delivery = deliveryEstimateForCart(cart);
+  useEffect(() => {
+    setGifts(loadCartCauseGifts());
+  }, []);
 
-  if (cart.length === 0) {
+  function updateGifts(next: CauseGiftAmounts) {
+    setGifts(next);
+    saveCartCauseGifts(next);
+  }
+
+  const firstParty = useMemo(
+    () => cart.filter((item) => isFirstPartyProduct(item)),
+    [cart]
+  );
+  const affiliate = useMemo(
+    () => cart.filter((item) => isAffiliateProduct(item)),
+    [cart]
+  );
+
+  const firstPartySubtotal = useMemo(
+    () =>
+      firstParty.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [firstParty]
+  );
+  const causeGiftTotal = giftTotal(gifts);
+  const causeGiftLines = giftLines(gifts);
+  const stripePayable = firstPartySubtotal + causeGiftTotal;
+  const delivery = deliveryEstimateForCart(firstParty);
+
+  function shopAmazon(item: CartItem) {
+    const { url } = recordPartnerOutboundClick({
+      platformId: "amazon",
+      productId: item.id,
+      productName: item.name,
+      amazonAsin: item.amazonAsin,
+      amazonAffiliateUrl: item.amazonAffiliateUrl,
+      listPrice: item.price,
+    });
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  if (cart.length === 0 && causeGiftTotal < 1) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center sm:py-20">
         <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full bg-primary/5">
@@ -51,8 +96,14 @@ export default function CartPage() {
           Your cart is empty
         </h1>
         <p className="mx-auto mt-3 max-w-sm text-base text-muted-foreground">
-          Add products from the marketplace — or build a list in Leafy Kitchen
-          and tap Add All to Cart.
+          Add first-party products from the marketplace, or{" "}
+          <Link
+            href="/donate"
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            fund a cause
+          </Link>{" "}
+          with no purchase.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button
@@ -65,48 +116,27 @@ export default function CartPage() {
           </Button>
           <Button
             nativeButton={false}
-            render={<Link href="/kitchen" />}
+            render={<Link href="/donate" />}
             variant="outline"
             size="lg"
             className="min-h-12 w-full sm:w-auto"
           >
-            Open Leafy Kitchen
+            Support a cause
           </Button>
         </div>
-        <p className="mt-5 text-sm text-muted-foreground">
-          <Link
-            href="/local"
-            className="underline-offset-4 hover:text-primary hover:underline"
-          >
-            Buy Local
-          </Link>
-          <span className="mx-2 text-border" aria-hidden>
-            ·
-          </span>
-          <Link
-            href="/recommend"
-            className="underline-offset-4 hover:text-primary hover:underline"
-          >
-            Ask Leafy
-          </Link>
-        </p>
       </div>
     );
   }
 
-  function buyOnAmazon(item: (typeof cart)[number]) {
-    const { url } = recordPartnerOutboundClick({
-      platformId: "amazon",
-      productId: item.id,
-      productName: item.name,
-      amazonAsin: item.amazonAsin,
-      listPrice: item.price,
-    });
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
+  const checkoutHref =
+    firstParty.length > 0
+      ? "/checkout"
+      : causeGiftTotal >= 1
+        ? "/donate"
+        : "/marketplace";
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 pb-36 sm:px-6 sm:py-14 sm:pb-14">
+    <div className="mx-auto max-w-4xl px-4 py-8 pb-40 sm:px-6 sm:py-14 sm:pb-14">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <MarketplaceBrandBadge className="mb-2" />
@@ -117,8 +147,10 @@ export default function CartPage() {
             </h1>
           </div>
           <p className="mt-1 text-base text-muted-foreground">
-            {totalItems} item{totalItems === 1 ? "" : "s"} ·{" "}
-            {formatCartMoney(totalPrice)} running total
+            {totalItems} item{totalItems === 1 ? "" : "s"}
+            {causeGiftTotal > 0
+              ? ` · £${causeGiftTotal.toFixed(causeGiftTotal % 1 ? 2 : 0)} cause gifts`
+              : ""}
           </p>
         </div>
         <Button
@@ -131,191 +163,135 @@ export default function CartPage() {
         </Button>
       </div>
 
-      {/* Trees impact — dynamic & exciting */}
-      <div className="mb-6 overflow-hidden rounded-2xl border border-emerald-300/80 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 px-5 py-5 sm:px-6 sm:py-6">
-        <div className="flex items-start gap-3 sm:gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-emerald-800 text-cream shadow-sm">
-            <TreePine className="size-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-heading text-xl font-semibold leading-snug tracking-tight text-emerald-950 sm:text-2xl">
-              You&apos;ll plant {treesEstimate} tree
-              {treesEstimate === 1 ? "" : "s"} with this order 🌱
-            </p>
-            <div className="mt-3 inline-flex items-baseline gap-2 rounded-xl border border-emerald-200/90 bg-white/70 px-3.5 py-2.5 shadow-xs">
-              <span className="font-heading text-2xl font-semibold tabular-nums text-emerald-900 sm:text-3xl">
-                {co2Estimate}
-              </span>
-              <span className="text-sm leading-tight text-emerald-900/85">
-                <span className="font-semibold">kg CO₂</span>
-                <span className="mt-0.5 block text-xs font-normal text-emerald-800/75">
-                  equivalent locked away
-                </span>
-              </span>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-emerald-900/80">
-              Based on your {formatCartMoney(totalPrice)} subtotal at $
-              {treeUnitPrice()}/tree. Confirm Trees at checkout — every
-              purchase helps plant trees.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6 flex gap-3 rounded-2xl border border-sky-200/80 bg-sky-50/50 px-4 py-3.5 text-sm text-sky-950">
-        <Truck className="mt-0.5 size-5 shrink-0 text-sky-800" />
-        <div className="min-w-0">
-          <p className="font-medium text-foreground">{delivery.summary}</p>
-          <p className="mt-0.5 text-muted-foreground">{delivery.detail}</p>
-        </div>
-      </div>
-
-      <div className="space-y-3 sm:space-y-4">
-        {cart.map((item) => (
-          <div
-            key={item.id}
-            className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:p-5"
-          >
-            <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/5 sm:size-16">
-              {item.imageUrl && !item.imageUrl.startsWith("data:") ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={item.imageUrl}
-                  alt=""
-                  className="size-full object-cover"
-                />
-              ) : (
-                <Leaf className="size-6 text-primary sm:size-7" />
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-base leading-tight font-medium sm:text-lg">
-                  {item.name}
-                </div>
-                {item.id.startsWith("kitchen-") && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-emerald-100 text-[10px] text-emerald-900"
-                  >
-                    Kitchen list
-                  </Badge>
-                )}
-              </div>
-              <div className="mt-0.5 text-sm text-muted-foreground">
-                {item.rentalDuration ? (
-                  <span className="font-medium text-emerald-700">
-                    {item.rentalDuration}-day rental · {item.category}
-                  </span>
-                ) : (
-                  `${formatCartMoney(item.price)} each · ${item.category}`
-                )}
-              </div>
-              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-sky-900">
-                <Truck className="size-3.5 shrink-0 opacity-80" />
-                {deliveryEstimateForProduct(item).label}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="mt-2 h-8 gap-1.5 text-xs"
-                onClick={() => buyOnAmazon(item)}
-                title={buildAmazonAffiliateUrl({
-                  productName: item.name,
-                  amazonAsin: item.amazonAsin,
-                })}
-              >
-                Buy Online · {getAmazonStoreLabel()}
-                <ExternalLink className="size-3 opacity-70" />
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end sm:gap-6">
-              <div className="flex items-center rounded-xl border bg-background">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-11 rounded-l-xl"
-                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                  disabled={item.quantity <= 1}
-                  aria-label="Decrease quantity"
-                >
-                  −
-                </Button>
-                <span className="w-10 text-center text-base font-medium tabular-nums">
-                  {item.quantity}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-11 rounded-r-xl"
-                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                  aria-label="Increase quantity"
-                >
-                  +
-                </Button>
-              </div>
-
-              <div className="min-w-[5rem] text-right">
-                <div className="text-lg font-semibold tabular-nums text-primary">
-                  {formatCartMoney(item.price * item.quantity)}
-                </div>
-                {item.quantity > 1 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    {item.quantity} × {formatCartMoney(item.price)}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-11 text-destructive hover:bg-destructive/10"
-                onClick={() => removeFromCart(item.id)}
-                aria-label={`Remove ${item.name}`}
-              >
-                <X className="size-5" />
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-8 rounded-2xl border border-border/70 bg-card p-5 shadow-sm sm:mt-10 sm:rounded-3xl sm:p-8">
-        <div className="flex items-baseline justify-between text-xl">
-          <span className="font-medium text-muted-foreground">Subtotal</span>
-          <span className="font-heading text-2xl font-semibold tabular-nums text-primary">
-            {formatCartMoney(totalPrice)}
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {delivery.summary} · confirmed at checkout
+      <div className="mb-6 rounded-xl border border-amber-200/90 bg-amber-50/80 px-3.5 py-3 text-sm text-amber-950">
+        <p className="font-medium">How payment works</p>
+        <p className="mt-1 text-xs leading-relaxed text-amber-900/85 sm:text-sm">
+          First-party items and cause gifts check out with Stripe (£). Amazon
+          affiliate lines open Shop Amazon only — they are not charged here.
+          Cause gifts are partner-funded / illustrative — not a GPS pin for a
+          tree.
         </p>
+      </div>
 
-        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3.5 py-3.5 text-emerald-950">
-          <p className="flex items-center gap-2 text-sm font-semibold sm:text-base">
-            <TreePine className="size-4 shrink-0 text-emerald-800" />
-            You&apos;ll plant {treesEstimate} tree
-            {treesEstimate === 1 ? "" : "s"} with this order 🌱
+      {firstParty.length > 0 && (
+        <section className="mb-8 space-y-3">
+          <h2 className="font-heading text-lg font-semibold text-primary">
+            Checkout with Stripe
+          </h2>
+          {firstParty.map((item) => (
+            <CartLine
+              key={item.id}
+              item={item}
+              mode="first_party"
+              onRemove={() => removeFromCart(item.id)}
+              onQty={(q) => updateQuantity(item.id, q)}
+            />
+          ))}
+          <div className="flex gap-3 rounded-2xl border border-sky-200/80 bg-sky-50/50 px-4 py-3.5 text-sm text-sky-950">
+            <Truck className="mt-0.5 size-5 shrink-0 text-sky-800" />
+            <div className="min-w-0">
+              <p className="font-medium text-foreground">{delivery.summary}</p>
+              <p className="mt-0.5 text-muted-foreground">{delivery.detail}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {affiliate.length > 0 && (
+        <section className="mb-8 space-y-3">
+          <h2 className="font-heading text-lg font-semibold text-primary">
+            Shop on Amazon
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Tagged Associates links — not included in your Stripe total.
           </p>
-          <p className="mt-1.5 pl-6 text-sm text-emerald-900/85">
-            <span className="font-heading text-lg font-semibold tabular-nums text-emerald-900">
-              {co2Estimate} kg CO₂
-            </span>{" "}
-            equivalent
-          </p>
+          {affiliate.map((item) => (
+            <CartLine
+              key={item.id}
+              item={item}
+              mode="affiliate"
+              onRemove={() => removeFromCart(item.id)}
+              onShopAmazon={() => shopAmazon(item)}
+            />
+          ))}
+        </section>
+      )}
+
+      <section className="mb-8">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <h2 className="font-heading flex items-center gap-2 text-lg font-semibold text-primary">
+              <HeartHandshake className="size-5" />
+              Optional — Support a cause
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Multi-select Trees, Ocean, Animals, Education, Climate. £5 / £10 /
+              £25 or custom (min £1).
+            </p>
+          </div>
+          <Button
+            nativeButton={false}
+            render={<Link href="/donate" />}
+            variant="ghost"
+            size="sm"
+            className="text-primary"
+          >
+            Open full donate page
+          </Button>
+        </div>
+        <CauseGiftPicker gifts={gifts} onChange={updateGifts} />
+      </section>
+
+      <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm sm:rounded-3xl sm:p-8">
+        <h2 className="font-heading text-lg font-semibold text-primary">
+          Stripe summary
+        </h2>
+        <ul className="mt-3 space-y-2 text-sm">
+          <li className="flex justify-between gap-3">
+            <span className="text-muted-foreground">First-party products</span>
+            <span className="tabular-nums font-medium">
+              {formatCartMoney(firstPartySubtotal)}
+            </span>
+          </li>
+          {causeGiftLines.map(({ cause, amount }) => (
+            <li key={cause.id} className="flex justify-between gap-3">
+              <span className="text-muted-foreground">
+                Cause gift · {cause.name}
+              </span>
+              <span className="tabular-nums font-medium">
+                £{amount.toFixed(amount % 1 ? 2 : 0)}
+              </span>
+            </li>
+          ))}
+          {affiliate.length > 0 && (
+            <li className="flex justify-between gap-3 text-muted-foreground">
+              <span>Amazon lines ({affiliate.length})</span>
+              <span>Not charged here</span>
+            </li>
+          )}
+        </ul>
+        <div className="mt-4 flex items-baseline justify-between border-t border-border/60 pt-4 text-xl">
+          <span className="font-medium text-muted-foreground">
+            Payable with Stripe
+          </span>
+          <span className="font-heading text-2xl font-semibold tabular-nums text-primary">
+            {formatCartMoney(stripePayable)}
+          </span>
         </div>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Button
             nativeButton={false}
-            render={<Link href="/checkout" />}
+            render={<Link href={checkoutHref} />}
             size="lg"
             className="min-h-14 flex-1 gap-2 text-base font-semibold shadow-md"
+            disabled={stripePayable < 0.5 && firstParty.length === 0}
           >
-            Proceed to checkout
+            {firstParty.length > 0
+              ? "Proceed to checkout"
+              : causeGiftTotal >= 1
+                ? `Checkout selected (£${causeGiftTotal.toFixed(causeGiftTotal % 1 ? 2 : 0)})`
+                : "Add items to continue"}
             <ArrowRight className="size-4" />
           </Button>
           <Button
@@ -329,60 +305,144 @@ export default function CartPage() {
             Continue shopping
           </Button>
         </div>
-
-        <div className="mt-3 flex justify-center">
-          <Button
-            nativeButton={false}
-            render={<Link href="/kitchen" />}
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-          >
-            Or add more from Leafy Kitchen
-          </Button>
-        </div>
-
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Every purchase helps plant trees. Prefer Amazon? Use{" "}
-          <span className="font-medium text-foreground">Buy Online</span> on any
-          line — affiliate links support Forest Buddies®.
-        </p>
       </div>
 
-      {/* Mobile sticky checkout bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-cream/95 px-4 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur-md sm:hidden">
-        <div className="mb-1.5 flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {totalItems} item{totalItems === 1 ? "" : "s"}
-          </span>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-cream px-4 pt-3 pb-[max(0.85rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] sm:hidden">
+        <div className="mb-2 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Stripe total</span>
           <span className="font-semibold tabular-nums text-primary">
-            {formatCartMoney(totalPrice)}
+            {formatCartMoney(stripePayable)}
           </span>
         </div>
-        <p className="mb-2.5 text-center text-xs font-medium text-emerald-900">
-          You&apos;ll plant {treesEstimate} tree
-          {treesEstimate === 1 ? "" : "s"} · {co2Estimate} kg CO₂ 🌱
-        </p>
-        <div className="flex gap-2">
-          <Button
-            nativeButton={false}
-            render={<Link href="/marketplace" />}
-            variant="outline"
-            size="lg"
-            className="min-h-12 flex-1 text-sm"
-          >
-            Continue
-          </Button>
-          <Button
-            nativeButton={false}
-            render={<Link href="/checkout" />}
-            size="lg"
-            className="min-h-12 flex-[1.4] gap-1.5 text-sm font-semibold"
-          >
-            Checkout
-            <ArrowRight className="size-3.5" />
-          </Button>
+        <Button
+          nativeButton={false}
+          render={<Link href={checkoutHref} />}
+          size="lg"
+          className="min-h-12 w-full gap-1.5 text-sm font-semibold"
+          disabled={stripePayable < 0.5 && firstParty.length === 0}
+        >
+          {firstParty.length > 0 ? "Checkout" : "Checkout selected"}
+          <ArrowRight className="size-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function CartLine({
+  item,
+  mode,
+  onRemove,
+  onQty,
+  onShopAmazon,
+}: {
+  item: CartItem;
+  mode: "first_party" | "affiliate";
+  onRemove: () => void;
+  onQty?: (q: number) => void;
+  onShopAmazon?: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:p-5">
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/5 sm:size-16">
+        {item.imageUrl && !item.imageUrl.startsWith("data:") ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.imageUrl} alt="" className="size-full object-cover" />
+        ) : (
+          <Leaf className="size-6 text-primary sm:size-7" />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-base leading-tight font-medium sm:text-lg">
+            {item.name}
+          </div>
+          {mode === "affiliate" ? (
+            <Badge className="bg-emerald-100 text-[10px] text-emerald-900">
+              Amazon
+            </Badge>
+          ) : item.id.startsWith("kitchen-") ? (
+            <Badge
+              variant="secondary"
+              className="bg-emerald-100 text-[10px] text-emerald-900"
+            >
+              Kitchen list
+            </Badge>
+          ) : null}
         </div>
+        <div className="mt-0.5 text-sm text-muted-foreground">
+          {item.rentalDuration ? (
+            <span className="font-medium text-emerald-700">
+              {item.rentalDuration}-day rental · {item.category}
+            </span>
+          ) : (
+            `${formatCartMoney(item.price)} each · ${item.category}`
+          )}
+        </div>
+        {mode === "first_party" ? (
+          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-sky-900">
+            <Truck className="size-3.5 shrink-0 opacity-80" />
+            {deliveryEstimateForProduct(item).label}
+          </p>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className="mt-2 h-11 gap-1.5 bg-emerald-800 text-cream hover:bg-emerald-900"
+            onClick={onShopAmazon}
+          >
+            Shop {getAmazonStoreLabel()}
+            <ExternalLink className="size-3.5 opacity-80" />
+          </Button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end sm:gap-6">
+        {mode === "first_party" && onQty ? (
+          <div className="flex items-center rounded-xl border bg-background">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11 rounded-l-xl"
+              onClick={() => onQty(item.quantity - 1)}
+              disabled={item.quantity <= 1}
+              aria-label="Decrease quantity"
+            >
+              −
+            </Button>
+            <span className="w-10 text-center text-base font-medium tabular-nums">
+              {item.quantity}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11 rounded-r-xl"
+              onClick={() => onQty(item.quantity + 1)}
+              aria-label="Increase quantity"
+            >
+              +
+            </Button>
+          </div>
+        ) : null}
+
+        {mode === "first_party" ? (
+          <div className="min-w-[5rem] text-right">
+            <div className="text-lg font-semibold tabular-nums text-primary">
+              {formatCartMoney(item.price * item.quantity)}
+            </div>
+          </div>
+        ) : null}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 text-destructive hover:bg-destructive/10"
+          onClick={onRemove}
+          aria-label={`Remove ${item.name}`}
+        >
+          <X className="size-5" />
+        </Button>
       </div>
     </div>
   );

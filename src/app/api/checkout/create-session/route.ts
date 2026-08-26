@@ -104,16 +104,18 @@ export async function POST(request: Request) {
       }));
 
     for (const cause of CAUSES) {
-      const units = data.causeSelection[cause.id] || 0;
-      if (units <= 0) continue;
+      const pounds = data.causeGifts[cause.id] || 0;
+      if (pounds < 1) continue;
+      const cents = Math.round(pounds * 100);
+      if (cents < 50) continue;
       stripeLineItems.push({
-        quantity: units,
+        quantity: 1,
         price_data: {
           currency: STRIPE_CHECKOUT_CURRENCY,
-          unit_amount: Math.round(cause.unitPrice * 100),
+          unit_amount: cents,
           product_data: {
             name: `Impact: ${cause.name}`,
-            description: `${cause.tagline} (illustrative partner-funded impact)`,
+            description: `${cause.tagline} (illustrative partner-funded impact — not a GPS pin for a tree)`,
             metadata: { causeId: cause.id },
           },
         },
@@ -184,6 +186,7 @@ export async function POST(request: Request) {
         shippingZip: data.zip.slice(0, 20),
         memberCreditCents: String(data.memberCreditCents),
         causeSelection: JSON.stringify(data.causeSelection).slice(0, 450),
+        causeGifts: JSON.stringify(data.causeGifts).slice(0, 450),
         userId: data.userId ?? "",
         currency: STRIPE_CHECKOUT_CURRENCY,
         ...(couponId ? { memberCreditCoupon: couponId } : {}),

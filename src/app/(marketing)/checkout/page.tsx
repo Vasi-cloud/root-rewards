@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { TrustBadges } from "@/components/trust/trust-badges";
+import { CauseGiftPicker } from "@/components/causes/cause-gift-picker";
 import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
 import { useI18n } from "@/contexts/i18n-context";
@@ -10,33 +11,26 @@ import {
   recordAffiliateConversion,
   recordPartnerOutboundClick,
 } from "@/lib/affiliate-storage";
-import {
-  buildAmazonAffiliateUrl,
-  getAmazonStoreLabel,
-} from "@/lib/amazon-affiliate";
+import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
 import {
   estimateCo2FromTrees,
   estimateTreesFromSubtotal,
   formatCartMoney,
 } from "@/lib/cart-impact";
+import { isAffiliateProduct, isFirstPartyProduct } from "@/lib/commerce-type";
 import {
   deliveryEstimateForCart,
   deliveryEstimateForProduct,
 } from "@/lib/delivery-estimates";
 import {
-  CAUSES,
-  dollarsToUnits,
-  emptyCauseSelection,
-  formatCauseUnits,
-  formatLiveImpactSummary,
-  selectionCo2,
-  selectionCost,
-  selectionLines,
-  selectionTotalUnits,
-  unitsToDollars,
-  type Cause,
-  type CauseId,
-  type CauseSelection,
+  emptyCauseGifts,
+  formatGiftImpactSummary,
+  giftLines,
+  giftTotal,
+  giftsToIllustrativeUnits,
+  loadCartCauseGifts,
+  saveCartCauseGifts,
+  type CauseGiftAmounts,
 } from "@/lib/causes";
 import { saveLastDonation } from "@/lib/impact-storage";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -51,34 +45,17 @@ import {
   validateName,
   validatePostalCode,
 } from "@/lib/validation";
-import {
-  BookOpen,
-  ExternalLink,
-  Leaf,
-  PawPrint,
-  Sun,
-  TreePine,
-  Truck,
-  Waves,
-} from "lucide-react";
+import { ExternalLink, Leaf, TreePine, Truck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
-const CAUSE_ICONS = {
-  trees: Leaf,
-  waves: Waves,
-  paw: PawPrint,
-  book: BookOpen,
-  sun: Sun,
-} as const;
 
 /** 16px+ inputs prevent iOS auto-zoom on focus */
 const fieldClass =
   "mt-1.5 w-full rounded-xl border border-input bg-background px-3.5 py-3.5 text-base leading-normal focus:outline-none focus:ring-2 focus:ring-ring";
 
 export default function CheckoutPage() {
-  const { cart, totalPrice } = useCart();
+  const { cart } = useCart();
   const { t } = useI18n();
   const { user } = useAuth();
   const router = useRouter();
@@ -92,89 +69,89 @@ export default function CheckoutPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [stripeEnabled, setStripeEnabled] = useState(false);
   const [applyMemberCredit, setApplyMemberCredit] = useState(true);
+  const [gifts, setGifts] = useState<CauseGiftAmounts>(emptyCauseGifts);
 
   useEffect(() => {
     void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
   }, []);
-  const [selection, setSelection] = useState<CauseSelection>(() => {
-    const initial = emptyCauseSelection();
-    initial.trees = 1;
-    return initial;
-  });
-  const [activeCauseId, setActiveCauseId] = useState<CauseId>("trees");
-  const [customAmount, setCustomAmount] = useState("8");
 
-  const activeCause = CAUSES.find((c) => c.id === activeCauseId) ?? CAUSES[0];
-  const activeUnits = selection[activeCauseId] || 0;
-  const causeCost = selectionCost(selection);
-  const causeCo2 = selectionCo2(selection);
-  const totalUnits = selectionTotalUnits(selection);
-  const lines = useMemo(() => selectionLines(selection), [selection]);
-  const liveImpact = useMemo(
-    () => formatLiveImpactSummary(selection),
-    [selection]
+  useEffect(() => {
+    setGifts(loadCartCauseGifts());
+  }, []);
+
+  function updateGifts(next: CauseGiftAmounts) {
+    setGifts(next);
+    saveCartCauseGifts(next);
+  }
+
+  const firstParty = useMemo(
+    () => cart.filter((item) => isFirstPartyProduct(item)),
+    [cart]
   );
+  const affiliate = useMemo(
+    () => cart.filter((item) => isAffiliateProduct(item)),
+    [cart]
+  );
+
+  const firstPartySubtotal = useMemo(
+    () =>
+      firstParty.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [firstParty]
+  );
+
+  const causeGiftTotal = giftTotal(gifts);
+  const lines = useMemo(() => giftLines(gifts), [gifts]);
+  const liveImpact = useMemo(() => formatGiftImpactSummary(gifts), [gifts]);
+  const causeCo2 = useMemo(
+    () => lines.reduce((sum, line) => sum + line.co2, 0),
+    [lines]
+  );
+  const illustrativeUnits = useMemo(
+    () => giftsToIllustrativeUnits(gifts),
+    [gifts]
+  );
+  const totalUnits = useMemo(
+    () =>
+      Object.values(illustrativeUnits).reduce((sum, n) => sum + (n || 0), 0),
+    [illustrativeUnits]
+  );
+
   const memberCredit =
     isImpactMember && causeCreditAvailable && applyMemberCredit
-      ? Math.min(causeCost, tier.monthlyCauseCredit)
+      ? Math.min(causeGiftTotal, tier.monthlyCauseCredit)
       : 0;
-  const finalTotal = Math.max(0, totalPrice + causeCost - memberCredit);
+  const finalTotal = Math.max(
+    0,
+    firstPartySubtotal + causeGiftTotal - memberCredit
+  );
 
-  function setCauseUnits(causeId: CauseId, units: number) {
-    const next = Math.max(0, Math.floor(units) || 0);
-    setSelection((prev) => ({ ...prev, [causeId]: next }));
-    if (causeId === activeCauseId) {
-      const dollars = unitsToDollars(
-        CAUSES.find((c) => c.id === causeId) ?? activeCause,
-        next
-      );
-      setCustomAmount(next > 0 ? String(dollars) : "");
-    }
+  const treesEstimate = estimateTreesFromSubtotal(firstPartySubtotal);
+  const co2Estimate = estimateCo2FromTrees(treesEstimate);
+  const delivery = deliveryEstimateForCart(firstParty);
+
+  function shopAmazon(item: (typeof cart)[number]) {
+    const { url } = recordPartnerOutboundClick({
+      platformId: "amazon",
+      productId: item.id,
+      productName: item.name,
+      amazonAsin: item.amazonAsin,
+      amazonAffiliateUrl: item.amazonAffiliateUrl,
+      listPrice: item.price,
+    });
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  function selectCause(causeId: CauseId) {
-    setActiveCauseId(causeId);
-    const cause = CAUSES.find((c) => c.id === causeId) ?? activeCause;
-    const units = selection[causeId] || 0;
-    const dollars = unitsToDollars(cause, units);
-    setCustomAmount(units > 0 ? String(dollars) : "");
-  }
-
-  function applyCustomAmount(raw: string) {
-    setCustomAmount(raw);
-    const dollars = parseFloat(raw);
-    if (raw.trim() === "" || Number.isNaN(dollars)) {
-      setSelection((prev) => ({ ...prev, [activeCauseId]: 0 }));
-      return;
-    }
-    const units = dollarsToUnits(activeCause, Math.max(0, dollars));
-    setSelection((prev) => ({ ...prev, [activeCauseId]: units }));
-  }
-
-  function addRoundUp(dollars: number) {
-    const currentTotal = totalPrice + causeCost;
-    const target = Math.ceil(currentTotal / dollars) * dollars;
-    const extra = Math.max(0, target - currentTotal);
-    const addDollars =
-      extra <= 0 ? activeCause.unitPrice : Math.max(extra, activeCause.unitPrice);
-    const currentDollars = unitsToDollars(activeCause, activeUnits);
-    const newDollars = currentDollars + addDollars;
-    const units = dollarsToUnits(activeCause, newDollars);
-    const ensured =
-      unitsToDollars(activeCause, units) < newDollars ? units + 1 : units;
-    setCauseUnits(activeCauseId, ensured);
-  }
-
-  if (cart.length === 0) {
+  if (firstParty.length === 0 && causeGiftTotal < 1) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center sm:py-20">
         <Leaf className="mx-auto mb-4 size-10 text-primary" />
         <h1 className="font-heading text-2xl font-semibold sm:text-3xl">
-          Your cart is empty
+          Nothing to checkout here
         </h1>
         <p className="mt-3 text-base text-muted-foreground">
-          Add products from the marketplace — or build a list in Leafy Kitchen
-          and tap Add All to Cart.
+          Add first-party products from the marketplace, or fund a cause on
+          Donate. Amazon affiliate items stay in your cart for Shop Amazon only
+          — they are not charged at this checkout.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button
@@ -187,13 +164,24 @@ export default function CheckoutPage() {
           </Button>
           <Button
             nativeButton={false}
-            render={<Link href="/kitchen" />}
+            render={<Link href="/donate" />}
             variant="outline"
             className="min-h-12 w-full sm:w-auto"
             size="lg"
           >
-            Open Leafy Kitchen
+            Support a cause
           </Button>
+          {affiliate.length > 0 ? (
+            <Button
+              nativeButton={false}
+              render={<Link href="/cart" />}
+              variant="outline"
+              className="min-h-12 w-full sm:w-auto"
+              size="lg"
+            >
+              Back to cart
+            </Button>
+          ) : null}
         </div>
       </div>
     );
@@ -240,7 +228,7 @@ export default function CheckoutPage() {
 
     if (finalTotal < 0.5) {
       setFormError(
-        "Order total must be at least £0.50 after cause credit. Add items or adjust your cause donation."
+        "Order total must be at least £0.50 after cause credit. Add items or adjust your cause gift."
       );
       return;
     }
@@ -254,26 +242,27 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     const weightedPercent =
-      cart.length === 0
+      firstParty.length === 0
         ? 12
-        : cart.reduce(
+        : firstParty.reduce(
             (sum, item) =>
               sum + item.affiliateCommissionPercent * item.price * item.quantity,
             0
-          ) / Math.max(totalPrice, 1);
+          ) / Math.max(firstPartySubtotal, 1);
 
     const email = emailResult.value;
     const name = nameResult.value;
+    const causeSelection = giftsToIllustrativeUnits(gifts);
 
     savePendingCheckout({
-      selection,
+      selection: causeSelection,
       memberCreditApplied: memberCredit > 0,
       orderTotal: finalTotal,
-      cartSubtotal: totalPrice,
+      cartSubtotal: firstPartySubtotal,
       weightedAffiliatePercent: weightedPercent,
-      productName: cart[0]?.name,
-      productId: cart[0]?.id,
-      sellerLines: cart.map((item) => ({
+      productName: firstParty[0]?.name,
+      productId: firstParty[0]?.id,
+      sellerLines: firstParty.map((item) => ({
         sellerUid: item.sellerUid,
         productId: item.id,
         quantity: item.quantity,
@@ -293,8 +282,9 @@ export default function CheckoutPage() {
       zip: zipResult.value,
       userId: user?.uid ?? null,
       memberCreditCents: Math.round(memberCredit * 100),
-      causeSelection: selection,
-      lineItems: cart.map((item) => ({
+      causeGifts: gifts,
+      causeSelection,
+      lineItems: firstParty.map((item) => ({
         id: item.id,
         name: item.name,
         unitAmountCents: Math.round(item.price * 100),
@@ -317,49 +307,22 @@ export default function CheckoutPage() {
     }
 
     // Demo fallback — no Stripe secret configured
-    saveLastDonation(selection, {
+    saveLastDonation(causeSelection, {
       source: "checkout",
       userEmail: email || null,
     });
     if (memberCredit > 0) consumeCauseCredit();
     recordAffiliateConversion({
-      orderTotal: totalPrice,
+      orderTotal: firstPartySubtotal,
       basePercent: weightedPercent,
-      productName: cart[0]?.name,
-      productId: cart[0]?.id,
+      productName: firstParty[0]?.name,
+      productId: firstParty[0]?.id,
     });
 
     await new Promise((resolve) => setTimeout(resolve, 600));
     // Keep pending payload for success page; clear cart there after demo confirm
     router.push("/checkout/success?demo=1");
   };
-
-  const customDollars = parseFloat(customAmount);
-  const previewUnits =
-    customAmount.trim() === "" || Number.isNaN(customDollars)
-      ? 0
-      : dollarsToUnits(activeCause, Math.max(0, customDollars));
-  const remainder =
-    customAmount.trim() === "" ||
-    Number.isNaN(customDollars) ||
-    customDollars <= 0
-      ? 0
-      : Math.max(0, customDollars - previewUnits * activeCause.unitPrice);
-
-  const treesEstimate = estimateTreesFromSubtotal(totalPrice);
-  const co2Estimate = estimateCo2FromTrees(treesEstimate);
-  const delivery = deliveryEstimateForCart(cart);
-
-  function buyOnAmazon(item: (typeof cart)[number]) {
-    const { url } = recordPartnerOutboundClick({
-      platformId: "amazon",
-      productId: item.id,
-      productName: item.name,
-      amazonAsin: item.amazonAsin,
-      listPrice: item.price,
-    });
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-36 pt-6 sm:px-6 sm:pb-14 sm:pt-10 lg:pt-14">
@@ -375,17 +338,19 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Trees pledge — required trust note */}
+      {/* Trees pledge — illustrative / partner-funded */}
       <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-300/80 bg-gradient-to-r from-emerald-50 via-cream to-sky-50/50 px-4 py-3.5 text-emerald-950 sm:px-5">
         <TreePine className="mt-0.5 size-5 shrink-0 text-emerald-800" />
         <div>
           <p className="text-base font-semibold tracking-tight">
-            Every purchase helps plant trees
+            Every purchase helps fund tree programmes
           </p>
           <p className="mt-0.5 text-sm leading-relaxed text-emerald-900/85">
-            Your basket (~{formatCartMoney(totalPrice)}) can fund about{" "}
-            {treesEstimate} tree{treesEstimate === 1 ? "" : "s"} (~{co2Estimate}{" "}
-            kg CO₂e) when you choose Trees below — or pick another cause.
+            Your first-party basket (~{formatCartMoney(firstPartySubtotal)})
+            could illustratively support about {treesEstimate} tree
+            {treesEstimate === 1 ? "" : "s"} (~{co2Estimate} kg CO₂e) when you
+            add a Trees gift below — partner-funded impact, not a GPS pin.
+            Or choose another cause.
           </p>
         </div>
       </div>
@@ -400,7 +365,7 @@ export default function CheckoutPage() {
             </h2>
 
             <div className="divide-y">
-              {cart.map((item) => (
+              {firstParty.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-start justify-between gap-4 py-3.5"
@@ -418,50 +383,70 @@ export default function CheckoutPage() {
                       <Truck className="size-3.5 shrink-0 opacity-80" />
                       {deliveryEstimateForProduct(item).label}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => buyOnAmazon(item)}
-                      className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-800 underline-offset-2 hover:underline"
-                      title={buildAmazonAffiliateUrl({
-                        productName: item.name,
-                        amazonAsin: item.amazonAsin,
-                      })}
-                    >
-                      Buy on {getAmazonStoreLabel()}
-                      <ExternalLink className="size-3 opacity-70" />
-                    </button>
                   </div>
                   <div className="shrink-0 text-base font-semibold tabular-nums text-primary">
                     {formatCartMoney(item.price * item.quantity)}
                   </div>
                 </div>
               ))}
+
+              {affiliate.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-start justify-between gap-4 py-3.5"
+                >
+                  <div className="min-w-0">
+                    <div className="text-base font-medium leading-snug">
+                      {item.name}
+                    </div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Shop Amazon only — not charged here
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-2 h-10 gap-1.5 bg-emerald-800 text-cream hover:bg-emerald-900"
+                      onClick={() => shopAmazon(item)}
+                    >
+                      Shop {getAmazonStoreLabel()}
+                      <ExternalLink className="size-3.5 opacity-80" />
+                    </Button>
+                  </div>
+                  <div className="shrink-0 text-sm font-medium text-muted-foreground">
+                    —
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="mt-4 flex justify-between border-t pt-4 text-lg font-semibold sm:text-xl">
-              <span>Subtotal</span>
+              <span>First-party subtotal</span>
               <span className="tabular-nums">
-                {formatCartMoney(totalPrice)}
+                {formatCartMoney(firstPartySubtotal)}
               </span>
             </div>
 
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-2.5 text-sm text-emerald-950">
               <TreePine className="mt-0.5 size-4 shrink-0 text-emerald-800" />
               <p>
-                Estimated tree impact from this order: ~{treesEstimate} tree
-                {treesEstimate === 1 ? "" : "s"} if you fund Trees.
+                Illustrative tree impact from first-party items: ~{treesEstimate}{" "}
+                tree{treesEstimate === 1 ? "" : "s"} if you fund Trees —
+                partner-funded, not a live audit.
               </p>
             </div>
 
-            {lines.map(({ cause, units, cost }) => (
+            {lines.map(({ cause, amount, units }) => (
               <div
                 key={cause.id}
                 className="mt-2 flex justify-between gap-3 text-base text-emerald-800"
               >
                 <span className="min-w-0">
-                  {cause.name}: {formatCauseUnits(cause, units)}
+                  Cause gift · {cause.name}
+                  {units > 0 ? ` (≈ ${units} illustrative)` : ""}
                 </span>
-                <span className="shrink-0 tabular-nums">+£{cost.toFixed(2)}</span>
+                <span className="shrink-0 tabular-nums">
+                  +£{amount.toFixed(amount % 1 ? 2 : 0)}
+                </span>
               </div>
             ))}
 
@@ -472,7 +457,7 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {isImpactMember && causeCreditAvailable && causeCost > 0 && (
+            {isImpactMember && causeCreditAvailable && causeGiftTotal > 0 && (
               <label className="mt-3 flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 py-3.5 text-base text-emerald-900">
                 <input
                   type="checkbox"
@@ -490,7 +475,7 @@ export default function CheckoutPage() {
             <div className="mt-3 flex justify-between border-t pt-4 text-2xl font-semibold">
               <span>Total</span>
               <span className="tabular-nums text-primary">
-                £{finalTotal.toFixed(2)}
+                {formatCartMoney(finalTotal)}
               </span>
             </div>
           </div>
@@ -504,56 +489,11 @@ export default function CheckoutPage() {
               </h3>
             </div>
             <p className="mb-5 text-base leading-relaxed text-emerald-800/85">
-              Pick a cause, then enter any pound amount (£). Cause and tree
-              payments fund partner programmes — not affiliate cashback.
+              Add one or more cause gifts (£5 / £10 / £25 or custom from £1).
+              Amounts are partner-funded / illustrative — not affiliate cashback.
             </p>
 
-            <div className="scrollbar-none -mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 touch-pan-x">
-              {CAUSES.map((cause) => {
-                const Icon = CAUSE_ICONS[cause.icon];
-                const units = selection[cause.id] || 0;
-                const active = activeCauseId === cause.id;
-                return (
-                  <button
-                    key={cause.id}
-                    type="button"
-                    onClick={() => selectCause(cause.id)}
-                    className={`inline-flex min-h-12 shrink-0 items-center gap-2 rounded-full border px-4 py-3 text-base font-medium transition-all ${
-                      active
-                        ? "border-emerald-700 bg-emerald-700 text-white"
-                        : "border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-100"
-                    }`}
-                  >
-                    <Icon className="size-5" />
-                    {cause.name}
-                    {units > 0 && (
-                      <span
-                        className={`tabular-nums ${
-                          active ? "opacity-90" : "text-emerald-700"
-                        }`}
-                      >
-                        · {units}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <CausePicker
-              cause={activeCause}
-              units={activeUnits}
-              customAmount={customAmount}
-              previewUnits={previewUnits}
-              remainder={remainder}
-              onPreset={(n) => setCauseUnits(activeCauseId, n)}
-              onCustomAmount={applyCustomAmount}
-              onRoundUp={addRoundUp}
-              onClear={() => {
-                setCauseUnits(activeCauseId, 0);
-                setCustomAmount("");
-              }}
-            />
+            <CauseGiftPicker gifts={gifts} onChange={updateGifts} />
 
             <div
               className={`mt-5 rounded-2xl border px-4 py-4 transition-colors ${
@@ -566,19 +506,19 @@ export default function CheckoutPage() {
               {liveImpact ? (
                 <>
                   <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
-                    Live impact
+                    Live impact (illustrative)
                   </p>
                   <p className="mt-1.5 font-heading text-xl font-semibold leading-snug sm:text-2xl">
                     {liveImpact}
                   </p>
                   <p className="mt-2 text-base text-emerald-800/90">
                     About {causeCo2} kg CO₂ equivalent · {totalUnits} unit
-                    {totalUnits === 1 ? "" : "s"} funded
+                    {totalUnits === 1 ? "" : "s"} (illustrative)
                   </p>
                 </>
               ) : (
                 <p className="text-base leading-relaxed">
-                  Add any amount above to see your live impact — e.g. “£15
+                  Add any amount above to see illustrative impact — e.g. “£15
                   plants 3 trees”.
                 </p>
               )}
@@ -708,7 +648,8 @@ export default function CheckoutPage() {
                 <>
                   <p className="text-base text-muted-foreground">
                     You&apos;ll complete payment securely on Stripe Checkout —
-                    we never see or store your card details.
+                    we never see or store your card details. Amazon affiliate
+                    lines are not charged here.
                   </p>
                   <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/50 px-4 py-3.5 text-sm text-emerald-950">
                     Powered by Stripe · PCI DSS compliant · 3D Secure when
@@ -754,16 +695,16 @@ export default function CheckoutPage() {
                 {isSubmitting
                   ? t("checkout.processing")
                   : stripeEnabled
-                    ? `Pay £${finalTotal.toFixed(2)} with Stripe`
+                    ? `Pay ${formatCartMoney(finalTotal)} with Stripe`
                     : t("checkout.place")}
               </Button>
               <p className="mt-3 text-center text-sm font-medium text-emerald-900">
-                Every purchase helps plant trees
+                Cause gifts fund partner programmes
               </p>
               <p className="mt-1.5 text-center text-sm text-muted-foreground">
                 Total {formatCartMoney(finalTotal)} ·{" "}
                 {stripeEnabled ? "Stripe Checkout · " : "Demo · "}
-                Prefer {getAmazonStoreLabel()}? Use Buy on{" "}
+                Prefer {getAmazonStoreLabel()}? Use Shop{" "}
                 {getAmazonStoreLabel()} above.{" "}
                 <Link
                   href="/returns"
@@ -786,7 +727,7 @@ export default function CheckoutPage() {
           </span>
         </div>
         <p className="mb-2.5 text-center text-xs font-medium text-emerald-900">
-          Every purchase helps plant trees
+          Cause gifts fund partner programmes
         </p>
         <p className="mb-2.5 text-center text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
@@ -806,145 +747,9 @@ export default function CheckoutPage() {
           {isSubmitting
             ? t("checkout.processing")
             : stripeEnabled
-              ? `Pay £${finalTotal.toFixed(2)}`
+              ? `Pay ${formatCartMoney(finalTotal)}`
               : t("checkout.place")}
         </Button>
-      </div>
-    </div>
-  );
-}
-
-function CausePicker({
-  cause,
-  units,
-  customAmount,
-  previewUnits,
-  remainder,
-  onPreset,
-  onCustomAmount,
-  onRoundUp,
-  onClear,
-}: {
-  cause: Cause;
-  units: number;
-  customAmount: string;
-  previewUnits: number;
-  remainder: number;
-  onPreset: (n: number) => void;
-  onCustomAmount: (raw: string) => void;
-  onRoundUp: (dollars: number) => void;
-  onClear: () => void;
-}) {
-  const Icon = CAUSE_ICONS[cause.icon];
-  const presets = [1, 3, 5, 10];
-
-  return (
-    <div className={`rounded-2xl border p-4 sm:p-5 ${cause.accentClass}`}>
-      <div className="mb-1 flex flex-wrap items-center gap-2">
-        <Icon className="size-5" />
-        <span className="font-heading text-lg font-semibold">{cause.name}</span>
-        <span className="text-sm opacity-80">
-          £{cause.unitPrice} per {cause.unitSingular}
-        </span>
-      </div>
-      <p className="mb-5 text-base leading-relaxed opacity-90">{cause.tagline}</p>
-
-      <div className="mb-5">
-        <label
-          htmlFor={`custom-amount-${cause.id}`}
-          className="mb-2 block text-sm font-semibold uppercase tracking-wide opacity-80"
-        >
-          Custom amount (£)
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-          <div className="relative flex-1">
-            <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-base font-medium opacity-60">
-              £
-            </span>
-            <input
-              id={`custom-amount-${cause.id}`}
-              type="number"
-              min={0}
-              step={1}
-              inputMode="decimal"
-              value={customAmount}
-              placeholder="e.g. 15"
-              onChange={(e) => onCustomAmount(e.target.value)}
-              className="w-full rounded-xl border border-current/25 bg-white py-3.5 pr-3 pl-8 text-lg font-medium tabular-nums shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-600/40"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={onClear}
-            className="min-h-12 rounded-xl border border-current/20 bg-white/80 px-4 text-base font-medium hover:bg-white sm:w-auto"
-          >
-            Clear
-          </button>
-        </div>
-        <p className="mt-2.5 text-base font-medium leading-snug">
-          {previewUnits > 0 ? (
-            <>
-              £{Number(customAmount).toFixed(Number(customAmount) % 1 ? 2 : 0)} →{" "}
-              <span className="font-semibold">
-                {formatCauseUnits(cause, previewUnits)}
-              </span>
-              {remainder > 0.009 && (
-                <span className="mt-1 block text-sm font-normal opacity-75 sm:mt-0 sm:inline sm:ml-1">
-                  (£{remainder.toFixed(2)} shy of another {cause.unitSingular})
-                </span>
-              )}
-            </>
-          ) : customAmount.trim() !== "" && Number(customAmount) > 0 ? (
-            <span className="opacity-80">
-              Enter at least £{cause.unitPrice} to fund 1 {cause.unitSingular}
-            </span>
-          ) : (
-            <span className="opacity-70">
-              Type any amount in £ — we&apos;ll convert it to{" "}
-              {cause.unitPlural}.
-            </span>
-          )}
-        </p>
-      </div>
-
-      <div className="mb-2 text-sm font-semibold uppercase tracking-wide opacity-80">
-        Quick picks
-      </div>
-      <div className="mb-4 grid grid-cols-2 gap-2">
-        {presets.map((n) => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onPreset(n)}
-            className={`min-h-12 rounded-xl border px-3 py-2.5 text-left text-base font-medium transition-all ${
-              units === n
-                ? "border-current bg-emerald-800 text-white"
-                : "border-current/20 bg-white/85 hover:bg-white"
-            }`}
-          >
-            <span className="block leading-tight">
-              {formatCauseUnits(cause, n)}
-            </span>
-            <span className="text-sm opacity-75">£{n * cause.unitPrice}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-2.5">
-        <button
-          type="button"
-          onClick={() => onRoundUp(5)}
-          className="min-h-12 rounded-xl border border-current/20 bg-white/85 px-3 py-3 text-base font-medium hover:bg-white"
-        >
-          Round up +£5
-        </button>
-        <button
-          type="button"
-          onClick={() => onRoundUp(10)}
-          className="min-h-12 rounded-xl border border-current/20 bg-white/85 px-3 py-3 text-base font-medium hover:bg-white"
-        >
-          Round up +£10
-        </button>
       </div>
     </div>
   );

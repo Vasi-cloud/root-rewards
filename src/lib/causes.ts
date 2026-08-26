@@ -90,6 +90,13 @@ export function formatCauseUnits(cause: Cause, units: number): string {
 
 export type CauseSelection = Record<CauseId, number>;
 
+/** GBP gift amounts per cause (0 = not selected). Used for cart / donate charging. */
+export type CauseGiftAmounts = Record<CauseId, number>;
+
+/** Quick picks for Support a cause / cart gifts */
+export const CAUSE_GIFT_PRESETS = [5, 10, 25] as const;
+export const CAUSE_GIFT_MIN_GBP = 1;
+
 export function emptyCauseSelection(): CauseSelection {
   return {
     trees: 0,
@@ -100,11 +107,74 @@ export function emptyCauseSelection(): CauseSelection {
   };
 }
 
+export function emptyCauseGifts(): CauseGiftAmounts {
+  return emptyCauseSelection();
+}
+
 export function selectionCost(selection: CauseSelection): number {
   return CAUSES.reduce(
     (sum, cause) => sum + (selection[cause.id] || 0) * cause.unitPrice,
     0
   );
+}
+
+/** Sum of exact £ gifts (cart / donate money UX). */
+export function giftTotal(gifts: CauseGiftAmounts): number {
+  return CAUSES.reduce((sum, cause) => {
+    const n = Number(gifts[cause.id]) || 0;
+    return sum + (n > 0 ? n : 0);
+  }, 0);
+}
+
+export function giftSelectedCount(gifts: CauseGiftAmounts): number {
+  return CAUSES.filter((c) => (Number(gifts[c.id]) || 0) >= CAUSE_GIFT_MIN_GBP)
+    .length;
+}
+
+/** Convert a GBP donation into whole units for a cause (floor). */
+export function dollarsToUnits(cause: Cause, dollars: number): number {
+  if (!Number.isFinite(dollars) || dollars <= 0) return 0;
+  return Math.floor(dollars / cause.unitPrice);
+}
+
+export function unitsToDollars(cause: Cause, units: number): number {
+  return Math.max(0, units) * cause.unitPrice;
+}
+
+export function giftLines(gifts: CauseGiftAmounts) {
+  return CAUSES.filter(
+    (c) => (Number(gifts[c.id]) || 0) >= CAUSE_GIFT_MIN_GBP
+  ).map((cause) => {
+    const amount = Number(gifts[cause.id]) || 0;
+    const units = dollarsToUnits(cause, amount);
+    return {
+      cause,
+      amount,
+      units,
+      co2: units * cause.co2PerUnit,
+    };
+  });
+}
+
+/** Map £ gifts → illustrative unit counts for impact storage / copy. */
+export function giftsToIllustrativeUnits(
+  gifts: CauseGiftAmounts
+): CauseSelection {
+  const next = emptyCauseSelection();
+  for (const cause of CAUSES) {
+    const amount = Number(gifts[cause.id]) || 0;
+    if (amount >= CAUSE_GIFT_MIN_GBP) {
+      next[cause.id] = Math.max(1, dollarsToUnits(cause, amount));
+    }
+  }
+  return next;
+}
+
+export function clampCauseGiftGbp(raw: number): number {
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  const rounded = Math.round(raw * 100) / 100;
+  if (rounded > 0 && rounded < CAUSE_GIFT_MIN_GBP) return 0;
+  return Math.min(10_000, rounded);
 }
 
 export function selectionCo2(selection: CauseSelection): number {
@@ -165,12 +235,39 @@ export function formatLiveImpactSummary(selection: CauseSelection): string | nul
   return `${money} ${impactPhrase}`;
 }
 
-/** Convert a GBP donation into whole units for a cause (floor). */
-export function dollarsToUnits(cause: Cause, dollars: number): number {
-  if (!Number.isFinite(dollars) || dollars <= 0) return 0;
-  return Math.floor(dollars / cause.unitPrice);
+/** Honest gift summary from exact £ amounts. */
+export function formatGiftImpactSummary(gifts: CauseGiftAmounts): string | null {
+  return formatLiveImpactSummary(giftsToIllustrativeUnits(gifts));
 }
 
-export function unitsToDollars(cause: Cause, units: number): number {
-  return Math.max(0, units) * cause.unitPrice;
+const CART_GIFTS_KEY = "forest-buddies-cart-cause-gifts";
+
+export function saveCartCauseGifts(gifts: CauseGiftAmounts) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CART_GIFTS_KEY, JSON.stringify(gifts));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadCartCauseGifts(): CauseGiftAmounts {
+  if (typeof window === "undefined") return emptyCauseGifts();
+  try {
+    const raw = localStorage.getItem(CART_GIFTS_KEY);
+    if (!raw) return emptyCauseGifts();
+    return parseCauseGifts(JSON.parse(raw));
+  } catch {
+    return emptyCauseGifts();
+  }
+}
+
+export function parseCauseGifts(raw: unknown): CauseGiftAmounts {
+  const base = emptyCauseGifts();
+  if (!raw || typeof raw !== "object") return base;
+  const obj = raw as Record<string, unknown>;
+  for (const cause of CAUSES) {
+    base[cause.id] = clampCauseGiftGbp(Number(obj[cause.id]) || 0);
+  }
+  return base;
 }

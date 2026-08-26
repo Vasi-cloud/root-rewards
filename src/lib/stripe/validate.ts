@@ -1,6 +1,10 @@
 import {
   CAUSES,
   emptyCauseSelection,
+  giftTotal,
+  giftsToIllustrativeUnits,
+  parseCauseGifts,
+  type CauseGiftAmounts,
   type CauseSelection,
 } from "@/lib/causes";
 import {
@@ -23,6 +27,9 @@ export type ValidatedCheckout = {
   city: string;
   zip: string;
   lineItems: CheckoutLineItemInput[];
+  /** Exact £ gifts charged on Stripe */
+  causeGifts: CauseGiftAmounts;
+  /** Illustrative units (for impact metadata / storage) */
   causeSelection: CauseSelection;
   memberCreditCents: number;
   goodsCents: number;
@@ -51,7 +58,9 @@ export function validateCheckoutBody(body: unknown): {
   if (!body || typeof body !== "object") {
     return { ok: false, error: "Invalid request body." };
   }
-  const b = body as Partial<CreateCheckoutSessionBody>;
+  const b = body as Partial<CreateCheckoutSessionBody> & {
+    causeGifts?: unknown;
+  };
 
   const emailResult = validateEmail(String(b.email ?? ""));
   if (!emailResult.ok) return { ok: false, error: emailResult.error };
@@ -78,46 +87,66 @@ export function validateCheckoutBody(body: unknown): {
   const zipResult = validatePostalCode(String(b.zip ?? ""));
   if (!zipResult.ok) return { ok: false, error: zipResult.error };
 
-  if (!Array.isArray(b.lineItems) || b.lineItems.length === 0) {
-    return { ok: false, error: "Your cart is empty." };
-  }
-  if (b.lineItems.length > MAX_LINE_ITEMS) {
+  const hasLineItems = Array.isArray(b.lineItems) && b.lineItems.length > 0;
+  if (hasLineItems && (b.lineItems?.length ?? 0) > MAX_LINE_ITEMS) {
     return { ok: false, error: "Too many items in cart." };
   }
 
   const lineItems: CheckoutLineItemInput[] = [];
   let goodsCents = 0;
 
-  for (const raw of b.lineItems) {
-    if (!raw || typeof raw !== "object") {
-      return { ok: false, error: "Invalid cart line item." };
+  if (hasLineItems) {
+    for (const raw of b.lineItems!) {
+      if (!raw || typeof raw !== "object") {
+        return { ok: false, error: "Invalid cart line item." };
+      }
+      const item = raw as CheckoutLineItemInput;
+      const id = String(item.id ?? "").slice(0, 80);
+      const name = String(item.name ?? "").trim().slice(0, 120);
+      const qty = Math.floor(Number(item.quantity));
+      const unit = Math.floor(Number(item.unitAmountCents));
+      if (!id || !name) return { ok: false, error: "Invalid cart item name." };
+      if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY) {
+        return { ok: false, error: "Invalid item quantity." };
+      }
+      if (!Number.isFinite(unit) || unit < 1 || unit > MAX_UNIT_CENTS) {
+        return { ok: false, error: "Invalid item price." };
+      }
+      const description =
+        typeof item.description === "string"
+          ? item.description.slice(0, 200)
+          : undefined;
+      lineItems.push({
+        id,
+        name,
+        quantity: qty,
+        unitAmountCents: unit,
+        description,
+      });
+      goodsCents += unit * qty;
     }
-    const item = raw as CheckoutLineItemInput;
-    const id = String(item.id ?? "").slice(0, 80);
-    const name = String(item.name ?? "").trim().slice(0, 120);
-    const qty = Math.floor(Number(item.quantity));
-    const unit = Math.floor(Number(item.unitAmountCents));
-    if (!id || !name) return { ok: false, error: "Invalid cart item name." };
-    if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY) {
-      return { ok: false, error: "Invalid item quantity." };
-    }
-    if (!Number.isFinite(unit) || unit < 1 || unit > MAX_UNIT_CENTS) {
-      return { ok: false, error: "Invalid item price." };
-    }
-    const description =
-      typeof item.description === "string"
-        ? item.description.slice(0, 200)
-        : undefined;
-    lineItems.push({ id, name, quantity: qty, unitAmountCents: unit, description });
-    goodsCents += unit * qty;
   }
 
-  const causeSelection = parseCauseSelection(b.causeSelection);
+  // Prefer exact £ gifts; fall back to legacy unit × catalog price
+  let causeGifts = parseCauseGifts(b.causeGifts);
+  let catalogCausesCents = Math.round(giftTotal(causeGifts) * 100);
+  let causeSelection = giftsToIllustrativeUnits(causeGifts);
 
-  // Recompute cause cents from catalog (never trust client dollar totals)
-  let catalogCausesCents = 0;
-  for (const cause of CAUSES) {
-    catalogCausesCents += (causeSelection[cause.id] || 0) * cause.unitPrice * 100;
+  if (catalogCausesCents <= 0) {
+    causeSelection = parseCauseSelection(b.causeSelection);
+    catalogCausesCents = 0;
+    for (const cause of CAUSES) {
+      const units = causeSelection[cause.id] || 0;
+      catalogCausesCents += units * cause.unitPrice * 100;
+      causeGifts[cause.id] = units > 0 ? units * cause.unitPrice : 0;
+    }
+  }
+
+  if (lineItems.length === 0 && catalogCausesCents < 50) {
+    return {
+      ok: false,
+      error: "Add a first-party product or a cause gift of at least £0.50.",
+    };
   }
 
   let memberCreditCents = Math.floor(Number(b.memberCreditCents) || 0);
@@ -147,6 +176,7 @@ export function validateCheckoutBody(body: unknown): {
       city: cityResult.value,
       zip: zipResult.value,
       lineItems,
+      causeGifts,
       causeSelection,
       memberCreditCents,
       goodsCents,

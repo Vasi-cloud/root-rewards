@@ -3,7 +3,6 @@
 import {
   ArrowRight,
   BookOpen,
-  Check,
   HeartHandshake,
   Leaf,
   Loader2,
@@ -17,29 +16,28 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { CauseGiftPicker } from "@/components/causes/cause-gift-picker";
 import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import {
+  CAUSE_GIFT_PRESETS,
   CAUSES,
-  dollarsToUnits,
-  emptyCauseSelection,
-  formatCauseUnits,
-  formatLiveImpactSummary,
-  selectionCo2,
-  selectionCost,
-  selectionLines,
-  selectionTotalUnits,
-  unitsToDollars,
-  type Cause,
+  clampCauseGiftGbp,
+  emptyCauseGifts,
+  formatGiftImpactSummary,
+  giftLines,
+  giftSelectedCount,
+  giftTotal,
+  giftsToIllustrativeUnits,
+  loadCartCauseGifts,
+  type CauseGiftAmounts,
   type CauseId,
-  type CauseSelection,
 } from "@/lib/causes";
 import { savePendingDonation } from "@/lib/donate";
 import { saveLastDonation } from "@/lib/impact-storage";
 import { startDonateCheckout } from "@/lib/stripe/client";
-import { cn } from "@/lib/utils";
 import { validateEmail } from "@/lib/validation";
 
 const CAUSE_ICONS = {
@@ -50,96 +48,48 @@ const CAUSE_ICONS = {
   sun: Sun,
 } as const;
 
-/** Quick GBP picks for Trees; other causes use 1 / 3 / 5 units. */
-function quickPicksForCause(
-  cause: Cause
-): Array<{ dollars: number; label: string }> {
-  if (cause.id === "trees") {
-    return [
-      { dollars: 5, label: "1 tree" },
-      { dollars: 15, label: "3 trees" },
-      { dollars: 25, label: "5 trees" },
-    ];
+function initialGifts(): CauseGiftAmounts {
+  if (typeof window !== "undefined") {
+    const fromCart = loadCartCauseGifts();
+    if (giftTotal(fromCart) >= 1) return fromCart;
   }
-  return [1, 3, 5].map((n) => ({
-    dollars: unitsToDollars(cause, n),
-    label: formatCauseUnits(cause, n),
-  }));
-}
-
-function initialSelection(): CauseSelection {
-  const next = emptyCauseSelection();
-  next.trees = 1; // preserve simple single-cause start
+  const next = emptyCauseGifts();
+  next.trees = CAUSE_GIFT_PRESETS[0];
   return next;
-}
-
-function initialCustomAmounts(): Record<CauseId, string> {
-  return {
-    trees: "5",
-    ocean: "",
-    animals: "",
-    education: "",
-    climate: "",
-  };
 }
 
 export default function DonatePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [selection, setSelection] = useState<CauseSelection>(initialSelection);
-  const [customAmounts, setCustomAmounts] = useState(initialCustomAmounts);
+  const [gifts, setGifts] = useState<CauseGiftAmounts>(initialGifts);
   const [email, setEmail] = useState(user?.email ?? "");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = selectionCost(selection);
-  const co2 = selectionCo2(selection);
-  const summary = formatLiveImpactSummary(selection);
-  const lines = selectionLines(selection);
-  const hasSelection = selectionTotalUnits(selection) > 0;
-  const canContinue = hasSelection && total >= 0.5;
-
-  const selectedCount = useMemo(
-    () => CAUSES.filter((c) => (selection[c.id] || 0) > 0).length,
-    [selection]
+  const total = giftTotal(gifts);
+  const lines = giftLines(gifts);
+  const summary = formatGiftImpactSummary(gifts);
+  const selectedCount = giftSelectedCount(gifts);
+  const hasSelection = selectedCount > 0;
+  const canContinue = hasSelection && total >= 1;
+  const co2 = useMemo(
+    () => lines.reduce((sum, line) => sum + line.co2, 0),
+    [lines]
   );
 
-  function setCauseUnits(id: CauseId, units: number) {
-    const cause = CAUSES.find((c) => c.id === id);
-    if (!cause) return;
-    const nextUnits = Math.max(0, Math.floor(units));
-    setSelection((prev) => ({ ...prev, [id]: nextUnits }));
-    setCustomAmounts((prev) => ({
-      ...prev,
-      [id]: nextUnits > 0 ? String(unitsToDollars(cause, nextUnits)) : "",
-    }));
+  function giveNow(id: CauseId, amount: number) {
+    const next = emptyCauseGifts();
+    next[id] = clampCauseGiftGbp(amount);
+    setGifts(next);
   }
 
-  function toggleCause(id: CauseId) {
-    const current = selection[id] || 0;
-    if (current > 0) {
-      setCauseUnits(id, 0);
-      return;
-    }
-    setCauseUnits(id, 1);
-  }
-
-  function applyDollars(id: CauseId, dollars: number) {
-    const cause = CAUSES.find((c) => c.id === id);
-    if (!cause) return;
-    const nextUnits = Math.max(1, dollarsToUnits(cause, dollars));
-    setSelection((prev) => ({ ...prev, [id]: nextUnits }));
-    setCustomAmounts((prev) => ({
-      ...prev,
-      [id]: String(unitsToDollars(cause, nextUnits)),
-    }));
-  }
-
-  async function handleContinue() {
+  async function handleContinue(override?: CauseGiftAmounts) {
     setError(null);
-    if (!canContinue) {
-      setError("Select at least one cause and amount to continue.");
+    const payload = override ?? gifts;
+    const payTotal = giftTotal(payload);
+    if (payTotal < 1) {
+      setError("Select at least one cause and amount (£1+) to continue.");
       return;
     }
 
@@ -153,6 +103,7 @@ export default function DonatePage() {
     }
 
     setSubmitting(true);
+    const selection = giftsToIllustrativeUnits(payload);
 
     const pending = {
       selection,
@@ -167,6 +118,7 @@ export default function DonatePage() {
         const stripeResult = await startDonateCheckout({
           email: emailTrim,
           name: name.trim() || undefined,
+          causeGifts: payload,
           causeSelection: selection,
           userId: user?.uid ?? null,
         });
@@ -182,7 +134,6 @@ export default function DonatePage() {
           setSubmitting(false);
           return;
         }
-        // demo mode from API
       }
 
       saveLastDonation(selection, {
@@ -218,9 +169,9 @@ export default function DonatePage() {
           Fund impact — no purchase needed
         </h1>
         <p className="mt-2.5 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:mt-3 sm:text-base">
-          Pick one cause or several — each with its own amount — then continue
-          once for the combined total. Amounts map to illustrative,
-          partner-funded units, not a live carbon audit.
+          Select one or more causes with their own amounts (£5 / £10 / £25 or
+          custom from £1), then checkout once for the combined total. Choosing
+          an amount on one cause does not clear the others.
         </p>
 
         <LeafyHubLinks className="mt-4" dense />
@@ -231,14 +182,13 @@ export default function DonatePage() {
         >
           <p className="font-medium">Honest impact</p>
           <p className="mt-1 text-xs leading-relaxed text-amber-900/85 sm:text-sm">
-            For Trees, about <strong>£5 ≈ 1 tree</strong> (illustrative /
-            partner-funded). Cause and tree payments fund partner programmes —
-            not affiliate cashback. Totals below are estimates — not a guarantee
-            of a specific planted tree or CO₂ offset.
+            Gifts are <strong>partner-funded / illustrative</strong> — roughly
+            £5 ≈ 1 tree unit for Trees. This is not a GPS pin for a planted
+            tree, and not a live carbon audit. Cause payments fund partner
+            programmes, not affiliate cashback.
           </p>
         </div>
 
-        {/* Multi-select cause cards */}
         <section className="mt-8 space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <h2 className="font-heading text-xl font-semibold text-primary">
@@ -250,163 +200,13 @@ export default function DonatePage() {
                 : `${selectedCount} selected`}
             </p>
           </div>
-
-          <div className="grid gap-3">
-            {CAUSES.map((cause) => {
-              const CIcon = CAUSE_ICONS[cause.icon];
-              const units = selection[cause.id] || 0;
-              const selected = units > 0;
-              const picks = quickPicksForCause(cause);
-              const lineCost = unitsToDollars(cause, units);
-
-              return (
-                <div
-                  key={cause.id}
-                  className={cn(
-                    "rounded-2xl border transition-all",
-                    selected
-                      ? `${cause.accentClass} shadow-sm ring-2 ring-emerald-600/35`
-                      : "border-border/70 bg-white/80"
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleCause(cause.id)}
-                    aria-pressed={selected}
-                    className="flex w-full items-start gap-3 px-3.5 py-3.5 text-left sm:px-4"
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-                        selected
-                          ? "border-emerald-800 bg-emerald-800 text-cream"
-                          : "border-emerald-300 bg-white text-transparent"
-                      )}
-                      aria-hidden
-                    >
-                      <Check className="size-3 stroke-[3]" />
-                    </span>
-                    <span
-                      className={cn(
-                        "flex size-9 shrink-0 items-center justify-center rounded-xl",
-                        selected
-                          ? "bg-emerald-800 text-cream"
-                          : "bg-emerald-100 text-emerald-900"
-                      )}
-                    >
-                      <CIcon className="size-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                        <span className="font-heading text-base font-semibold">
-                          {cause.name}
-                        </span>
-                        {selected ? (
-                          <span className="text-sm font-semibold tabular-nums">
-                            £{lineCost.toFixed(2)}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 block text-xs leading-relaxed opacity-90 sm:text-sm">
-                        {cause.tagline}
-                      </span>
-                      <span className="mt-1.5 block text-[11px] font-medium tabular-nums opacity-80">
-                        £{cause.unitPrice} / {cause.unitSingular}
-                        {cause.id === "trees" ? " · ≈ 1 tree" : ""}
-                        {selected
-                          ? ` · ${formatCauseUnits(cause, units)}`
-                          : " · tap to add"}
-                      </span>
-                    </span>
-                  </button>
-
-                  {selected ? (
-                    <div className="border-t border-current/10 px-3.5 pb-3.5 pt-3 sm:px-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">
-                        Amount for {cause.name}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {picks.map((pick) => {
-                          const pickUnits = dollarsToUnits(cause, pick.dollars);
-                          const active = units === pickUnits;
-                          return (
-                            <button
-                              key={pick.dollars}
-                              type="button"
-                              onClick={() => applyDollars(cause.id, pick.dollars)}
-                              className={cn(
-                                "min-h-10 rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors",
-                                active
-                                  ? "border-emerald-800 bg-emerald-800 text-cream"
-                                  : "border-emerald-300/80 bg-white/85 hover:bg-white"
-                              )}
-                            >
-                              <span className="tabular-nums">£{pick.dollars}</span>
-                              <span className="ml-1 opacity-80">
-                                ({pick.label})
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      <label
-                        htmlFor={`donate-custom-${cause.id}`}
-                        className="mt-3 block text-sm font-medium"
-                      >
-                        Custom amount (£)
-                      </label>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                        <input
-                          id={`donate-custom-${cause.id}`}
-                          type="number"
-                          min={cause.unitPrice}
-                          step="1"
-                          inputMode="decimal"
-                          value={customAmounts[cause.id]}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setCustomAmounts((prev) => ({
-                              ...prev,
-                              [cause.id]: value,
-                            }));
-                            const n = parseFloat(value);
-                            if (Number.isFinite(n) && n > 0) {
-                              const nextUnits = dollarsToUnits(cause, n);
-                              setSelection((prev) => ({
-                                ...prev,
-                                [cause.id]: Math.max(0, nextUnits),
-                              }));
-                            }
-                          }}
-                          placeholder={String(cause.unitPrice)}
-                          className="h-11 w-full max-w-[10rem] rounded-xl border border-input bg-background px-3 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setCauseUnits(cause.id, 0)}
-                          className="min-h-11 rounded-xl px-3 text-sm font-medium text-emerald-900/80 underline-offset-2 hover:underline"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <p className="mt-1.5 text-xs opacity-75">
-                        Whole units only — £{cause.unitPrice} funds 1{" "}
-                        {cause.unitSingular}.
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
+          <CauseGiftPicker gifts={gifts} onChange={setGifts} />
         </section>
 
-        {/* Combined summary */}
         <section className="mt-6 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-cream to-white p-4 sm:p-5">
           <p className="flex items-center gap-2 text-sm font-semibold text-emerald-950">
             <Sparkles className="size-4" />
-            Combined gift
+            Running summary
           </p>
           {!hasSelection ? (
             <p className="mt-2 text-sm text-muted-foreground">
@@ -414,7 +214,7 @@ export default function DonatePage() {
             </p>
           ) : (
             <ul className="mt-3 space-y-2 text-sm text-emerald-950">
-              {lines.map(({ cause: c, units: u, cost }) => {
+              {lines.map(({ cause: c, amount, units }) => {
                 const Icon = CAUSE_ICONS[c.icon];
                 return (
                   <li
@@ -424,11 +224,15 @@ export default function DonatePage() {
                     <span className="flex min-w-0 items-start gap-2">
                       <Icon className="mt-0.5 size-3.5 shrink-0 opacity-80" />
                       <span>
-                        {c.name}: {formatCauseUnits(c, u)}
+                        {c.name}
+                        <span className="mt-0.5 block text-xs opacity-75">
+                          ≈ {units} illustrative{" "}
+                          {units === 1 ? c.unitSingular : c.unitPlural}
+                        </span>
                       </span>
                     </span>
-                    <span className="shrink-0 tabular-nums">
-                      £{cost.toFixed(2)}
+                    <span className="shrink-0 tabular-nums font-medium">
+                      £{amount.toFixed(amount % 1 ? 2 : 0)}
                     </span>
                   </li>
                 );
@@ -437,7 +241,7 @@ export default function DonatePage() {
           )}
           <div className="mt-3 flex items-end justify-between border-t border-emerald-200/70 pt-3">
             <div>
-              <p className="text-xs text-muted-foreground">Total</p>
+              <p className="text-xs text-muted-foreground">Payable total</p>
               <p className="font-heading text-2xl font-semibold tabular-nums text-primary">
                 £{total.toFixed(2)}
               </p>
@@ -452,15 +256,13 @@ export default function DonatePage() {
           ) : null}
         </section>
 
-        {/* Optional contact */}
         <section className="mt-6 space-y-3">
           <h2 className="font-heading text-lg font-semibold text-primary">
             Contact (optional)
           </h2>
           <p className="text-sm text-muted-foreground">
-            Guests can continue without an account. Add an email if you want a
-            Stripe receipt when payments are configured; otherwise we&apos;ll
-            use a demo thank-you path.
+            Add an email for a Stripe receipt when payments are live; otherwise
+            we use a demo thank-you path.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -502,54 +304,63 @@ export default function DonatePage() {
           </p>
         ) : null}
 
-        <div className="mt-6 flex flex-col gap-2">
-          {!canContinue ? (
-            <p className="text-sm text-muted-foreground">
-              Select at least one cause with an amount to continue.
-            </p>
-          ) : null}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Button
-              type="button"
-              size="lg"
-              className="min-h-12 flex-1 gap-2 bg-emerald-800 text-base text-cream hover:bg-emerald-900"
-              disabled={submitting || !canContinue}
-              onClick={() => void handleContinue()}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Continuing…
-                </>
-              ) : (
-                <>
-                  Continue · £{total.toFixed(2)}
-                  <ArrowRight className="size-4" />
-                </>
-              )}
-            </Button>
-            <Button
-              nativeButton={false}
-              render={<Link href="/marketplace" />}
-              variant="outline"
-              size="lg"
-              className="min-h-12 sm:w-auto"
-            >
-              Shop instead
-            </Button>
-          </div>
-        </div>
-
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Prefer shopping? You can also fund causes at{" "}
-          <Link
-            href="/checkout"
-            className="font-medium text-primary underline-offset-2 hover:underline"
+        <div className="mt-6 flex flex-col gap-3">
+          <Button
+            type="button"
+            size="lg"
+            className="min-h-12 w-full gap-2 bg-emerald-800 text-base text-cream hover:bg-emerald-900 sm:min-h-14"
+            disabled={submitting || !canContinue}
+            onClick={() => void handleContinue()}
           >
-            checkout
-          </Link>
-          .
-        </p>
+            {submitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Starting checkout…
+              </>
+            ) : (
+              <>
+                Checkout selected (£{total.toFixed(2)})
+                <ArrowRight className="size-4" />
+              </>
+            )}
+          </Button>
+
+          <div className="rounded-xl border border-border/70 bg-white/70 p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Single-cause shortcut (clears other selections for this tap only)
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {CAUSES.slice(0, 3).map((cause) => (
+                <Button
+                  key={cause.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11"
+                  disabled={submitting}
+                  onClick={() => {
+                    const one = emptyCauseGifts();
+                    one[cause.id] = CAUSE_GIFT_PRESETS[0];
+                    giveNow(cause.id, CAUSE_GIFT_PRESETS[0]);
+                    void handleContinue(one);
+                  }}
+                >
+                  Give £{CAUSE_GIFT_PRESETS[0]} now · {cause.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            nativeButton={false}
+            render={<Link href="/marketplace" />}
+            variant="outline"
+            size="lg"
+            className="min-h-12"
+          >
+            Shop instead
+          </Button>
+        </div>
       </div>
     </div>
   );

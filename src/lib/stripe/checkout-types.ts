@@ -16,6 +16,8 @@ export type CreateCheckoutSessionBody = {
   zip: string;
   lineItems: CheckoutLineItemInput[];
   causeSelection: CauseSelection;
+  /** Exact £ gifts (preferred); validated when present */
+  causeGifts?: CauseSelection;
   memberCreditCents: number;
   userId?: string | null;
 };
