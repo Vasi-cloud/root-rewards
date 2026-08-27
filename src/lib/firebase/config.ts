@@ -34,4 +34,11 @@ export function getFirebaseApp(): FirebaseApp | null {
   return getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 }
 
+/** True when client env has the keys needed to initialize Firebase. */
+export function isFirebaseClientConfigured(): boolean {
+  return Boolean(
+    firebaseConfig.apiKey?.trim() && firebaseConfig.projectId?.trim()
+  );
+}
+
 export { firebaseConfig };

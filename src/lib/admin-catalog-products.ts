@@ -45,9 +45,9 @@ export type AdminProductInput = {
 
 export type SaveAdminProductResult = {
   product: AdminCatalogProduct;
-  /** Where the write landed */
+  /** Where the authoritative write landed */
   persist: "firestore" | "local";
-  /** Non-fatal notice (e.g. Firestore permission) — product is still saved locally */
+  /** Only set when cloud write failed or Firebase is unavailable */
   warning?: string;
 };
 
@@ -287,41 +287,37 @@ export async function saveAdminCatalogProduct(
   }
   product.updatedAt = new Date().toISOString();
 
-  // Always write the source Marketplace reads as a local fallback.
-  upsertLocal(product);
-
   const db = getFirebaseFirestore();
-  if (!db) {
-    return {
-      product,
-      persist: "local",
-      warning:
-        "Firebase is offline — product saved on this device and will show in Marketplace here.",
-    };
+  if (db) {
+    try {
+      const { stock, ...rest } = product;
+      await setDoc(doc(db, "products", product.id), {
+        ...rest,
+        stock: product.commerceType === "affiliate" ? null : stock,
+        ecoScore: product.sustainabilityScore,
+      });
+      // Local mirror only as cache after a successful cloud write (no warning).
+      upsertLocal(product);
+      return { product, persist: "firestore" };
+    } catch (e) {
+      console.warn("[products] Firestore save failed, keeping local", e);
+      upsertLocal(product);
+      return {
+        product,
+        persist: "local",
+        warning: firestoreErrorMessage(e),
+      };
+    }
   }
 
-  try {
-    const { stock, ...rest } = product;
-    await setDoc(doc(db, "products", product.id), {
-      ...rest,
-      stock: product.commerceType === "affiliate" ? null : stock,
-      ecoScore: product.sustainabilityScore,
-    });
-    // Refresh mirror from FS + local union
-    const all = await listAdminCatalogProducts();
-    const merged = all.some((p) => p.id === product.id)
-      ? all.map((p) => (p.id === product.id ? product : p))
-      : [product, ...all];
-    saveLocal(merged);
-    return { product, persist: "firestore" };
-  } catch (e) {
-    console.warn("[products] Firestore save failed, keeping local", e);
-    return {
-      product,
-      persist: "local",
-      warning: firestoreErrorMessage(e),
-    };
-  }
+  // Firebase not configured — local is the only store.
+  upsertLocal(product);
+  return {
+    product,
+    persist: "local",
+    warning:
+      "Firebase is not configured — product saved on this device and will show in Marketplace here.",
+  };
 }
 
 export async function deleteAdminCatalogProduct(

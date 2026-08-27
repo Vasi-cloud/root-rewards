@@ -52,6 +52,7 @@ import {
   saveAdminCatalogProduct,
 } from "@/lib/admin-catalog-products";
 import { commerceTypeLabel } from "@/lib/commerce-type";
+import { isFirebaseClientConfigured } from "@/lib/firebase/config";
 import {
   deleteFeedback,
   feedbackStats,
@@ -521,8 +522,9 @@ export default function AdminDashboard() {
       const base = editingId
         ? `Saved “${result.product.name}”.`
         : `Created “${result.product.name}”.`;
+      // Local-only warning only when the cloud write actually failed / was unavailable.
       setProductSaveSuccess(
-        result.warning
+        result.persist === "local" && result.warning
           ? `${base}${shopHint} ${result.warning}`
           : `${base}${shopHint}`
       );
@@ -730,8 +732,9 @@ export default function AdminDashboard() {
                   Product management
                 </h2>
                 <p className="mt-1 text-muted-foreground">
-                  Save Amazon affiliate or first-party items to the live
-                  marketplace catalog (Firestore when configured).
+                  {isFirebaseClientConfigured()
+                    ? "Save Amazon affiliate or first-party items to the live marketplace catalog in Firestore."
+                    : "Save Amazon affiliate or first-party items to the marketplace catalog on this device until Firebase is connected."}
                 </p>
               </div>
               <Button onClick={openAddForm} className="gap-1.5">
@@ -781,7 +784,7 @@ export default function AdminDashboard() {
                       {editingId ? "Edit product" : "Add product"}
                     </CardTitle>
                     <CardDescription>
-                      Persists to the live marketplace after save.
+                      Saves to the live marketplace catalog.
                     </CardDescription>
                   </div>
                   <Button
@@ -1854,7 +1857,10 @@ export default function AdminDashboard() {
                 <Link href="/feedback" className="text-primary underline-offset-2 hover:underline">
                   /feedback
                 </Link>
-                . Stored in localStorage for this demo.
+                .
+                {!isFirebaseClientConfigured()
+                  ? " Stored in localStorage for this demo."
+                  : null}
               </p>
             </div>
 
@@ -2259,10 +2265,12 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <p className="mt-10 text-center text-xs text-muted-foreground">
-          Demo admin panel with session-local edits. Connect Firebase later for
-          persistent roles, products, and orders.
-        </p>
+        {!isFirebaseClientConfigured() ? (
+          <p className="mt-10 text-center text-xs text-muted-foreground">
+            Demo admin panel with session-local edits. Connect Firebase later for
+            persistent roles, products, and orders.
+          </p>
+        ) : null}
       </main>
     </div>
   );
