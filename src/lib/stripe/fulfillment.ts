@@ -123,8 +123,13 @@ export async function fulfillCheckoutSession(
 
   const saved = saveConfirmedOrder(order);
 
-  // First fulfillment only (idempotent — duplicates return early above)
+  // First fulfillment only (idempotent — duplicates return early above).
+  // Order already stored / email already attempted → still success (webhook returns 200).
   if (!saved.customerEmail) return saved;
+
+  if (saved.confirmationEmailId || saved.confirmationEmailMode) {
+    return saved;
+  }
 
   try {
     if (saved.kind === "marketplace_order") {

@@ -334,6 +334,9 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<AdminCatalogProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productSaveError, setProductSaveError] = useState<string | null>(null);
+  const [productSaveSuccess, setProductSaveSuccess] = useState<string | null>(
+    null
+  );
   const [productSaving, setProductSaving] = useState(false);
   const [orders, setOrders] = useState<AdminOrder[]>(INITIAL_ORDERS);
   const [users] = useState<AdminUser[]>(INITIAL_USERS);
@@ -447,6 +450,7 @@ export default function AdminDashboard() {
   function openAddForm() {
     setEditingId(null);
     setProductSaveError(null);
+    setProductSaveSuccess(null);
     setForm(emptyProductForm);
     setFormOpen(true);
   }
@@ -454,6 +458,7 @@ export default function AdminDashboard() {
   function openEditForm(product: AdminCatalogProduct) {
     setEditingId(product.id);
     setProductSaveError(null);
+    setProductSaveSuccess(null);
     setForm({
       name: product.name,
       category: product.category,
@@ -463,7 +468,11 @@ export default function AdminDashboard() {
       description: product.description,
       commerceType: product.commerceType,
       amazonAffiliateUrl: product.amazonAffiliateUrl ?? "",
-      imageUrl: product.imageUrl ?? "",
+      imageUrl:
+        product.imageUrl === "/eco-cards.svg" ||
+        product.imageUrl === "/eco-tote.svg"
+          ? ""
+          : (product.imageUrl ?? ""),
     });
     setFormOpen(true);
   }
@@ -471,18 +480,25 @@ export default function AdminDashboard() {
   async function saveProduct(e: React.FormEvent) {
     e.preventDefault();
     setProductSaveError(null);
+    setProductSaveSuccess(null);
     setProductSaving(true);
     try {
       const existing = editingId
         ? products.find((p) => p.id === editingId)
         : undefined;
-      await saveAdminCatalogProduct(
+      const ecoParsed = Number(form.ecoScore);
+      const ecoScore =
+        form.ecoScore.trim() === "" || !Number.isFinite(ecoParsed)
+          ? 90
+          : Math.min(100, Math.max(0, ecoParsed));
+
+      const result = await saveAdminCatalogProduct(
         {
           id: editingId ?? undefined,
           name: form.name.trim(),
-          category: form.category,
+          category: form.category.trim() || "Home",
           price: Number(form.price) || 0,
-          ecoScore: Math.min(100, Math.max(0, Number(form.ecoScore) || 0)),
+          ecoScore,
           stock:
             form.commerceType === "affiliate"
               ? null
@@ -498,6 +514,18 @@ export default function AdminDashboard() {
         }
       );
       await refreshCatalogProducts();
+      const shopHint =
+        result.product.commerceType === "affiliate"
+          ? " It appears on Marketplace with Shop Amazon (not Add to cart)."
+          : " It appears on Marketplace.";
+      const base = editingId
+        ? `Saved “${result.product.name}”.`
+        : `Created “${result.product.name}”.`;
+      setProductSaveSuccess(
+        result.warning
+          ? `${base}${shopHint} ${result.warning}`
+          : `${base}${shopHint}`
+      );
       setFormOpen(false);
       setEditingId(null);
       setForm(emptyProductForm);
@@ -727,6 +755,24 @@ export default function AdminDashboard() {
               </span>
             </div>
 
+            {productSaveSuccess && (
+              <div
+                role="status"
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p>{productSaveSuccess}</p>
+                  <button
+                    type="button"
+                    className="shrink-0 text-emerald-800/70 underline-offset-2 hover:underline"
+                    onClick={() => setProductSaveSuccess(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
             {formOpen && (
               <Card className="border-primary/20">
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -793,7 +839,9 @@ export default function AdminDashboard() {
                         </label>
                         <input
                           required
-                          type="url"
+                          type="text"
+                          inputMode="url"
+                          autoComplete="off"
                           value={form.amazonAffiliateUrl}
                           onChange={(e) =>
                             setForm((f) => ({
@@ -801,12 +849,13 @@ export default function AdminDashboard() {
                               amazonAffiliateUrl: e.target.value,
                             }))
                           }
-                          placeholder="https://www.amazon.co.uk/dp/…?tag=forestbuddies-20"
+                          placeholder="https://www.amazon.co.uk/dp/… or amzn.to/…"
                           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                         />
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          Required. We ensure the Associates tag is present on
-                          save.
+                          Required. Full amazon.com / amazon.co.uk links or
+                          amzn.to short links. Associates tag is added on save
+                          when possible. Image URL is optional.
                         </p>
                       </div>
                     )}
@@ -816,12 +865,14 @@ export default function AdminDashboard() {
                         <span className="font-normal">(optional)</span>
                       </label>
                       <input
-                        type="url"
+                        type="text"
+                        inputMode="url"
+                        autoComplete="off"
                         value={form.imageUrl}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, imageUrl: e.target.value }))
                         }
-                        placeholder="https://…"
+                        placeholder="https://… (leave blank for a default image)"
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                     </div>
@@ -829,19 +880,20 @@ export default function AdminDashboard() {
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
                         Category
                       </label>
-                      <select
+                      <input
+                        list="admin-product-categories"
                         value={form.category}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, category: e.target.value }))
                         }
+                        placeholder="Kitchen, Home, or custom"
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                      >
+                      />
+                      <datalist id="admin-product-categories">
                         {CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
+                          <option key={c} value={c} />
                         ))}
-                      </select>
+                      </datalist>
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -861,7 +913,8 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        Eco score
+                        Eco score{" "}
+                        <span className="font-normal">(optional, default 90)</span>
                       </label>
                       <input
                         type="number"

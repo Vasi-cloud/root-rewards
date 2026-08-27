@@ -13,15 +13,18 @@ import {
   ensureAmazonAffiliateTag,
   extractAsinFromAmazonUrl,
   isValidAmazonAffiliateUrl,
+  normalizeAmazonProductUrl,
 } from "@/lib/amazon-affiliate";
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import type { CommerceType, Product } from "@/types";
 
-const LOCAL_KEY = "forest-buddies-live-products";
+/** Same key Marketplace reads via listLiveMarketplaceProducts → listAdminCatalogProducts. */
+export const LIVE_PRODUCTS_LOCAL_KEY = "forest-buddies-live-products";
+const LOCAL_KEY = LIVE_PRODUCTS_LOCAL_KEY;
 
 export type AdminCatalogProduct = Product & {
   commerceType: CommerceType;
-  /** Admin display / filters */
+  /** Admin display / filters — null for Amazon affiliate (N/A) */
   stock: number | null;
   updatedAt?: string;
   createdAt?: string;
@@ -38,6 +41,14 @@ export type AdminProductInput = {
   commerceType: CommerceType;
   amazonAffiliateUrl?: string;
   imageUrl?: string;
+};
+
+export type SaveAdminProductResult = {
+  product: AdminCatalogProduct;
+  /** Where the write landed */
+  persist: "firestore" | "local";
+  /** Non-fatal notice (e.g. Firestore permission) — product is still saved locally */
+  warning?: string;
 };
 
 function loadLocal(): AdminCatalogProduct[] {
@@ -57,6 +68,67 @@ function saveLocal(products: AdminCatalogProduct[]) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(products));
 }
 
+/** Keep local-only rows when Firestore list would otherwise wipe them. */
+function mergeByIdPreferNewer(
+  primary: AdminCatalogProduct[],
+  secondary: AdminCatalogProduct[]
+): AdminCatalogProduct[] {
+  const byId = new Map<string, AdminCatalogProduct>();
+  for (const p of primary) byId.set(p.id, p);
+  for (const p of secondary) {
+    const prev = byId.get(p.id);
+    if (!prev || (p.updatedAt ?? "") >= (prev.updatedAt ?? "")) {
+      byId.set(p.id, p);
+    }
+  }
+  return [...byId.values()];
+}
+
+function upsertLocal(product: AdminCatalogProduct) {
+  const local = loadLocal();
+  const next = local.some((p) => p.id === product.id)
+    ? local.map((p) => (p.id === product.id ? product : p))
+    : [product, ...local];
+  saveLocal(next);
+}
+
+function firestoreErrorMessage(err: unknown): string {
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code?: string }).code ?? "")
+      : "";
+  const message = err instanceof Error ? err.message : String(err);
+  if (
+    code === "permission-denied" ||
+    /permission/i.test(message) ||
+    /insufficient/i.test(message)
+  ) {
+    return "Firestore permission denied — product saved on this device only. Sign in as the allowlisted admin email, or deploy firestore.rules for products.";
+  }
+  return `Firestore save failed (${code || "error"}): ${message}. Product saved on this device only.`;
+}
+
+/** Map free-text / unknown categories to a sensible catalog label (never block save). */
+export function normalizeProductCategory(raw: string | undefined | null): string {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return "Home";
+  const known = [
+    "Accessories",
+    "Kitchen",
+    "Home",
+    "Apparel",
+    "Beauty",
+    "Stationery",
+    "Camping",
+  ];
+  const match = known.find(
+    (c) => c.toLowerCase() === trimmed.toLowerCase()
+  );
+  if (match) return match;
+  // Allow simple custom text categories (title-case lightly)
+  return trimmed.slice(0, 48);
+}
+
 function normalizeAdminProduct(
   raw: Partial<AdminCatalogProduct> & { id: string }
 ): AdminCatalogProduct {
@@ -64,15 +136,29 @@ function normalizeAdminProduct(
     raw.commerceType === "affiliate" || Boolean(raw.amazonAffiliateUrl?.trim())
       ? "affiliate"
       : "first_party";
-  const amazonAffiliateUrl =
-    commerceType === "affiliate" && raw.amazonAffiliateUrl?.trim()
-      ? ensureAmazonAffiliateTag(raw.amazonAffiliateUrl.trim())
-      : undefined;
+
+  let amazonAffiliateUrl: string | undefined;
+  if (commerceType === "affiliate" && raw.amazonAffiliateUrl?.trim()) {
+    const normalized = normalizeAmazonProductUrl(raw.amazonAffiliateUrl);
+    amazonAffiliateUrl = isValidAmazonAffiliateUrl(normalized)
+      ? ensureAmazonAffiliateTag(normalized)
+      : normalized;
+  }
+
   const amazonAsin =
     raw.amazonAsin?.trim() ||
     (amazonAffiliateUrl
       ? extractAsinFromAmazonUrl(amazonAffiliateUrl) ?? undefined
       : undefined);
+
+  const ecoRaw =
+    raw.sustainabilityScore ?? (raw as { ecoScore?: number }).ecoScore;
+  const ecoNum = Number(ecoRaw);
+  const sustainabilityScore = Number.isFinite(ecoNum)
+    ? Math.min(100, Math.max(0, ecoNum))
+    : 90;
+
+  const imageTrimmed = String(raw.imageUrl ?? "").trim();
 
   return {
     id: raw.id,
@@ -80,19 +166,10 @@ function normalizeAdminProduct(
     description: String(raw.description ?? "").trim(),
     price: Number(raw.price) || 0,
     imageUrl:
-      String(raw.imageUrl ?? "").trim() ||
+      imageTrimmed ||
       (commerceType === "affiliate" ? "/eco-cards.svg" : "/eco-tote.svg"),
-    category: String(raw.category ?? "Kitchen").trim() || "Kitchen",
-    sustainabilityScore: Math.min(
-      100,
-      Math.max(
-        0,
-        Number(
-          raw.sustainabilityScore ??
-            (raw as { ecoScore?: number }).ecoScore
-        ) || 90
-      )
-    ),
+    category: normalizeProductCategory(raw.category),
+    sustainabilityScore,
     affiliateCommissionPercent:
       Number(raw.affiliateCommissionPercent) ||
       (commerceType === "affiliate" ? 4 : 10),
@@ -128,8 +205,9 @@ export function validateAdminProductInput(
   if (input.commerceType === "affiliate") {
     const url = input.amazonAffiliateUrl?.trim() ?? "";
     if (!url) return "Amazon affiliate URL is required for affiliate products.";
-    if (!isValidAmazonAffiliateUrl(url)) {
-      return "Enter a valid Amazon product URL (amazon.com or amazon.co.uk).";
+    const normalized = normalizeAmazonProductUrl(url);
+    if (!isValidAmazonAffiliateUrl(normalized)) {
+      return "Enter an Amazon URL (amazon.com, amazon.co.uk) or short link (amzn.to).";
     }
   }
   return null;
@@ -138,14 +216,17 @@ export function validateAdminProductInput(
 function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
   const now = new Date().toISOString();
   const id = input.id?.trim() || `live-${Date.now()}`;
+  const eco = Number.isFinite(input.ecoScore)
+    ? Math.min(100, Math.max(0, input.ecoScore))
+    : 90;
   return normalizeAdminProduct({
     id,
     name: input.name,
     description: input.description,
     price: input.price,
-    imageUrl: input.imageUrl,
+    imageUrl: input.imageUrl?.trim() || undefined,
     category: input.category,
-    sustainabilityScore: input.ecoScore,
+    sustainabilityScore: eco,
     commerceType: input.commerceType,
     amazonAffiliateUrl: input.amazonAffiliateUrl,
     stock: input.commerceType === "affiliate" ? null : input.stock,
@@ -156,9 +237,11 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
 
 /**
  * List admin-managed catalog products.
- * Prefers Firestore `products`; falls back to localStorage when Firebase is offline.
+ * Merges Firestore `products` with localStorage so a failed FS write
+ * does not disappear after refresh, and Marketplace reads the same source.
  */
 export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]> {
+  const local = loadLocal();
   const db = getFirebaseFirestore();
   if (db) {
     try {
@@ -166,16 +249,16 @@ export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]>
       const fromFs = snapshot.docs.map((d) =>
         normalizeAdminProduct({ id: d.id, ...(d.data() as object) })
       );
-      // Keep a local mirror for offline marketplace merge if needed
-      saveLocal(fromFs);
-      return fromFs.sort((a, b) =>
+      const merged = mergeByIdPreferNewer(fromFs, local);
+      saveLocal(merged);
+      return merged.sort((a, b) =>
         (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")
       );
     } catch (err) {
       console.warn("[products] Firestore list failed, using local cache", err);
     }
   }
-  return loadLocal().sort((a, b) =>
+  return local.sort((a, b) =>
     (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")
   );
 }
@@ -191,7 +274,7 @@ export async function listLiveMarketplaceProducts(): Promise<Product[]> {
 export async function saveAdminCatalogProduct(
   input: AdminProductInput,
   opts: { adminEmail?: string | null; existingCreatedAt?: string }
-): Promise<AdminCatalogProduct> {
+): Promise<SaveAdminProductResult> {
   const err = validateAdminProductInput(input);
   if (err) throw new Error(err);
   if (opts.adminEmail != null && !isAdminUser(opts.adminEmail)) {
@@ -204,33 +287,41 @@ export async function saveAdminCatalogProduct(
   }
   product.updatedAt = new Date().toISOString();
 
+  // Always write the source Marketplace reads as a local fallback.
+  upsertLocal(product);
+
   const db = getFirebaseFirestore();
-  if (db) {
-    try {
-      const { stock, ...rest } = product;
-      await setDoc(doc(db, "products", product.id), {
-        ...rest,
-        stock: product.commerceType === "affiliate" ? null : stock,
-        ecoScore: product.sustainabilityScore,
-      });
-      // Refresh local mirror
-      const all = await listAdminCatalogProducts();
-      const merged = all.some((p) => p.id === product.id)
-        ? all.map((p) => (p.id === product.id ? product : p))
-        : [product, ...all];
-      saveLocal(merged);
-      return product;
-    } catch (e) {
-      console.warn("[products] Firestore save failed, writing local", e);
-    }
+  if (!db) {
+    return {
+      product,
+      persist: "local",
+      warning:
+        "Firebase is offline — product saved on this device and will show in Marketplace here.",
+    };
   }
 
-  const local = loadLocal();
-  const next = local.some((p) => p.id === product.id)
-    ? local.map((p) => (p.id === product.id ? product : p))
-    : [product, ...local];
-  saveLocal(next);
-  return product;
+  try {
+    const { stock, ...rest } = product;
+    await setDoc(doc(db, "products", product.id), {
+      ...rest,
+      stock: product.commerceType === "affiliate" ? null : stock,
+      ecoScore: product.sustainabilityScore,
+    });
+    // Refresh mirror from FS + local union
+    const all = await listAdminCatalogProducts();
+    const merged = all.some((p) => p.id === product.id)
+      ? all.map((p) => (p.id === product.id ? product : p))
+      : [product, ...all];
+    saveLocal(merged);
+    return { product, persist: "firestore" };
+  } catch (e) {
+    console.warn("[products] Firestore save failed, keeping local", e);
+    return {
+      product,
+      persist: "local",
+      warning: firestoreErrorMessage(e),
+    };
+  }
 }
 
 export async function deleteAdminCatalogProduct(
@@ -264,7 +355,6 @@ export function mergeMarketplaceCatalog(
   const byId = new Map<string, Product>();
   for (const p of seed) byId.set(p.id, p);
   for (const p of live) byId.set(p.id, p);
-  // Live-only affiliate / new items first, then remaining seed order
   const liveIds = new Set(live.map((p) => p.id));
   const liveFirst = live.filter((p) => liveIds.has(p.id));
   const seedRest = seed.filter((p) => !liveIds.has(p.id));

@@ -3,49 +3,40 @@ import type Stripe from "stripe";
 
 import {
   isStripeConfigured,
-  isStripeWebhookConfigured,
+  listConfiguredWebhookSecretEnvNames,
+  normalizeWebhookSecrets,
 } from "@/lib/stripe/config";
 import {
   fulfillCheckoutSession,
   membershipPayloadFromSubscription,
 } from "@/lib/stripe/fulfillment";
-import { markEventProcessed } from "@/lib/stripe/orders";
+import { getOrderBySessionId, markEventProcessed } from "@/lib/stripe/orders";
 import { getStripe } from "@/lib/stripe/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * Stripe webhooks — production order confirmation & subscription lifecycle.
  *
- * Dashboard endpoint (Production):
+ * Dashboard endpoint:
  *   https://www.forestbuddies.com/api/webhooks/stripe
  *
- * Env:
- *   STRIPE_WEBHOOK_SECRET — primary signing secret (test or live)
- *   STRIPE_WEBHOOK_SECRET_LIVE — optional second secret when both modes are used
- *   STRIPE_WEBHOOK_SECRET_TEST — optional test-mode secret alongside live
+ * Env (signing secrets — must match the Stripe Dashboard endpoint that posts here):
+ *   STRIPE_WEBHOOK_SECRET — primary (often Test while soft-launching)
+ *   STRIPE_WEBHOOK_SECRET_LIVE — optional Live-mode endpoint secret
+ *   STRIPE_WEBHOOK_SECRET_TEST — optional Test-mode endpoint secret
  *
- * After a valid signature, we return HTTP 2xx even if side-effects fail,
- * so Stripe does not retry forever on application bugs. Errors are logged.
+ * After a valid signature we always return HTTP 2xx (including duplicates and
+ * handler/email failures) so Stripe does not retry forever. Errors are logged.
  */
-
-function webhookSecrets(): string[] {
-  const keys = [
-    process.env.STRIPE_WEBHOOK_SECRET,
-    process.env.STRIPE_WEBHOOK_SECRET_LIVE,
-    process.env.STRIPE_WEBHOOK_SECRET_TEST,
-  ]
-    .map((s) => s?.trim())
-    .filter((s): s is string => Boolean(s && s.startsWith("whsec_")));
-  return [...new Set(keys)];
-}
 
 function constructEvent(
   stripe: Stripe,
-  body: string,
+  payload: Buffer,
   signature: string
 ): Stripe.Event {
-  const secrets = webhookSecrets();
+  const secrets = normalizeWebhookSecrets();
   if (secrets.length === 0) {
     throw new Error("No STRIPE_WEBHOOK_SECRET configured.");
   }
@@ -53,7 +44,8 @@ function constructEvent(
   let lastError: unknown;
   for (const secret of secrets) {
     try {
-      return stripe.webhooks.constructEvent(body, signature, secret);
+      // Buffer preserves the exact bytes Stripe signed (preferred over string).
+      return stripe.webhooks.constructEvent(payload, signature, secret);
     } catch (err) {
       lastError = err;
     }
@@ -68,7 +60,12 @@ export async function POST(request: Request) {
     console.error("[stripe] webhook: STRIPE_SECRET_KEY missing");
     return NextResponse.json({ error: "Stripe not configured." }, { status: 503 });
   }
-  if (!isStripeWebhookConfigured() && webhookSecrets().length === 0) {
+
+  const secrets = normalizeWebhookSecrets();
+  if (secrets.length === 0) {
+    console.error(
+      "[stripe] webhook: no STRIPE_WEBHOOK_SECRET* env vars starting with whsec_"
+    );
     return NextResponse.json(
       { error: "STRIPE_WEBHOOK_SECRET is not set." },
       { status: 503 }
@@ -76,15 +73,22 @@ export async function POST(request: Request) {
   }
 
   const stripe = getStripe();
-  let body: string;
+
+  let payload: Buffer;
   try {
-    body = await request.text();
-  } catch {
+    payload = Buffer.from(await request.arrayBuffer());
+  } catch (err) {
+    console.error("[stripe] webhook: could not read raw body", err);
     return NextResponse.json({ error: "Could not read body." }, { status: 400 });
   }
 
-  const signature = request.headers.get("stripe-signature");
+  const signature =
+    request.headers.get("stripe-signature") ??
+    request.headers.get("Stripe-Signature");
   if (!signature) {
+    console.error("[stripe] webhook: missing stripe-signature header", {
+      bodyBytes: payload.length,
+    });
     return NextResponse.json(
       { error: "Missing stripe-signature." },
       { status: 400 }
@@ -93,16 +97,38 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event;
   try {
-    event = constructEvent(stripe, body, signature);
+    event = constructEvent(stripe, payload, signature);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid signature";
-    console.error("[stripe] webhook signature failed:", message);
+    // Real cause for Dashboard Test → prod URL mismatches is almost always
+    // the wrong endpoint signing secret (Test vs Live / CLI vs Dashboard).
+    console.error("[stripe] webhook signature failed", {
+      error: message,
+      bodyBytes: payload.length,
+      secretSlots: listConfiguredWebhookSecretEnvNames(),
+      secretCount: secrets.length,
+      signaturePresent: true,
+      hint:
+        "Use the Signing secret from Stripe Dashboard → Developers → Webhooks → this endpoint (Test mode secret for Test events). CLI `stripe listen` secrets do not validate Dashboard deliveries.",
+    });
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  // Acknowledge duplicates quickly (2xx)
-  const isNew = markEventProcessed(event.id);
+  // Idempotent: duplicate deliveries → 200, never 400.
+  let isNew = true;
+  try {
+    isNew = markEventProcessed(event.id);
+  } catch (err) {
+    console.error("[stripe] webhook: markEventProcessed failed (continuing)", {
+      eventId: event.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
   if (!isNew) {
+    console.info("[stripe] webhook duplicate event acknowledged", {
+      id: event.id,
+      type: event.type,
+    });
     return NextResponse.json({ received: true, duplicate: true });
   }
 
@@ -110,7 +136,9 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        const existing = getOrderBySessionId(session.id);
         const order = await fulfillCheckoutSession(session, "webhook");
+
         if (order?.kind === "impact_member" && order.subscriptionId) {
           try {
             await stripe.subscriptions.update(order.subscriptionId, {
@@ -124,21 +152,32 @@ export async function POST(request: Request) {
           } catch (metaErr) {
             console.warn(
               "[stripe] subscription metadata update failed",
-              metaErr
+              metaErr instanceof Error ? metaErr.message : metaErr
             );
           }
         }
-        console.info("[stripe] order confirmed via webhook", {
+
+        console.info("[stripe] checkout.session.completed handled", {
           sessionId: session.id,
-          orderNumber: order?.orderNumber,
-          kind: order?.kind,
-          amount: order?.amountTotalCents,
+          orderNumber: order?.orderNumber ?? null,
+          kind: order?.kind ?? null,
+          amount: order?.amountTotalCents ?? null,
+          alreadyExisted: Boolean(existing),
+          emailMode: order?.confirmationEmailMode ?? null,
+          causes: order?.causeSelection ?? null,
+          causeGifts: order?.causeGifts ?? null,
         });
         break;
       }
       case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
-        await fulfillCheckoutSession(session, "webhook");
+        const existing = getOrderBySessionId(session.id);
+        const order = await fulfillCheckoutSession(session, "webhook");
+        console.info("[stripe] async_payment_succeeded handled", {
+          sessionId: session.id,
+          orderNumber: order?.orderNumber ?? null,
+          alreadyExisted: Boolean(existing),
+        });
         break;
       }
       case "checkout.session.async_payment_failed": {
@@ -149,9 +188,9 @@ export async function POST(request: Request) {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        const payload = membershipPayloadFromSubscription(sub);
+        const payloadMembership = membershipPayloadFromSubscription(sub);
         console.info(`[stripe] ${event.type}`, {
-          ...payload,
+          ...payloadMembership,
           status: sub.status,
           kind: sub.metadata?.kind ?? null,
         });
@@ -170,12 +209,12 @@ export async function POST(request: Request) {
         break;
     }
   } catch (err) {
-    // Valid signature + received: return 2xx so Stripe stops infinite retries
-    // on application/logic bugs. Investigate via logs.
-    console.error("[stripe] webhook handler error (acknowledged)", {
+    // Valid signature: always 2xx. Log the real error for ops.
+    console.error("[stripe] webhook handler error (acknowledged 200)", {
       type: event.type,
       id: event.id,
       error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
     });
     return NextResponse.json({
       received: true,

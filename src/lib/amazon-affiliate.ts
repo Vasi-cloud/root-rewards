@@ -8,6 +8,9 @@ export type AmazonMarketplace = "uk" | "us";
 /** Forest Buddies Amazon Associates ID */
 export const AMAZON_ASSOCIATE_TAG = "forestbuddies-20";
 
+/** Official Amazon product hosts + common short-link hosts we accept in Admin. */
+const AMAZON_SHORT_HOSTS = new Set(["amzn.to", "a.co", "amzn.com"]);
+
 export function getAmazonMarketplace(): AmazonMarketplace {
   const raw = (
     process.env.NEXT_PUBLIC_AMAZON_MARKETPLACE ?? "us"
@@ -31,14 +34,34 @@ export function getAmazonStoreLabel(): string {
   return getAmazonMarketplace() === "uk" ? "Amazon UK" : "Amazon";
 }
 
+/** Ensure absolute URL (Admin pastes often omit https://). */
+export function normalizeAmazonProductUrl(raw: string): string {
+  let s = raw.trim();
+  if (!s) return s;
+  if (!/^https?:\/\//i.test(s)) {
+    s = `https://${s}`;
+  }
+  return s;
+}
+
+function amazonHostname(rawUrl: string): string | null {
+  try {
+    const url = new URL(normalizeAmazonProductUrl(rawUrl));
+    return url.hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 /** Pull ASIN from common Amazon product URL shapes. */
 export function extractAsinFromAmazonUrl(
   raw: string | null | undefined
 ): string | null {
   if (!raw?.trim()) return null;
   try {
-    const url = new URL(raw.trim());
+    const url = new URL(normalizeAmazonProductUrl(raw));
     const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (AMAZON_SHORT_HOSTS.has(host)) return null;
     if (!host.includes("amazon.")) return null;
     const dp = url.pathname.match(
       /\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{8,})/i
@@ -54,26 +77,37 @@ export function extractAsinFromAmazonUrl(
   return null;
 }
 
-/** True when URL looks like an Amazon product/search link we can use. */
+/**
+ * True for full amazon.com / amazon.co.uk (etc.) links and amzn.to / a.co short links.
+ */
 export function isValidAmazonAffiliateUrl(raw: string): boolean {
-  try {
-    const url = new URL(raw.trim());
-    const host = url.hostname.replace(/^www\./, "").toLowerCase();
-    return host.includes("amazon.");
-  } catch {
-    return false;
-  }
+  const host = amazonHostname(raw);
+  if (!host) return false;
+  if (AMAZON_SHORT_HOSTS.has(host)) return true;
+  return host.includes("amazon.");
+}
+
+export function isAmazonShortLink(raw: string): boolean {
+  const host = amazonHostname(raw);
+  return Boolean(host && AMAZON_SHORT_HOSTS.has(host));
 }
 
 /**
  * Ensure Associates `tag` is present on a saved Amazon URL.
- * Keeps path/query; sets/overwrites tag to our Associate ID.
+ * Short links (amzn.to / a.co) are preserved as-is — redirect may already track.
  */
 export function ensureAmazonAffiliateTag(
   rawUrl: string,
   affiliateCode?: string
 ): string {
-  const url = new URL(rawUrl.trim());
+  const normalized = normalizeAmazonProductUrl(rawUrl);
+  const url = new URL(normalized);
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+  if (AMAZON_SHORT_HOSTS.has(host)) {
+    return url.toString();
+  }
+
   url.searchParams.set("tag", getAmazonAssociateTag());
   if (affiliateCode) {
     url.searchParams.set("ascsubtag", affiliateCode);
@@ -83,7 +117,8 @@ export function ensureAmazonAffiliateTag(
 
 /**
  * Build a tagged Amazon product or search URL.
- * Always includes `tag=forestbuddies-20` (or env override) for Associates tracking.
+ * Always includes `tag=forestbuddies-20` (or env override) for Associates tracking
+ * when the destination is a full Amazon product/search URL.
  */
 export function buildAmazonAffiliateUrl(opts: {
   productName: string;

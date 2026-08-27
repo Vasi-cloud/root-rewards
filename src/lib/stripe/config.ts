@@ -17,13 +17,47 @@ export function isStripeConfigured(): boolean {
   return Boolean(key && key.startsWith("sk_"));
 }
 
+const WEBHOOK_SECRET_ENV_KEYS = [
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_WEBHOOK_SECRET_LIVE",
+  "STRIPE_WEBHOOK_SECRET_TEST",
+] as const;
+
+/** Strip whitespace / wrapping quotes from a Dashboard or CLI whsec_ value. */
+export function normalizeWebhookSecret(
+  raw: string | undefined | null
+): string | null {
+  if (!raw) return null;
+  let s = raw.trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  if (!s.startsWith("whsec_")) return null;
+  return s;
+}
+
+/** Deduped webhook signing secrets from env (primary + optional live/test). */
+export function normalizeWebhookSecrets(): string[] {
+  const secrets: string[] = [];
+  for (const key of WEBHOOK_SECRET_ENV_KEYS) {
+    const normalized = normalizeWebhookSecret(process.env[key]);
+    if (normalized && !secrets.includes(normalized)) secrets.push(normalized);
+  }
+  return secrets;
+}
+
+/** Env var names that currently hold a usable whsec_ (for safe logging only). */
+export function listConfiguredWebhookSecretEnvNames(): string[] {
+  return WEBHOOK_SECRET_ENV_KEYS.filter((key) =>
+    Boolean(normalizeWebhookSecret(process.env[key]))
+  );
+}
+
 export function isStripeWebhookConfigured(): boolean {
-  const secrets = [
-    process.env.STRIPE_WEBHOOK_SECRET,
-    process.env.STRIPE_WEBHOOK_SECRET_LIVE,
-    process.env.STRIPE_WEBHOOK_SECRET_TEST,
-  ];
-  return secrets.some((s) => Boolean(s?.trim()?.startsWith("whsec_")));
+  return normalizeWebhookSecrets().length > 0;
 }
 
 export function getStripePublishableKey(): string | undefined {
