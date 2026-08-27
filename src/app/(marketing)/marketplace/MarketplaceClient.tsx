@@ -697,8 +697,7 @@ export default function MarketplaceClient() {
       )}
 
       <div className="mt-12 rounded-2xl border border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">
-        Cart is saved locally. Your items stay even after refresh. (Connect
-        Firebase later for real inventory & orders.)
+        Your cart is saved on this device.
       </div>
 
       {detailProduct && (
