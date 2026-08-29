@@ -1,12 +1,22 @@
 /**
  * Amazon Associates helpers.
- * Associate tag: forestbuddies-20 (override with NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG).
+ *
+ * Default tags by storefront (only when the URL has no tag=):
+ *   amazon.co.uk → forestbuddies-21
+ *   amazon.com   → forestbuddies-20
+ *
+ * If a stored URL already has tag=, it is never rewritten.
  */
 
 export type AmazonMarketplace = "uk" | "us";
 
-/** Forest Buddies Amazon Associates ID */
-export const AMAZON_ASSOCIATE_TAG = "forestbuddies-20";
+/** US Associates tag */
+export const AMAZON_ASSOCIATE_TAG_US = "forestbuddies-20";
+/** UK Associates tag */
+export const AMAZON_ASSOCIATE_TAG_UK = "forestbuddies-21";
+
+/** @deprecated Prefer AMAZON_ASSOCIATE_TAG_US / host-based helpers */
+export const AMAZON_ASSOCIATE_TAG = AMAZON_ASSOCIATE_TAG_US;
 
 /** Official Amazon product hosts + common short-link hosts we accept in Admin. */
 const AMAZON_SHORT_HOSTS = new Set(["amzn.to", "a.co", "amzn.com"]);
@@ -24,14 +34,37 @@ export function getAmazonHost(): string {
     : "www.amazon.com";
 }
 
+/** Default tag for the configured site marketplace (fallback when no URL host). */
 export function getAmazonAssociateTag(): string {
-  return (
-    process.env.NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG?.trim() || AMAZON_ASSOCIATE_TAG
-  );
+  const env = process.env.NEXT_PUBLIC_AMAZON_ASSOCIATE_TAG?.trim();
+  if (env) return env;
+  return getAmazonMarketplace() === "uk"
+    ? AMAZON_ASSOCIATE_TAG_UK
+    : AMAZON_ASSOCIATE_TAG_US;
+}
+
+/**
+ * Associates tag for a given Amazon hostname.
+ * .co.uk → forestbuddies-21; .com (and other amazon hosts) → forestbuddies-20.
+ */
+export function getAmazonAssociateTagForHost(hostname: string): string {
+  const host = hostname.replace(/^www\./, "").toLowerCase();
+  if (host === "amazon.co.uk" || host.endsWith(".amazon.co.uk")) {
+    return AMAZON_ASSOCIATE_TAG_UK;
+  }
+  return AMAZON_ASSOCIATE_TAG_US;
 }
 
 export function getAmazonStoreLabel(): string {
   return getAmazonMarketplace() === "uk" ? "Amazon UK" : "Amazon";
+}
+
+export function getAmazonStoreLabelForUrl(rawUrl: string): string {
+  const host = amazonHostname(rawUrl);
+  if (host === "amazon.co.uk" || host?.endsWith(".amazon.co.uk")) {
+    return "Amazon UK";
+  }
+  return "Amazon";
 }
 
 /** Ensure absolute URL (Admin pastes often omit https://). */
@@ -48,6 +81,17 @@ function amazonHostname(rawUrl: string): string | null {
   try {
     const url = new URL(normalizeAmazonProductUrl(rawUrl));
     return url.hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/** Read tag= from a URL if present (query string). */
+export function readAmazonTagFromUrl(raw: string): string | null {
+  try {
+    const url = new URL(normalizeAmazonProductUrl(raw));
+    const tag = url.searchParams.get("tag")?.trim();
+    return tag || null;
   } catch {
     return null;
   }
@@ -93,10 +137,10 @@ export function isAmazonShortLink(raw: string): boolean {
 }
 
 /**
- * Ensure Associates `tag` is present on a saved Amazon URL.
- * Preserves an existing tag (e.g. forestbuddies-21) so Admin edits stick.
- * Only injects the default tag when the URL has none.
- * Short links (amzn.to / a.co) are preserved as-is.
+ * Normalize a stored Amazon URL for save / Shop Amazon.
+ * - Keeps an existing tag= unchanged (e.g. forestbuddies-21 on .co.uk).
+ * - If no tag: amazon.co.uk → forestbuddies-21, amazon.com → forestbuddies-20.
+ * - Short links (amzn.to / a.co) are preserved as-is.
  */
 export function ensureAmazonAffiliateTag(
   rawUrl: string,
@@ -110,9 +154,12 @@ export function ensureAmazonAffiliateTag(
     return url.toString();
   }
 
-  if (!url.searchParams.get("tag")?.trim()) {
-    url.searchParams.set("tag", getAmazonAssociateTag());
+  const existingTag = url.searchParams.get("tag")?.trim();
+  if (!existingTag) {
+    url.searchParams.set("tag", getAmazonAssociateTagForHost(url.hostname));
   }
+  // Never overwrite an existing tag.
+
   if (affiliateCode) {
     url.searchParams.set("ascsubtag", affiliateCode);
   }
@@ -121,8 +168,7 @@ export function ensureAmazonAffiliateTag(
 
 /**
  * Build a tagged Amazon product or search URL.
- * Always includes `tag=forestbuddies-20` (or env override) for Associates tracking
- * when the destination is a full Amazon product/search URL.
+ * Prefers the stored Associates URL and never forces forestbuddies-20 onto .co.uk.
  */
 export function buildAmazonAffiliateUrl(opts: {
   productName: string;
@@ -142,7 +188,7 @@ export function buildAmazonAffiliateUrl(opts: {
   }
 
   const host = getAmazonHost();
-  const tag = getAmazonAssociateTag();
+  const tag = getAmazonAssociateTagForHost(host);
   const asin = opts.amazonAsin?.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
   if (asin && asin.length >= 8) {

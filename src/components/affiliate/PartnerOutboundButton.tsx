@@ -3,7 +3,7 @@
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
+import { getAmazonStoreLabel, getAmazonStoreLabelForUrl } from "@/lib/amazon-affiliate";
 import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
   getAffiliatePlatform,
@@ -54,7 +54,11 @@ export function PartnerOutboundButton({
   const platform = getAffiliatePlatform(id);
   const name =
     label ??
-    (id === "amazon" ? getAmazonStoreLabel() : partnerButtonLabel(id));
+    (id === "amazon"
+      ? amazonAffiliateUrl?.trim()
+        ? getAmazonStoreLabelForUrl(amazonAffiliateUrl)
+        : getAmazonStoreLabel()
+      : partnerButtonLabel(id));
   const priceBit =
     showPrice && listPrice != null
       ? ` · £${listPrice.toFixed(0)}`
@@ -74,7 +78,9 @@ export function PartnerOutboundButton({
 
   const tip =
     id === "amazon"
-      ? `Amazon Associates link (tag forestbuddies-20). ${platform.attributionNote}`
+      ? amazonAffiliateUrl?.trim()
+        ? `Opens your saved Amazon Associates link in a new tab. ${platform.attributionNote}`
+        : `Amazon Associates link. ${platform.attributionNote}`
       : `${platform.attributionNote} ${platform.trackingNote}`;
 
   return (

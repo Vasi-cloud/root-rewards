@@ -73,6 +73,7 @@ export const AFFILIATE_PLATFORMS: AffiliatePlatform[] = [
     conversionLatency: "delayed",
     payoutNote: "Earnings stay pending until the partner confirms (often 1–3 days+).",
     publisherTag: "forestbuddies-20",
+    // Outbound Amazon URLs use host-based tags: .co.uk → forestbuddies-21, .com → forestbuddies-20.
   },
   {
     id: "target",

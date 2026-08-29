@@ -1,9 +1,12 @@
 "use client";
 
 import { PartnerOutboundButton } from "@/components/affiliate/PartnerOutboundButton";
-import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
-import { isAffiliateProduct } from "@/lib/commerce-type";
+import {
+  getAmazonStoreLabel,
+  getAmazonStoreLabelForUrl,
+} from "@/lib/amazon-affiliate";
 import { LIVE_EXTERNAL_PARTNER_IDS } from "@/lib/affiliate-platforms";
+import { isAffiliateProduct } from "@/lib/commerce-type";
 import {
   getPartnerCompareLinks,
   lowestPartnerListPrice,
@@ -26,9 +29,10 @@ export function ProductPartnerLinks({
   compact?: boolean;
 }) {
   const affiliateListing = isAffiliateProduct(product);
+  const savedAmazonUrl = product.amazonAffiliateUrl?.trim() ?? "";
 
   // Dedicated Amazon affiliate SKU — only Shop Amazon with saved URL
-  if (affiliateListing && product.amazonAffiliateUrl?.trim()) {
+  if (affiliateListing && savedAmazonUrl) {
     return (
       <div className={`space-y-1.5 ${className}`}>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -37,9 +41,9 @@ export function ProductPartnerLinks({
             productId={product.id}
             productName={product.name}
             amazonAsin={product.amazonAsin}
-            amazonAffiliateUrl={product.amazonAffiliateUrl}
+            amazonAffiliateUrl={savedAmazonUrl}
             listPrice={product.price}
-            label={`Shop ${getAmazonStoreLabel()}`}
+            label={`Shop ${getAmazonStoreLabelForUrl(savedAmazonUrl)}`}
             primary
           />
         </div>

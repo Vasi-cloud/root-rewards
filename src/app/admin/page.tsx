@@ -861,9 +861,9 @@ export default function AdminDashboard() {
                         />
                         <p className="mt-1 text-[11px] text-muted-foreground">
                           Required. Full amazon.com / amazon.co.uk links or
-                          amzn.to short links. Existing Associates tags (e.g.
-                          forestbuddies-21) are kept; if missing, the default tag
-                          is added. Image URL is optional.
+                          amzn.to short links. Existing tag= values are kept. If
+                          missing: amazon.co.uk → forestbuddies-21, amazon.com →
+                          forestbuddies-20. Image URL is optional.
                         </p>
                       </div>
                     )}

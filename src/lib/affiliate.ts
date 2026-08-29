@@ -55,7 +55,8 @@ export function buildReferralUrl(opts: {
 
 /**
  * Build a realistic outbound partner URL.
- * Amazon uses Associates `tag` on amazon.co.uk (default) or amazon.com.
+ * Amazon prefers the stored Associates URL; tags follow the URL host
+ * (.co.uk → forestbuddies-21, .com → forestbuddies-20) only when tag= is missing.
  */
 export function buildPartnerOutboundUrl(opts: {
   platformId: AffiliatePlatformId;
