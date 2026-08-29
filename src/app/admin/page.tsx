@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -344,6 +344,7 @@ export default function AdminDashboard() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyProductForm);
+  const productFormRef = useRef<HTMLDivElement>(null);
   const [productQuery, setProductQuery] = useState("");
   const [orderFilter, setOrderFilter] = useState<"All" | OrderStatus>("All");
   const [listingFilter, setListingFilter] = useState<
@@ -476,6 +477,13 @@ export default function AdminDashboard() {
           : (product.imageUrl ?? ""),
     });
     setFormOpen(true);
+    // Open form and bring it into view so Edit feels immediate.
+    requestAnimationFrame(() => {
+      productFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   }
 
   async function saveProduct(e: React.FormEvent) {
@@ -781,6 +789,11 @@ export default function AdminDashboard() {
             )}
 
             {formOpen && (
+              <div
+                ref={productFormRef}
+                id="admin-product-form"
+                className="scroll-mt-24"
+              >
               <Card className="border-primary/20">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
@@ -995,6 +1008,7 @@ export default function AdminDashboard() {
                   </form>
                 </CardContent>
               </Card>
+              </div>
             )}
 
             <Card>
@@ -1002,7 +1016,16 @@ export default function AdminDashboard() {
                 {filteredProducts.map((product) => (
                   <div
                     key={product.id}
-                    className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openEditForm(product)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openEditForm(product);
+                      }
+                    }}
+                    className="flex cursor-pointer flex-col gap-3 px-5 py-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1041,7 +1064,11 @@ export default function AdminDashboard() {
                             : `${product.stock ?? 0} in stock`}
                         </div>
                       </div>
-                      <div className="flex gap-1">
+                      <div
+                        className="flex gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
                         <Button
                           size="sm"
                           variant="outline"

@@ -3,7 +3,6 @@
 import {
   CalendarDays,
   LayoutGrid,
-  Leaf,
   Mic,
   Package,
   RefreshCw,
@@ -17,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ReportProductButton } from "@/components/marketplace/ReportProductButton";
 import { MarketplaceProductDetail } from "@/components/marketplace/marketplace-product-detail";
+import { MarketplaceProductImage } from "@/components/marketplace/marketplace-product-image";
 import {
   MarketplaceRentals,
   RentalListingGrid,
@@ -730,8 +730,8 @@ export default function MarketplaceClient() {
             justAddedId === detailProduct.id
               ? t("marketplace.added")
               : detailProduct.listingType === "service"
-                ? `Book session — $${detailProduct.price}`
-                : `Add to cart — $${detailProduct.price}`
+                ? `Book session — £${detailProduct.price}`
+                : `Add to cart — £${detailProduct.price}`
           }
         />
       )}
@@ -1039,17 +1039,11 @@ function ListingGrid({
               />
             </div>
             <CardHeader className="px-4 pt-5 sm:px-6">
-              <div
-                className={`mb-3 flex size-14 items-center justify-center rounded-2xl sm:mb-4 sm:size-16 ${
-                  isService ? "bg-sky-100" : "bg-primary/5"
-                }`}
-              >
-                <Leaf
-                  className={`size-7 sm:size-8 ${
-                    isService ? "text-sky-800" : "text-primary"
-                  }`}
-                />
-              </div>
+              <MarketplaceProductImage
+                imageUrl={product.imageUrl}
+                name={product.name}
+                service={isService}
+              />
               <CardTitle className="font-heading text-lg leading-tight sm:text-xl">
                 {product.name}
               </CardTitle>
@@ -1116,7 +1110,7 @@ function ListingGrid({
                 )}
               </div>
 
-              {!isService && (
+              {!isService && isAffiliateProduct(product) && (
                 <div className="rounded-lg border border-border/60 bg-background/80 px-2.5 py-2">
                   <ProductPartnerLinks product={product} />
                 </div>

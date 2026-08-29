@@ -4,6 +4,7 @@ import { Leaf, X } from "lucide-react";
 import { useEffect } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
+import { MarketplaceProductImage } from "@/components/marketplace/marketplace-product-image";
 import { ProductDetailsPanel } from "@/components/product/product-details-panel";
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { ProductReviews } from "@/components/product/product-reviews";
@@ -83,9 +84,12 @@ export function MarketplaceProductDetail({
 
         <div className="space-y-5 p-4 sm:p-6">
           <div className="flex items-start gap-4">
-            <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-primary/5 sm:size-20">
-              <Leaf className="size-8 text-primary sm:size-9" />
-            </div>
+            <MarketplaceProductImage
+              imageUrl={product.imageUrl}
+              name={product.name}
+              size="detail"
+              service={isService}
+            />
             <div className="min-w-0 flex-1">
               <p className="font-heading text-3xl font-semibold tabular-nums text-primary">
                 £{product.price}
@@ -139,7 +143,7 @@ export function MarketplaceProductDetail({
 
           <TrustBadges variant="product" />
 
-          {!isService && <ProductPartnerLinks product={product} />}
+          {!isService && isAffiliate && <ProductPartnerLinks product={product} />}
 
           {!isAffiliate && (
             <ProductDetailsPanel
