@@ -41,6 +41,8 @@ import { useCart } from "@/contexts/cart-context";
 import { useI18n } from "@/contexts/i18n-context";
 import { getPriceComparison } from "@/lib/price-comparison";
 import {
+  CATALOG_REV_KEY,
+  CATALOG_UPDATED_EVENT,
   listLiveMarketplaceProducts,
   mergeMarketplaceCatalog,
 } from "@/lib/admin-catalog-products";
@@ -152,16 +154,33 @@ export default function MarketplaceClient() {
 
   useEffect(() => {
     let cancelled = false;
-    listLiveMarketplaceProducts()
-      .then((live) => {
-        if (cancelled) return;
-        setCatalog(mergeMarketplaceCatalog(MARKETPLACE_PRODUCTS, live));
-      })
-      .catch(() => {
-        /* seed catalog already shown */
-      });
+
+    function loadLive() {
+      listLiveMarketplaceProducts()
+        .then((live) => {
+          if (cancelled) return;
+          setCatalog(mergeMarketplaceCatalog(MARKETPLACE_PRODUCTS, live));
+        })
+        .catch(() => {
+          /* seed catalog already shown */
+        });
+    }
+
+    loadLive();
+
+    const onCatalogUpdated = () => loadLive();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === CATALOG_REV_KEY || e.key === "forest-buddies-live-products") {
+        loadLive();
+      }
+    };
+    window.addEventListener(CATALOG_UPDATED_EVENT, onCatalogUpdated);
+    window.addEventListener("storage", onStorage);
+
     return () => {
       cancelled = true;
+      window.removeEventListener(CATALOG_UPDATED_EVENT, onCatalogUpdated);
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
 

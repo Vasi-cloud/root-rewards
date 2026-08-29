@@ -94,7 +94,9 @@ export function isAmazonShortLink(raw: string): boolean {
 
 /**
  * Ensure Associates `tag` is present on a saved Amazon URL.
- * Short links (amzn.to / a.co) are preserved as-is — redirect may already track.
+ * Preserves an existing tag (e.g. forestbuddies-21) so Admin edits stick.
+ * Only injects the default tag when the URL has none.
+ * Short links (amzn.to / a.co) are preserved as-is.
  */
 export function ensureAmazonAffiliateTag(
   rawUrl: string,
@@ -108,7 +110,9 @@ export function ensureAmazonAffiliateTag(
     return url.toString();
   }
 
-  url.searchParams.set("tag", getAmazonAssociateTag());
+  if (!url.searchParams.get("tag")?.trim()) {
+    url.searchParams.set("tag", getAmazonAssociateTag());
+  }
   if (affiliateCode) {
     url.searchParams.set("ascsubtag", affiliateCode);
   }

@@ -514,15 +514,19 @@ export default function AdminDashboard() {
           existingCreatedAt: existing?.createdAt,
         }
       );
+      // Optimistic list update, then reload from Firestore so Admin matches cloud.
+      setProducts((prev) => {
+        const without = prev.filter((p) => p.id !== result.product.id);
+        return [result.product, ...without];
+      });
       await refreshCatalogProducts();
       const shopHint =
         result.product.commerceType === "affiliate"
           ? " It appears on Marketplace with Shop Amazon (not Add to cart)."
           : " It appears on Marketplace.";
       const base = editingId
-        ? `Saved “${result.product.name}”.`
+        ? `Updated “${result.product.name}”.`
         : `Created “${result.product.name}”.`;
-      // Local-only warning only when the cloud write actually failed / was unavailable.
       setProductSaveSuccess(
         result.persist === "local" && result.warning
           ? `${base}${shopHint} ${result.warning}`
@@ -852,13 +856,14 @@ export default function AdminDashboard() {
                               amazonAffiliateUrl: e.target.value,
                             }))
                           }
-                          placeholder="https://www.amazon.co.uk/dp/… or amzn.to/…"
+                          placeholder="https://www.amazon.co.uk/dp/…?tag=forestbuddies-21 or amzn.to/…"
                           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                         />
                         <p className="mt-1 text-[11px] text-muted-foreground">
                           Required. Full amazon.com / amazon.co.uk links or
-                          amzn.to short links. Associates tag is added on save
-                          when possible. Image URL is optional.
+                          amzn.to short links. Existing Associates tags (e.g.
+                          forestbuddies-21) are kept; if missing, the default tag
+                          is added. Image URL is optional.
                         </p>
                       </div>
                     )}

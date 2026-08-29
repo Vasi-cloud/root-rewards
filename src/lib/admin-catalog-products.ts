@@ -22,6 +22,10 @@ import type { CommerceType, Product } from "@/types";
 export const LIVE_PRODUCTS_LOCAL_KEY = "forest-buddies-live-products";
 const LOCAL_KEY = LIVE_PRODUCTS_LOCAL_KEY;
 
+/** Bumped after a successful catalog write so Marketplace can refetch. */
+export const CATALOG_UPDATED_EVENT = "fb-catalog-updated";
+export const CATALOG_REV_KEY = "forest-buddies-catalog-rev";
+
 export type AdminCatalogProduct = Product & {
   commerceType: CommerceType;
   /** Admin display / filters — null for Amazon affiliate (N/A) */
@@ -47,7 +51,7 @@ export type SaveAdminProductResult = {
   product: AdminCatalogProduct;
   /** Where the authoritative write landed */
   persist: "firestore" | "local";
-  /** Only set when cloud write failed or Firebase is unavailable */
+  /** Only set when Firebase is unavailable (local-only mode) */
   warning?: string;
 };
 
@@ -56,8 +60,12 @@ function loadLocal(): AdminCatalogProduct[] {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as AdminCatalogProduct[];
-    return Array.isArray(parsed) ? parsed.map(normalizeAdminProduct) : [];
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    return Array.isArray(parsed)
+      ? parsed
+          .filter((p) => p && typeof p.id === "string")
+          .map((p) => normalizeAdminProduct(p as { id: string } & Record<string, unknown>))
+      : [];
   } catch {
     return [];
   }
@@ -68,16 +76,33 @@ function saveLocal(products: AdminCatalogProduct[]) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(products));
 }
 
-/** Keep local-only rows when Firestore list would otherwise wipe them. */
-function mergeByIdPreferNewer(
-  primary: AdminCatalogProduct[],
-  secondary: AdminCatalogProduct[]
+function notifyCatalogUpdated() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CATALOG_REV_KEY, String(Date.now()));
+  } catch {
+    // ignore quota
+  }
+  window.dispatchEvent(new Event(CATALOG_UPDATED_EVENT));
+}
+
+/**
+ * Merge Firestore + local: FS wins for shared ids unless local is strictly newer
+ * (covers a write that landed locally before cloud sync). Local-only ids kept.
+ */
+function mergeFsPreferCloud(
+  fromFs: AdminCatalogProduct[],
+  local: AdminCatalogProduct[]
 ): AdminCatalogProduct[] {
   const byId = new Map<string, AdminCatalogProduct>();
-  for (const p of primary) byId.set(p.id, p);
-  for (const p of secondary) {
+  for (const p of fromFs) byId.set(p.id, p);
+  for (const p of local) {
     const prev = byId.get(p.id);
-    if (!prev || (p.updatedAt ?? "") >= (prev.updatedAt ?? "")) {
+    if (!prev) {
+      byId.set(p.id, p);
+      continue;
+    }
+    if ((p.updatedAt ?? "") > (prev.updatedAt ?? "")) {
       byId.set(p.id, p);
     }
   }
@@ -103,9 +128,30 @@ function firestoreErrorMessage(err: unknown): string {
     /permission/i.test(message) ||
     /insufficient/i.test(message)
   ) {
-    return "Firestore permission denied — product saved on this device only. Sign in as the allowlisted admin email, or deploy firestore.rules for products.";
+    return "Firestore permission denied. Sign in as the allowlisted admin email and confirm firestore.rules allow products update.";
   }
-  return `Firestore save failed (${code || "error"}): ${message}. Product saved on this device only.`;
+  if (code === "not-found") {
+    return "Firestore document not found. Try creating the product again.";
+  }
+  return `Firestore update failed${code ? ` (${code})` : ""}: ${message}`;
+}
+
+/** Remove undefined fields — Firestore setDoc rejects them. */
+function toFirestorePayload(
+  product: AdminCatalogProduct
+): Record<string, unknown> {
+  const { stock, ...rest } = product;
+  const payload: Record<string, unknown> = {
+    ...rest,
+    stock: product.commerceType === "affiliate" ? null : stock,
+    ecoScore: product.sustainabilityScore,
+    // Alias some clients / consoles may show
+    amazonUrl: product.amazonAffiliateUrl ?? null,
+  };
+  for (const key of Object.keys(payload)) {
+    if (payload[key] === undefined) delete payload[key];
+  }
+  return payload;
 }
 
 /** Map free-text / unknown categories to a sensible catalog label (never block save). */
@@ -125,34 +171,42 @@ export function normalizeProductCategory(raw: string | undefined | null): string
     (c) => c.toLowerCase() === trimmed.toLowerCase()
   );
   if (match) return match;
-  // Allow simple custom text categories (title-case lightly)
   return trimmed.slice(0, 48);
 }
 
+function readAmazonUrlField(raw: Record<string, unknown>): string | undefined {
+  const primary = String(raw.amazonAffiliateUrl ?? "").trim();
+  if (primary) return primary;
+  const alias = String(raw.amazonUrl ?? "").trim();
+  return alias || undefined;
+}
+
 function normalizeAdminProduct(
-  raw: Partial<AdminCatalogProduct> & { id: string }
+  raw: { id: string } & Record<string, unknown>
 ): AdminCatalogProduct {
+  const amazonRaw = readAmazonUrlField(raw);
   const commerceType: CommerceType =
-    raw.commerceType === "affiliate" || Boolean(raw.amazonAffiliateUrl?.trim())
+    raw.commerceType === "affiliate" || Boolean(amazonRaw)
       ? "affiliate"
       : "first_party";
 
   let amazonAffiliateUrl: string | undefined;
-  if (commerceType === "affiliate" && raw.amazonAffiliateUrl?.trim()) {
-    const normalized = normalizeAmazonProductUrl(raw.amazonAffiliateUrl);
+  if (commerceType === "affiliate" && amazonRaw) {
+    const normalized = normalizeAmazonProductUrl(amazonRaw);
     amazonAffiliateUrl = isValidAmazonAffiliateUrl(normalized)
       ? ensureAmazonAffiliateTag(normalized)
       : normalized;
   }
 
+  const amazonAsinRaw =
+    typeof raw.amazonAsin === "string" ? raw.amazonAsin.trim() : "";
   const amazonAsin =
-    raw.amazonAsin?.trim() ||
+    amazonAsinRaw ||
     (amazonAffiliateUrl
       ? extractAsinFromAmazonUrl(amazonAffiliateUrl) ?? undefined
       : undefined);
 
-  const ecoRaw =
-    raw.sustainabilityScore ?? (raw as { ecoScore?: number }).ecoScore;
+  const ecoRaw = raw.sustainabilityScore ?? raw.ecoScore;
   const ecoNum = Number(ecoRaw);
   const sustainabilityScore = Number.isFinite(ecoNum)
     ? Math.min(100, Math.max(0, ecoNum))
@@ -168,7 +222,9 @@ function normalizeAdminProduct(
     imageUrl:
       imageTrimmed ||
       (commerceType === "affiliate" ? "/eco-cards.svg" : "/eco-tote.svg"),
-    category: normalizeProductCategory(raw.category),
+    category: normalizeProductCategory(
+      typeof raw.category === "string" ? raw.category : undefined
+    ),
     sustainabilityScore,
     affiliateCommissionPercent:
       Number(raw.affiliateCommissionPercent) ||
@@ -176,15 +232,15 @@ function normalizeAdminProduct(
     listingType: raw.listingType === "service" ? "service" : "product",
     commerceType,
     amazonAffiliateUrl,
-    amazonAsin: amazonAsin ?? undefined,
+    amazonAsin: amazonAsin || undefined,
     stock:
       commerceType === "affiliate"
         ? null
         : raw.stock == null
           ? 0
           : Math.max(0, Number(raw.stock) || 0),
-    createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt,
+    createdAt: typeof raw.createdAt === "string" ? raw.createdAt : undefined,
+    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : undefined,
   };
 }
 
@@ -237,8 +293,7 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
 
 /**
  * List admin-managed catalog products.
- * Merges Firestore `products` with localStorage so a failed FS write
- * does not disappear after refresh, and Marketplace reads the same source.
+ * Prefers Firestore; keeps local-only rows and strictly-newer local edits.
  */
 export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]> {
   const local = loadLocal();
@@ -247,9 +302,12 @@ export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]>
     try {
       const snapshot = await getDocs(collection(db, "products"));
       const fromFs = snapshot.docs.map((d) =>
-        normalizeAdminProduct({ id: d.id, ...(d.data() as object) })
+        normalizeAdminProduct({
+          id: d.id,
+          ...(d.data() as Record<string, unknown>),
+        })
       );
-      const merged = mergeByIdPreferNewer(fromFs, local);
+      const merged = mergeFsPreferCloud(fromFs, local);
       saveLocal(merged);
       return merged.sort((a, b) =>
         (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")
@@ -271,6 +329,10 @@ export async function listLiveMarketplaceProducts(): Promise<Product[]> {
   return rows.map(toMarketplaceProduct);
 }
 
+/**
+ * Create or update a product on the same Firestore document id.
+ * When Firebase is configured, a failed write throws (no silent local-only success).
+ */
 export async function saveAdminCatalogProduct(
   input: AdminProductInput,
   opts: { adminEmail?: string | null; existingCreatedAt?: string }
@@ -290,28 +352,21 @@ export async function saveAdminCatalogProduct(
   const db = getFirebaseFirestore();
   if (db) {
     try {
-      const { stock, ...rest } = product;
-      await setDoc(doc(db, "products", product.id), {
-        ...rest,
-        stock: product.commerceType === "affiliate" ? null : stock,
-        ecoScore: product.sustainabilityScore,
-      });
-      // Local mirror only as cache after a successful cloud write (no warning).
+      // Same doc id for create and edit (e.g. live-…).
+      await setDoc(doc(db, "products", product.id), toFirestorePayload(product));
       upsertLocal(product);
+      notifyCatalogUpdated();
       return { product, persist: "firestore" };
     } catch (e) {
-      console.warn("[products] Firestore save failed, keeping local", e);
-      upsertLocal(product);
-      return {
-        product,
-        persist: "local",
-        warning: firestoreErrorMessage(e),
-      };
+      console.error("[products] Firestore save/update failed", e);
+      // Do not silently treat as success — Admin must see the real error.
+      throw new Error(firestoreErrorMessage(e));
     }
   }
 
   // Firebase not configured — local is the only store.
   upsertLocal(product);
+  notifyCatalogUpdated();
   return {
     product,
     persist: "local",
@@ -333,11 +388,13 @@ export async function deleteAdminCatalogProduct(
     try {
       await deleteDoc(doc(db, "products", id));
     } catch (e) {
-      console.warn("[products] Firestore delete failed, updating local", e);
+      console.error("[products] Firestore delete failed", e);
+      throw new Error(firestoreErrorMessage(e));
     }
   }
 
   saveLocal(loadLocal().filter((p) => p.id !== id));
+  notifyCatalogUpdated();
 }
 
 /**
