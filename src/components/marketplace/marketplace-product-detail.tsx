@@ -13,7 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { isAffiliateProduct } from "@/lib/commerce-type";
 import {
+  canAddProductToCart,
   DELIVERY_MODE_LABELS,
+  isRentalListing,
+  isServiceListing,
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import type { Product } from "@/types";
@@ -31,8 +34,10 @@ export function MarketplaceProductDetail({
   addedLabel?: string;
   addLabel?: string;
 }) {
-  const isService = product.listingType === "service";
+  const isService = isServiceListing(product);
+  const isRental = isRentalListing(product);
   const isAffiliate = isAffiliateProduct(product);
+  const showAddToCart = canAddProductToCart(product);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -46,6 +51,20 @@ export function MarketplaceProductDetail({
       document.body.style.overflow = prev;
     };
   }, [onClose]);
+
+  const detailEyebrow = isService
+    ? "Service details"
+    : isRental
+      ? "Rental details"
+      : "Product details";
+
+  const trustCopy = isAffiliate
+    ? "Sold on Amazon via our Associates link — stock and fulfilment are handled by Amazon."
+    : isService
+      ? "Clear duration, delivery, and what’s included help you book the right session — once."
+      : isRental
+        ? "Check area and notes below, then contact or book when booking goes live."
+        : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet.";
 
   return (
     <div
@@ -64,7 +83,7 @@ export function MarketplaceProductDetail({
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <MarketplaceBrandBadge className="text-[10px]" />
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {isService ? "Service details" : "Product details"}
+                {detailEyebrow}
               </p>
             </div>
             <h2 className="font-heading truncate text-lg font-semibold text-primary sm:text-xl">
@@ -88,7 +107,7 @@ export function MarketplaceProductDetail({
               imageUrl={product.imageUrl}
               name={product.name}
               size="detail"
-              service={isService}
+              service={isService || isRental}
             />
             <div className="min-w-0 flex-1">
               <p className="font-heading text-3xl font-semibold tabular-nums text-primary">
@@ -102,7 +121,9 @@ export function MarketplaceProductDetail({
                 ) : (
                   <Badge
                     variant="secondary"
-                    className={isService ? "bg-sky-100 text-sky-900" : undefined}
+                    className={
+                      isService || isRental ? "bg-sky-100 text-sky-900" : undefined
+                    }
                   >
                     {listingTypeLabel(product.listingType)}
                   </Badge>
@@ -116,15 +137,17 @@ export function MarketplaceProductDetail({
                     {DELIVERY_MODE_LABELS[product.deliveryMode]}
                   </Badge>
                 )}
-                <Badge
-                  className={
-                    product.sustainabilityScore >= 90
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-gold/15 text-primary"
-                  }
-                >
-                  {product.sustainabilityScore}% eco
-                </Badge>
+                {!isService && !isRental && (
+                  <Badge
+                    className={
+                      product.sustainabilityScore >= 90
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-gold/15 text-primary"
+                    }
+                  >
+                    {product.sustainabilityScore}% eco
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -133,23 +156,30 @@ export function MarketplaceProductDetail({
             {product.description}
           </p>
 
+          {(isService || isRental) && product.availabilityNote && (
+            <p className="rounded-xl border border-border/70 bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground/90">
+              <span className="font-medium text-primary">
+                {isRental ? "Area / notes: " : "Availability: "}
+              </span>
+              {product.availabilityNote}
+            </p>
+          )}
+
           <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-900/90 sm:text-sm">
-            {isAffiliate
-              ? "Sold on Amazon via our Associates link — stock and fulfilment are handled by Amazon."
-              : isService
-                ? "Clear duration, delivery, and what’s included help you book the right session — once."
-                : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet."}
+            {trustCopy}
           </p>
 
           <TrustBadges variant="product" />
 
-          {!isService && isAffiliate && <ProductPartnerLinks product={product} />}
+          {!isService && !isRental && isAffiliate && (
+            <ProductPartnerLinks product={product} />
+          )}
 
-          {!isAffiliate && (
+          {!isAffiliate && !isService && !isRental && (
             <ProductDetailsPanel
               details={product}
               category={product.category}
-              fallbackSizeGuide={!isService && product.category === "Apparel"}
+              fallbackSizeGuide={product.category === "Apparel"}
             />
           )}
 
@@ -159,7 +189,7 @@ export function MarketplaceProductDetail({
             listingType={isService ? "service" : "product"}
           />
 
-          {!isAffiliate && (
+          {showAddToCart && (
             <div className="sticky bottom-0 -mx-4 border-t border-border/60 bg-cream/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
               <Button
                 size="lg"
@@ -167,10 +197,7 @@ export function MarketplaceProductDetail({
                 onClick={onAdd}
               >
                 <Leaf className="size-4" />
-                {addLabel ??
-                  (isService
-                    ? `Book session — £${product.price}`
-                    : `Add to cart — £${product.price}`)}
+                {addLabel ?? `Add to cart — £${product.price}`}
               </Button>
               {addedLabel && (
                 <p className="mt-2 text-center text-sm text-emerald-800">

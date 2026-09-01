@@ -57,8 +57,8 @@ export interface SellerApplicationInput {
   companyName?: string;
 }
 
-/** Goods vs bookable / deliverable services */
-export type ListingType = "product" | "service";
+/** Goods vs bookable services vs rentals */
+export type ListingType = "product" | "service" | "rental";
 
 /** How the shopper buys: Stripe/stock cart vs outbound Amazon Associates */
 export type CommerceType = "first_party" | "affiliate";

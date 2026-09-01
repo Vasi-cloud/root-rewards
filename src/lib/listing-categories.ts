@@ -25,6 +25,16 @@ export const SERVICE_CATEGORIES = [
   "Home Services",
 ] as const;
 
+/** Borrowable gear categories for Admin rentals */
+export const RENTAL_CATEGORIES = [
+  "Camping",
+  "Mobility",
+  "Tools",
+  "Events",
+  "Water Sports",
+  "Home",
+] as const;
+
 /** Compact labels for Featured Solo Makers domain chips */
 export const SOLO_DOMAIN_CHIPS = [
   { id: "Legal", label: "Legal" },
@@ -38,6 +48,7 @@ export const SOLO_DOMAIN_CHIPS = [
 
 export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
 export type ServiceCategory = (typeof SERVICE_CATEGORIES)[number];
+export type RentalCategory = (typeof RENTAL_CATEGORIES)[number];
 export type SoloDomainId = (typeof SOLO_DOMAIN_CHIPS)[number]["id"];
 
 export const DELIVERY_MODE_LABELS: Record<ServiceDeliveryMode, string> = {
@@ -49,7 +60,9 @@ export const DELIVERY_MODE_LABELS: Record<ServiceDeliveryMode, string> = {
 export function categoriesForListingType(
   listingType: ListingType
 ): readonly string[] {
-  return listingType === "service" ? SERVICE_CATEGORIES : PRODUCT_CATEGORIES;
+  if (listingType === "service") return SERVICE_CATEGORIES;
+  if (listingType === "rental") return RENTAL_CATEGORIES;
+  return PRODUCT_CATEGORIES;
 }
 
 export function isServiceCategory(category: string): boolean {
@@ -57,9 +70,37 @@ export function isServiceCategory(category: string): boolean {
 }
 
 export function defaultCategoryFor(listingType: ListingType): string {
-  return listingType === "service" ? "Consulting" : "Kitchen";
+  if (listingType === "service") return "Consulting";
+  if (listingType === "rental") return "Camping";
+  return "Kitchen";
 }
 
 export function listingTypeLabel(listingType: ListingType | undefined): string {
-  return listingType === "service" ? "Service" : "Product";
+  if (listingType === "service") return "Service";
+  if (listingType === "rental") return "Rental";
+  return "Product";
+}
+
+export function isServiceListing(
+  product: { listingType?: ListingType } | null | undefined
+): boolean {
+  return product?.listingType === "service";
+}
+
+export function isRentalListing(
+  product: { listingType?: ListingType } | null | undefined
+): boolean {
+  return product?.listingType === "rental";
+}
+
+/** First-party goods that can use Add to cart / Stripe (not service, rental, or Amazon). */
+export function canAddProductToCart(product: {
+  listingType?: ListingType;
+  commerceType?: string;
+  amazonAffiliateUrl?: string;
+}): boolean {
+  if (isServiceListing(product) || isRentalListing(product)) return false;
+  if (product.commerceType === "affiliate") return false;
+  if (product.amazonAffiliateUrl?.trim()) return false;
+  return true;
 }

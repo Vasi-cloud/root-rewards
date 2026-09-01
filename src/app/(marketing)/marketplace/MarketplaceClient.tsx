@@ -17,10 +17,6 @@ import { useEffect, useMemo, useState } from "react";
 import { ReportProductButton } from "@/components/marketplace/ReportProductButton";
 import { MarketplaceProductDetail } from "@/components/marketplace/marketplace-product-detail";
 import { MarketplaceProductImage } from "@/components/marketplace/marketplace-product-image";
-import {
-  MarketplaceRentals,
-  RentalListingGrid,
-} from "@/components/marketplace/MarketplaceRentals";
 import { FeaturedSoloMakers } from "@/components/marketplace/FeaturedSoloMakers";
 import { SellerShopsStrip } from "@/components/marketplace/SellerShopsStrip";
 import { BuyLocalStrip } from "@/components/marketplace/BuyLocalStrip";
@@ -44,17 +40,16 @@ import {
   CATALOG_REV_KEY,
   CATALOG_UPDATED_EVENT,
   listLiveMarketplaceProducts,
-  mergeMarketplaceCatalog,
 } from "@/lib/admin-catalog-products";
 import { isAffiliateProduct } from "@/lib/commerce-type";
-import { MARKETPLACE_PRODUCTS } from "@/lib/marketplace-catalog";
-import { DELIVERY_MODE_LABELS, listingTypeLabel } from "@/lib/listing-categories";
-import { hasProductSpecs } from "@/lib/product-details";
 import {
-  RENTAL_COUNT,
-  RENTAL_ITEMS,
-  filterRentalItems,
-} from "@/lib/rental-catalog";
+  canAddProductToCart,
+  DELIVERY_MODE_LABELS,
+  isRentalListing,
+  isServiceListing,
+  listingTypeLabel,
+} from "@/lib/listing-categories";
+import { hasProductSpecs } from "@/lib/product-details";
 import type { CartItem, Product } from "@/types";
 
 type MarketSection = "all" | "products" | "services" | "rentals";
@@ -85,19 +80,19 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | undefined {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 }
 
-function isServiceListing(product: Product): boolean {
-  return product.listingType === "service";
-}
-
 function poolsFromCatalog(catalog: Product[]) {
-  const PRODUCT_POOL = catalog.filter((p) => !isServiceListing(p));
+  const PRODUCT_POOL = catalog.filter(
+    (p) => !isServiceListing(p) && !isRentalListing(p)
+  );
   const SERVICE_POOL = catalog.filter(isServiceListing);
-  const GOODS_AND_SERVICES_POOL = [...PRODUCT_POOL, ...SERVICE_POOL];
+  const RENTAL_POOL = catalog.filter(isRentalListing);
+  const ALL_POOL = [...PRODUCT_POOL, ...SERVICE_POOL, ...RENTAL_POOL];
   return {
     PRODUCT_POOL,
     SERVICE_POOL,
-    GOODS_AND_SERVICES_POOL,
-    FULL_CATALOG_COUNT: GOODS_AND_SERVICES_POOL.length + RENTAL_COUNT,
+    RENTAL_POOL,
+    ALL_POOL,
+    FULL_CATALOG_COUNT: ALL_POOL.length,
   };
 }
 
@@ -106,7 +101,8 @@ function poolForSection(
   pools: ReturnType<typeof poolsFromCatalog>
 ): Product[] {
   if (section === "services") return pools.SERVICE_POOL;
-  if (section === "all") return pools.GOODS_AND_SERVICES_POOL;
+  if (section === "rentals") return pools.RENTAL_POOL;
+  if (section === "all") return pools.ALL_POOL;
   if (section === "products") return pools.PRODUCT_POOL;
   return [];
 }
@@ -132,7 +128,8 @@ function formatResultsLabel(
 export default function MarketplaceClient() {
   const { addToCart, cart } = useCart();
   const { t, lang } = useI18n(); // lang forces re-render on change
-  const [catalog, setCatalog] = useState<Product[]>(MARKETPLACE_PRODUCTS);
+  const [catalog, setCatalog] = useState<Product[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [section, setSection] = useState<MarketSection>("products");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -159,10 +156,14 @@ export default function MarketplaceClient() {
       listLiveMarketplaceProducts()
         .then((live) => {
           if (cancelled) return;
-          setCatalog(mergeMarketplaceCatalog(MARKETPLACE_PRODUCTS, live));
+          // Firestore live catalog only — seed demos are hidden.
+          setCatalog(live);
         })
         .catch(() => {
-          /* seed catalog already shown */
+          if (!cancelled) setCatalog([]);
+        })
+        .finally(() => {
+          if (!cancelled) setCatalogLoading(false);
         });
     }
 
@@ -185,7 +186,7 @@ export default function MarketplaceClient() {
   }, []);
 
   const pools = useMemo(() => poolsFromCatalog(catalog), [catalog]);
-  const { PRODUCT_POOL, SERVICE_POOL, FULL_CATALOG_COUNT } = pools;
+  const { PRODUCT_POOL, SERVICE_POOL, RENTAL_POOL, FULL_CATALOG_COUNT } = pools;
 
   const resetListingFilters = () => {
     setSelectedCategory("All");
@@ -205,23 +206,32 @@ export default function MarketplaceClient() {
   const pool = poolForSection(section, pools);
 
   const filteredListings = useMemo(() => {
-    if (section === "rentals") return [];
     const term = debouncedSearchTerm.toLowerCase();
+    const applyEcoAndDeals =
+      section === "products" || section === "all";
     return pool
       .filter((product) => {
+        const isSvcOrRental =
+          isServiceListing(product) || isRentalListing(product);
         const matchesSearch =
           product.name.toLowerCase().includes(term) ||
           product.description.toLowerCase().includes(term) ||
           product.category.toLowerCase().includes(term) ||
-          (product.materials?.toLowerCase().includes(term) ?? false);
+          (product.materials?.toLowerCase().includes(term) ?? false) ||
+          (product.availabilityNote?.toLowerCase().includes(term) ?? false);
         const matchesCategory =
           selectedCategory === "All" || product.category === selectedCategory;
         const matchesMinPrice = !minPrice || product.price >= Number(minPrice);
         const matchesMaxPrice = !maxPrice || product.price <= Number(maxPrice);
-        const matchesEco = product.sustainabilityScore >= minEcoScore;
+        const matchesEco =
+          !applyEcoAndDeals ||
+          isSvcOrRental ||
+          product.sustainabilityScore >= minEcoScore;
         const comparison = getPriceComparison(product);
         const matchesBestDeal =
-          !bestDealsOnly || (comparison?.isBestDeal ?? false);
+          !bestDealsOnly ||
+          isSvcOrRental ||
+          (comparison?.isBestDeal ?? false);
         return (
           matchesSearch &&
           matchesCategory &&
@@ -232,11 +242,12 @@ export default function MarketplaceClient() {
         );
       })
       .sort((a, b) => {
-        // In All, keep products ahead of services for the main shopping feel
+        // In All, keep products ahead of services / rentals
         if (section === "all") {
-          const aSvc = isServiceListing(a) ? 1 : 0;
-          const bSvc = isServiceListing(b) ? 1 : 0;
-          if (aSvc !== bSvc) return aSvc - bSvc;
+          const rank = (p: Product) =>
+            isRentalListing(p) ? 2 : isServiceListing(p) ? 1 : 0;
+          const diff = rank(a) - rank(b);
+          if (diff !== 0) return diff;
         }
         const aBest = getPriceComparison(a)?.isBestDeal ? 1 : 0;
         const bBest = getPriceComparison(b)?.isBestDeal ? 1 : 0;
@@ -254,28 +265,15 @@ export default function MarketplaceClient() {
     bestDealsOnly,
   ]);
 
-  /** Rentals in All share search + category; price/eco/best-deal apply to goods only. */
-  const filteredRentals = useMemo(() => {
-    if (section !== "all") return [];
-    return filterRentalItems(RENTAL_ITEMS, {
-      search: debouncedSearchTerm,
-      category: selectedCategory,
-    });
-  }, [section, debouncedSearchTerm, selectedCategory]);
-
   const shownProductCount = filteredListings.filter(
-    (p) => !isServiceListing(p)
+    (p) => !isServiceListing(p) && !isRentalListing(p)
   ).length;
   const shownServiceCount = filteredListings.filter(isServiceListing).length;
-  const shownRentalCount =
-    section === "all" ? filteredRentals.length : section === "rentals" ? RENTAL_COUNT : 0;
+  const shownRentalCount = filteredListings.filter(isRentalListing).length;
 
   const categories = useMemo(() => {
-    const fromPool = pool.map((p) => p.category);
-    const fromRentals =
-      section === "all" ? RENTAL_ITEMS.map((r) => r.category) : [];
-    return Array.from(new Set([...fromPool, ...fromRentals])).sort();
-  }, [pool, section]);
+    return Array.from(new Set(pool.map((p) => p.category))).sort();
+  }, [pool]);
 
   const bestDealCount = useMemo(
     () => pool.filter((p) => getPriceComparison(p)?.isBestDeal).length,
@@ -283,6 +281,7 @@ export default function MarketplaceClient() {
   );
 
   const handleAddToCart = (product: Product) => {
+    if (!canAddProductToCart(product)) return;
     addToCart(product);
     setJustAddedId(product.id);
     setTimeout(() => setJustAddedId(null), 1400);
@@ -383,7 +382,7 @@ export default function MarketplaceClient() {
     {
       id: "rentals",
       label: "Rentals",
-      count: RENTAL_COUNT,
+      count: RENTAL_POOL.length,
       icon: RefreshCw,
       hint: "Borrow gear for a while",
     },
@@ -550,10 +549,14 @@ export default function MarketplaceClient() {
             <div className="hidden md:block">{t("marketplace.sort")}</div>
           </div>
 
-          {filteredListings.length === 0 && filteredRentals.length === 0 ? (
+          {filteredListings.length === 0 ? (
             <ListingGrid
               items={[]}
-              emptyLabel={t("marketplace.empty")}
+              emptyLabel={
+                catalogLoading
+                  ? "Loading listings…"
+                  : t("marketplace.empty")
+              }
               clearLabel={t("marketplace.clear")}
               onClear={clearFilters}
               justAddedId={justAddedId}
@@ -563,31 +566,17 @@ export default function MarketplaceClient() {
               onAdd={handleAddToCart}
             />
           ) : (
-            <div className="space-y-8">
-              {filteredListings.length > 0 && (
-                <ListingGrid
-                  items={filteredListings}
-                  emptyLabel={t("marketplace.empty")}
-                  clearLabel={t("marketplace.clear")}
-                  onClear={clearFilters}
-                  justAddedId={justAddedId}
-                  cart={cart}
-                  t={t}
-                  onDetail={setDetailProduct}
-                  onAdd={handleAddToCart}
-                />
-              )}
-              {filteredRentals.length > 0 && (
-                <div>
-                  {filteredListings.length > 0 && (
-                    <h3 className="mb-3 font-heading text-lg font-semibold text-primary">
-                      Rentals
-                    </h3>
-                  )}
-                  <RentalListingGrid items={filteredRentals} />
-                </div>
-              )}
-            </div>
+            <ListingGrid
+              items={filteredListings}
+              emptyLabel={t("marketplace.empty")}
+              clearLabel={t("marketplace.clear")}
+              onClear={clearFilters}
+              justAddedId={justAddedId}
+              cart={cart}
+              t={t}
+              onDetail={setDetailProduct}
+              onAdd={handleAddToCart}
+            />
           )}
         </>
       )}
@@ -640,7 +629,11 @@ export default function MarketplaceClient() {
 
           <ListingGrid
             items={filteredListings}
-            emptyLabel={t("marketplace.empty")}
+            emptyLabel={
+              catalogLoading
+                ? "Loading products…"
+                : t("marketplace.empty")
+            }
             clearLabel={t("marketplace.clear")}
             onClear={clearFilters}
             justAddedId={justAddedId}
@@ -699,7 +692,11 @@ export default function MarketplaceClient() {
 
           <ListingGrid
             items={filteredListings}
-            emptyLabel="No services match your current filters."
+            emptyLabel={
+              catalogLoading
+                ? "Loading services…"
+                : "No services yet — add one in Admin → Products → Service."
+            }
             clearLabel={t("marketplace.clear")}
             onClear={clearFilters}
             justAddedId={justAddedId}
@@ -712,7 +709,56 @@ export default function MarketplaceClient() {
       )}
 
       {section === "rentals" && (
-        <MarketplaceRentals onGoToAll={() => goToSection("all")} />
+        <>
+          <SectionHeading
+            title="Rentals"
+            description="Borrow gear for a weekend or a season — listings from the live catalog."
+            onGoToAll={() => goToSection("all")}
+          />
+          <ListingFilters
+            searchLabel="Search rentals"
+            searchPlaceholder="Search tents, bikes, tools…"
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onVoiceSearch={startVoiceSearch}
+            isListening={isListening}
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onMinPriceChange={setMinPrice}
+            onMaxPriceChange={setMaxPrice}
+            minEcoScore={minEcoScore}
+            onEcoScoreChange={setMinEcoScore}
+            showBestDeals={false}
+            bestDealsOnly={false}
+            onBestDealsToggle={() => {}}
+            bestDealCount={0}
+            activeFilterCount={activeFilterCount}
+            onClearFilters={clearFilters}
+            ecoLabel={t("marketplace.filter.ecoscore")}
+            categoryLabel={t("marketplace.filter.category")}
+            minPriceLabel={t("marketplace.filter.minprice")}
+            maxPriceLabel={t("marketplace.filter.maxprice")}
+          />
+          <div className="mb-4 text-sm text-muted-foreground">{resultsLabel}</div>
+          <ListingGrid
+            items={filteredListings}
+            emptyLabel={
+              catalogLoading
+                ? "Loading rentals…"
+                : "No rentals yet — add one in Admin → Products → Rental."
+            }
+            clearLabel={t("marketplace.clear")}
+            onClear={clearFilters}
+            justAddedId={justAddedId}
+            cart={cart}
+            t={t}
+            onDetail={setDetailProduct}
+            onAdd={handleAddToCart}
+          />
+        </>
       )}
 
       <div className="mt-12 rounded-2xl border border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">
@@ -729,9 +775,7 @@ export default function MarketplaceClient() {
           addLabel={
             justAddedId === detailProduct.id
               ? t("marketplace.added")
-              : detailProduct.listingType === "service"
-                ? `Book session — £${detailProduct.price}`
-                : `Add to cart — £${detailProduct.price}`
+              : `Add to cart — £${detailProduct.price}`
           }
         />
       )}
@@ -1013,6 +1057,8 @@ function ListingGrid({
         const qtyInCart = cartItem?.quantity ?? 0;
         const comparison = getPriceComparison(product);
         const isService = isServiceListing(product);
+        const isRental = isRentalListing(product);
+        const showAddToCart = canAddProductToCart(product);
 
         return (
           <Card
@@ -1023,7 +1069,7 @@ function ListingGrid({
                 : "border-border/80"
             }`}
           >
-            {comparison?.isBestDeal && !isService && (
+            {comparison?.isBestDeal && !isService && !isRental && (
               <div className="absolute -top-2 left-3 z-10 sm:left-4">
                 <Badge className="gap-1 bg-gold text-primary shadow-sm">
                   <Tag className="size-3" />
@@ -1042,7 +1088,7 @@ function ListingGrid({
               <MarketplaceProductImage
                 imageUrl={product.imageUrl}
                 name={product.name}
-                service={isService}
+                service={isService || isRental}
               />
               <CardTitle className="font-heading text-lg leading-tight sm:text-xl">
                 {product.name}
@@ -1059,7 +1105,9 @@ function ListingGrid({
                 >
                   {isService
                     ? "Session details & what’s included"
-                    : "Materials, care & sizing"}
+                    : isRental
+                      ? "Rental details"
+                      : "Materials, care & sizing"}
                 </button>
               )}
             </CardHeader>
@@ -1075,7 +1123,9 @@ function ListingGrid({
                   <Badge
                     variant="secondary"
                     className={
-                      isService ? "bg-sky-100 text-sky-900" : "text-xs"
+                      isService || isRental
+                        ? "bg-sky-100 text-sky-900"
+                        : "text-xs"
                     }
                   >
                     {listingTypeLabel(product.listingType)}
@@ -1091,16 +1141,18 @@ function ListingGrid({
                     {DELIVERY_MODE_LABELS[product.deliveryMode]}
                   </Badge>
                 )}
-                <Badge
-                  className={
-                    product.sustainabilityScore >= 90
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-gold/15 text-primary"
-                  }
-                >
-                  {product.sustainabilityScore}% eco
-                </Badge>
-                {qtyInCart > 0 && (
+                {!isService && !isRental && (
+                  <Badge
+                    className={
+                      product.sustainabilityScore >= 90
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-gold/15 text-primary"
+                    }
+                  >
+                    {product.sustainabilityScore}% eco
+                  </Badge>
+                )}
+                {qtyInCart > 0 && showAddToCart && (
                   <Badge className="bg-primary text-primary-foreground">
                     {t("marketplace.incart").replace(
                       "{qty}",
@@ -1110,12 +1162,12 @@ function ListingGrid({
                 )}
               </div>
 
-              {!isService && isAffiliateProduct(product) && (
+              {!isService && !isRental && isAffiliateProduct(product) && (
                 <div className="rounded-lg border border-border/60 bg-background/80 px-2.5 py-2">
                   <ProductPartnerLinks product={product} />
                 </div>
               )}
-              {isService && product.availabilityNote && (
+              {(isService || isRental) && product.availabilityNote && (
                 <p className="text-xs text-muted-foreground">
                   {product.availabilityNote}
                 </p>
@@ -1129,13 +1181,13 @@ function ListingGrid({
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant={showAddToCart ? "outline" : "default"}
                   className="min-h-11"
                   onClick={() => onDetail(product)}
                 >
                   Details
                 </Button>
-                {!isAffiliateProduct(product) && (
+                {showAddToCart && (
                   <Button
                     size="sm"
                     onClick={() => onAdd(product)}
@@ -1144,13 +1196,9 @@ function ListingGrid({
                   >
                     {isAdded
                       ? t("marketplace.added")
-                      : isService
-                        ? qtyInCart > 0
-                          ? "Book another"
-                          : "Book session"
-                        : qtyInCart > 0
-                          ? t("marketplace.addmore")
-                          : t("marketplace.add")}
+                      : qtyInCart > 0
+                        ? t("marketplace.addmore")
+                        : t("marketplace.add")}
                   </Button>
                 )}
               </div>

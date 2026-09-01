@@ -12,15 +12,15 @@ import {
   selectionTotalUnits,
   unitsToDollars,
 } from "../src/lib/causes";
-import { MARKETPLACE_PRODUCTS } from "../src/lib/marketplace-catalog";
+import { MARKETPLACE_SEED_PRODUCTS } from "../src/lib/marketplace-catalog";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error(msg);
 }
 
 // 1) Add to cart (simulate)
-const product = MARKETPLACE_PRODUCTS[0];
-assert(!!product, "catalog has products");
+const product = MARKETPLACE_SEED_PRODUCTS[0];
+assert(!!product, "seed catalog has products");
 const cart = [{ ...product, quantity: 2 }];
 const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 assert(subtotal === product.price * 2, "subtotal matches qty");

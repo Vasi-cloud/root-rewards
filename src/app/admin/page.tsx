@@ -54,6 +54,11 @@ import {
 import { commerceTypeLabel } from "@/lib/commerce-type";
 import { isFirebaseClientConfigured } from "@/lib/firebase/config";
 import {
+  categoriesForListingType,
+  defaultCategoryFor,
+  listingTypeLabel,
+} from "@/lib/listing-categories";
+import {
   deleteFeedback,
   feedbackStats,
   loadFeedback,
@@ -73,6 +78,7 @@ import type { FeedbackItem, FeedbackStatus } from "@/types/feedback";
 import { FEEDBACK_CATEGORY_LABELS } from "@/types/feedback";
 import type {
   CommerceType,
+  ListingType,
   ProductApprovalStatus,
   SellerStatus,
   SellerTrustTier,
@@ -244,9 +250,11 @@ const emptyProductForm = {
   ecoScore: "90",
   stock: "50",
   description: "",
+  listingType: "product" as ListingType,
   commerceType: "affiliate" as CommerceType,
   amazonAffiliateUrl: "",
   imageUrl: "",
+  availabilityNote: "",
 };
 
 function statusBadgeClass(status: OrderStatus) {
@@ -346,6 +354,9 @@ export default function AdminDashboard() {
   const [form, setForm] = useState(emptyProductForm);
   const productFormRef = useRef<HTMLDivElement>(null);
   const [productQuery, setProductQuery] = useState("");
+  const [listingTypeFilter, setListingTypeFilter] = useState<
+    "All" | ListingType
+  >("All");
   const [orderFilter, setOrderFilter] = useState<"All" | OrderStatus>("All");
   const [listingFilter, setListingFilter] = useState<
     "All" | ProductApprovalStatus
@@ -417,6 +428,7 @@ export default function AdminDashboard() {
         : 0;
     const lowStock = products.filter(
       (p) =>
+        (p.listingType ?? "product") === "product" &&
         p.commerceType !== "affiliate" &&
         p.stock != null &&
         p.stock < 60
@@ -438,11 +450,15 @@ export default function AdminDashboard() {
 
   const filteredProducts = products.filter((p) => {
     const q = productQuery.toLowerCase();
-    return (
+    const matchesQuery =
       !q ||
       p.name.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q)
-    );
+      p.category.toLowerCase().includes(q) ||
+      listingTypeLabel(p.listingType).toLowerCase().includes(q);
+    const matchesType =
+      listingTypeFilter === "All" ||
+      (p.listingType ?? "product") === listingTypeFilter;
+    return matchesQuery && matchesType;
   });
 
   const filteredOrders = orders.filter(
@@ -468,13 +484,16 @@ export default function AdminDashboard() {
       ecoScore: String(product.sustainabilityScore),
       stock: product.stock == null ? "" : String(product.stock),
       description: product.description,
+      listingType: product.listingType ?? "product",
       commerceType: product.commerceType,
       amazonAffiliateUrl: product.amazonAffiliateUrl ?? "",
       imageUrl:
         product.imageUrl === "/eco-cards.svg" ||
-        product.imageUrl === "/eco-tote.svg"
+        product.imageUrl === "/eco-tote.svg" ||
+        product.imageUrl === "/eco-tent.svg"
           ? ""
           : (product.imageUrl ?? ""),
+      availabilityNote: product.availabilityNote ?? "",
     });
     setFormOpen(true);
     // Open form and bring it into view so Edit feels immediate.
@@ -505,17 +524,23 @@ export default function AdminDashboard() {
         {
           id: editingId ?? undefined,
           name: form.name.trim(),
-          category: form.category.trim() || "Home",
+          category: form.category.trim() || defaultCategoryFor(form.listingType),
           price: Number(form.price) || 0,
           ecoScore,
           stock:
-            form.commerceType === "affiliate"
+            form.listingType !== "product" || form.commerceType === "affiliate"
               ? null
               : Math.max(0, Number(form.stock) || 0),
           description: form.description.trim(),
-          commerceType: form.commerceType,
-          amazonAffiliateUrl: form.amazonAffiliateUrl.trim(),
+          listingType: form.listingType,
+          commerceType:
+            form.listingType !== "product" ? "first_party" : form.commerceType,
+          amazonAffiliateUrl:
+            form.listingType === "product" && form.commerceType === "affiliate"
+              ? form.amazonAffiliateUrl.trim()
+              : "",
           imageUrl: form.imageUrl.trim(),
+          availabilityNote: form.availabilityNote.trim(),
         },
         {
           adminEmail: user?.email,
@@ -760,13 +785,25 @@ export default function AdminDashboard() {
                 type="text"
                 value={productQuery}
                 onChange={(e) => setProductQuery(e.target.value)}
-                placeholder="Search products…"
+                placeholder="Search listings…"
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:max-w-sm"
               />
+              <select
+                value={listingTypeFilter}
+                onChange={(e) =>
+                  setListingTypeFilter(e.target.value as "All" | ListingType)
+                }
+                className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="All">All types</option>
+                <option value="product">Product</option>
+                <option value="service">Service</option>
+                <option value="rental">Rental</option>
+              </select>
               <span className="text-sm text-muted-foreground">
                 {productsLoading
                   ? "Loading…"
-                  : `${filteredProducts.length} products`}
+                  : `${filteredProducts.length} listing${filteredProducts.length === 1 ? "" : "s"}`}
               </span>
             </div>
 
@@ -819,26 +856,57 @@ export default function AdminDashboard() {
                   >
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        Type
+                        Listing type
                       </label>
                       <select
-                        value={form.commerceType}
-                        onChange={(e) =>
+                        value={form.listingType}
+                        onChange={(e) => {
+                          const listingType = e.target.value as ListingType;
                           setForm((f) => ({
                             ...f,
-                            commerceType: e.target.value as CommerceType,
-                          }))
-                        }
+                            listingType,
+                            category: defaultCategoryFor(listingType),
+                            commerceType:
+                              listingType === "product"
+                                ? f.commerceType
+                                : "first_party",
+                            amazonAffiliateUrl:
+                              listingType === "product"
+                                ? f.amazonAffiliateUrl
+                                : "",
+                          }));
+                        }}
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       >
-                        <option value="affiliate">
-                          Affiliate (Amazon) — Shop Amazon CTA
-                        </option>
-                        <option value="first_party">
-                          First-party — Stripe / stock cart
-                        </option>
+                        <option value="product">Product</option>
+                        <option value="service">Service</option>
+                        <option value="rental">Rental</option>
                       </select>
                     </div>
+                    {form.listingType === "product" && (
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Commerce
+                        </label>
+                        <select
+                          value={form.commerceType}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              commerceType: e.target.value as CommerceType,
+                            }))
+                          }
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="affiliate">
+                            Affiliate (Amazon) — Shop Amazon CTA
+                          </option>
+                          <option value="first_party">
+                            First-party — Stripe / stock cart
+                          </option>
+                        </select>
+                      </div>
+                    )}
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
                         Name
@@ -852,7 +920,8 @@ export default function AdminDashboard() {
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                     </div>
-                    {form.commerceType === "affiliate" && (
+                    {form.listingType === "product" &&
+                      form.commerceType === "affiliate" && (
                       <div className="sm:col-span-2">
                         <label className="mb-1 block text-xs font-medium text-muted-foreground">
                           Amazon affiliate URL
@@ -907,11 +976,11 @@ export default function AdminDashboard() {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, category: e.target.value }))
                         }
-                        placeholder="Kitchen, Home, or custom"
+                        placeholder="Category or custom"
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                       <datalist id="admin-product-categories">
-                        {CATEGORIES.map((c) => (
+                        {categoriesForListingType(form.listingType).map((c) => (
                           <option key={c} value={c} />
                         ))}
                       </datalist>
@@ -952,9 +1021,14 @@ export default function AdminDashboard() {
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
                         Stock
                       </label>
-                      {form.commerceType === "affiliate" ? (
+                      {form.listingType !== "product" ||
+                      form.commerceType === "affiliate" ? (
                         <p className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
-                          N/A — Amazon fulfils affiliate listings
+                          {form.listingType === "service"
+                            ? "N/A — services are bookable, not stocked"
+                            : form.listingType === "rental"
+                              ? "N/A — manage rental availability in notes"
+                              : "N/A — Amazon fulfils affiliate listings"}
                         </p>
                       ) : (
                         <input
@@ -984,6 +1058,31 @@ export default function AdminDashboard() {
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                     </div>
+                    {(form.listingType === "service" ||
+                      form.listingType === "rental") && (
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Area / notes{" "}
+                          <span className="font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={form.availabilityNote}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              availabilityNote: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            form.listingType === "service"
+                              ? "e.g. By appointment · London"
+                              : "e.g. Collection in Bristol · weekends"
+                          }
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                        />
+                      </div>
+                    )}
                     {productSaveError && (
                       <p className="sm:col-span-2 text-sm text-destructive">
                         {productSaveError}
@@ -1033,14 +1132,22 @@ export default function AdminDashboard() {
                         <Badge variant="outline">{product.category}</Badge>
                         <Badge
                           className={
-                            product.commerceType === "affiliate"
-                              ? "bg-emerald-100 text-emerald-900"
-                              : "bg-secondary text-secondary-foreground"
+                            product.listingType === "service"
+                              ? "bg-sky-100 text-sky-900"
+                              : product.listingType === "rental"
+                                ? "bg-emerald-100 text-emerald-900"
+                                : product.commerceType === "affiliate"
+                                  ? "bg-emerald-100 text-emerald-900"
+                                  : "bg-secondary text-secondary-foreground"
                           }
                         >
-                          {commerceTypeLabel(product.commerceType)}
+                          {product.listingType === "service" ||
+                          product.listingType === "rental"
+                            ? listingTypeLabel(product.listingType)
+                            : commerceTypeLabel(product.commerceType)}
                         </Badge>
-                        {product.commerceType !== "affiliate" &&
+                        {product.listingType === "product" &&
+                          product.commerceType !== "affiliate" &&
                           product.stock != null &&
                           product.stock < 60 && (
                             <Badge className="bg-gold/25 text-primary">
@@ -1056,12 +1163,21 @@ export default function AdminDashboard() {
                       <div className="text-right text-sm">
                         <div className="font-semibold tabular-nums">
                           £{product.price}
+                          {product.listingType === "rental" ? (
+                            <span className="text-xs font-normal text-muted-foreground">
+                              /day
+                            </span>
+                          ) : null}
                         </div>
                         <div className="text-xs text-emerald-700">
                           {product.sustainabilityScore}% eco ·{" "}
-                          {product.commerceType === "affiliate"
-                            ? "Stock N/A"
-                            : `${product.stock ?? 0} in stock`}
+                          {product.listingType === "service"
+                            ? "Service"
+                            : product.listingType === "rental"
+                              ? "Rental"
+                              : product.commerceType === "affiliate"
+                                ? "Stock N/A"
+                                : `${product.stock ?? 0} in stock`}
                         </div>
                       </div>
                       <div

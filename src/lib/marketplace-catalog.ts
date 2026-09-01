@@ -1,8 +1,12 @@
 import type { Product } from "@/types";
 import { apparelSizeChart, outerwearSizeChart } from "@/lib/product-details";
 
-/** Shared marketplace catalog — used by shop + recommendation agent. */
-export const MARKETPLACE_PRODUCTS: Product[] = [
+/**
+ * Hardcoded demo seed (~18 goods + services).
+ * Not shown on Marketplace / shopper search — live Firestore catalog only.
+ * Kept for smoke tests and offline fixtures.
+ */
+export const MARKETPLACE_SEED_PRODUCTS: Product[] = [
   {
     id: "1",
     name: "Organic Cotton Tote",
@@ -374,14 +378,14 @@ export const MARKETPLACE_PRODUCTS: Product[] = [
   },
 ];
 
+/** Live Marketplace uses Firestore only — seed is hidden from shopper surfaces. */
+export const MARKETPLACE_PRODUCTS: Product[] = [];
+
 export const MARKETPLACE_CATEGORIES = Array.from(
-  new Set(MARKETPLACE_PRODUCTS.map((p) => p.category))
+  new Set(MARKETPLACE_SEED_PRODUCTS.map((p) => p.category))
 ).sort();
 
-export const MARKETPLACE_SERVICES = MARKETPLACE_PRODUCTS.filter(
-  (p) => p.listingType === "service"
-);
+/** Hidden with seed — use live Firestore catalog instead. */
+export const MARKETPLACE_SERVICES: Product[] = [];
 
-export const MARKETPLACE_GOODS = MARKETPLACE_PRODUCTS.filter(
-  (p) => p.listingType !== "service"
-);
+export const MARKETPLACE_GOODS: Product[] = [];

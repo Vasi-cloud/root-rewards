@@ -16,7 +16,7 @@ import {
   normalizeAmazonProductUrl,
 } from "@/lib/amazon-affiliate";
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
-import type { CommerceType, Product } from "@/types";
+import type { CommerceType, ListingType, Product } from "@/types";
 
 /** Same key Marketplace reads via listLiveMarketplaceProducts → listAdminCatalogProducts. */
 export const LIVE_PRODUCTS_LOCAL_KEY = "forest-buddies-live-products";
@@ -42,9 +42,13 @@ export type AdminProductInput = {
   ecoScore: number;
   stock: number | null;
   description: string;
+  /** product | service | rental */
+  listingType: ListingType;
   commerceType: CommerceType;
   amazonAffiliateUrl?: string;
   imageUrl?: string;
+  /** Optional area / notes for services & rentals */
+  availabilityNote?: string;
 };
 
 export type SaveAdminProductResult = {
@@ -166,12 +170,28 @@ export function normalizeProductCategory(raw: string | undefined | null): string
     "Beauty",
     "Stationery",
     "Camping",
+    "Legal",
+    "Consulting",
+    "Workshops",
+    "Repair & Upcycling",
+    "Wellness",
+    "Garden & Outdoor",
+    "Home Services",
+    "Mobility",
+    "Tools",
+    "Events",
+    "Water Sports",
   ];
   const match = known.find(
     (c) => c.toLowerCase() === trimmed.toLowerCase()
   );
   if (match) return match;
   return trimmed.slice(0, 48);
+}
+
+function parseListingType(raw: unknown): ListingType {
+  if (raw === "service" || raw === "rental" || raw === "product") return raw;
+  return "product";
 }
 
 function readAmazonUrlField(raw: Record<string, unknown>): string | undefined {
@@ -185,10 +205,13 @@ function normalizeAdminProduct(
   raw: { id: string } & Record<string, unknown>
 ): AdminCatalogProduct {
   const amazonRaw = readAmazonUrlField(raw);
+  const listingType = parseListingType(raw.listingType);
   const commerceType: CommerceType =
-    raw.commerceType === "affiliate" || Boolean(amazonRaw)
-      ? "affiliate"
-      : "first_party";
+    listingType !== "product"
+      ? "first_party"
+      : raw.commerceType === "affiliate" || Boolean(amazonRaw)
+        ? "affiliate"
+        : "first_party";
 
   let amazonAffiliateUrl: string | undefined;
   if (commerceType === "affiliate" && amazonRaw) {
@@ -213,6 +236,7 @@ function normalizeAdminProduct(
     : 90;
 
   const imageTrimmed = String(raw.imageUrl ?? "").trim();
+  const availabilityNote = String(raw.availabilityNote ?? "").trim() || undefined;
 
   return {
     id: raw.id,
@@ -221,7 +245,13 @@ function normalizeAdminProduct(
     price: Number(raw.price) || 0,
     imageUrl:
       imageTrimmed ||
-      (commerceType === "affiliate" ? "/eco-cards.svg" : "/eco-tote.svg"),
+      (commerceType === "affiliate"
+        ? "/eco-cards.svg"
+        : listingType === "rental"
+          ? "/eco-tent.svg"
+          : listingType === "service"
+            ? "/eco-cards.svg"
+            : "/eco-tote.svg"),
     category: normalizeProductCategory(
       typeof raw.category === "string" ? raw.category : undefined
     ),
@@ -229,12 +259,15 @@ function normalizeAdminProduct(
     affiliateCommissionPercent:
       Number(raw.affiliateCommissionPercent) ||
       (commerceType === "affiliate" ? 4 : 10),
-    listingType: raw.listingType === "service" ? "service" : "product",
+    listingType,
     commerceType,
-    amazonAffiliateUrl,
-    amazonAsin: amazonAsin || undefined,
+    amazonAffiliateUrl:
+      listingType === "product" ? amazonAffiliateUrl : undefined,
+    amazonAsin:
+      listingType === "product" ? amazonAsin || undefined : undefined,
+    availabilityNote,
     stock:
-      commerceType === "affiliate"
+      commerceType === "affiliate" || listingType !== "product"
         ? null
         : raw.stock == null
           ? 0
@@ -258,7 +291,10 @@ export function validateAdminProductInput(
 ): string | null {
   if (!input.name.trim()) return "Name is required.";
   if (!(input.price >= 0)) return "Price must be zero or more.";
-  if (input.commerceType === "affiliate") {
+  if (
+    input.listingType === "product" &&
+    input.commerceType === "affiliate"
+  ) {
     const url = input.amazonAffiliateUrl?.trim() ?? "";
     if (!url) return "Amazon affiliate URL is required for affiliate products.";
     const normalized = normalizeAmazonProductUrl(url);
@@ -275,6 +311,13 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
   const eco = Number.isFinite(input.ecoScore)
     ? Math.min(100, Math.max(0, input.ecoScore))
     : 90;
+  const listingType = parseListingType(input.listingType);
+  const commerceType: CommerceType =
+    listingType !== "product"
+      ? "first_party"
+      : input.commerceType === "affiliate"
+        ? "affiliate"
+        : "first_party";
   return normalizeAdminProduct({
     id,
     name: input.name,
@@ -283,9 +326,17 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
     imageUrl: input.imageUrl?.trim() || undefined,
     category: input.category,
     sustainabilityScore: eco,
-    commerceType: input.commerceType,
-    amazonAffiliateUrl: input.amazonAffiliateUrl,
-    stock: input.commerceType === "affiliate" ? null : input.stock,
+    listingType,
+    commerceType,
+    amazonAffiliateUrl:
+      listingType === "product" && commerceType === "affiliate"
+        ? input.amazonAffiliateUrl
+        : undefined,
+    availabilityNote: input.availabilityNote?.trim() || undefined,
+    stock:
+      listingType !== "product" || commerceType === "affiliate"
+        ? null
+        : input.stock,
     createdAt: now,
     updatedAt: now,
   });
