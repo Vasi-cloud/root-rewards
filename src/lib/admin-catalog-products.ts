@@ -49,6 +49,12 @@ export type AdminProductInput = {
   imageUrl?: string;
   /** Optional area / notes for services & rentals */
   availabilityNote?: string;
+  /** Optional seller uid for first-party marketplace listings */
+  sellerId?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: string;
+  oemNote?: string;
 };
 
 export type SaveAdminProductResult = {
@@ -169,19 +175,20 @@ export function normalizeProductCategory(raw: string | undefined | null): string
     "Apparel",
     "Beauty",
     "Stationery",
-    "Camping",
-    "Legal",
-    "Consulting",
-    "Workshops",
-    "Repair & Upcycling",
-    "Wellness",
-    "Garden & Outdoor",
-    "Home Services",
-    "Mobility",
-    "Tools",
-    "Events",
-    "Water Sports",
-  ];
+  "Camping",
+  "Parts",
+  "Legal",
+  "Consulting",
+  "Workshops",
+  "Repair & Upcycling",
+  "Wellness",
+  "Garden & Outdoor",
+  "Home Services",
+  "Mobility",
+  "Tools",
+  "Events",
+  "Water Sports",
+];
   const match = known.find(
     (c) => c.toLowerCase() === trimmed.toLowerCase()
   );
@@ -237,6 +244,12 @@ function normalizeAdminProduct(
 
   const imageTrimmed = String(raw.imageUrl ?? "").trim();
   const availabilityNote = String(raw.availabilityNote ?? "").trim() || undefined;
+  const sellerRaw = String(raw.sellerId ?? raw.sellerUid ?? "").trim();
+  const sellerId = sellerRaw || undefined;
+  const vehicleMake = String(raw.vehicleMake ?? "").trim() || undefined;
+  const vehicleModel = String(raw.vehicleModel ?? "").trim() || undefined;
+  const vehicleYear = String(raw.vehicleYear ?? "").trim() || undefined;
+  const oemNote = String(raw.oemNote ?? "").trim() || undefined;
 
   return {
     id: raw.id,
@@ -266,6 +279,12 @@ function normalizeAdminProduct(
     amazonAsin:
       listingType === "product" ? amazonAsin || undefined : undefined,
     availabilityNote,
+    sellerId,
+    sellerUid: sellerId,
+    vehicleMake,
+    vehicleModel,
+    vehicleYear,
+    oemNote,
     stock:
       commerceType === "affiliate" || listingType !== "product"
         ? null
@@ -333,6 +352,26 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
         ? input.amazonAffiliateUrl
         : undefined,
     availabilityNote: input.availabilityNote?.trim() || undefined,
+    sellerId:
+      listingType === "product" && commerceType === "first_party"
+        ? input.sellerId?.trim() || undefined
+        : undefined,
+    vehicleMake:
+      listingType === "product" && commerceType === "first_party"
+        ? input.vehicleMake?.trim() || undefined
+        : undefined,
+    vehicleModel:
+      listingType === "product" && commerceType === "first_party"
+        ? input.vehicleModel?.trim() || undefined
+        : undefined,
+    vehicleYear:
+      listingType === "product" && commerceType === "first_party"
+        ? input.vehicleYear?.trim() || undefined
+        : undefined,
+    oemNote:
+      listingType === "product" && commerceType === "first_party"
+        ? input.oemNote?.trim() || undefined
+        : undefined,
     stock:
       listingType !== "product" || commerceType === "affiliate"
         ? null
@@ -446,6 +485,58 @@ export async function deleteAdminCatalogProduct(
 
   saveLocal(loadLocal().filter((p) => p.id !== id));
   notifyCatalogUpdated();
+}
+
+/**
+ * Publish a seller first-party Product listing into the live Marketplace catalog.
+ * Services are skipped (handled on shop pages). Does not touch Amazon affiliate rows.
+ */
+export async function saveSellerFirstPartyListing(
+  sellerId: string,
+  product: {
+    id: string;
+    name: string;
+    description?: string;
+    subtitle?: string;
+    category: string;
+    price: number;
+    ecoScore: number;
+    stock: number;
+    imageUrl?: string;
+    listingType?: ListingType;
+    vehicleMake?: string;
+    vehicleModel?: string;
+    vehicleYear?: string;
+    oemNote?: string;
+    createdAt?: string;
+  }
+): Promise<SaveAdminProductResult | null> {
+  if (product.listingType === "service" || product.listingType === "rental") {
+    return null;
+  }
+  return saveAdminCatalogProduct(
+    {
+      id: product.id,
+      name: product.name,
+      description:
+        (product.description ?? "").trim() ||
+        (product.subtitle ?? "").trim() ||
+        product.name,
+      category: product.category,
+      price: product.price,
+      ecoScore: product.ecoScore,
+      stock: Math.max(0, product.stock || 0),
+      listingType: "product",
+      commerceType: "first_party",
+      imageUrl: product.imageUrl,
+      sellerId,
+      vehicleMake: product.vehicleMake,
+      vehicleModel: product.vehicleModel,
+      vehicleYear: product.vehicleYear,
+      oemNote: product.oemNote,
+    },
+    { existingCreatedAt: product.createdAt }
+  );
 }
 
 /**

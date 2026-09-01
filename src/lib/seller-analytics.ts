@@ -2,6 +2,7 @@ import {
   updateSellerInStore,
   listSellerListings,
 } from "@/lib/seller-storage";
+import { PLATFORM_FEE_RATE } from "@/lib/platform-fee";
 import type {
   SellerAnalytics,
   SellerEarningsBreakdown,
@@ -17,7 +18,6 @@ export type SellerSaleLine = {
   category?: string;
 };
 
-const PLATFORM_FEE_RATE = 0.15;
 const CAUSE_RATE = 0.03;
 
 function money(n: number) {

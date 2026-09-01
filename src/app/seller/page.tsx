@@ -118,6 +118,11 @@ const emptyForm = {
   duration: "",
   deliveryMode: "remote" as ServiceDeliveryMode,
   availabilityNote: "",
+  imageUrl: "",
+  vehicleMake: "",
+  vehicleModel: "",
+  vehicleYear: "",
+  oemNote: "",
 };
 
 type ProductDraft = {
@@ -749,6 +754,11 @@ export default function SellerPage() {
       duration: product.duration ?? "",
       deliveryMode: product.deliveryMode ?? "remote",
       availabilityNote: product.availabilityNote ?? "",
+      imageUrl: product.imageUrl ?? "",
+      vehicleMake: product.vehicleMake ?? "",
+      vehicleModel: product.vehicleModel ?? "",
+      vehicleYear: product.vehicleYear ?? "",
+      oemNote: product.oemNote ?? "",
     });
     setPanel("single");
     setTab("products");
@@ -798,11 +808,21 @@ export default function SellerPage() {
       availabilityNote: isService
         ? form.availabilityNote.trim() || undefined
         : undefined,
+      imageUrl: form.imageUrl.trim() || existing?.imageUrl,
+      vehicleMake: isService
+        ? undefined
+        : form.vehicleMake.trim() || undefined,
+      vehicleModel: isService
+        ? undefined
+        : form.vehicleModel.trim() || undefined,
+      vehicleYear: isService
+        ? undefined
+        : form.vehicleYear.trim() || undefined,
+      oemNote: isService ? undefined : form.oemNote.trim() || undefined,
       status: "pending",
       views: 0,
       sales: 0,
       // Preserve storytelling assets when editing
-      imageUrl: existing?.imageUrl,
       gallery: existing?.gallery,
       storySnippet: existing?.storySnippet,
       impactNote: existing?.impactNote,
@@ -1143,7 +1163,7 @@ export default function SellerPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      Price ($)
+                      Price (£)
                     </label>
                     <input
                       required
@@ -1225,6 +1245,105 @@ export default function SellerPage() {
                       className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                     />
                   </div>
+                  {form.listingType === "product" && (
+                    <>
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Image URL{" "}
+                          <span className="font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="url"
+                          value={form.imageUrl}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              imageUrl: e.target.value,
+                            }))
+                          }
+                          placeholder="https://…"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                        />
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          First-party Stripe listing — Add to cart on Marketplace
+                          (no Amazon).
+                        </p>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Vehicle make{" "}
+                          <span className="font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={form.vehicleMake}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              vehicleMake: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. Ford"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Vehicle model{" "}
+                          <span className="font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={form.vehicleModel}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              vehicleModel: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. Focus"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Year{" "}
+                          <span className="font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={form.vehicleYear}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              vehicleYear: e.target.value,
+                            }))
+                          }
+                          placeholder="e.g. 2012–2018"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          OEM / part note{" "}
+                          <span className="font-normal">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={form.oemNote}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              oemNote: e.target.value,
+                            }))
+                          }
+                          placeholder="OEM number or cross-ref"
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                        />
+                      </div>
+                    </>
+                  )}
                   {form.listingType === "service" && (
                     <>
                       <div>

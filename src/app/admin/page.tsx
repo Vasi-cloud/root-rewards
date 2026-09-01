@@ -251,10 +251,15 @@ const emptyProductForm = {
   stock: "50",
   description: "",
   listingType: "product" as ListingType,
-  commerceType: "affiliate" as CommerceType,
+  commerceType: "first_party" as CommerceType,
   amazonAffiliateUrl: "",
   imageUrl: "",
   availabilityNote: "",
+  sellerId: "",
+  vehicleMake: "",
+  vehicleModel: "",
+  vehicleYear: "",
+  oemNote: "",
 };
 
 function statusBadgeClass(status: OrderStatus) {
@@ -494,6 +499,11 @@ export default function AdminDashboard() {
           ? ""
           : (product.imageUrl ?? ""),
       availabilityNote: product.availabilityNote ?? "",
+      sellerId: product.sellerId ?? product.sellerUid ?? "",
+      vehicleMake: product.vehicleMake ?? "",
+      vehicleModel: product.vehicleModel ?? "",
+      vehicleYear: product.vehicleYear ?? "",
+      oemNote: product.oemNote ?? "",
     });
     setFormOpen(true);
     // Open form and bring it into view so Edit feels immediate.
@@ -541,6 +551,31 @@ export default function AdminDashboard() {
               : "",
           imageUrl: form.imageUrl.trim(),
           availabilityNote: form.availabilityNote.trim(),
+          sellerId:
+            form.listingType === "product" &&
+            form.commerceType === "first_party"
+              ? form.sellerId.trim()
+              : undefined,
+          vehicleMake:
+            form.listingType === "product" &&
+            form.commerceType === "first_party"
+              ? form.vehicleMake.trim()
+              : undefined,
+          vehicleModel:
+            form.listingType === "product" &&
+            form.commerceType === "first_party"
+              ? form.vehicleModel.trim()
+              : undefined,
+          vehicleYear:
+            form.listingType === "product" &&
+            form.commerceType === "first_party"
+              ? form.vehicleYear.trim()
+              : undefined,
+          oemNote:
+            form.listingType === "product" &&
+            form.commerceType === "first_party"
+              ? form.oemNote.trim()
+              : undefined,
         },
         {
           adminEmail: user?.email,
@@ -1082,6 +1117,103 @@ export default function AdminDashboard() {
                           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                         />
                       </div>
+                    )}
+                    {form.listingType === "product" &&
+                      form.commerceType === "first_party" && (
+                      <>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Seller ID{" "}
+                            <span className="font-normal">
+                              (optional Firebase uid)
+                            </span>
+                          </label>
+                          <input
+                            type="text"
+                            value={form.sellerId}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                sellerId: e.target.value,
+                              }))
+                            }
+                            placeholder="seller uid for earnings attribution"
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Vehicle make{" "}
+                            <span className="font-normal">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={form.vehicleMake}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                vehicleMake: e.target.value,
+                              }))
+                            }
+                            placeholder="e.g. Toyota"
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Vehicle model{" "}
+                            <span className="font-normal">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={form.vehicleModel}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                vehicleModel: e.target.value,
+                              }))
+                            }
+                            placeholder="e.g. Corolla"
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Year{" "}
+                            <span className="font-normal">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={form.vehicleYear}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                vehicleYear: e.target.value,
+                              }))
+                            }
+                            placeholder="e.g. 2015–2019"
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            OEM / part note{" "}
+                            <span className="font-normal">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={form.oemNote}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                oemNote: e.target.value,
+                              }))
+                            }
+                            placeholder="OEM number or cross-ref"
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                      </>
                     )}
                     {productSaveError && (
                       <p className="sm:col-span-2 text-sm text-destructive">

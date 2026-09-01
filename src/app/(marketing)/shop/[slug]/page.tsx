@@ -35,9 +35,15 @@ function sellerProductToCartItem(
     imageUrl: defaultProductImage(product),
     category: product.category,
     sustainabilityScore: product.ecoScore,
-    affiliateCommissionPercent: 12,
+    affiliateCommissionPercent: 10,
     sellerUid,
+    sellerId: sellerUid,
+    commerceType: "first_party",
     listingType: product.listingType === "service" ? "service" : "product",
+    vehicleMake: product.vehicleMake,
+    vehicleModel: product.vehicleModel,
+    vehicleYear: product.vehicleYear,
+    oemNote: product.oemNote,
   };
 }
 

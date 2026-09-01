@@ -39,6 +39,10 @@ import {
   deliveryEstimateForCart,
   deliveryEstimateForProduct,
 } from "@/lib/delivery-estimates";
+import {
+  platformFeeFromSubtotal,
+  platformFeeIncludesLine,
+} from "@/lib/platform-fee";
 import type { CartItem } from "@/types";
 
 export default function CartPage() {
@@ -72,6 +76,7 @@ export default function CartPage() {
   const causeGiftLines = giftLines(gifts);
   const stripePayable = firstPartySubtotal + causeGiftTotal;
   const delivery = deliveryEstimateForCart(firstParty);
+  const platformFeeIncluded = platformFeeFromSubtotal(firstPartySubtotal);
 
   function shopAmazon(item: CartItem) {
     const { url } = recordPartnerOutboundClick({
@@ -225,8 +230,9 @@ export default function CartPage() {
               Optional — Support a cause
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Multi-select Trees, Ocean, Animals, Education, Climate. £5 / £10 /
-              £25 or custom (min £1).
+              Multi-select Trees, Ocean, Animals, Education, Climate — partner
+              programmes, not a GPS pin for a tree. £5 / £10 / £25 or custom
+              (min £1). Amazon lines never auto-add a tree.
             </p>
           </div>
           <Button
@@ -253,6 +259,16 @@ export default function CartPage() {
               {formatCartMoney(firstPartySubtotal)}
             </span>
           </li>
+          {firstPartySubtotal > 0 && (
+            <li className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+              {platformFeeIncludesLine()}
+              {platformFeeIncluded > 0 ? (
+                <span className="ml-1 tabular-nums">
+                  (≈ {formatCartMoney(platformFeeIncluded)} of product total)
+                </span>
+              ) : null}
+            </li>
+          )}
           {causeGiftLines.map(({ cause, amount }) => (
             <li key={cause.id} className="flex justify-between gap-3">
               <span className="text-muted-foreground">

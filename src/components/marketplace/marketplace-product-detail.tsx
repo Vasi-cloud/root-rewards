@@ -165,6 +165,27 @@ export function MarketplaceProductDetail({
             </p>
           )}
 
+          {!isService &&
+            !isRental &&
+            (product.vehicleMake ||
+              product.vehicleModel ||
+              product.vehicleYear ||
+              product.oemNote) && (
+              <div className="rounded-xl border border-border/70 bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground/90">
+                <p className="font-medium text-primary">Fitment</p>
+                <p className="mt-1">
+                  {[product.vehicleMake, product.vehicleModel, product.vehicleYear]
+                    .filter(Boolean)
+                    .join(" · ") || "See OEM note"}
+                </p>
+                {product.oemNote ? (
+                  <p className="mt-1 text-muted-foreground">
+                    OEM / note: {product.oemNote}
+                  </p>
+                ) : null}
+              </div>
+            )}
+
           <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-900/90 sm:text-sm">
             {trustCopy}
           </p>

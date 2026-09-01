@@ -11,6 +11,10 @@ import {
 
 import { useAuth } from "@/contexts/auth-context";
 import {
+  deleteAdminCatalogProduct,
+  saveSellerFirstPartyListing,
+} from "@/lib/admin-catalog-products";
+import {
   countOpenReportsForSeller,
   evaluateListing,
   recordFlagHits,
@@ -364,6 +368,19 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         resolveFlagsForProduct(productId, "resolved");
       }
       refreshSellers();
+      const all = loadAllSellers();
+      const profile = all[sellerUid];
+      const product = profile?.products.find((p) => p.id === productId);
+      if (status === "approved" && product && profile) {
+        void saveSellerFirstPartyListing(sellerUid, product).catch((err) => {
+          console.warn("[seller] Approval marketplace sync failed", err);
+        });
+      }
+      if (status === "rejected") {
+        void deleteAdminCatalogProduct(productId, {}).catch((err) => {
+          console.warn("[seller] Rejection marketplace sync failed", err);
+        });
+      }
     },
     [refreshSellers]
   );
@@ -375,6 +392,9 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       persistCurrent({
         ...seller,
         products: [next, ...seller.products],
+      });
+      void saveSellerFirstPartyListing(seller.uid, next).catch((err) => {
+        console.warn("[seller] Marketplace sync failed", err);
       });
     },
     [seller, persistCurrent]
@@ -393,6 +413,11 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         ...seller,
         products: [...nextItems, ...seller.products],
       });
+      for (const item of nextItems) {
+        void saveSellerFirstPartyListing(seller.uid, item).catch((err) => {
+          console.warn("[seller] Marketplace sync failed", err);
+        });
+      }
       return nextItems.length;
     },
     [seller, persistCurrent]
@@ -402,19 +427,23 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
     (id: string, product: Omit<SellerProduct, "id" | "createdAt">) => {
       if (!seller) return;
       const prepared = prepareProduct(seller, product, id);
+      const nextProduct = {
+        ...prepared,
+        id,
+        createdAt:
+          seller.products.find((p) => p.id === id)?.createdAt ??
+          prepared.createdAt,
+        views: seller.products.find((p) => p.id === id)?.views ?? 0,
+        sales: seller.products.find((p) => p.id === id)?.sales ?? 0,
+      };
       persistCurrent({
         ...seller,
         products: seller.products.map((p) =>
-          p.id === id
-            ? {
-                ...prepared,
-                id: p.id,
-                createdAt: p.createdAt,
-                views: p.views,
-                sales: p.sales,
-              }
-            : p
+          p.id === id ? nextProduct : p
         ),
+      });
+      void saveSellerFirstPartyListing(seller.uid, nextProduct).catch((err) => {
+        console.warn("[seller] Marketplace sync failed", err);
       });
     },
     [seller, persistCurrent]
@@ -426,6 +455,9 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       persistCurrent({
         ...seller,
         products: seller.products.filter((p) => p.id !== id),
+      });
+      void deleteAdminCatalogProduct(id, {}).catch((err) => {
+        console.warn("[seller] Marketplace delete sync failed", err);
       });
     },
     [seller, persistCurrent]

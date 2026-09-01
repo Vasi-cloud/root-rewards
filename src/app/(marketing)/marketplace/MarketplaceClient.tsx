@@ -1172,6 +1172,24 @@ function ListingGrid({
                   {product.availabilityNote}
                 </p>
               )}
+              {!isService &&
+                !isRental &&
+                (product.vehicleMake ||
+                  product.vehicleModel ||
+                  product.oemNote) && (
+                  <p className="text-xs text-muted-foreground">
+                    {[
+                      product.vehicleMake,
+                      product.vehicleModel,
+                      product.vehicleYear,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {product.oemNote
+                      ? `${product.vehicleMake || product.vehicleModel ? " · " : ""}OEM: ${product.oemNote}`
+                      : ""}
+                  </p>
+                )}
             </CardContent>
 
             <CardFooter className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t px-4 pt-4 sm:px-6">

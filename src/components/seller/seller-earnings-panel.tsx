@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatMoney } from "@/lib/money";
+import { PLATFORM_FEE_PERCENT } from "@/lib/platform-fee";
 import type { SellerProfile } from "@/types";
 
 export function SellerEarningsPanel({
@@ -166,7 +167,7 @@ export function SellerEarningsPanel({
                     </span>
                   </div>
                   <div className="flex justify-between rounded-xl border px-4 py-3">
-                    <span>Platform fee (15%)</span>
+                    <span>Platform fee ({PLATFORM_FEE_PERCENT}%)</span>
                     <span className="font-medium tabular-nums text-muted-foreground">
                       −{formatMoney(b.platformFee)}
                     </span>
@@ -221,7 +222,8 @@ export function SellerEarningsPanel({
           <CardHeader>
             <CardTitle className="font-heading">Payout details</CardTitle>
             <CardDescription>
-              85% seller share · 15% platform · optional cause slice
+              {100 - PLATFORM_FEE_PERCENT}% seller share · {PLATFORM_FEE_PERCENT}
+              % platform · optional cause slice
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -233,11 +235,13 @@ export function SellerEarningsPanel({
             </div>
             <div className="flex justify-between rounded-xl border px-4 py-3">
               <span>Seller share</span>
-              <span className="font-medium text-emerald-800">85%</span>
+              <span className="font-medium text-emerald-800">
+                {100 - PLATFORM_FEE_PERCENT}%
+              </span>
             </div>
             <div className="flex justify-between rounded-xl border px-4 py-3">
               <span>Platform fee</span>
-              <span className="font-medium">15%</span>
+              <span className="font-medium">{PLATFORM_FEE_PERCENT}%</span>
             </div>
             <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
               Sales credit your shop when a shopper checks out with your

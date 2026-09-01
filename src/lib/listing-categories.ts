@@ -9,6 +9,7 @@ export const PRODUCT_CATEGORIES = [
   "Beauty",
   "Stationery",
   "Camping",
+  "Parts",
 ] as const;
 
 /**

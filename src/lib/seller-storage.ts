@@ -11,6 +11,7 @@ import {
   countOpenReportsForSeller,
   deriveTrustTier,
 } from "@/lib/moderation";
+import { PLATFORM_FEE_RATE } from "@/lib/platform-fee";
 
 export const SELLERS_STORAGE_KEY = "forest-buddies-sellers";
 
@@ -56,7 +57,7 @@ export function defaultEarnings() {
 
 export function defaultEarningsBreakdown() {
   const productSales = 403.24;
-  const platformFee = Number((productSales * 0.15).toFixed(2));
+  const platformFee = Number((productSales * PLATFORM_FEE_RATE).toFixed(2));
   const causeContribution = 12.5;
   const sellerShare = Number(
     (productSales - platformFee - causeContribution).toFixed(2)
@@ -183,6 +184,10 @@ export function normalizeProduct(p: SellerProduct): SellerProduct {
     duration: p.duration,
     deliveryMode: p.deliveryMode,
     availabilityNote: p.availabilityNote,
+    vehicleMake: p.vehicleMake,
+    vehicleModel: p.vehicleModel,
+    vehicleYear: p.vehicleYear,
+    oemNote: p.oemNote,
     storySnippet: p.storySnippet,
     impactNote: p.impactNote,
   };

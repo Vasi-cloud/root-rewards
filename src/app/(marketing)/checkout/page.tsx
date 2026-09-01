@@ -40,6 +40,10 @@ import {
 } from "@/lib/stripe/client";
 import { savePendingCheckout } from "@/lib/stripe/pending-order";
 import {
+  platformFeeFromSubtotal,
+  platformFeeIncludesLine,
+} from "@/lib/platform-fee";
+import {
   validateAddress,
   validateEmail,
   validateName,
@@ -128,6 +132,7 @@ export default function CheckoutPage() {
   const treesEstimate = estimateTreesFromSubtotal(firstPartySubtotal);
   const co2Estimate = estimateCo2FromTrees(treesEstimate);
   const delivery = deliveryEstimateForCart(firstParty);
+  const platformFeeIncluded = platformFeeFromSubtotal(firstPartySubtotal);
 
   function shopAmazon(item: (typeof cart)[number]) {
     const { url } = recordPartnerOutboundClick({
@@ -427,12 +432,25 @@ export default function CheckoutPage() {
               </span>
             </div>
 
+            {firstPartySubtotal > 0 && (
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {platformFeeIncludesLine()}
+                {platformFeeIncluded > 0 ? (
+                  <span className="ml-1 tabular-nums">
+                    (≈ {formatCartMoney(platformFeeIncluded)} of product total —
+                    not added on top)
+                  </span>
+                ) : null}
+              </p>
+            )}
+
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-2.5 text-sm text-emerald-950">
               <TreePine className="mt-0.5 size-4 shrink-0 text-emerald-800" />
               <p>
-                Illustrative tree impact from first-party items: ~{treesEstimate}{" "}
-                tree{treesEstimate === 1 ? "" : "s"} if you fund Trees —
-                partner-funded, not a live audit.
+                Optional cause gifts below fund partner programmes — not a GPS
+                pin for a tree. Illustrative from first-party goods: ~{treesEstimate}{" "}
+                tree{treesEstimate === 1 ? "" : "s"} if you choose Trees. Amazon
+                items never auto-add a tree.
               </p>
             </div>
 
@@ -702,6 +720,11 @@ export default function CheckoutPage() {
               <p className="mt-3 text-center text-sm font-medium text-emerald-900">
                 Cause gifts fund partner programmes
               </p>
+              {firstPartySubtotal > 0 && (
+                <p className="mt-1 text-center text-sm text-muted-foreground">
+                  {platformFeeIncludesLine()}
+                </p>
+              )}
               <p className="mt-1.5 text-center text-sm text-muted-foreground">
                 Total {formatCartMoney(finalTotal)} ·{" "}
                 {stripeEnabled ? "Stripe Checkout · " : "Demo · "}
@@ -730,6 +753,11 @@ export default function CheckoutPage() {
         <p className="mb-2.5 text-center text-xs font-medium text-emerald-900">
           Cause gifts fund partner programmes
         </p>
+        {firstPartySubtotal > 0 && (
+          <p className="mb-2 text-center text-xs text-muted-foreground">
+            {platformFeeIncludesLine()}
+          </p>
+        )}
         <p className="mb-2.5 text-center text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             {stripeEnabled ? "Stripe secure checkout" : "Demo checkout"} ·{" "}

@@ -117,6 +117,12 @@ export interface SellerProduct {
   deliveryMode?: ServiceDeliveryMode;
   /** Booking / availability note */
   availabilityNote?: string;
+  /** Optional vehicle fitment (parts / accessories) */
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: string;
+  /** OEM / part-number note */
+  oemNote?: string;
   /** Short maker story on the card */
   storySnippet?: string;
   /** How buying this funds impact */
@@ -248,8 +254,19 @@ export interface Product {
   affiliateCommissionPercent: number;
   /** When set, checkout credits this seller's earnings */
   sellerUid?: string;
+  /**
+   * Alias persisted on Firestore products (`sellerId`).
+   * Prefer `sellerUid` in app code; both are kept in sync when loading.
+   */
+  sellerId?: string;
   /** Goods (default) or service offering */
   listingType?: ListingType;
+  /** Optional vehicle fitment (car parts / accessories) */
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: string;
+  /** OEM / cross-reference note */
+  oemNote?: string;
   /**
    * first_party = Stripe/cart; affiliate = Shop Amazon with saved Associates URL.
    * Default first_party when omitted.
