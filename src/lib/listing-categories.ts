@@ -69,6 +69,18 @@ export const DEFAULT_BOOKING_NOTE =
 export const BOOKING_AVAILABILITY_DISCLAIMER =
   "Confirm before you go / before the visit. Availability is not live on Forest Buddies®.";
 
+/** Optional booking / external link — http or https only. */
+export function isValidHttpUrl(raw: string): boolean {
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  try {
+    const u = new URL(trimmed);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function providerTypeLabel(type: ProviderType | undefined): string {
   if (type === "self_employed") return "Self-employed";
   return "Company";

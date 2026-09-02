@@ -1309,6 +1309,10 @@ export default function AdminDashboard() {
                             placeholder="https://calendly.com/…"
                             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                           />
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Optional. Must be http:// or https://. Shown as
+                            “Request a time” on the listing.
+                          </p>
                         </div>
                         <div className="sm:col-span-2">
                           <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -1323,8 +1327,12 @@ export default function AdminDashboard() {
                                 bookingNote: e.target.value,
                               }))
                             }
+                            placeholder={DEFAULT_BOOKING_NOTE}
                             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                           />
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Defaults to “{DEFAULT_BOOKING_NOTE}”
+                          </p>
                         </div>
                         <div className="sm:col-span-2">
                           <label className="mb-1 block text-xs font-medium text-muted-foreground">

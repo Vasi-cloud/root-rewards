@@ -57,6 +57,7 @@ import { hasProductSpecs } from "@/lib/product-details";
 import type { CartItem, Product } from "@/types";
 
 type MarketSection = "all" | "products" | "services" | "rentals";
+type ProviderFilter = "all" | "company" | "self_employed";
 
 /** Minimal Web Speech API shape — avoids `any` on window / event handlers. */
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
@@ -141,6 +142,7 @@ export default function MarketplaceClient() {
   const [maxPrice, setMaxPrice] = useState("");
   const [minEcoScore, setMinEcoScore] = useState(70);
   const [bestDealsOnly, setBestDealsOnly] = useState(false);
+  const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -200,6 +202,7 @@ export default function MarketplaceClient() {
     setMaxPrice("");
     setMinEcoScore(70);
     setBestDealsOnly(false);
+    setProviderFilter("all");
   };
 
   const goToSection = (next: MarketSection) => {
@@ -222,7 +225,9 @@ export default function MarketplaceClient() {
           product.description.toLowerCase().includes(term) ||
           product.category.toLowerCase().includes(term) ||
           (product.materials?.toLowerCase().includes(term) ?? false) ||
-          (product.availabilityNote?.toLowerCase().includes(term) ?? false);
+          (product.availabilityNote?.toLowerCase().includes(term) ?? false) ||
+          (product.areaServed?.toLowerCase().includes(term) ?? false) ||
+          (product.providerName?.toLowerCase().includes(term) ?? false);
         const matchesCategory =
           selectedCategory === "All" || product.category === selectedCategory;
         const matchesMinPrice = !minPrice || product.price >= Number(minPrice);
@@ -236,13 +241,19 @@ export default function MarketplaceClient() {
           !bestDealsOnly ||
           isSvcOrRental ||
           (comparison?.isBestDeal ?? false);
+        // Provider filter applies only to service / rental rows (Amazon/goods ignored).
+        const matchesProvider =
+          providerFilter === "all" ||
+          !isSvcOrRental ||
+          (product.providerType ?? "company") === providerFilter;
         return (
           matchesSearch &&
           matchesCategory &&
           matchesMinPrice &&
           matchesMaxPrice &&
           matchesEco &&
-          matchesBestDeal
+          matchesBestDeal &&
+          matchesProvider
         );
       })
       .sort((a, b) => {
@@ -267,6 +278,7 @@ export default function MarketplaceClient() {
     maxPrice,
     minEcoScore,
     bestDealsOnly,
+    providerFilter,
   ]);
 
   const shownProductCount = filteredListings.filter(
@@ -353,7 +365,8 @@ export default function MarketplaceClient() {
     (selectedCategory !== "All" ? 1 : 0) +
     (minPrice || maxPrice ? 1 : 0) +
     (minEcoScore !== 70 ? 1 : 0) +
-    (bestDealsOnly ? 1 : 0);
+    (bestDealsOnly ? 1 : 0) +
+    (providerFilter !== "all" ? 1 : 0);
 
   const sectionTabs: Array<{
     id: MarketSection;
@@ -540,6 +553,9 @@ export default function MarketplaceClient() {
             bestDealsOnly={bestDealsOnly}
             onBestDealsToggle={() => setBestDealsOnly((v) => !v)}
             bestDealCount={bestDealCount}
+            showProviderFilter
+            providerFilter={providerFilter}
+            onProviderFilterChange={setProviderFilter}
             activeFilterCount={activeFilterCount}
             onClearFilters={clearFilters}
             ecoLabel={t("marketplace.filter.ecoscore")}
@@ -679,6 +695,9 @@ export default function MarketplaceClient() {
             bestDealsOnly={false}
             onBestDealsToggle={() => undefined}
             bestDealCount={0}
+            showProviderFilter
+            providerFilter={providerFilter}
+            onProviderFilterChange={setProviderFilter}
             activeFilterCount={activeFilterCount}
             onClearFilters={clearFilters}
             ecoLabel={t("marketplace.filter.ecoscore")}
@@ -739,6 +758,9 @@ export default function MarketplaceClient() {
             bestDealsOnly={false}
             onBestDealsToggle={() => {}}
             bestDealCount={0}
+            showProviderFilter
+            providerFilter={providerFilter}
+            onProviderFilterChange={setProviderFilter}
             activeFilterCount={activeFilterCount}
             onClearFilters={clearFilters}
             ecoLabel={t("marketplace.filter.ecoscore")}
@@ -839,6 +861,9 @@ function ListingFilters({
   bestDealsOnly,
   onBestDealsToggle,
   bestDealCount,
+  showProviderFilter = false,
+  providerFilter = "all",
+  onProviderFilterChange,
   activeFilterCount,
   onClearFilters,
   ecoLabel,
@@ -865,6 +890,9 @@ function ListingFilters({
   bestDealsOnly: boolean;
   onBestDealsToggle: () => void;
   bestDealCount: number;
+  showProviderFilter?: boolean;
+  providerFilter?: ProviderFilter;
+  onProviderFilterChange?: (v: ProviderFilter) => void;
   activeFilterCount: number;
   onClearFilters: () => void;
   ecoLabel: string;
@@ -918,6 +946,47 @@ function ListingFilters({
           Type to filter by name or description. Mic is optional.
         </p>
       </div>
+
+      {showProviderFilter && onProviderFilterChange && (
+        <div className="mb-4">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Providers
+          </p>
+          <div
+            role="group"
+            aria-label="Filter by provider type"
+            className="flex flex-wrap gap-2"
+          >
+            {(
+              [
+                { id: "all", label: "All providers" },
+                { id: "company", label: "Companies" },
+                { id: "self_employed", label: "Self-employed" },
+              ] as const
+            ).map((opt) => {
+              const active = providerFilter === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => onProviderFilterChange(opt.id)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Applies to services and rentals only — not Amazon products.
+          </p>
+        </div>
+      )}
 
       <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:flex lg:flex-wrap lg:items-end">
         <div className="col-span-2 sm:col-span-1 lg:min-w-[11rem] lg:flex-1">

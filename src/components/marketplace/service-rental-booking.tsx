@@ -10,6 +10,7 @@ import {
   formatProviderLine,
   isRentalListing,
   isServiceListing,
+  isValidHttpUrl,
 } from "@/lib/listing-categories";
 import type { Product } from "@/types";
 
@@ -30,11 +31,18 @@ export function ServiceRentalMeta({
     ? product.duration?.trim()
     : product.hirePeriod?.trim();
   const priceLabel = formatListingPrice(product.price, product.priceNote);
+  const bookingUrl = product.bookingUrl?.trim();
+  const safeBookingUrl =
+    bookingUrl && isValidHttpUrl(bookingUrl) ? bookingUrl : null;
+  const bookingNote =
+    product.bookingNote?.trim() || DEFAULT_BOOKING_NOTE;
 
   if (compact) {
     return (
-      <div className="space-y-1 text-xs text-muted-foreground">
-        {provider ? <p className="font-medium text-foreground/80">{provider}</p> : null}
+      <div className="space-y-1.5 text-xs text-muted-foreground">
+        {provider ? (
+          <p className="font-medium text-foreground/80">{provider}</p>
+        ) : null}
         {area ? <p>Area · {area}</p> : null}
         {period ? (
           <p>{isService ? `Duration · ${period}` : `Hire · ${period}`}</p>
@@ -43,6 +51,19 @@ export function ServiceRentalMeta({
           <p>Deposit · £{product.depositAmount}</p>
         ) : null}
         <p className="font-semibold tabular-nums text-primary">{priceLabel}</p>
+        {safeBookingUrl ? (
+          <a
+            href={safeBookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-9 items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Request a time
+            <ExternalLink className="size-3 opacity-80" />
+          </a>
+        ) : null}
+        <p className="leading-relaxed">{bookingNote}</p>
       </div>
     );
   }
@@ -89,6 +110,8 @@ export function ServiceRentalBookingBlock({ product }: { product: Product }) {
   const bookingNote =
     product.bookingNote?.trim() || DEFAULT_BOOKING_NOTE;
   const bookingUrl = product.bookingUrl?.trim();
+  const safeBookingUrl =
+    bookingUrl && isValidHttpUrl(bookingUrl) ? bookingUrl : null;
   const contactEmail = product.contactEmail?.trim();
 
   return (
@@ -98,12 +121,16 @@ export function ServiceRentalBookingBlock({ product }: { product: Product }) {
         <h3 className="font-heading text-base font-semibold">Booking</h3>
       </div>
 
-      {bookingUrl ? (
+      {safeBookingUrl ? (
         <Button
-          type="button"
           className="min-h-11 w-full gap-2"
-          onClick={() =>
-            window.open(bookingUrl, "_blank", "noopener,noreferrer")
+          nativeButton={false}
+          render={
+            <a
+              href={safeBookingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
           }
         >
           Request a time

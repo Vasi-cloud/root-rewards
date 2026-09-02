@@ -16,7 +16,7 @@ import {
   normalizeAmazonProductUrl,
 } from "@/lib/amazon-affiliate";
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
-import { DEFAULT_BOOKING_NOTE } from "@/lib/listing-categories";
+import { DEFAULT_BOOKING_NOTE, isValidHttpUrl } from "@/lib/listing-categories";
 import type {
   CommerceType,
   ListingType,
@@ -295,7 +295,9 @@ function normalizeAdminProduct(
   const hirePeriod =
     listingType === "rental" ? optionalTrimmed(raw.hirePeriod) : undefined;
   const priceNote = isBookable ? optionalTrimmed(raw.priceNote) : undefined;
-  const bookingUrl = isBookable ? optionalTrimmed(raw.bookingUrl) : undefined;
+  const bookingUrlRaw = isBookable ? optionalTrimmed(raw.bookingUrl) : undefined;
+  const bookingUrl =
+    bookingUrlRaw && isValidHttpUrl(bookingUrlRaw) ? bookingUrlRaw : undefined;
   const bookingNote = isBookable
     ? optionalTrimmed(raw.bookingNote) || DEFAULT_BOOKING_NOTE
     : undefined;
@@ -406,6 +408,10 @@ export function validateAdminProductInput(
     if (!input.providerName?.trim()) {
       return "Provider name is required for services and rentals.";
     }
+    const booking = input.bookingUrl?.trim() ?? "";
+    if (booking && !isValidHttpUrl(booking)) {
+      return "Booking URL must start with http:// or https://.";
+    }
   }
   return null;
 }
@@ -472,7 +478,10 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
     hirePeriod:
       listingType === "rental" ? input.hirePeriod?.trim() : undefined,
     priceNote: isBookable ? input.priceNote?.trim() : undefined,
-    bookingUrl: isBookable ? input.bookingUrl?.trim() : undefined,
+    bookingUrl:
+      isBookable && input.bookingUrl?.trim() && isValidHttpUrl(input.bookingUrl)
+        ? input.bookingUrl.trim()
+        : undefined,
     bookingNote: isBookable
       ? input.bookingNote?.trim() || DEFAULT_BOOKING_NOTE
       : undefined,
