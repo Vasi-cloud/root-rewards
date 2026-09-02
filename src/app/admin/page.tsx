@@ -54,8 +54,12 @@ import {
 import { commerceTypeLabel } from "@/lib/commerce-type";
 import { isFirebaseClientConfigured } from "@/lib/firebase/config";
 import {
+  adminListingKindFromProduct,
+  adminListingKindLabel,
   categoriesForListingType,
+  DEFAULT_BOOKING_NOTE,
   defaultCategoryFor,
+  listingAndCommerceFromKind,
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import {
@@ -77,9 +81,11 @@ import {
 import type { FeedbackItem, FeedbackStatus } from "@/types/feedback";
 import { FEEDBACK_CATEGORY_LABELS } from "@/types/feedback";
 import type {
+  AdminListingKind,
   CommerceType,
   ListingType,
   ProductApprovalStatus,
+  ProviderType,
   SellerStatus,
   SellerTrustTier,
 } from "@/types";
@@ -250,6 +256,7 @@ const emptyProductForm = {
   ecoScore: "90",
   stock: "50",
   description: "",
+  listingKind: "product_first_party" as AdminListingKind,
   listingType: "product" as ListingType,
   commerceType: "first_party" as CommerceType,
   amazonAffiliateUrl: "",
@@ -260,6 +267,18 @@ const emptyProductForm = {
   vehicleModel: "",
   vehicleYear: "",
   oemNote: "",
+  providerType: "company" as ProviderType,
+  providerName: "",
+  areaServed: "",
+  duration: "",
+  hirePeriod: "",
+  priceNote: "",
+  bookingUrl: "",
+  bookingNote: DEFAULT_BOOKING_NOTE,
+  contactEmail: "",
+  depositAmount: "",
+  whatsIncluded: "",
+  whatsNotIncluded: "",
 };
 
 function statusBadgeClass(status: OrderStatus) {
@@ -482,6 +501,9 @@ export default function AdminDashboard() {
     setEditingId(product.id);
     setProductSaveError(null);
     setProductSaveSuccess(null);
+    const listingKind = adminListingKindFromProduct(product);
+    const { listingType, commerceType } =
+      listingAndCommerceFromKind(listingKind);
     setForm({
       name: product.name,
       category: product.category,
@@ -489,8 +511,9 @@ export default function AdminDashboard() {
       ecoScore: String(product.sustainabilityScore),
       stock: product.stock == null ? "" : String(product.stock),
       description: product.description,
-      listingType: product.listingType ?? "product",
-      commerceType: product.commerceType,
+      listingKind,
+      listingType,
+      commerceType,
       amazonAffiliateUrl: product.amazonAffiliateUrl ?? "",
       imageUrl:
         product.imageUrl === "/eco-cards.svg" ||
@@ -498,12 +521,26 @@ export default function AdminDashboard() {
         product.imageUrl === "/eco-tent.svg"
           ? ""
           : (product.imageUrl ?? ""),
-      availabilityNote: product.availabilityNote ?? "",
+      availabilityNote:
+        product.areaServed ?? product.availabilityNote ?? "",
       sellerId: product.sellerId ?? product.sellerUid ?? "",
       vehicleMake: product.vehicleMake ?? "",
       vehicleModel: product.vehicleModel ?? "",
       vehicleYear: product.vehicleYear ?? "",
       oemNote: product.oemNote ?? "",
+      providerType: product.providerType ?? "company",
+      providerName: product.providerName ?? "",
+      areaServed: product.areaServed ?? product.availabilityNote ?? "",
+      duration: product.duration ?? "",
+      hirePeriod: product.hirePeriod ?? "",
+      priceNote: product.priceNote ?? "",
+      bookingUrl: product.bookingUrl ?? "",
+      bookingNote: product.bookingNote ?? DEFAULT_BOOKING_NOTE,
+      contactEmail: product.contactEmail ?? "",
+      depositAmount:
+        product.depositAmount != null ? String(product.depositAmount) : "",
+      whatsIncluded: product.whatsIncluded ?? "",
+      whatsNotIncluded: product.whatsNotIncluded ?? "",
     });
     setFormOpen(true);
     // Open form and bring it into view so Edit feels immediate.
@@ -530,52 +567,78 @@ export default function AdminDashboard() {
           ? 90
           : Math.min(100, Math.max(0, ecoParsed));
 
+      const { listingType, commerceType } = listingAndCommerceFromKind(
+        form.listingKind
+      );
+      const isBookable =
+        listingType === "service" || listingType === "rental";
+      const depositParsed = Number(form.depositAmount);
+      const areaServed =
+        form.areaServed.trim() || form.availabilityNote.trim();
+
       const result = await saveAdminCatalogProduct(
         {
           id: editingId ?? undefined,
           name: form.name.trim(),
-          category: form.category.trim() || defaultCategoryFor(form.listingType),
+          category: form.category.trim() || defaultCategoryFor(listingType),
           price: Number(form.price) || 0,
           ecoScore,
           stock:
-            form.listingType !== "product" || form.commerceType === "affiliate"
+            listingType !== "product" || commerceType === "affiliate"
               ? null
               : Math.max(0, Number(form.stock) || 0),
           description: form.description.trim(),
-          listingType: form.listingType,
-          commerceType:
-            form.listingType !== "product" ? "first_party" : form.commerceType,
+          listingType,
+          commerceType,
           amazonAffiliateUrl:
-            form.listingType === "product" && form.commerceType === "affiliate"
+            listingType === "product" && commerceType === "affiliate"
               ? form.amazonAffiliateUrl.trim()
               : "",
           imageUrl: form.imageUrl.trim(),
-          availabilityNote: form.availabilityNote.trim(),
+          availabilityNote: areaServed,
+          areaServed: isBookable ? areaServed : undefined,
           sellerId:
-            form.listingType === "product" &&
-            form.commerceType === "first_party"
+            listingType === "product" && commerceType === "first_party"
               ? form.sellerId.trim()
               : undefined,
           vehicleMake:
-            form.listingType === "product" &&
-            form.commerceType === "first_party"
+            listingType === "product" && commerceType === "first_party"
               ? form.vehicleMake.trim()
               : undefined,
           vehicleModel:
-            form.listingType === "product" &&
-            form.commerceType === "first_party"
+            listingType === "product" && commerceType === "first_party"
               ? form.vehicleModel.trim()
               : undefined,
           vehicleYear:
-            form.listingType === "product" &&
-            form.commerceType === "first_party"
+            listingType === "product" && commerceType === "first_party"
               ? form.vehicleYear.trim()
               : undefined,
           oemNote:
-            form.listingType === "product" &&
-            form.commerceType === "first_party"
+            listingType === "product" && commerceType === "first_party"
               ? form.oemNote.trim()
               : undefined,
+          providerType: isBookable ? form.providerType : undefined,
+          providerName: isBookable ? form.providerName.trim() : undefined,
+          duration:
+            listingType === "service" ? form.duration.trim() : undefined,
+          hirePeriod:
+            listingType === "rental" ? form.hirePeriod.trim() : undefined,
+          priceNote: isBookable ? form.priceNote.trim() : undefined,
+          bookingUrl: isBookable ? form.bookingUrl.trim() : undefined,
+          bookingNote: isBookable
+            ? form.bookingNote.trim() || DEFAULT_BOOKING_NOTE
+            : undefined,
+          contactEmail: isBookable ? form.contactEmail.trim() : undefined,
+          depositAmount:
+            listingType === "rental" &&
+            form.depositAmount.trim() !== "" &&
+            Number.isFinite(depositParsed)
+              ? Math.max(0, depositParsed)
+              : null,
+          whatsIncluded: isBookable ? form.whatsIncluded.trim() : undefined,
+          whatsNotIncluded: isBookable
+            ? form.whatsNotIncluded.trim()
+            : undefined,
         },
         {
           adminEmail: user?.email,
@@ -589,9 +652,12 @@ export default function AdminDashboard() {
       });
       await refreshCatalogProducts();
       const shopHint =
-        result.product.commerceType === "affiliate"
-          ? " It appears on Marketplace with Shop Amazon (not Add to cart)."
-          : " It appears on Marketplace.";
+        result.product.listingType === "service" ||
+        result.product.listingType === "rental"
+          ? " It appears on Marketplace Services / Rentals with Details + booking (no Amazon / cart)."
+          : result.product.commerceType === "affiliate"
+            ? " It appears on Marketplace with Shop Amazon (not Add to cart)."
+            : " It appears on Marketplace with Add to cart.";
       const base = editingId
         ? `Updated “${result.product.name}”.`
         : `Created “${result.product.name}”.`;
@@ -894,54 +960,45 @@ export default function AdminDashboard() {
                         Listing type
                       </label>
                       <select
-                        value={form.listingType}
+                        value={form.listingKind}
                         onChange={(e) => {
-                          const listingType = e.target.value as ListingType;
+                          const listingKind = e.target
+                            .value as AdminListingKind;
+                          const { listingType, commerceType } =
+                            listingAndCommerceFromKind(listingKind);
                           setForm((f) => ({
                             ...f,
+                            listingKind,
                             listingType,
+                            commerceType,
                             category: defaultCategoryFor(listingType),
-                            commerceType:
-                              listingType === "product"
-                                ? f.commerceType
-                                : "first_party",
                             amazonAffiliateUrl:
-                              listingType === "product"
+                              listingKind === "product_affiliate_amazon"
                                 ? f.amazonAffiliateUrl
                                 : "",
+                            bookingNote:
+                              listingKind === "service" ||
+                              listingKind === "rental"
+                                ? f.bookingNote || DEFAULT_BOOKING_NOTE
+                                : f.bookingNote,
                           }));
                         }}
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       >
-                        <option value="product">Product</option>
-                        <option value="service">Service</option>
-                        <option value="rental">Rental</option>
+                        {(
+                          [
+                            "product_first_party",
+                            "product_affiliate_amazon",
+                            "service",
+                            "rental",
+                          ] as AdminListingKind[]
+                        ).map((kind) => (
+                          <option key={kind} value={kind}>
+                            {adminListingKindLabel(kind)}
+                          </option>
+                        ))}
                       </select>
                     </div>
-                    {form.listingType === "product" && (
-                      <div className="sm:col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                          Commerce
-                        </label>
-                        <select
-                          value={form.commerceType}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              commerceType: e.target.value as CommerceType,
-                            }))
-                          }
-                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                        >
-                          <option value="affiliate">
-                            Affiliate (Amazon) — Shop Amazon CTA
-                          </option>
-                          <option value="first_party">
-                            First-party — Stripe / stock cart
-                          </option>
-                        </select>
-                      </div>
-                    )}
                     <div className="sm:col-span-2">
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
                         Name
@@ -955,8 +1012,7 @@ export default function AdminDashboard() {
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                     </div>
-                    {form.listingType === "product" &&
-                      form.commerceType === "affiliate" && (
+                    {form.listingKind === "product_affiliate_amazon" && (
                       <div className="sm:col-span-2">
                         <label className="mb-1 block text-xs font-medium text-muted-foreground">
                           Amazon affiliate URL
@@ -1033,8 +1089,12 @@ export default function AdminDashboard() {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, price: e.target.value }))
                         }
+                        placeholder="45"
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Number only — use Price note for “per visit / per hour”.
+                      </p>
                     </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -1056,13 +1116,12 @@ export default function AdminDashboard() {
                       <label className="mb-1 block text-xs font-medium text-muted-foreground">
                         Stock
                       </label>
-                      {form.listingType !== "product" ||
-                      form.commerceType === "affiliate" ? (
+                      {form.listingKind !== "product_first_party" ? (
                         <p className="rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
-                          {form.listingType === "service"
+                          {form.listingKind === "service"
                             ? "N/A — services are bookable, not stocked"
-                            : form.listingType === "rental"
-                              ? "N/A — manage rental availability in notes"
+                            : form.listingKind === "rental"
+                              ? "N/A — manage hire via booking notes"
                               : "N/A — Amazon fulfils affiliate listings"}
                         </p>
                       ) : (
@@ -1093,33 +1152,233 @@ export default function AdminDashboard() {
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                       />
                     </div>
-                    {(form.listingType === "service" ||
-                      form.listingType === "rental") && (
-                      <div className="sm:col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                          Area / notes{" "}
-                          <span className="font-normal">(optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={form.availabilityNote}
-                          onChange={(e) =>
-                            setForm((f) => ({
-                              ...f,
-                              availabilityNote: e.target.value,
-                            }))
-                          }
-                          placeholder={
-                            form.listingType === "service"
-                              ? "e.g. By appointment · London"
-                              : "e.g. Collection in Bristol · weekends"
-                          }
-                          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                        />
-                      </div>
+                    {(form.listingKind === "service" ||
+                      form.listingKind === "rental") && (
+                      <>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Provider type
+                          </label>
+                          <select
+                            required
+                            value={form.providerType}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                providerType: e.target.value as ProviderType,
+                              }))
+                            }
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="company">Company</option>
+                            <option value="self_employed">Self-employed</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Provider name
+                          </label>
+                          <input
+                            required
+                            type="text"
+                            value={form.providerName}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                providerName: e.target.value,
+                              }))
+                            }
+                            placeholder={
+                              form.providerType === "self_employed"
+                                ? "Person name"
+                                : "Company name"
+                            }
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Area served
+                          </label>
+                          <input
+                            type="text"
+                            value={form.areaServed}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                areaServed: e.target.value,
+                                availabilityNote: e.target.value,
+                              }))
+                            }
+                            placeholder='e.g. "Ilford / Redbridge" or "UK-wide online"'
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        {form.listingKind === "service" ? (
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                              Duration
+                            </label>
+                            <input
+                              type="text"
+                              value={form.duration}
+                              onChange={(e) =>
+                                setForm((f) => ({
+                                  ...f,
+                                  duration: e.target.value,
+                                }))
+                              }
+                              placeholder='e.g. "2 hours"'
+                              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                              Hire period
+                            </label>
+                            <input
+                              type="text"
+                              value={form.hirePeriod}
+                              onChange={(e) =>
+                                setForm((f) => ({
+                                  ...f,
+                                  hirePeriod: e.target.value,
+                                }))
+                              }
+                              placeholder='e.g. "weekend" / "per day"'
+                              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Price note
+                          </label>
+                          <input
+                            type="text"
+                            value={form.priceNote}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                priceNote: e.target.value,
+                              }))
+                            }
+                            placeholder='e.g. "per visit" / "per hour" / "per weekend"'
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        {form.listingKind === "rental" && (
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                              Deposit (£){" "}
+                              <span className="font-normal">(optional)</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={form.depositAmount}
+                              onChange={(e) =>
+                                setForm((f) => ({
+                                  ...f,
+                                  depositAmount: e.target.value,
+                                }))
+                              }
+                              placeholder="0"
+                              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                            />
+                          </div>
+                        )}
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Booking URL{" "}
+                            <span className="font-normal">
+                              (optional Calendly / Google Calendar)
+                            </span>
+                          </label>
+                          <input
+                            type="url"
+                            value={form.bookingUrl}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                bookingUrl: e.target.value,
+                              }))
+                            }
+                            placeholder="https://calendly.com/…"
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Booking note
+                          </label>
+                          <input
+                            type="text"
+                            value={form.bookingNote}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                bookingNote: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            Contact email{" "}
+                            <span className="font-normal">(optional)</span>
+                          </label>
+                          <input
+                            type="email"
+                            value={form.contactEmail}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                contactEmail: e.target.value,
+                              }))
+                            }
+                            placeholder="bookings@example.com"
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            What&apos;s included
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={form.whatsIncluded}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                whatsIncluded: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                            What&apos;s not included
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={form.whatsNotIncluded}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                whatsNotIncluded: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                          />
+                        </div>
+                      </>
                     )}
-                    {form.listingType === "product" &&
-                      form.commerceType === "first_party" && (
+                    {form.listingKind === "product_first_party" && (
                       <>
                         <div className="sm:col-span-2">
                           <label className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -1278,6 +1537,16 @@ export default function AdminDashboard() {
                             ? listingTypeLabel(product.listingType)
                             : commerceTypeLabel(product.commerceType)}
                         </Badge>
+                        {(product.listingType === "service" ||
+                          product.listingType === "rental") &&
+                          product.providerName && (
+                            <Badge variant="outline" className="font-normal">
+                              {product.providerType === "self_employed"
+                                ? "Self-employed"
+                                : "Company"}{" "}
+                              · {product.providerName}
+                            </Badge>
+                          )}
                         {product.listingType === "product" &&
                           product.commerceType !== "affiliate" &&
                           product.stock != null &&

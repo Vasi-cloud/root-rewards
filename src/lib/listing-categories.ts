@@ -1,4 +1,9 @@
-import type { ListingType, ServiceDeliveryMode } from "@/types";
+import type {
+  AdminListingKind,
+  ListingType,
+  ProviderType,
+  ServiceDeliveryMode,
+} from "@/types";
 
 /** Physical / digital goods sold on Forest Buddies */
 export const PRODUCT_CATEGORIES = [
@@ -57,6 +62,75 @@ export const DELIVERY_MODE_LABELS: Record<ServiceDeliveryMode, string> = {
   remote: "Remote / online",
   hybrid: "Hybrid",
 };
+
+export const DEFAULT_BOOKING_NOTE =
+  "Email to confirm a time. This is not a live calendar.";
+
+export const BOOKING_AVAILABILITY_DISCLAIMER =
+  "Confirm before you go / before the visit. Availability is not live on Forest Buddies®.";
+
+export function providerTypeLabel(type: ProviderType | undefined): string {
+  if (type === "self_employed") return "Self-employed";
+  return "Company";
+}
+
+export function formatProviderLine(product: {
+  providerType?: ProviderType;
+  providerName?: string;
+}): string | null {
+  const name = product.providerName?.trim();
+  if (!name) return null;
+  return `${providerTypeLabel(product.providerType)} · ${name}`;
+}
+
+/** Display: £45 per visit — price stays numeric; unit is priceNote. */
+export function formatListingPrice(
+  price: number,
+  priceNote?: string | null
+): string {
+  const amount = `£${Number.isFinite(price) ? price : 0}`;
+  const note = priceNote?.trim();
+  return note ? `${amount} ${note}` : amount;
+}
+
+export function adminListingKindFromProduct(product: {
+  listingType?: ListingType;
+  commerceType?: string;
+}): AdminListingKind {
+  if (product.listingType === "service") return "service";
+  if (product.listingType === "rental") return "rental";
+  if (product.commerceType === "affiliate") return "product_affiliate_amazon";
+  return "product_first_party";
+}
+
+export function listingAndCommerceFromKind(kind: AdminListingKind): {
+  listingType: ListingType;
+  commerceType: "first_party" | "affiliate";
+} {
+  if (kind === "service") {
+    return { listingType: "service", commerceType: "first_party" };
+  }
+  if (kind === "rental") {
+    return { listingType: "rental", commerceType: "first_party" };
+  }
+  if (kind === "product_affiliate_amazon") {
+    return { listingType: "product", commerceType: "affiliate" };
+  }
+  return { listingType: "product", commerceType: "first_party" };
+}
+
+export function adminListingKindLabel(kind: AdminListingKind): string {
+  switch (kind) {
+    case "product_first_party":
+      return "Product (first-party / Stripe)";
+    case "product_affiliate_amazon":
+      return "Product (Amazon affiliate)";
+    case "service":
+      return "Service";
+    case "rental":
+      return "Rental";
+  }
+}
 
 export function categoriesForListingType(
   listingType: ListingType

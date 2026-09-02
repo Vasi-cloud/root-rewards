@@ -5,6 +5,10 @@ import { useEffect } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { MarketplaceProductImage } from "@/components/marketplace/marketplace-product-image";
+import {
+  ServiceRentalBookingBlock,
+  ServiceRentalMeta,
+} from "@/components/marketplace/service-rental-booking";
 import { ProductDetailsPanel } from "@/components/product/product-details-panel";
 import { ProductPartnerLinks } from "@/components/product/product-partner-links";
 import { ProductReviews } from "@/components/product/product-reviews";
@@ -14,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { isAffiliateProduct } from "@/lib/commerce-type";
 import {
   canAddProductToCart,
-  DELIVERY_MODE_LABELS,
+  formatListingPrice,
   isRentalListing,
   isServiceListing,
   listingTypeLabel,
@@ -38,6 +42,7 @@ export function MarketplaceProductDetail({
   const isRental = isRentalListing(product);
   const isAffiliate = isAffiliateProduct(product);
   const showAddToCart = canAddProductToCart(product);
+  const isBookable = isService || isRental;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -60,11 +65,9 @@ export function MarketplaceProductDetail({
 
   const trustCopy = isAffiliate
     ? "Sold on Amazon via our Associates link — stock and fulfilment are handled by Amazon."
-    : isService
-      ? "Clear duration, delivery, and what’s included help you book the right session — once."
-      : isRental
-        ? "Check area and notes below, then contact or book when booking goes live."
-        : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet.";
+    : isBookable
+      ? "Request a time with the provider. Availability is not live on Forest Buddies®."
+      : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet.";
 
   return (
     <div
@@ -107,12 +110,14 @@ export function MarketplaceProductDetail({
               imageUrl={product.imageUrl}
               name={product.name}
               size="detail"
-              service={isService || isRental}
+              service={isBookable}
             />
             <div className="min-w-0 flex-1">
-              <p className="font-heading text-3xl font-semibold tabular-nums text-primary">
-                £{product.price}
-              </p>
+              {!isBookable ? (
+                <p className="font-heading text-3xl font-semibold tabular-nums text-primary">
+                  £{product.price}
+                </p>
+              ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
                 {isAffiliate ? (
                   <Badge className="bg-emerald-100 text-emerald-900">
@@ -122,22 +127,14 @@ export function MarketplaceProductDetail({
                   <Badge
                     variant="secondary"
                     className={
-                      isService || isRental ? "bg-sky-100 text-sky-900" : undefined
+                      isBookable ? "bg-sky-100 text-sky-900" : undefined
                     }
                   >
                     {listingTypeLabel(product.listingType)}
                   </Badge>
                 )}
                 <Badge variant="outline">{product.category}</Badge>
-                {isService && product.duration && (
-                  <Badge variant="outline">{product.duration}</Badge>
-                )}
-                {isService && product.deliveryMode && (
-                  <Badge variant="outline">
-                    {DELIVERY_MODE_LABELS[product.deliveryMode]}
-                  </Badge>
-                )}
-                {!isService && !isRental && (
+                {!isBookable && (
                   <Badge
                     className={
                       product.sustainabilityScore >= 90
@@ -152,21 +149,13 @@ export function MarketplaceProductDetail({
             </div>
           </div>
 
+          {isBookable ? <ServiceRentalMeta product={product} /> : null}
+
           <p className="text-base leading-relaxed text-foreground/90">
             {product.description}
           </p>
 
-          {(isService || isRental) && product.availabilityNote && (
-            <p className="rounded-xl border border-border/70 bg-secondary/40 px-3.5 py-2.5 text-sm text-foreground/90">
-              <span className="font-medium text-primary">
-                {isRental ? "Area / notes: " : "Availability: "}
-              </span>
-              {product.availabilityNote}
-            </p>
-          )}
-
-          {!isService &&
-            !isRental &&
+          {!isBookable &&
             (product.vehicleMake ||
               product.vehicleModel ||
               product.vehicleYear ||
@@ -186,17 +175,21 @@ export function MarketplaceProductDetail({
               </div>
             )}
 
-          <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-900/90 sm:text-sm">
-            {trustCopy}
-          </p>
+          {isBookable ? <ServiceRentalBookingBlock product={product} /> : null}
+
+          {!isBookable ? (
+            <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-900/90 sm:text-sm">
+              {trustCopy}
+            </p>
+          ) : null}
 
           <TrustBadges variant="product" />
 
-          {!isService && !isRental && isAffiliate && (
+          {!isBookable && isAffiliate && (
             <ProductPartnerLinks product={product} />
           )}
 
-          {!isAffiliate && !isService && !isRental && (
+          {!isAffiliate && !isBookable && (
             <ProductDetailsPanel
               details={product}
               category={product.category}
@@ -218,7 +211,8 @@ export function MarketplaceProductDetail({
                 onClick={onAdd}
               >
                 <Leaf className="size-4" />
-                {addLabel ?? `Add to cart — £${product.price}`}
+                {addLabel ??
+                  `Add to cart — ${formatListingPrice(product.price)}`}
               </Button>
               {addedLabel && (
                 <p className="mt-2 text-center text-sm text-emerald-800">

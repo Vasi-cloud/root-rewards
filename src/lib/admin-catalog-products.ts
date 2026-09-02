@@ -16,7 +16,13 @@ import {
   normalizeAmazonProductUrl,
 } from "@/lib/amazon-affiliate";
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
-import type { CommerceType, ListingType, Product } from "@/types";
+import { DEFAULT_BOOKING_NOTE } from "@/lib/listing-categories";
+import type {
+  CommerceType,
+  ListingType,
+  Product,
+  ProviderType,
+} from "@/types";
 
 /** Same key Marketplace reads via listLiveMarketplaceProducts → listAdminCatalogProducts. */
 export const LIVE_PRODUCTS_LOCAL_KEY = "forest-buddies-live-products";
@@ -47,7 +53,7 @@ export type AdminProductInput = {
   commerceType: CommerceType;
   amazonAffiliateUrl?: string;
   imageUrl?: string;
-  /** Optional area / notes for services & rentals */
+  /** Optional area / notes for services & rentals (legacy alias of areaServed) */
   availabilityNote?: string;
   /** Optional seller uid for first-party marketplace listings */
   sellerId?: string;
@@ -55,6 +61,19 @@ export type AdminProductInput = {
   vehicleModel?: string;
   vehicleYear?: string;
   oemNote?: string;
+  /** Service / rental provider fields */
+  providerType?: ProviderType;
+  providerName?: string;
+  areaServed?: string;
+  duration?: string;
+  hirePeriod?: string;
+  priceNote?: string;
+  bookingUrl?: string;
+  bookingNote?: string;
+  contactEmail?: string;
+  depositAmount?: number | null;
+  whatsIncluded?: string;
+  whatsNotIncluded?: string;
 };
 
 export type SaveAdminProductResult = {
@@ -208,6 +227,16 @@ function readAmazonUrlField(raw: Record<string, unknown>): string | undefined {
   return alias || undefined;
 }
 
+function parseProviderType(raw: unknown): ProviderType | undefined {
+  if (raw === "company" || raw === "self_employed") return raw;
+  return undefined;
+}
+
+function optionalTrimmed(raw: unknown): string | undefined {
+  const s = String(raw ?? "").trim();
+  return s || undefined;
+}
+
 function normalizeAdminProduct(
   raw: { id: string } & Record<string, unknown>
 ): AdminCatalogProduct {
@@ -243,13 +272,47 @@ function normalizeAdminProduct(
     : 90;
 
   const imageTrimmed = String(raw.imageUrl ?? "").trim();
-  const availabilityNote = String(raw.availabilityNote ?? "").trim() || undefined;
+  const areaServed =
+    optionalTrimmed(raw.areaServed) ||
+    optionalTrimmed(raw.availabilityNote);
+  const availabilityNote = areaServed;
   const sellerRaw = String(raw.sellerId ?? raw.sellerUid ?? "").trim();
   const sellerId = sellerRaw || undefined;
-  const vehicleMake = String(raw.vehicleMake ?? "").trim() || undefined;
-  const vehicleModel = String(raw.vehicleModel ?? "").trim() || undefined;
-  const vehicleYear = String(raw.vehicleYear ?? "").trim() || undefined;
-  const oemNote = String(raw.oemNote ?? "").trim() || undefined;
+  const vehicleMake = optionalTrimmed(raw.vehicleMake);
+  const vehicleModel = optionalTrimmed(raw.vehicleModel);
+  const vehicleYear = optionalTrimmed(raw.vehicleYear);
+  const oemNote = optionalTrimmed(raw.oemNote);
+
+  const isBookable = listingType === "service" || listingType === "rental";
+  const providerType = isBookable
+    ? parseProviderType(raw.providerType) ?? "company"
+    : undefined;
+  const providerName = isBookable
+    ? optionalTrimmed(raw.providerName)
+    : undefined;
+  const duration =
+    listingType === "service" ? optionalTrimmed(raw.duration) : undefined;
+  const hirePeriod =
+    listingType === "rental" ? optionalTrimmed(raw.hirePeriod) : undefined;
+  const priceNote = isBookable ? optionalTrimmed(raw.priceNote) : undefined;
+  const bookingUrl = isBookable ? optionalTrimmed(raw.bookingUrl) : undefined;
+  const bookingNote = isBookable
+    ? optionalTrimmed(raw.bookingNote) || DEFAULT_BOOKING_NOTE
+    : undefined;
+  const contactEmail = isBookable
+    ? optionalTrimmed(raw.contactEmail)
+    : undefined;
+  const depositRaw = Number(raw.depositAmount);
+  const depositAmount =
+    listingType === "rental" && Number.isFinite(depositRaw) && depositRaw > 0
+      ? depositRaw
+      : undefined;
+  const whatsIncluded = isBookable
+    ? optionalTrimmed(raw.whatsIncluded)
+    : undefined;
+  const whatsNotIncluded = isBookable
+    ? optionalTrimmed(raw.whatsNotIncluded)
+    : undefined;
 
   return {
     id: raw.id,
@@ -279,12 +342,24 @@ function normalizeAdminProduct(
     amazonAsin:
       listingType === "product" ? amazonAsin || undefined : undefined,
     availabilityNote,
+    areaServed,
     sellerId,
     sellerUid: sellerId,
     vehicleMake,
     vehicleModel,
     vehicleYear,
     oemNote,
+    providerType,
+    providerName,
+    duration,
+    hirePeriod,
+    priceNote,
+    bookingUrl,
+    bookingNote,
+    contactEmail,
+    depositAmount,
+    whatsIncluded,
+    whatsNotIncluded,
     stock:
       commerceType === "affiliate" || listingType !== "product"
         ? null
@@ -321,6 +396,17 @@ export function validateAdminProductInput(
       return "Enter an Amazon URL (amazon.com, amazon.co.uk) or short link (amzn.to).";
     }
   }
+  if (input.listingType === "service" || input.listingType === "rental") {
+    if (
+      input.providerType !== "company" &&
+      input.providerType !== "self_employed"
+    ) {
+      return "Provider type is required for services and rentals.";
+    }
+    if (!input.providerName?.trim()) {
+      return "Provider name is required for services and rentals.";
+    }
+  }
   return null;
 }
 
@@ -337,6 +423,12 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
       : input.commerceType === "affiliate"
         ? "affiliate"
         : "first_party";
+  const isBookable = listingType === "service" || listingType === "rental";
+  const areaServed =
+    input.areaServed?.trim() ||
+    input.availabilityNote?.trim() ||
+    undefined;
+
   return normalizeAdminProduct({
     id,
     name: input.name,
@@ -351,7 +443,8 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
       listingType === "product" && commerceType === "affiliate"
         ? input.amazonAffiliateUrl
         : undefined,
-    availabilityNote: input.availabilityNote?.trim() || undefined,
+    availabilityNote: areaServed,
+    areaServed,
     sellerId:
       listingType === "product" && commerceType === "first_party"
         ? input.sellerId?.trim() || undefined
@@ -372,6 +465,22 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
       listingType === "product" && commerceType === "first_party"
         ? input.oemNote?.trim() || undefined
         : undefined,
+    providerType: isBookable ? input.providerType : undefined,
+    providerName: isBookable ? input.providerName?.trim() : undefined,
+    duration:
+      listingType === "service" ? input.duration?.trim() : undefined,
+    hirePeriod:
+      listingType === "rental" ? input.hirePeriod?.trim() : undefined,
+    priceNote: isBookable ? input.priceNote?.trim() : undefined,
+    bookingUrl: isBookable ? input.bookingUrl?.trim() : undefined,
+    bookingNote: isBookable
+      ? input.bookingNote?.trim() || DEFAULT_BOOKING_NOTE
+      : undefined,
+    contactEmail: isBookable ? input.contactEmail?.trim() : undefined,
+    depositAmount:
+      listingType === "rental" ? input.depositAmount ?? undefined : undefined,
+    whatsIncluded: isBookable ? input.whatsIncluded?.trim() : undefined,
+    whatsNotIncluded: isBookable ? input.whatsNotIncluded?.trim() : undefined,
     stock:
       listingType !== "product" || commerceType === "affiliate"
         ? null

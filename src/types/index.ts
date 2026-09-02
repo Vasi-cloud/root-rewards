@@ -63,7 +63,20 @@ export type ListingType = "product" | "service" | "rental";
 /** How the shopper buys: Stripe/stock cart vs outbound Amazon Associates */
 export type CommerceType = "first_party" | "affiliate";
 
+/** Company or solo provider for services / rentals */
+export type ProviderType = "company" | "self_employed";
+
 export type ServiceDeliveryMode = "in_person" | "remote" | "hybrid";
+
+/**
+ * Admin form listing kind — maps to listingType + commerceType on save.
+ * Kept separate so the UI can show four clear options.
+ */
+export type AdminListingKind =
+  | "product_first_party"
+  | "product_affiliate_amazon"
+  | "service"
+  | "rental";
 
 /** Regional size row for apparel / soft goods (aligned EU · UK · US). */
 export interface SizeChartRow {
@@ -294,6 +307,24 @@ export interface Product {
   duration?: string;
   deliveryMode?: ServiceDeliveryMode;
   availabilityNote?: string;
+  /** Service / rental provider */
+  providerType?: ProviderType;
+  providerName?: string;
+  /** e.g. "Ilford / Redbridge" or "UK-wide online" */
+  areaServed?: string;
+  /** Rental hire window e.g. "weekend" / "per day" */
+  hirePeriod?: string;
+  /** Unit label shown after price e.g. "per visit" */
+  priceNote?: string;
+  /** External booking link (Calendly / Google Calendar) */
+  bookingUrl?: string;
+  /** Default: email to confirm — not a live calendar */
+  bookingNote?: string;
+  contactEmail?: string;
+  /** Optional rental deposit (£) */
+  depositAmount?: number;
+  whatsIncluded?: string;
+  whatsNotIncluded?: string;
 }
 
 export interface AffiliateStats {

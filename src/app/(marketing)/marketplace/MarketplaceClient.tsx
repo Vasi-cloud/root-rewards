@@ -17,6 +17,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ReportProductButton } from "@/components/marketplace/ReportProductButton";
 import { MarketplaceProductDetail } from "@/components/marketplace/marketplace-product-detail";
 import { MarketplaceProductImage } from "@/components/marketplace/marketplace-product-image";
+import {
+  ServiceRentalMeta,
+} from "@/components/marketplace/service-rental-booking";
 import { FeaturedSoloMakers } from "@/components/marketplace/FeaturedSoloMakers";
 import { SellerShopsStrip } from "@/components/marketplace/SellerShopsStrip";
 import { BuyLocalStrip } from "@/components/marketplace/BuyLocalStrip";
@@ -43,8 +46,9 @@ import {
 } from "@/lib/admin-catalog-products";
 import { isAffiliateProduct } from "@/lib/commerce-type";
 import {
+  BOOKING_AVAILABILITY_DISCLAIMER,
   canAddProductToCart,
-  DELIVERY_MODE_LABELS,
+  formatListingPrice,
   isRentalListing,
   isServiceListing,
   listingTypeLabel,
@@ -1115,7 +1119,7 @@ function ListingGrid({
             <CardContent className="flex flex-1 flex-col gap-2 px-4 sm:px-6">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <Badge variant="outline">{product.category}</Badge>
-                {isAffiliateProduct(product) ? (
+                {isAffiliateProduct(product) && !isService && !isRental ? (
                   <Badge className="bg-emerald-100 text-xs text-emerald-900">
                     Amazon
                   </Badge>
@@ -1129,16 +1133,6 @@ function ListingGrid({
                     }
                   >
                     {listingTypeLabel(product.listingType)}
-                  </Badge>
-                )}
-                {isService && product.duration && (
-                  <Badge variant="outline" className="text-xs">
-                    {product.duration}
-                  </Badge>
-                )}
-                {isService && product.deliveryMode && (
-                  <Badge variant="outline" className="text-xs">
-                    {DELIVERY_MODE_LABELS[product.deliveryMode]}
                   </Badge>
                 )}
                 {!isService && !isRental && (
@@ -1167,10 +1161,13 @@ function ListingGrid({
                   <ProductPartnerLinks product={product} />
                 </div>
               )}
-              {(isService || isRental) && product.availabilityNote && (
-                <p className="text-xs text-muted-foreground">
-                  {product.availabilityNote}
-                </p>
+              {(isService || isRental) && (
+                <>
+                  <ServiceRentalMeta product={product} compact />
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    {BOOKING_AVAILABILITY_DISCLAIMER}
+                  </p>
+                </>
               )}
               {!isService &&
                 !isRental &&
@@ -1193,9 +1190,15 @@ function ListingGrid({
             </CardContent>
 
             <CardFooter className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t px-4 pt-4 sm:px-6">
-              <span className="text-lg font-semibold tabular-nums text-primary sm:text-xl">
-                £{product.price}
-              </span>
+              {!(isService || isRental) ? (
+                <span className="text-lg font-semibold tabular-nums text-primary sm:text-xl">
+                  {formatListingPrice(product.price)}
+                </span>
+              ) : (
+                <span className="text-sm font-medium text-muted-foreground">
+                  Details to book
+                </span>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
