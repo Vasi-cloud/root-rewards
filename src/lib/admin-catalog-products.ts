@@ -15,6 +15,7 @@ import {
   isValidAmazonAffiliateUrl,
   normalizeAmazonProductUrl,
 } from "@/lib/amazon-affiliate";
+import { isFirebaseClientConfigured } from "@/lib/firebase/config";
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import { DEFAULT_BOOKING_NOTE, isValidHttpUrl } from "@/lib/listing-categories";
 import type {
@@ -115,29 +116,6 @@ function notifyCatalogUpdated() {
   window.dispatchEvent(new Event(CATALOG_UPDATED_EVENT));
 }
 
-/**
- * Merge Firestore + local: FS wins for shared ids unless local is strictly newer
- * (covers a write that landed locally before cloud sync). Local-only ids kept.
- */
-function mergeFsPreferCloud(
-  fromFs: AdminCatalogProduct[],
-  local: AdminCatalogProduct[]
-): AdminCatalogProduct[] {
-  const byId = new Map<string, AdminCatalogProduct>();
-  for (const p of fromFs) byId.set(p.id, p);
-  for (const p of local) {
-    const prev = byId.get(p.id);
-    if (!prev) {
-      byId.set(p.id, p);
-      continue;
-    }
-    if ((p.updatedAt ?? "") > (prev.updatedAt ?? "")) {
-      byId.set(p.id, p);
-    }
-  }
-  return [...byId.values()];
-}
-
 function upsertLocal(product: AdminCatalogProduct) {
   const local = loadLocal();
   const next = local.some((p) => p.id === product.id)
@@ -165,22 +143,86 @@ function firestoreErrorMessage(err: unknown): string {
   return `Firestore update failed${code ? ` (${code})` : ""}: ${message}`;
 }
 
-/** Remove undefined fields — Firestore setDoc rejects them. */
+/**
+ * Persist every listing type to the same Firestore `products` document shape.
+ * Affiliate, first-party, service, and rental share this collection.
+ */
 function toFirestorePayload(
   product: AdminCatalogProduct
 ): Record<string, unknown> {
-  const { stock, ...rest } = product;
+  const listingType = product.listingType ?? "product";
+  const commerceType = product.commerceType;
+  const areaServed =
+    product.areaServed?.trim() || product.availabilityNote?.trim() || null;
+  const sellerId = product.sellerId ?? product.sellerUid ?? null;
+
   const payload: Record<string, unknown> = {
-    ...rest,
-    stock: product.commerceType === "affiliate" ? null : stock,
+    name: product.name,
+    description: product.description ?? "",
+    price: product.price,
+    imageUrl: product.imageUrl,
+    category: product.category,
+    sustainabilityScore: product.sustainabilityScore,
     ecoScore: product.sustainabilityScore,
-    // Alias some clients / consoles may show
-    amazonUrl: product.amazonAffiliateUrl ?? null,
+    affiliateCommissionPercent: product.affiliateCommissionPercent,
+    listingType,
+    commerceType,
+    stock:
+      commerceType === "affiliate" || listingType !== "product"
+        ? null
+        : product.stock ?? 0,
+    createdAt: product.createdAt ?? null,
+    updatedAt: product.updatedAt ?? null,
   };
+
+  if (listingType === "product") {
+    if (commerceType === "affiliate") {
+      payload.amazonAffiliateUrl = product.amazonAffiliateUrl ?? null;
+      payload.amazonUrl = product.amazonAffiliateUrl ?? null;
+      payload.amazonAsin = product.amazonAsin ?? null;
+    } else {
+      payload.sellerId = sellerId;
+      payload.sellerUid = sellerId;
+      payload.vehicleMake = product.vehicleMake ?? null;
+      payload.vehicleModel = product.vehicleModel ?? null;
+      payload.vehicleYear = product.vehicleYear ?? null;
+      payload.oemNote = product.oemNote ?? null;
+    }
+  }
+
+  if (listingType === "service" || listingType === "rental") {
+    payload.providerType = product.providerType ?? null;
+    payload.providerName = product.providerName ?? null;
+    payload.areaServed = areaServed;
+    payload.availabilityNote = areaServed;
+    payload.priceNote = product.priceNote ?? null;
+    payload.bookingUrl = product.bookingUrl ?? null;
+    payload.bookingNote = product.bookingNote ?? DEFAULT_BOOKING_NOTE;
+    payload.contactEmail = product.contactEmail ?? null;
+    payload.whatsIncluded = product.whatsIncluded ?? null;
+    payload.whatsNotIncluded = product.whatsNotIncluded ?? null;
+    if (listingType === "service") {
+      payload.duration = product.duration ?? null;
+    }
+    if (listingType === "rental") {
+      payload.hirePeriod = product.hirePeriod ?? null;
+      payload.depositAmount =
+        product.depositAmount != null ? product.depositAmount : null;
+    }
+  }
+
   for (const key of Object.keys(payload)) {
     if (payload[key] === undefined) delete payload[key];
   }
   return payload;
+}
+
+function newCatalogDocId(listingType: ListingType): string {
+  const rand =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  return `live-${listingType}-${Date.now()}-${rand}`;
 }
 
 /** Map free-text / unknown categories to a sensible catalog label (never block save). */
@@ -418,11 +460,11 @@ export function validateAdminProductInput(
 
 function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
   const now = new Date().toISOString();
-  const id = input.id?.trim() || `live-${Date.now()}`;
+  const listingType = parseListingType(input.listingType);
+  const id = input.id?.trim() || newCatalogDocId(listingType);
   const eco = Number.isFinite(input.ecoScore)
     ? Math.min(100, Math.max(0, input.ecoScore))
     : 90;
-  const listingType = parseListingType(input.listingType);
   const commerceType: CommerceType =
     listingType !== "product"
       ? "first_party"
@@ -500,13 +542,23 @@ function buildFromInput(input: AdminProductInput): AdminCatalogProduct {
 }
 
 /**
- * List admin-managed catalog products.
- * Prefers Firestore; keeps local-only rows and strictly-newer local edits.
+ * List admin-managed catalog products from Firestore `products`
+ * (affiliate + first-party + service + rental). Same name is allowed when
+ * providerName / providerType / id differ.
+ *
+ * When Firebase is configured, Firestore is the source of truth — no
+ * session-only list for services/rentals.
  */
 export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]> {
   const local = loadLocal();
-  const db = getFirebaseFirestore();
-  if (db) {
+
+  if (isFirebaseClientConfigured()) {
+    const db = getFirebaseFirestore();
+    if (!db) {
+      throw new Error(
+        "Firebase is configured but failed to initialize. Check NEXT_PUBLIC_FIREBASE_* env vars."
+      );
+    }
     try {
       const snapshot = await getDocs(collection(db, "products"));
       const fromFs = snapshot.docs.map((d) =>
@@ -515,15 +567,17 @@ export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]>
           ...(d.data() as Record<string, unknown>),
         })
       );
-      const merged = mergeFsPreferCloud(fromFs, local);
-      saveLocal(merged);
-      return merged.sort((a, b) =>
+      // Mirror cloud catalog locally for offline Marketplace cache only.
+      saveLocal(fromFs);
+      return fromFs.sort((a, b) =>
         (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")
       );
     } catch (err) {
-      console.warn("[products] Firestore list failed, using local cache", err);
+      console.error("[products] Firestore list failed", err);
+      throw new Error(firestoreErrorMessage(err));
     }
   }
+
   return local.sort((a, b) =>
     (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")
   );
@@ -533,13 +587,20 @@ export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]>
  * Public marketplace helper — same documents as admin catalog.
  */
 export async function listLiveMarketplaceProducts(): Promise<Product[]> {
-  const rows = await listAdminCatalogProducts();
-  return rows.map(toMarketplaceProduct);
+  try {
+    const rows = await listAdminCatalogProducts();
+    return rows.map(toMarketplaceProduct);
+  } catch (err) {
+    // Marketplace stays usable from local cache if Firestore is briefly down.
+    console.warn("[products] Live list falling back to local cache", err);
+    return loadLocal().map(toMarketplaceProduct);
+  }
 }
 
 /**
- * Create or update a product on the same Firestore document id.
- * When Firebase is configured, a failed write throws (no silent local-only success).
+ * Create or update a product on the same Firestore `products` collection /
+ * document id used by Amazon affiliate listings.
+ * When Firebase is configured, a failed write throws (no “this device only”).
  */
 export async function saveAdminCatalogProduct(
   input: AdminProductInput,
@@ -557,29 +618,32 @@ export async function saveAdminCatalogProduct(
   }
   product.updatedAt = new Date().toISOString();
 
-  const db = getFirebaseFirestore();
-  if (db) {
+  if (isFirebaseClientConfigured()) {
+    const db = getFirebaseFirestore();
+    if (!db) {
+      throw new Error(
+        "Firebase is configured but failed to initialize. Product was not saved."
+      );
+    }
     try {
-      // Same doc id for create and edit (e.g. live-…).
       await setDoc(doc(db, "products", product.id), toFirestorePayload(product));
       upsertLocal(product);
       notifyCatalogUpdated();
       return { product, persist: "firestore" };
     } catch (e) {
       console.error("[products] Firestore save/update failed", e);
-      // Do not silently treat as success — Admin must see the real error.
       throw new Error(firestoreErrorMessage(e));
     }
   }
 
-  // Firebase not configured — local is the only store.
+  // Firebase env not set — local is the only store (dev without FS).
   upsertLocal(product);
   notifyCatalogUpdated();
   return {
     product,
     persist: "local",
     warning:
-      "Firebase is not configured — product saved on this device and will show in Marketplace here.",
+      "Firebase is not configured — product saved on this device only.",
   };
 }
 
@@ -591,8 +655,13 @@ export async function deleteAdminCatalogProduct(
     throw new Error("Not authorized to delete products.");
   }
 
-  const db = getFirebaseFirestore();
-  if (db) {
+  if (isFirebaseClientConfigured()) {
+    const db = getFirebaseFirestore();
+    if (!db) {
+      throw new Error(
+        "Firebase is configured but failed to initialize. Product was not deleted."
+      );
+    }
     try {
       await deleteDoc(doc(db, "products", id));
     } catch (e) {

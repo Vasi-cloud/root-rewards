@@ -403,6 +403,13 @@ export default function AdminDashboard() {
     try {
       const rows = await listAdminCatalogProducts();
       setProducts(rows);
+    } catch (err) {
+      console.error("[admin] catalog refresh failed", err);
+      setProductSaveError(
+        err instanceof Error
+          ? err.message
+          : "Could not load products from Firestore."
+      );
     } finally {
       setProductsLoading(false);
     }
@@ -478,7 +485,8 @@ export default function AdminDashboard() {
       !q ||
       p.name.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q) ||
-      listingTypeLabel(p.listingType).toLowerCase().includes(q);
+      listingTypeLabel(p.listingType).toLowerCase().includes(q) ||
+      (p.providerName?.toLowerCase().includes(q) ?? false);
     const matchesType =
       listingTypeFilter === "All" ||
       (p.listingType ?? "product") === listingTypeFilter;
@@ -645,26 +653,33 @@ export default function AdminDashboard() {
           existingCreatedAt: existing?.createdAt,
         }
       );
-      // Optimistic list update, then reload from Firestore so Admin matches cloud.
+      // Reload full Firestore catalog (affiliate + first-party + service + rental).
       setProducts((prev) => {
         const without = prev.filter((p) => p.id !== result.product.id);
         return [result.product, ...without];
       });
       await refreshCatalogProducts();
+      if (result.persist !== "firestore" && isFirebaseClientConfigured()) {
+        throw new Error(
+          "Save did not confirm Firestore write. Check the console and try again."
+        );
+      }
       const shopHint =
         result.product.listingType === "service" ||
         result.product.listingType === "rental"
-          ? " It appears on Marketplace Services / Rentals with Details + booking (no Amazon / cart)."
+          ? " Saved to Firestore products — shows on Marketplace Services / Rentals."
           : result.product.commerceType === "affiliate"
-            ? " It appears on Marketplace with Shop Amazon (not Add to cart)."
-            : " It appears on Marketplace with Add to cart.";
+            ? " Saved to Firestore products — Shop Amazon on Marketplace."
+            : " Saved to Firestore products — Add to cart on Marketplace.";
       const base = editingId
         ? `Updated “${result.product.name}”.`
         : `Created “${result.product.name}”.`;
       setProductSaveSuccess(
-        result.persist === "local" && result.warning
-          ? `${base}${shopHint} ${result.warning}`
-          : `${base}${shopHint}`
+        result.persist === "firestore"
+          ? `${base}${shopHint}`
+          : result.warning
+            ? `${base} ${result.warning}`
+            : base
       );
       setFormOpen(false);
       setEditingId(null);
@@ -871,8 +886,8 @@ export default function AdminDashboard() {
                 </h2>
                 <p className="mt-1 text-muted-foreground">
                   {isFirebaseClientConfigured()
-                    ? "Save Amazon affiliate or first-party items to the live marketplace catalog in Firestore."
-                    : "Save Amazon affiliate or first-party items to the marketplace catalog on this device until Firebase is connected."}
+                    ? "All listing types (Amazon, first-party, service, rental) save to the same Firestore products collection and reload together."
+                    : "Firebase is not configured — listings save on this device only until NEXT_PUBLIC_FIREBASE_* is set."}
                 </p>
               </div>
               <Button onClick={openAddForm} className="gap-1.5">
