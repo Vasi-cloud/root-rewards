@@ -45,12 +45,18 @@ export function CauseGiftPicker({
     setGift(id, CAUSE_GIFT_PRESETS[0]);
   }
 
+  // Selected UI follows the same amount threshold as giftTotal / giftSelectedCount.
+  const payableTotal = CAUSES.reduce((sum, cause) => {
+    const n = Number(gifts[cause.id]) || 0;
+    return sum + (n >= CAUSE_GIFT_MIN_GBP ? n : 0);
+  }, 0);
   return (
     <div className={cn("space-y-3", className)}>
       {CAUSES.map((cause) => {
         const Icon = CAUSE_ICONS[cause.icon];
         const amount = Number(gifts[cause.id]) || 0;
-        const selected = amount >= CAUSE_GIFT_MIN_GBP;
+        const selected =
+          payableTotal >= CAUSE_GIFT_MIN_GBP && amount >= CAUSE_GIFT_MIN_GBP;
         const units = selected
           ? illustrativeUnitsForGift(cause, amount)
           : 0;

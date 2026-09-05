@@ -299,3 +299,13 @@ export function parseCauseGifts(raw: unknown): CauseGiftAmounts {
   }
   return base;
 }
+
+/**
+ * Single source of truth for cause gift UI: clamp amounts, then drop any
+ * selection that would show a checkmark with a £0 payable total.
+ */
+export function syncCauseGifts(raw: unknown): CauseGiftAmounts {
+  const next = parseCauseGifts(raw);
+  if (giftTotal(next) < CAUSE_GIFT_MIN_GBP) return emptyCauseGifts();
+  return next;
+}

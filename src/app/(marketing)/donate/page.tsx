@@ -31,6 +31,7 @@ import {
   giftTotal,
   giftsToIllustrativeUnits,
   loadCartCauseGifts,
+  syncCauseGifts,
   type CauseGiftAmounts,
   type CauseId,
 } from "@/lib/causes";
@@ -53,42 +54,52 @@ const CHECKOUT_SPIN_MS = 20_000;
 const CANCEL_MESSAGE =
   "Checkout canceled — no payment was taken. Choose your causes again when you’re ready.";
 
+const INTERRUPT_MESSAGE =
+  "Checkout was interrupted. Choose your causes again, then continue.";
+
 function wasCanceledReturn(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("canceled") === "1";
 }
 
-function initialGifts(): CauseGiftAmounts {
-  if (typeof window !== "undefined") {
-    if (wasCanceledReturn()) return emptyCauseGifts();
-    const fromCart = loadCartCauseGifts();
-    if (giftTotal(fromCart) >= 1) return fromCart;
-  }
+/** Client-only bootstrap — never seed SSR defaults (avoids checkmark/£0 desync). */
+function bootstrapDonateGifts(): CauseGiftAmounts {
+  if (wasCanceledReturn()) return emptyCauseGifts();
+  const fromCart = loadCartCauseGifts();
+  if (giftTotal(fromCart) >= 1) return syncCauseGifts(fromCart);
   const next = emptyCauseGifts();
   next.trees = CAUSE_GIFT_PRESETS[0];
   return next;
 }
 
-function initialError(): string | null {
-  return wasCanceledReturn() ? CANCEL_MESSAGE : null;
-}
-
 export default function DonatePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [gifts, setGifts] = useState<CauseGiftAmounts>(initialGifts);
+  /** Always start empty; client effect applies the real selection once. */
+  const [gifts, setGiftsState] = useState<CauseGiftAmounts>(emptyCauseGifts);
+  const [pickerKey, setPickerKey] = useState(0);
   const [email, setEmail] = useState(user?.email ?? "");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(initialError);
+  const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const submittingRef = useRef(false);
 
-  const total = giftTotal(gifts);
-  const lines = giftLines(gifts);
-  const summary = formatGiftImpactSummary(gifts);
-  const selectedCount = giftSelectedCount(gifts);
-  const hasSelection = selectedCount > 0;
-  const canContinue = hasSelection && total >= 1;
+  /** One write path — every update is normalized so UI never drifts. */
+  function setGifts(next: CauseGiftAmounts | ((prev: CauseGiftAmounts) => CauseGiftAmounts)) {
+    setGiftsState((prev) => {
+      const raw = typeof next === "function" ? next(prev) : next;
+      return syncCauseGifts(raw);
+    });
+  }
+
+  // Derived exclusively from `gifts` (single source of truth).
+  const total = useMemo(() => giftTotal(gifts), [gifts]);
+  const lines = useMemo(() => giftLines(gifts), [gifts]);
+  const summary = useMemo(() => formatGiftImpactSummary(gifts), [gifts]);
+  const selectedCount = useMemo(() => giftSelectedCount(gifts), [gifts]);
+  const hasSelection = selectedCount > 0 && total >= 1;
+  const canContinue = hasSelection;
   const co2 = useMemo(
     () => lines.reduce((sum, line) => sum + line.co2, 0),
     [lines]
@@ -99,29 +110,44 @@ export default function DonatePage() {
     setSubmitting(false);
   }
 
+  function applyGifts(next: CauseGiftAmounts, remountPicker = false) {
+    const synced = syncCauseGifts(next);
+    setGiftsState(synced);
+    if (remountPicker) setPickerKey((k) => k + 1);
+    return synced;
+  }
+
   function resetDonateUi(message: string | null) {
     stopSubmitting();
-    setGifts(emptyCauseGifts());
+    applyGifts(emptyCauseGifts(), true);
     setError(message);
   }
 
-  // Stripe cancel return + strip query so refresh doesn’t re-show the banner forever.
+  // Client hydrate: load real gifts (or empty after cancel) — never trust SSR seed.
   useEffect(() => {
-    if (!wasCanceledReturn()) return;
-    resetDonateUi(CANCEL_MESSAGE);
-    window.history.replaceState({}, "", "/donate");
+    if (wasCanceledReturn()) {
+      resetDonateUi(CANCEL_MESSAGE);
+      window.history.replaceState({}, "", "/donate");
+    } else {
+      applyGifts(bootstrapDonateGifts(), true);
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only bootstrap
   }, []);
 
-  // Browser back from Checkout (bfcache) leaves submitting=true — clear it.
+  // Browser back / bfcache: clear checkout spin and re-sync from empty (no stale checks).
   useEffect(() => {
     const onPageShow = (event: PageTransitionEvent) => {
-      if (!event.persisted && !submittingRef.current) return;
-      resetDonateUi(
-        "Checkout was interrupted. Choose your causes again, then continue."
-      );
+      if (!event.persisted && !submittingRef.current) {
+        // Heal any drift without wiping a valid in-progress selection.
+        setGiftsState((prev) => syncCauseGifts(prev));
+        return;
+      }
+      resetDonateUi(INTERRUPT_MESSAGE);
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable listeners
   }, []);
 
   // Cap the spinner if create-session hangs.
@@ -133,23 +159,36 @@ export default function DonatePage() {
       );
     }, CHECKOUT_SPIN_MS);
     return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitting]);
+
+  // Invariant: never show a checked cause when payable total is £0.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (total >= 1) return;
+    if (selectedCount === 0) return;
+    applyGifts(emptyCauseGifts(), true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- heal from derived totals only
+  }, [hydrated, total, selectedCount]);
 
   function giveNow(id: CauseId, amount: number) {
     const next = emptyCauseGifts();
     next[id] = clampCauseGiftGbp(amount);
-    setGifts(next);
-    return next;
+    return applyGifts(next);
   }
 
   async function handleContinue(override?: CauseGiftAmounts) {
     setError(null);
-    const payload = override ?? gifts;
+    const payload = syncCauseGifts(override ?? gifts);
     const payTotal = giftTotal(payload);
     if (payTotal < 1) {
+      applyGifts(emptyCauseGifts(), true);
       setError("Select at least one cause and amount (£1+) to continue.");
       return;
     }
+
+    // Keep picker + summary in lockstep with what we are about to charge.
+    applyGifts(payload);
 
     const emailTrim = email.trim();
     if (emailTrim) {
@@ -192,7 +231,6 @@ export default function DonatePage() {
         }
 
         if ("error" in stripeResult) {
-          // Keep current cause picks so the shopper can retry; clear spinner.
           stopSubmitting();
           setError(stripeResult.error);
           return;
@@ -268,12 +306,18 @@ export default function DonatePage() {
               Choose causes
             </h2>
             <p className="text-xs text-muted-foreground sm:text-sm">
-              {selectedCount === 0
-                ? "Tap to add one or more"
-                : `${selectedCount} selected`}
+              {!hydrated
+                ? "Loading…"
+                : selectedCount === 0
+                  ? "Tap to add one or more"
+                  : `${selectedCount} selected`}
             </p>
           </div>
-          <CauseGiftPicker gifts={gifts} onChange={setGifts} />
+          <CauseGiftPicker
+            key={pickerKey}
+            gifts={gifts}
+            onChange={setGifts}
+          />
         </section>
 
         <section className="mt-6 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-cream to-white p-4 sm:p-5">
