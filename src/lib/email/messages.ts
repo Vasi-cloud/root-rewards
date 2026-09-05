@@ -1,5 +1,13 @@
 import "server-only";
 
+import { buildLoginHref } from "@/lib/auth-redirect";
+import {
+  CAUSES,
+  emptyCauseGifts,
+  formatCauseUnits,
+  giftTotal,
+} from "@/lib/causes";
+import { getAppUrlForEmail, type EmailSendResult } from "@/lib/email/config";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import {
   abandonedCartEmailHtml,
@@ -8,8 +16,32 @@ import {
   welcomeEmailHtml,
 } from "@/lib/email/templates";
 import type { ConfirmedOrder } from "@/lib/stripe/orders";
-import { CAUSES, formatCauseUnits } from "@/lib/causes";
-import type { EmailSendResult } from "@/lib/email/config";
+
+/** Stripe cause line items use Support:/Impact: names — not physical SKUs. */
+function isCauseGiftLineItemName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n.startsWith("support:") || n.startsWith("impact:");
+}
+
+/** True when the paid session funded causes only (no physical catalogue SKUs). */
+export function isCauseOnlyOrder(order: ConfirmedOrder): boolean {
+  const hasUnits = CAUSES.some((c) => (order.causeSelection[c.id] || 0) > 0);
+  const hasGifts = giftTotal(order.causeGifts ?? emptyCauseGifts()) >= 1;
+  if (!hasUnits && !hasGifts) return false;
+  const physical = order.lineItems.filter(
+    (li) => !isCauseGiftLineItemName(li.name)
+  );
+  return physical.length === 0;
+}
+
+function impactTrackUrlForOrder(order: ConfirmedOrder): string {
+  const appUrl = getAppUrlForEmail();
+  const impactPath = "/dashboard/impact";
+  if (order.userId) {
+    return `${appUrl}${impactPath}`;
+  }
+  return `${appUrl}${buildLoginHref(impactPath)}`;
+}
 
 export async function sendWelcomeEmail(opts: {
   to: string;
@@ -46,8 +78,13 @@ export async function sendOrderConfirmationEmail(
     return { ok: false, error: "Order has no customer email." };
   }
 
-  const causeLines = CAUSES.filter((c) => (order.causeSelection[c.id] || 0) > 0).map(
-    (c) => `${c.name}: ${formatCauseUnits(c, order.causeSelection[c.id])}`
+  const causeOnly = isCauseOnlyOrder(order);
+
+  const causeLines = CAUSES.filter(
+    (c) => (order.causeSelection[c.id] || 0) > 0
+  ).map(
+    (c) =>
+      `${c.name}: ≈ ${formatCauseUnits(c, order.causeSelection[c.id])} (illustrative)`
   );
 
   const content = orderConfirmationEmailHtml({
@@ -56,6 +93,8 @@ export async function sendOrderConfirmationEmail(
     amountTotalCents: order.amountTotalCents,
     lineItems: order.lineItems,
     causeLines,
+    causeOnly,
+    impactTrackUrl: impactTrackUrlForOrder(order),
   });
 
   return sendTransactionalEmail({

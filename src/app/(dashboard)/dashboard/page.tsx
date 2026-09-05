@@ -191,12 +191,12 @@ export default function DashboardPage() {
         </h1>
         <p className="mt-2 max-w-xl text-muted-foreground">
           Your plan and impact — Marketplace, Buy Local, Kitchen, Parts, and
-          Ask Leafy stay available on Free. Affiliate tools unlock with Impact
-          Member.
+          Ask Leafy stay available on Free. Membership adds cause credit and
+          helps support the platform.
         </p>
       </section>
 
-      {/* Plan block */}
+      {/* 1. Plan */}
       <Card
         id="membership"
         className="scroll-mt-20 overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40"
@@ -242,14 +242,14 @@ export default function DashboardPage() {
                 <span className="block">
                   <span className="font-medium text-emerald-950">Free plan</span>
                   {" — "}
-                  no commission share. Upgrade to Impact Member to unlock your
-                  share link and 25% of eligible commissions as account credit
-                  (after partners pay us).
+                  shop, fund causes, and use Leafy tools. Membership fees
+                  support the platform; cause gifts fund partner programmes —
+                  not cashback.
                 </span>
               )}
               <span className="block text-xs text-emerald-800/70">
-                Membership fees support the platform. Cause and tree payments
-                fund partner programmes — not cashback.
+                Cause and tree payments fund partner programmes — illustrative
+                impact, not a GPS pin for a tree.
               </span>
             </CardDescription>
           </div>
@@ -259,7 +259,7 @@ export default function DashboardPage() {
               render={<Link href="/membership" />}
               variant={isImpactMember ? "outline" : "default"}
             >
-              {isImpactMember ? "Manage plan" : "Upgrade to earn"}
+              {isImpactMember ? "Manage plan" : "Become an Impact Member"}
             </Button>
           </div>
         </CardHeader>
@@ -279,7 +279,132 @@ export default function DashboardPage() {
         )}
       </Card>
 
-      {/* Affiliate / sharing — Impact Members only */}
+      {/* 2. Your impact (latest gifts) */}
+      <Card
+        id="impact"
+        className="scroll-mt-20 overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/50"
+      >
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="font-heading flex items-center gap-2 text-emerald-900">
+              <Leaf className="size-5" /> Your impact
+            </CardTitle>
+            <CardDescription className="text-emerald-800/80">
+              Latest gifts and illustrative totals from causes and shopping on
+              this device — partner-funded programmes, not affiliate cashback.
+            </CardDescription>
+          </div>
+          <Button
+            nativeButton={false}
+            render={<Link href="/dashboard/impact" />}
+            size="sm"
+            variant="outline"
+            className="h-10 shrink-0 gap-1.5 border-emerald-300 bg-white/80 text-emerald-950 hover:bg-white sm:h-8"
+          >
+            Full impact
+            <ArrowRight className="size-3.5" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <ImpactTile label="Trees" value={treesLabel} />
+            <ImpactTile
+              label="CO₂ (kg)"
+              value={`~${Math.round(co2 * 10) / 10}`}
+            />
+            <ImpactTile
+              label="Purchases"
+              value={String(impactSummary?.ecoPurchases ?? 0)}
+            />
+            <ImpactTile
+              label="Cart"
+              value={String(impactSummary?.cartActions ?? 0)}
+            />
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <div className="font-heading text-3xl font-semibold tabular-nums text-emerald-900">
+              {units}
+            </div>
+            <div className="text-sm text-emerald-800">cause units funded</div>
+          </div>
+          {causeRows.length === 0 ? (
+            <p className="mt-3 text-sm text-emerald-800/80">
+              Support a cause at{" "}
+              <Link
+                href="/donate"
+                className="font-medium underline underline-offset-2"
+              >
+                Donate
+              </Link>{" "}
+              or checkout — payments fund partner programmes.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {causeRows.map(({ cause, units: u, cost }) => {
+                const Icon = CAUSE_ICONS[cause.icon];
+                return (
+                  <div
+                    key={cause.id}
+                    className="flex items-center justify-between rounded-xl border border-emerald-200/70 bg-white/60 px-3 py-2 text-sm"
+                  >
+                    <div className="flex items-center gap-2 text-emerald-900">
+                      <Icon className="size-4" />
+                      <span className="font-medium">{cause.name}</span>
+                      <span className="text-xs text-emerald-800/80">
+                        ≈ {formatCauseUnits(cause, u)} (illustrative)
+                      </span>
+                    </div>
+                    <span className="tabular-nums text-emerald-900">
+                      £{cost.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 3. Membership — what £5/mo is (Free); Impact members manage above */}
+      {!isImpactMember ? (
+        <Card
+          id="impact-member"
+          className="scroll-mt-20 border-emerald-200/90 bg-white/90"
+        >
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <CardTitle className="font-heading text-lg text-emerald-950">
+                Membership · £5/mo
+              </CardTitle>
+              <CardDescription className="mt-1.5 space-y-2 text-sm leading-relaxed">
+                <span className="block">
+                  Impact Member includes{" "}
+                  <strong className="font-medium text-foreground">
+                    £5 monthly cause credit
+                  </strong>{" "}
+                  toward trees and causes at checkout (partner programmes — not
+                  a product discount), plus your support helping run Forest
+                  Buddies.
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Impact stays illustrative — not a GPS pin for a planted tree.
+                </span>
+              </CardDescription>
+            </div>
+            <Button
+              nativeButton={false}
+              render={<Link href="/membership" />}
+              size="sm"
+              className="h-10 shrink-0 gap-1.5 sm:h-9"
+            >
+              Become an Impact Member
+              <ArrowRight className="size-3.5" />
+            </Button>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {/* 4. Affiliate — full tools for Impact; smaller secondary card for Free */}
       {isImpactMember ? (
         <section className="space-y-4" id="sharing">
           <div>
@@ -431,113 +556,34 @@ export default function DashboardPage() {
           </div>
         </section>
       ) : (
-        <Card id="sharing" className="scroll-mt-20">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="font-heading text-lg">
+        <Card
+          id="sharing"
+          className="scroll-mt-20 border-border/60 bg-muted/20 shadow-none"
+        >
+          <CardHeader className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="min-w-0">
+              <CardTitle className="font-heading text-base text-foreground/90">
                 Affiliate &amp; sharing
               </CardTitle>
-              <CardDescription>
-                Impact Members unlock a share link and 25% of eligible
-                commissions as account credit (after partners pay us). Not a
-                cash wallet.
+              <CardDescription className="mt-1 text-xs leading-relaxed sm:text-sm">
+                Also with Impact Member: share link and 25% of eligible
+                commissions as account credit after partners pay. Not a cash
+                wallet.
               </CardDescription>
             </div>
             <Button
               nativeButton={false}
               render={<Link href="/membership" />}
               size="sm"
-              className="h-10 shrink-0 gap-1.5 sm:h-9"
+              variant="outline"
+              className="h-9 shrink-0 gap-1.5 text-xs sm:h-8"
             >
-              Upgrade to earn
+              Become an Impact Member
               <ArrowRight className="size-3.5" />
             </Button>
           </CardHeader>
         </Card>
       )}
-
-      {/* Your impact (illustrative) */}
-      <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/50">
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <CardTitle className="font-heading flex items-center gap-2 text-emerald-900">
-              <Leaf className="size-5" /> Your impact
-            </CardTitle>
-            <CardDescription className="text-emerald-800/80">
-              Illustrative totals from causes and shopping on this device —
-              partner-funded programmes, not affiliate cashback.
-            </CardDescription>
-          </div>
-          <Button
-            nativeButton={false}
-            render={<Link href="/dashboard/impact" />}
-            size="sm"
-            variant="outline"
-            className="h-10 shrink-0 gap-1.5 border-emerald-300 bg-white/80 text-emerald-950 hover:bg-white sm:h-8"
-          >
-            Full impact
-            <ArrowRight className="size-3.5" />
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <ImpactTile label="Trees" value={treesLabel} />
-            <ImpactTile
-              label="CO₂ (kg)"
-              value={`~${Math.round(co2 * 10) / 10}`}
-            />
-            <ImpactTile
-              label="Purchases"
-              value={String(impactSummary?.ecoPurchases ?? 0)}
-            />
-            <ImpactTile
-              label="Cart"
-              value={String(impactSummary?.cartActions ?? 0)}
-            />
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <div className="font-heading text-3xl font-semibold tabular-nums text-emerald-900">
-              {units}
-            </div>
-            <div className="text-sm text-emerald-800">cause units funded</div>
-          </div>
-          {causeRows.length === 0 ? (
-            <p className="mt-3 text-sm text-emerald-800/80">
-              Support a cause at{" "}
-              <Link
-                href="/donate"
-                className="font-medium underline underline-offset-2"
-              >
-                Donate
-              </Link>{" "}
-              or checkout — payments fund partner programmes.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-2">
-              {causeRows.map(({ cause, units: u, cost }) => {
-                const Icon = CAUSE_ICONS[cause.icon];
-                return (
-                  <div
-                    key={cause.id}
-                    className="flex items-center justify-between rounded-xl border border-emerald-200/70 bg-white/60 px-3 py-2 text-sm"
-                  >
-                    <div className="flex items-center gap-2 text-emerald-900">
-                      <Icon className="size-4" />
-                      <span className="font-medium">{cause.name}</span>
-                      <span className="text-xs text-emerald-800/80">
-                        {formatCauseUnits(cause, u)}
-                      </span>
-                    </div>
-                    <span className="tabular-nums text-emerald-900">
-                      £{cost.toFixed(2)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Seller block — independent of membership */}
       <Card id="seller">

@@ -163,6 +163,15 @@ export default function HomePage() {
                 </Button>
                 <Button
                   nativeButton={false}
+                  render={<Link href="/membership" />}
+                  size="lg"
+                  variant="ghost"
+                  className="min-h-11 w-full justify-center text-cream/85 underline-offset-4 hover:bg-transparent hover:text-cream hover:underline sm:w-auto sm:px-3"
+                >
+                  Impact Member
+                </Button>
+                <Button
+                  nativeButton={false}
                   render={<Link href="/seller" />}
                   size="lg"
                   variant="ghost"
@@ -172,6 +181,20 @@ export default function HomePage() {
                 </Button>
               </div>
             </div>
+            <p
+              className="animate-fb-fade-up mt-3 max-w-lg text-xs leading-relaxed text-cream/65 sm:mt-4 sm:text-sm"
+              style={{ animationDelay: "380ms" }}
+            >
+              <Link
+                href="/membership"
+                className="font-medium text-sage underline-offset-2 hover:text-cream hover:underline"
+              >
+                Impact Member · £5/mo
+              </Link>
+              {" — "}
+              cause credit toward partner programmes, and support for the
+              platform.
+            </p>
           </div>
         </div>
       </section>
@@ -442,7 +465,7 @@ export default function HomePage() {
               className="min-h-12 w-full gap-2 border-cream/35 bg-transparent text-cream hover:bg-cream/10 sm:min-h-11 sm:w-auto"
             >
               <Users className="size-4" />
-              Upgrade to earn
+              Become an Impact Member
             </Button>
           </div>
         </div>

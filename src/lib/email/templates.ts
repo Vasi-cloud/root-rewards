@@ -52,11 +52,21 @@ export function orderConfirmationEmailHtml(opts: {
   amountTotalCents: number;
   lineItems: Array<{ name: string; quantity: number; amountCents: number }>;
   causeLines?: string[];
+  /** No physical SKUs — gift / cause funding only */
+  causeOnly?: boolean;
+  /** Deep-link for Track your impact (dashboard or login?next=) */
+  impactTrackUrl?: string;
 }): { subject: string; html: string; text: string } {
   const appUrl = getAppUrlForEmail();
   const name = opts.customerName?.trim() || "there";
   const total = (opts.amountTotalCents / 100).toFixed(2);
-  const subject = `Order confirmed — ${opts.orderNumber}`;
+  const causeOnly = Boolean(opts.causeOnly);
+  const impactUrl =
+    opts.impactTrackUrl?.trim() || `${appUrl}/dashboard/impact`;
+
+  const subject = causeOnly
+    ? `Cause gift confirmed — ${opts.orderNumber}`
+    : `Order confirmed — ${opts.orderNumber}`;
 
   const rows = opts.lineItems
     .map(
@@ -80,16 +90,45 @@ export function orderConfirmationEmailHtml(opts: {
          </ul>`
       : "";
 
+  const introHtml = causeOnly
+    ? `<p style="margin:0 0 14px;">
+         Thank you — your cause gift is confirmed.
+         You’re funding partner programmes that grow a little more good in the world.
+       </p>`
+    : `<p style="margin:0 0 14px;">
+         Thank you — your order is confirmed and being prepared with care.
+         A little more good is on its way into the world.
+       </p>`;
+
+  const refLabel = causeOnly ? "Gift reference" : "Order number";
+  const emptyRowLabel = causeOnly
+    ? "Cause funding"
+    : "Your Forest Buddies order";
+
+  const primaryCta = causeOnly
+    ? ctaButton(impactUrl, "Track your impact")
+    : ctaButton(`${appUrl}/dashboard`, "Track your impact");
+
+  const secondaryLinks = causeOnly
+    ? `<p style="margin:16px 0 0;font-size:14px;">
+         <a href="${appUrl}/donate" style="color:#1b4332;font-weight:600;">Support a cause</a>
+         &nbsp;·&nbsp;
+         <a href="${escapeHtml(impactUrl)}" style="color:#1b4332;font-weight:600;">Your impact</a>
+       </p>
+       <p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
+         Questions? Reply to this email anytime.
+       </p>`
+    : `<p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
+         Questions? Reply to this email or visit our returns guide anytime.
+       </p>`;
+
   const bodyHtml = `
     <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
-    <p style="margin:0 0 14px;">
-      Thank you — your order is confirmed and being prepared with care.
-      A little more good is on its way into the world.
-    </p>
-    <p style="margin:0 0 6px;font-size:13px;color:#5c7366;">Order number</p>
+    ${introHtml}
+    <p style="margin:0 0 6px;font-size:13px;color:#5c7366;">${refLabel}</p>
     <p style="margin:0 0 16px;font-family:ui-monospace,monospace;font-weight:600;">${escapeHtml(opts.orderNumber)}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
-      ${rows || `<tr><td style="padding:8px 0;font-size:14px;">Your Forest Buddies order</td><td style="text-align:right;">£${total}</td></tr>`}
+      ${rows || `<tr><td style="padding:8px 0;font-size:14px;">${emptyRowLabel}</td><td style="text-align:right;">£${total}</td></tr>`}
       <tr>
         <td style="padding:12px 0 0;font-weight:600;">Total</td>
         <td style="padding:12px 0 0;font-weight:600;text-align:right;">£${total}</td>
@@ -99,36 +138,40 @@ export function orderConfirmationEmailHtml(opts: {
     ${
       opts.causeLines && opts.causeLines.length > 0
         ? `<p style="margin:0 0 16px;font-size:13px;color:#5c7366;">
-             Cause funding supports partner programmes — not product cashback or a shopping balance.
+             Cause funding supports partner programmes — illustrative impact, not a GPS pin for a tree, and not product cashback or a shopping balance.
            </p>`
         : ""
     }
-    ${ctaButton(`${appUrl}/dashboard`, "Track your impact")}
-    <p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
-      Questions? Reply to this email or visit our returns guide anytime.
-    </p>
+    ${primaryCta}
+    ${secondaryLinks}
   `;
+
+  const textIntro = causeOnly
+    ? `Your Forest Buddies cause gift ${opts.orderNumber} is confirmed.`
+    : `Your Forest Buddies order ${opts.orderNumber} is confirmed.`;
 
   const text = `Hi ${name},
 
-Your Forest Buddies order ${opts.orderNumber} is confirmed.
+${textIntro}
 Total: £${total}
 
 ${opts.lineItems.map((i) => `- ${i.name} × ${i.quantity}: £${(i.amountCents / 100).toFixed(2)}`).join("\n")}
 ${
   opts.causeLines && opts.causeLines.length > 0
-    ? `\nImpact: ${opts.causeLines.join("; ")}\nCause funding supports partner programmes — not product cashback.\n`
+    ? `\nImpact: ${opts.causeLines.join("; ")}\nCause funding supports partner programmes — illustrative impact, not product cashback.\n`
     : ""
 }
-Dashboard: ${appUrl}/dashboard
+${causeOnly ? `Your impact: ${impactUrl}\nSupport a cause: ${appUrl}/donate` : `Dashboard: ${appUrl}/dashboard`}
 
 — Forest Buddies`;
 
   return {
     subject,
     html: emailLayout({
-      preheader: `Order ${opts.orderNumber} confirmed — £${total}.`,
-      title: "Order confirmed",
+      preheader: causeOnly
+        ? `Cause gift ${opts.orderNumber} confirmed — £${total}.`
+        : `Order ${opts.orderNumber} confirmed — £${total}.`,
+      title: causeOnly ? "Cause gift confirmed" : "Order confirmed",
       bodyHtml,
     }),
     text,
