@@ -96,6 +96,11 @@ const accountNavItems: NavItem[] = [
 const desktopPrimaryItems: NavItem[] = [
   { href: "/marketplace", label: "Marketplace" },
   ...LEAFY_NAV_ITEMS,
+  {
+    href: "/membership",
+    label: "Impact Member",
+    description: "Cause credit · support the platform",
+  },
 ];
 
 function isActivePath(pathname: string, href: string) {
@@ -128,6 +133,7 @@ export function MainNav({
           const active = isActivePath(pathname, item.href);
           const featured = Boolean(item.featured);
           const shortAsk = item.href === "/recommend";
+          const shortImpact = item.href === "/membership";
           return (
             <Link
               key={item.href}
@@ -146,6 +152,11 @@ export function MainNav({
                 <>
                   <span className="2xl:hidden">Ask</span>
                   <span className="hidden 2xl:inline">Ask Leafy</span>
+                </>
+              ) : shortImpact ? (
+                <>
+                  <span className="2xl:hidden">Impact</span>
+                  <span className="hidden 2xl:inline">Impact Member</span>
                 </>
               ) : (
                 item.label

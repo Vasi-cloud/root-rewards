@@ -11,6 +11,7 @@ import { getAppUrlForEmail, type EmailSendResult } from "@/lib/email/config";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import {
   abandonedCartEmailHtml,
+  causeGiftEmailHtml,
   membershipSuccessEmailHtml,
   orderConfirmationEmailHtml,
   welcomeEmailHtml,
@@ -87,22 +88,29 @@ export async function sendOrderConfirmationEmail(
       `${c.name}: ≈ ${formatCauseUnits(c, order.causeSelection[c.id])} (illustrative)`
   );
 
-  const content = orderConfirmationEmailHtml({
-    orderNumber: order.orderNumber,
-    customerName: order.customerName,
-    amountTotalCents: order.amountTotalCents,
-    lineItems: order.lineItems,
-    causeLines,
-    causeOnly,
-    impactTrackUrl: impactTrackUrlForOrder(order),
-  });
+  const content = causeOnly
+    ? causeGiftEmailHtml({
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        amountTotalCents: order.amountTotalCents,
+        lineItems: order.lineItems,
+        causeLines,
+        impactTrackUrl: impactTrackUrlForOrder(order),
+      })
+    : orderConfirmationEmailHtml({
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        amountTotalCents: order.amountTotalCents,
+        lineItems: order.lineItems,
+        causeLines,
+      });
 
   return sendTransactionalEmail({
     to: order.customerEmail,
     subject: content.subject,
     html: content.html,
     text: content.text,
-    kind: "order_confirmation",
+    kind: causeOnly ? "cause_gift" : "order_confirmation",
   });
 }
 
