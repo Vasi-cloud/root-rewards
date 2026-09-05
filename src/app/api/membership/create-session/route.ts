@@ -72,6 +72,8 @@ export async function POST(request: Request) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+      // Lock presentment to GBP — override Dashboard Adaptive Pricing (no local-currency selector).
+      adaptive_pricing: { enabled: false },
       ...(existingCustomer
         ? { customer: existingCustomer }
         : { customer_email: emailResult.value }),

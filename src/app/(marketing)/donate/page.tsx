@@ -13,11 +13,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { CauseGiftPicker } from "@/components/causes/cause-gift-picker";
-import { LeafyHubLinks } from "@/components/layout/leafy-hub-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
@@ -48,14 +47,30 @@ const CAUSE_ICONS = {
   sun: Sun,
 } as const;
 
+/** Cap “Starting checkout…” so a hung API cannot spin forever. */
+const CHECKOUT_SPIN_MS = 20_000;
+
+const CANCEL_MESSAGE =
+  "Checkout canceled — no payment was taken. Choose your causes again when you’re ready.";
+
+function wasCanceledReturn(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("canceled") === "1";
+}
+
 function initialGifts(): CauseGiftAmounts {
   if (typeof window !== "undefined") {
+    if (wasCanceledReturn()) return emptyCauseGifts();
     const fromCart = loadCartCauseGifts();
     if (giftTotal(fromCart) >= 1) return fromCart;
   }
   const next = emptyCauseGifts();
   next.trees = CAUSE_GIFT_PRESETS[0];
   return next;
+}
+
+function initialError(): string | null {
+  return wasCanceledReturn() ? CANCEL_MESSAGE : null;
 }
 
 export default function DonatePage() {
@@ -65,7 +80,8 @@ export default function DonatePage() {
   const [email, setEmail] = useState(user?.email ?? "");
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
+  const submittingRef = useRef(false);
 
   const total = giftTotal(gifts);
   const lines = giftLines(gifts);
@@ -78,10 +94,52 @@ export default function DonatePage() {
     [lines]
   );
 
+  function stopSubmitting() {
+    submittingRef.current = false;
+    setSubmitting(false);
+  }
+
+  function resetDonateUi(message: string | null) {
+    stopSubmitting();
+    setGifts(emptyCauseGifts());
+    setError(message);
+  }
+
+  // Stripe cancel return + strip query so refresh doesn’t re-show the banner forever.
+  useEffect(() => {
+    if (!wasCanceledReturn()) return;
+    resetDonateUi(CANCEL_MESSAGE);
+    window.history.replaceState({}, "", "/donate");
+  }, []);
+
+  // Browser back from Checkout (bfcache) leaves submitting=true — clear it.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted && !submittingRef.current) return;
+      resetDonateUi(
+        "Checkout was interrupted. Choose your causes again, then continue."
+      );
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
+  // Cap the spinner if create-session hangs.
+  useEffect(() => {
+    if (!submitting) return;
+    const timer = window.setTimeout(() => {
+      resetDonateUi(
+        "Checkout is taking too long. Please try again in a moment."
+      );
+    }, CHECKOUT_SPIN_MS);
+    return () => window.clearTimeout(timer);
+  }, [submitting]);
+
   function giveNow(id: CauseId, amount: number) {
     const next = emptyCauseGifts();
     next[id] = clampCauseGiftGbp(amount);
     setGifts(next);
+    return next;
   }
 
   async function handleContinue(override?: CauseGiftAmounts) {
@@ -102,6 +160,7 @@ export default function DonatePage() {
       }
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     const selection = giftsToIllustrativeUnits(payload);
 
@@ -114,6 +173,7 @@ export default function DonatePage() {
       createdAt: new Date().toISOString(),
     };
 
+    let redirected = false;
     try {
       if (emailTrim) {
         const stripeResult = await startDonateCheckout({
@@ -126,13 +186,15 @@ export default function DonatePage() {
 
         if ("url" in stripeResult) {
           savePendingDonation(pending);
+          redirected = true;
           window.location.href = stripeResult.url;
           return;
         }
 
         if ("error" in stripeResult) {
+          // Keep current cause picks so the shopper can retry; clear spinner.
+          stopSubmitting();
           setError(stripeResult.error);
-          setSubmitting(false);
           return;
         }
       }
@@ -143,10 +205,13 @@ export default function DonatePage() {
       });
       savePendingDonation({ ...pending, recorded: true });
       await new Promise((r) => window.setTimeout(r, 400));
+      redirected = true;
       router.push("/donate/success?demo=1");
     } catch {
+      stopSubmitting();
       setError("Something went wrong. Please try again.");
-      setSubmitting(false);
+    } finally {
+      if (!redirected) stopSubmitting();
     }
   }
 
@@ -175,7 +240,14 @@ export default function DonatePage() {
           an amount on one cause does not clear the others.
         </p>
 
-        <LeafyHubLinks className="mt-4" dense />
+        <p className="mt-4">
+          <Link
+            href="/marketplace"
+            className="text-sm font-medium text-emerald-900 underline-offset-2 hover:underline"
+          >
+            Back to Marketplace
+          </Link>
+        </p>
 
         <div
           role="note"
@@ -328,10 +400,11 @@ export default function DonatePage() {
 
           <div className="rounded-xl border border-border/70 bg-white/70 p-3">
             <p className="text-xs font-medium text-muted-foreground">
-              Single-cause shortcut (clears other selections for this tap only)
+              Single-cause shortcut — this tap clears other selections and goes
+              to checkout
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {CAUSES.slice(0, 3).map((cause) => (
+              {CAUSES.map((cause) => (
                 <Button
                   key={cause.id}
                   type="button"
@@ -340,9 +413,7 @@ export default function DonatePage() {
                   className="min-h-11"
                   disabled={submitting}
                   onClick={() => {
-                    const one = emptyCauseGifts();
-                    one[cause.id] = CAUSE_GIFT_PRESETS[0];
-                    giveNow(cause.id, CAUSE_GIFT_PRESETS[0]);
+                    const one = giveNow(cause.id, CAUSE_GIFT_PRESETS[0]);
                     void handleContinue(one);
                   }}
                 >

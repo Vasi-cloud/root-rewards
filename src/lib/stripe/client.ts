@@ -52,23 +52,41 @@ export async function startStripeCheckout(
 export async function startDonateCheckout(
   body: unknown
 ): Promise<{ url: string } | { demo: true } | { error: string }> {
-  const res = await fetch("/api/donate/create-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as {
-    url?: string;
-    mode?: string;
-    error?: string;
-  };
-  if (res.status === 503 || data.mode === "demo") {
-    return { demo: true };
+  try {
+    const res = await fetch("/api/donate/create-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      url?: string;
+      mode?: string;
+      error?: string;
+    };
+    if (res.status === 503 || data.mode === "demo") {
+      return { demo: true };
+    }
+    if (!res.ok || !data.url) {
+      const apiError =
+        typeof data.error === "string" && data.error.trim()
+          ? data.error.trim()
+          : null;
+      if (apiError) return { error: apiError };
+      if (res.status >= 500) {
+        return {
+          error:
+            "Donation checkout could not start (server error). Please try again.",
+        };
+      }
+      return { error: "Could not start donation checkout. Please try again." };
+    }
+    return { url: data.url };
+  } catch {
+    return {
+      error:
+        "Could not reach donation checkout. Check your connection and try again.",
+    };
   }
-  if (!res.ok || !data.url) {
-    return { error: data.error ?? "Could not start donation checkout." };
-  }
-  return { url: data.url };
 }
 
 export async function startMembershipCheckout(

@@ -122,6 +122,8 @@ export async function POST(request: Request) {
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      // Lock presentment to GBP — override Dashboard Adaptive Pricing (no RON/EUR selector).
+      adaptive_pricing: { enabled: false },
       customer_email: emailResult.value,
       client_reference_id:
         typeof b.userId === "string" && b.userId
@@ -129,7 +131,7 @@ export async function POST(request: Request) {
           : undefined,
       line_items: lineItems,
       success_url: `${appUrl}/donate/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/donate`,
+      cancel_url: `${appUrl}/donate?canceled=1`,
       billing_address_collection: "auto",
       allow_promotion_codes: false,
       metadata: {
