@@ -21,7 +21,7 @@ export function welcomeEmailHtml(opts: {
       <li>Shop eco brands &amp; solo makers</li>
       <li>Book legal, repair, workshop &amp; wellness services</li>
       <li>Fund trees and causes at checkout (partner programmes)</li>
-      <li>Impact Members unlock share-link credit (25% after partners pay us)</li>
+      <li>Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform</li>
     </ul>
     ${ctaButton(`${appUrl}/marketplace`, "Explore the marketplace")}
     <p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
@@ -293,19 +293,22 @@ export function membershipSuccessEmailHtml(opts: {
   const bodyHtml = `
     <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 14px;">
-      Your Impact Member subscription is active. Here’s what’s unlocked:
+      Your Impact Member subscription is active.
+      <strong>Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.</strong>
     </p>
     <ul style="margin:0 0 18px;padding-left:18px;color:#2d6a4f;">
       <li>
-        <strong>Share-link credit:</strong> 25% of eligible commissions we
-        receive, as account credit, after partners pay us — not a cash wallet.
-      </li>
-      <li>
         <strong>£5 monthly cause credit</strong> at checkout toward trees and
-        causes (partner programmes) — not a product discount or shopping balance.
+        causes (partner programmes) — not product cashback or a shopping balance.
       </li>
+      <li>Your membership helps support the Forest Buddies platform</li>
       <li>Impact Member badge on your profile</li>
+      <li>Cancel anytime — benefits last until the end of the billing period</li>
     </ul>
+    <p style="margin:0 0 18px;font-size:13px;color:#5c7366;">
+      Later: optional share link and commission estimates may appear on your
+      dashboard after partners pay — not a cash wallet, and not what membership is for.
+    </p>
     ${ctaButton(`${appUrl}/dashboard`, "Go to your dashboard")}
     <p style="margin:16px 0 0;">
       <a href="${appUrl}/marketplace" style="color:#1b4332;font-weight:600;">Continue to marketplace</a>
@@ -320,11 +323,15 @@ export function membershipSuccessEmailHtml(opts: {
 
   const text = `Hi ${name},
 
-You're an Impact Member. Here's what's unlocked:
+You're an Impact Member.
+Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.
 
-- Share-link credit: 25% of eligible commissions we receive, as account credit, after partners pay us — not a cash wallet.
-- £5 monthly cause credit at checkout toward trees/causes (partner programmes) — not a product discount.
+- £5 monthly cause credit at checkout toward trees/causes (partner programmes) — not product cashback or a shopping balance.
+- Your membership helps support the Forest Buddies platform
 - Impact Member badge on your profile
+- Cancel anytime — benefits last until the end of the billing period
+
+Later: optional share link / commission estimates after partners pay — not the definition of membership.
 
 Dashboard: ${appUrl}/dashboard
 Marketplace: ${appUrl}/marketplace
@@ -335,7 +342,8 @@ Donate: ${appUrl}/donate
   return {
     subject,
     html: emailLayout({
-      preheader: "Impact Member is active — cause credit toward causes, not products.",
+      preheader:
+        "Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.",
       title: "You’re an Impact Member",
       bodyHtml,
     }),

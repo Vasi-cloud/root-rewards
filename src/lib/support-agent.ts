@@ -102,7 +102,7 @@ const FAQ: FaqEntry[] = [
       "boost",
     ],
     answer:
-      "Forest Buddies has Free and Impact Member plans. Impact Member (£5/mo) earns 25% of eligible partner commissions as account credit after partners pay us, plus a £5 monthly cause credit at checkout toward trees/causes (not product cashback). Cancel anytime from your Dashboard → Membership — you keep benefits until the end of the billing period. Demo billing until Stripe keys are live.",
+      "Forest Buddies has Free and Impact Member plans. Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform. Not product cashback or a shopping balance. Cancel anytime from Dashboard → Membership — you keep benefits until the end of the billing period. Optional share-link estimates may appear later after partners pay; that is not what membership is for. Demo billing until Stripe keys are live.",
     suggestions: [
       "How do affiliates work?",
       "How do causes work?",

@@ -54,7 +54,7 @@ const IMPACT = [
   { value: "Shop", label: "Eco-scored goods from makers & partners" },
   { value: "Fund", label: "Illustrative cause gifts at checkout or Donate" },
   { value: "Local", label: "Stores, makers & markets to check in person" },
-  { value: "Share", label: "Impact Member share tools" },
+  { value: "Share", label: "Optional tools — membership is cause credit first" },
 ];
 
 const FEATURED = [

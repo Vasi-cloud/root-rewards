@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 
+import { IMPACT_MEMBER_STRIPE_DESCRIPTION } from "@/lib/membership";
 import {
   getAppUrl,
   getImpactMemberPriceId,
@@ -62,8 +63,7 @@ export async function POST(request: Request) {
             recurring: { interval: "month" },
             product_data: {
               name: "Forest Buddies Impact Member",
-              description:
-                "25% of eligible commissions as account credit; £5 monthly cause credit toward causes (not product cashback); Impact badge",
+              description: IMPACT_MEMBER_STRIPE_DESCRIPTION,
             },
           },
         },

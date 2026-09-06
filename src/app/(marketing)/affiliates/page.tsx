@@ -81,16 +81,17 @@ export default function AffiliatesPage() {
           Affiliate tools for Impact Members
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Upgrade to unlock your share link and 25% of eligible commissions we
-          receive, as account credit, after partners pay us. Not a cash wallet.
+          Impact Member · £5/mo — cause credit toward partner programmes, and
+          support for the platform. Share-link estimates are optional and appear
+          after partners pay — not a cash wallet, and not what membership is for.
         </p>
         <Card className="mt-8 border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-cream to-cream">
           <CardHeader>
             <CardTitle className="font-heading text-xl">
-              Unlock sharing with Impact Member
+              Become an Impact Member
             </CardTitle>
             <CardDescription>
-              Free plans have no commission share. Marketplace, Buy Local,
+              Cause credit and platform support first. Marketplace, Buy Local,
               Kitchen, Parts, and Ask Leafy stay free.
             </CardDescription>
           </CardHeader>
@@ -100,7 +101,7 @@ export default function AffiliatesPage() {
               render={<Link href="/membership" />}
               size="lg"
             >
-              Upgrade to earn
+              Become an Impact Member
             </Button>
             <Button
               nativeButton={false}
@@ -108,7 +109,7 @@ export default function AffiliatesPage() {
               variant="outline"
               size="lg"
             >
-              How earnings work
+              Later notes
             </Button>
           </CardContent>
         </Card>

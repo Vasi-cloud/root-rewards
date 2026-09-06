@@ -378,13 +378,9 @@ export default function DashboardPage() {
               </CardTitle>
               <CardDescription className="mt-1.5 space-y-2 text-sm leading-relaxed">
                 <span className="block">
-                  Impact Member includes{" "}
-                  <strong className="font-medium text-foreground">
-                    £5 monthly cause credit
-                  </strong>{" "}
-                  toward trees and causes at checkout (partner programmes — not
-                  a product discount), plus your support helping run Forest
-                  Buddies.
+                  Impact Member · £5/mo — cause credit toward partner
+                  programmes, and support for the platform. Not product
+                  cashback or a shopping balance.
                 </span>
                 <span className="block text-xs text-muted-foreground">
                   Impact stays illustrative — not a GPS pin for a planted tree.
@@ -404,7 +400,7 @@ export default function DashboardPage() {
         </Card>
       ) : null}
 
-      {/* 4. Affiliate — full tools for Impact; smaller secondary card for Free */}
+      {/* 4. Affiliate — optional / estimates; not the definition of membership */}
       {isImpactMember ? (
         <section className="space-y-4" id="sharing">
           <div>
@@ -412,8 +408,9 @@ export default function DashboardPage() {
               Affiliate &amp; sharing
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              You earn 25% of eligible commissions we receive. Account credit
-              after partners pay us — not a cash wallet.
+              Optional — estimates after partners pay, not a cash wallet. This is
+              not what Impact Member is for; membership is cause credit and
+              platform support.
             </p>
           </div>
 
@@ -445,8 +442,8 @@ export default function DashboardPage() {
                 Your share link
               </CardTitle>
               <CardDescription>
-                Attribution for {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}. 25% of
-                eligible commissions we receive, as account credit.
+                Optional. Attribution for {ATTRIBUTION_WINDOW_LABEL.toLowerCase()}.
+                Estimates after partners pay — not a cash wallet.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -566,9 +563,9 @@ export default function DashboardPage() {
                 Affiliate &amp; sharing
               </CardTitle>
               <CardDescription className="mt-1 text-xs leading-relaxed sm:text-sm">
-                Also with Impact Member: share link and 25% of eligible
-                commissions as account credit after partners pay. Not a cash
-                wallet.
+                Optional later: share link and commission estimates after
+                partners pay — not a cash wallet, and not the definition of
+                Impact Member.
               </CardDescription>
             </div>
             <Button

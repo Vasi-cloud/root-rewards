@@ -113,16 +113,16 @@ export function MembershipCancelControls({
           <ul className="mt-2 space-y-1 text-sm text-emerald-950/90">
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
-              +25% first-party affiliate boost
-            </li>
-            <li className="flex gap-2">
-              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
               £{tier.monthlyCauseCredit} monthly cause credit (toward causes —
               not product cashback)
             </li>
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
-              Impact Member badge &amp; insights
+              Platform support via your membership
+            </li>
+            <li className="flex gap-2">
+              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
+              Impact Member badge
             </li>
           </ul>
         </div>

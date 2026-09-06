@@ -94,7 +94,7 @@ function MembershipSuccessInner() {
         {isImpactMember && periodEndsAt
           ? ` through ${formatMembershipDate(periodEndsAt)}`
           : ""}
-        . Affiliate tools and monthly cause credit are ready.
+        . Cause credit and platform support are ready — cancel anytime.
       </p>
       {orderNumber && (
         <p className="mt-2 font-mono text-sm text-muted-foreground">
@@ -104,23 +104,28 @@ function MembershipSuccessInner() {
 
       <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 text-left text-sm text-emerald-950">
         <div className="mb-1 flex items-center gap-2 font-medium">
-          <Leaf className="size-4" /> £5 monthly cause credit
+          <Leaf className="size-4" /> Impact Member · £5/mo
         </div>
         <p className="text-emerald-900/85">
-          Applies at checkout toward trees and causes (partner programmes) —
-          not a product discount or shopping balance.
+          Cause credit toward partner programmes, and support for the platform.
+          Not product cashback or a shopping balance.
         </p>
         <div className="mt-4 mb-2 flex items-center gap-2 font-medium">
-          <CheckCircle2 className="size-4" /> What&apos;s unlocked
+          <CheckCircle2 className="size-4" /> What&apos;s included
         </div>
         <ul className="list-inside list-disc space-y-1 text-emerald-900/90">
-          <li>25% of eligible partner commissions as account credit</li>
           <li>
             £5 monthly cause credit at checkout (toward causes — not product
             cashback)
           </li>
+          <li>Your membership helps support the Forest Buddies platform</li>
           <li>Impact Member badge on your profile</li>
+          <li>Cancel anytime — benefits last until your period ends</li>
         </ul>
+        <p className="mt-3 text-xs text-emerald-900/70">
+          Later: optional share link and commission estimates may appear on your
+          dashboard after partners pay — not the definition of membership.
+        </p>
       </div>
 
       <div className="mt-8 flex flex-col gap-3">

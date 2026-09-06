@@ -13,6 +13,14 @@ export interface MembershipTier {
   highlight?: boolean;
 }
 
+/** Public one-liner — homepage, membership, Stripe line item, email. */
+export const IMPACT_MEMBER_PRIMARY =
+  "Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.";
+
+/** Stripe Checkout product_data.description — must not lead with commissions. */
+export const IMPACT_MEMBER_STRIPE_DESCRIPTION =
+  "Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform. Not product cashback or a shopping balance. Cancel anytime.";
+
 /** Scalable catalog — add tiers here without rewriting UI. */
 export const MEMBERSHIP_TIERS: MembershipTier[] = [
   {
@@ -24,25 +32,27 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     monthlyCauseCredit: 0,
     perks: [
       "Marketplace shopping & cause checkout",
-      "No commission share — upgrade to unlock your share link",
       "Personal impact dashboard",
       "Buy Local, Kitchen, Parts, and Ask Leafy",
+      "Optional: explore affiliate tools later on Impact Member",
     ],
   },
   {
     id: "impact",
     name: "Impact Member",
-    tagline: "Unlock your share link and fund a little good every month.",
+    tagline:
+      "£5/mo — cause credit toward partner programmes, and support for the platform.",
     priceMonthly: 5,
     affiliateBoost: 1.25,
     monthlyCauseCredit: 5,
     highlight: true,
     perks: [
       "Everything in Free",
-      "Share link + 25% of eligible commissions as account credit (after partners pay us)",
-      "£5 monthly cause credit at checkout (toward causes — not product cashback)",
+      "£5 monthly cause credit at checkout (toward causes — not product cashback or a shopping balance)",
+      "Your membership supports the Forest Buddies platform",
       "Impact Member badge on your profile",
-      "Affiliate tools & share activity",
+      "Cancel anytime — benefits last until your period ends",
+      "Later: optional share link & commission estimates (after partners pay)",
     ],
   },
 ];

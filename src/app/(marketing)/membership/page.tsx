@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { useMembership } from "@/contexts/membership-context";
-import { MEMBERSHIP_TIERS } from "@/lib/membership";
+import { IMPACT_MEMBER_PRIMARY, MEMBERSHIP_TIERS } from "@/lib/membership";
 import {
   daysUntilPeriodEnd,
   formatMembershipDate,
@@ -37,20 +37,20 @@ import { cn } from "@/lib/utils";
 
 const UPGRADE_HIGHLIGHTS = [
   {
-    title: "Share link & 25% credit",
-    detail:
-      "25% of eligible commissions we receive, as account credit, after partners pay us — not a cash wallet.",
-    icon: Sparkles,
-  },
-  {
     title: "£5 monthly cause credit",
     detail:
-      "Applies at checkout toward trees/causes (partner programmes) — not a product discount.",
+      "Applies at checkout toward trees and causes (partner programmes) — not product cashback or a shopping balance.",
     icon: Trees,
   },
   {
+    title: "Support the platform",
+    detail:
+      "Your £5/mo helps run Forest Buddies — membership fees support the platform, not cashback.",
+    icon: Sparkles,
+  },
+  {
     title: "Impact Member badge",
-    detail: "Show your support on your profile and affiliate presence.",
+    detail: "Show your support on your profile. Cancel anytime.",
     icon: BadgeCheck,
   },
 ] as const;
@@ -142,9 +142,8 @@ export default function MembershipPage() {
           Free vs Impact Member
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:mt-4 sm:text-lg">
-          Shop and share for free — or upgrade to earn more, fund causes
-          monthly, and show your Impact badge. Cancel anytime; benefits last
-          until your period ends.
+          {IMPACT_MEMBER_PRIMARY} Not product cashback or a shopping balance.
+          Cancel anytime; benefits last until your period ends.
         </p>
 
         {/* Current plan + shortcuts */}
@@ -177,7 +176,7 @@ export default function MembershipPage() {
                       : periodEndsAt
                         ? `Period renews ${formatMembershipDate(periodEndsAt)} · ${daysUntilPeriodEnd(periodEndsAt)} days left.`
                         : "You’re on Impact Member — manage or cancel below."
-                  : "You’re on Free — upgrade anytime for commissions, credit, and badge."}
+                  : "You’re on Free — upgrade anytime for cause credit, platform support, and badge."}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -262,7 +261,7 @@ export default function MembershipPage() {
             Why upgrade?
           </h2>
           <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-            Three clear reasons Impact Members choose Forest Buddies®.
+            Cause credit and platform support — the heart of Impact Member.
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-3">
             {UPGRADE_HIGHLIGHTS.map((item) => {
@@ -287,33 +286,21 @@ export default function MembershipPage() {
           </ul>
         </section>
 
-        {/* How earnings work — policy copy only */}
+        {/* Later — optional affiliate notes (not the definition of membership) */}
         <section
           id="how-earnings-work"
-          className="mt-8 scroll-mt-24 rounded-2xl border border-border/80 bg-white/90 px-3.5 py-4 sm:mt-10 sm:px-5 sm:py-5"
+          className="mt-8 scroll-mt-24 rounded-2xl border border-border/60 bg-muted/20 px-3.5 py-4 sm:mt-10 sm:px-5 sm:py-5"
         >
-          <h2 className="font-heading text-lg font-semibold text-primary sm:text-xl">
-            How earnings work
+          <h2 className="font-heading text-base font-semibold text-primary sm:text-lg">
+            Later
           </h2>
-          <ul className="mt-3 space-y-2 text-sm leading-relaxed text-muted-foreground">
-            <li>
-              Partner links may earn Forest Buddies® a commission.
-            </li>
-            <li>
-              <span className="font-medium text-foreground">Impact Members:</span>{" "}
-              25% of eligible commissions we receive, as account credit, after
-              the partner pays us.
-            </li>
-            <li>
-              <span className="font-medium text-foreground">Free plan:</span> no
-              commission share — upgrade to unlock your share link and affiliate
-              tools.
-            </li>
-            <li>
-              Membership fees support the platform; cause and tree payments fund
-              partner programmes — not cashback.
-            </li>
-          </ul>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Optional share link and commission estimates may appear for Impact
+            Members after partners pay — not a cash wallet, and not what
+            membership is for. Membership fees support the platform; cause and
+            tree payments fund partner programmes — illustrative impact, not
+            cashback.
+          </p>
           <p className="mt-3 text-xs text-muted-foreground">
             Full details in our{" "}
             <Link
@@ -411,7 +398,9 @@ export default function MembershipPage() {
                     {t.perks.map((perk) => {
                       const emphasize =
                         t.highlight &&
-                        /(\+25%|£5|badge|Everything in Free)/i.test(perk);
+                        /(£5|platform|badge|Everything in Free|Cancel anytime)/i.test(
+                          perk
+                        );
                       return (
                         <li
                           key={perk}
