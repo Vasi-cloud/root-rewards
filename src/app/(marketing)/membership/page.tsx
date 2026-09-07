@@ -145,16 +145,14 @@ export default function MembershipPage() {
           <Badge className="bg-emerald-800/10 font-normal text-emerald-900">
             Membership
           </Badge>
-          <Badge
-            variant="outline"
-            className={
-              stripeEnabled
-                ? "border-emerald-300 text-emerald-900"
-                : "text-muted-foreground"
-            }
-          >
-            {stripeEnabled ? "Stripe-ready billing" : "Demo billing (no card)"}
-          </Badge>
+          {stripeEnabled ? (
+            <Badge
+              variant="outline"
+              className="border-emerald-300 text-emerald-900"
+            >
+              Stripe billing
+            </Badge>
+          ) : null}
         </div>
 
         <h1 className="font-heading mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
@@ -452,7 +450,7 @@ export default function MembershipPage() {
                         <Trees className="size-4" />
                         {stripeEnabled
                           ? "Upgrade with Stripe — £5/mo"
-                          : "Become Impact Member (demo)"}
+                          : "Become Impact Member"}
                       </Button>
                     )}
                   </CardFooter>
@@ -464,25 +462,10 @@ export default function MembershipPage() {
 
         <p className="mt-8 text-center text-xs leading-relaxed text-muted-foreground sm:text-sm">
           {showManage
-            ? stripeEnabled
-              ? "Manage billing in the Stripe portal, or cancel above — you keep benefits until period end."
-              : "Demo billing — cancel above anytime. Benefits last until your period ends."
+            ? "Manage billing in the Stripe portal, or cancel above — you keep benefits until period end."
             : !signedIn
               ? "Sign in to join Impact Member or restore a plan already on your email — we won’t charge twice."
-              : stripeEnabled
-                ? "Live Stripe subscriptions — cards are charged securely. Cancel anytime from this page or the Stripe portal."
-                : "Demo billing — no card charged until Stripe keys are added. Cancel anytime from this page or your "}
-          {signedIn && !showManage && !stripeEnabled && (
-            <>
-              <Link
-                href="/dashboard#membership"
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                dashboard
-              </Link>
-              .
-            </>
-          )}
+              : "Cancel anytime from this page or your dashboard. Benefits last until your period ends."}
         </p>
       </div>
     </div>

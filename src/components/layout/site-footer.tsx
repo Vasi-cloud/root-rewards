@@ -68,7 +68,7 @@ export function SiteFooter({
             </div>
             <p className="text-sm text-primary-foreground/80">
               A sustainable marketplace where conscious shoppers discover eco
-              brands and affiliates earn rewards for every referral.
+              brands.
             </p>
             <SupportChatTrigger className="inline-flex items-center gap-1.5 text-sm text-sage transition-colors hover:text-cream">
               Chat with Sprout · Support
