@@ -136,61 +136,68 @@ export function causeGiftEmailHtml(opts: {
   orderNumber: string;
   customerName?: string | null;
   amountTotalCents: number;
-  lineItems: Array<{ name: string; quantity: number; amountCents: number }>;
-  causeLines: string[];
+  /** Gift lines, e.g. "Trees · £5 to partner programmes" — never “1 tree planted”. */
+  giftLines: string[];
   /** Dashboard Your impact (or login?next= that path) */
   impactTrackUrl: string;
+  /** Demo / unpaid path — no Stripe charge */
+  noCharge?: boolean;
 }): { subject: string; html: string; text: string } {
   const appUrl = getAppUrlForEmail();
   const name = opts.customerName?.trim() || "there";
   const total = (opts.amountTotalCents / 100).toFixed(2);
   const impactUrl = opts.impactTrackUrl.trim() || `${appUrl}/dashboard/impact`;
-  const subject = "Thank you — your Forest Buddies cause gift";
+  const subject = "Thank you — your Forest Buddies® cause gift";
 
-  const rows = opts.lineItems
-    .map(
-      (item) => `
+  const giftRows =
+    opts.giftLines.length > 0
+      ? opts.giftLines
+          .map(
+            (line) => `
       <tr>
         <td style="padding:8px 0;border-bottom:1px solid #e8f0ea;font-size:14px;">
-          ${escapeHtml(item.name)}${item.quantity > 1 ? ` × ${item.quantity}` : ""}
-        </td>
-        <td style="padding:8px 0;border-bottom:1px solid #e8f0ea;font-size:14px;text-align:right;white-space:nowrap;">
-          £${(item.amountCents / 100).toFixed(2)}
+          ${escapeHtml(line)}
         </td>
       </tr>`
-    )
-    .join("");
+          )
+          .join("")
+      : `<tr><td style="padding:8px 0;font-size:14px;">Cause gift to partner programmes</td></tr>`;
 
-  const impactList =
-    opts.causeLines.length > 0
-      ? `<p style="margin:16px 0 8px;font-size:13px;font-weight:600;color:#1b4332;text-transform:uppercase;letter-spacing:0.06em;">Your impact</p>
-         <ul style="margin:0 0 16px;padding-left:18px;color:#2d6a4f;">
-           ${opts.causeLines.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}
-         </ul>`
-      : "";
+  const noChargeLine = opts.noCharge
+    ? `<p style="margin:0 0 14px;font-weight:600;color:#1b4332;">No card was charged.</p>`
+    : "";
+
+  const receiptLine = opts.noCharge
+    ? ""
+    : `<p style="margin:0 0 16px;font-size:13px;color:#5c7366;">
+         When payments are live, Stripe sends your card receipt separately.
+       </p>`;
 
   const bodyHtml = `
+    ${noChargeLine}
     <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 14px;">
-      Thank you — your Forest Buddies cause gift is confirmed.
-      You’re funding partner programmes that support trees, oceans, wildlife,
-      education, and climate work.
+      Thank you — your Forest Buddies® cause gift supports partner programmes
+      for <strong>Trees</strong>, <strong>Ocean</strong>, <strong>Animals</strong>,
+      <strong>Education</strong>, and <strong>Climate</strong>.
     </p>
     <p style="margin:0 0 6px;font-size:13px;color:#5c7366;">Gift reference</p>
     <p style="margin:0 0 16px;font-family:ui-monospace,monospace;font-weight:600;">${escapeHtml(opts.orderNumber)}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">
-      ${rows || `<tr><td style="padding:8px 0;font-size:14px;">Cause funding</td><td style="text-align:right;">£${total}</td></tr>`}
+      ${giftRows}
       <tr>
-        <td style="padding:12px 0 0;font-weight:600;">Total</td>
-        <td style="padding:12px 0 0;font-weight:600;text-align:right;">£${total}</td>
+        <td style="padding:12px 0 0;font-weight:600;">Gift total · £${total}</td>
       </tr>
     </table>
-    ${impactList}
-    <p style="margin:0 0 16px;font-size:13px;color:#5c7366;">
-      Amounts fund partner programmes. Impact figures are illustrative — not a
-      GPS pin for a planted tree, and not product cashback or a shopping balance.
+    <p style="margin:16px 0 14px;font-size:14px;color:#2d6a4f;">
+      Impact is illustrative. For Trees, roughly £5 ≈ 1 tree unit toward partner
+      programmes — not a GPS pin for a planted tree, and not a live carbon audit.
     </p>
-    ${ctaButton(impactUrl, "Track your impact")}
+    <p style="margin:0 0 16px;font-size:13px;color:#5c7366;">
+      This is not product cashback and not an affiliate payout.
+    </p>
+    ${receiptLine}
+    ${ctaButton(impactUrl, "View Your impact")}
     <p style="margin:16px 0 0;font-size:14px;">
       <a href="${appUrl}/donate" style="color:#1b4332;font-weight:600;">Support a cause</a>
       &nbsp;·&nbsp;
@@ -201,19 +208,19 @@ export function causeGiftEmailHtml(opts: {
     </p>
   `;
 
-  const text = `Hi ${name},
+  const text = `${opts.noCharge ? "No card was charged.\n\n" : ""}Hi ${name},
 
-Thank you — your Forest Buddies cause gift is confirmed.
+Thank you — your Forest Buddies® cause gift supports partner programmes for Trees, Ocean, Animals, Education, and Climate.
+
 Gift reference: ${opts.orderNumber}
-Total: £${total}
+Gift total: £${total}
 
-${opts.lineItems.map((i) => `- ${i.name} × ${i.quantity}: £${(i.amountCents / 100).toFixed(2)}`).join("\n")}
-${
-  opts.causeLines.length > 0
-    ? `\nImpact (illustrative / partner programmes): ${opts.causeLines.join("; ")}\n`
-    : ""
-}
-Track your impact: ${impactUrl}
+${opts.giftLines.map((l) => `- ${l}`).join("\n") || "- Cause gift to partner programmes"}
+
+Impact is illustrative. For Trees, roughly £5 ≈ 1 tree unit toward partner programmes — not a GPS pin for a planted tree, and not a live carbon audit.
+This is not product cashback and not an affiliate payout.
+${opts.noCharge ? "" : "When payments are live, Stripe sends your card receipt separately.\n"}
+View Your impact: ${impactUrl}
 Support a cause: ${appUrl}/donate
 
 — Forest Buddies`;
@@ -221,7 +228,8 @@ Support a cause: ${appUrl}/donate
   return {
     subject,
     html: emailLayout({
-      preheader: "Your cause gift supports partner programmes — illustrative impact.",
+      preheader:
+        "Your cause gift supports partner programmes — illustrative impact only.",
       title: "Thank you for your cause gift",
       bodyHtml,
     }),

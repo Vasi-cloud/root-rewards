@@ -24,7 +24,7 @@ function isCauseGiftLineItemName(name: string): boolean {
   return n.startsWith("support:") || n.startsWith("impact:");
 }
 
-/** True when the paid session funded causes only (no physical catalogue SKUs). */
+/** True when the paid session funded causes only (no physical catalogue items). */
 export function isCauseOnlyOrder(order: ConfirmedOrder): boolean {
   const hasUnits = CAUSES.some((c) => (order.causeSelection[c.id] || 0) > 0);
   const hasGifts = giftTotal(order.causeGifts ?? emptyCauseGifts()) >= 1;
@@ -42,6 +42,28 @@ function impactTrackUrlForOrder(order: ConfirmedOrder): string {
     return `${appUrl}${impactPath}`;
   }
   return `${appUrl}${buildLoginHref(impactPath)}`;
+}
+
+/**
+ * Cause email gift lines — £ amounts to partner programmes only.
+ * Never “1 tree” / planted counts as a fact (illustrative note lives in the template body).
+ */
+function causeGiftLinesForEmail(order: ConfirmedOrder): string[] {
+  const gifts = order.causeGifts ?? emptyCauseGifts();
+  const fromGifts = CAUSES.filter((c) => (gifts[c.id] || 0) >= 1).map((c) => {
+    const pounds = gifts[c.id];
+    return `${c.name} · £${pounds.toFixed(pounds % 1 === 0 ? 0 : 2)} to partner programmes`;
+  });
+  if (fromGifts.length > 0) return fromGifts;
+
+  // Legacy unit metadata without £ gifts — still avoid “1 tree planted” wording
+  return CAUSES.filter((c) => (order.causeSelection[c.id] || 0) > 0).map(
+    (c) => {
+      const units = order.causeSelection[c.id];
+      const pounds = units * c.unitPrice;
+      return `${c.name} · £${pounds.toFixed(pounds % 1 === 0 ? 0 : 2)} to partner programmes`;
+    }
+  );
 }
 
 export async function sendWelcomeEmail(opts: {
@@ -81,6 +103,24 @@ export async function sendOrderConfirmationEmail(
 
   const causeOnly = isCauseOnlyOrder(order);
 
+  if (causeOnly) {
+    const content = causeGiftEmailHtml({
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      amountTotalCents: order.amountTotalCents,
+      giftLines: causeGiftLinesForEmail(order),
+      impactTrackUrl: impactTrackUrlForOrder(order),
+      noCharge: order.fulfilledBy === "demo",
+    });
+    return sendTransactionalEmail({
+      to: order.customerEmail,
+      subject: content.subject,
+      html: content.html,
+      text: content.text,
+      kind: "cause_gift",
+    });
+  }
+
   const causeLines = CAUSES.filter(
     (c) => (order.causeSelection[c.id] || 0) > 0
   ).map(
@@ -88,29 +128,20 @@ export async function sendOrderConfirmationEmail(
       `${c.name}: ≈ ${formatCauseUnits(c, order.causeSelection[c.id])} (illustrative)`
   );
 
-  const content = causeOnly
-    ? causeGiftEmailHtml({
-        orderNumber: order.orderNumber,
-        customerName: order.customerName,
-        amountTotalCents: order.amountTotalCents,
-        lineItems: order.lineItems,
-        causeLines,
-        impactTrackUrl: impactTrackUrlForOrder(order),
-      })
-    : orderConfirmationEmailHtml({
-        orderNumber: order.orderNumber,
-        customerName: order.customerName,
-        amountTotalCents: order.amountTotalCents,
-        lineItems: order.lineItems,
-        causeLines,
-      });
+  const content = orderConfirmationEmailHtml({
+    orderNumber: order.orderNumber,
+    customerName: order.customerName,
+    amountTotalCents: order.amountTotalCents,
+    lineItems: order.lineItems,
+    causeLines,
+  });
 
   return sendTransactionalEmail({
     to: order.customerEmail,
     subject: content.subject,
     html: content.html,
     text: content.text,
-    kind: causeOnly ? "cause_gift" : "order_confirmation",
+    kind: "order_confirmation",
   });
 }
 
