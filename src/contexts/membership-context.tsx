@@ -50,8 +50,11 @@ interface MembershipContextValue {
   /**
    * Start Stripe subscription Checkout when configured;
    * otherwise demo-upgrade locally. Returns outcome for UI.
+   * `already` = email already has an active Impact sub (no new Checkout).
    */
-  upgradeToImpact: (email?: string) => Promise<"stripe" | "demo" | "error">;
+  upgradeToImpact: (
+    email?: string
+  ) => Promise<"stripe" | "demo" | "already" | "error">;
   /** Immediate switch to Free (legacy / admin-style) */
   downgradeToFree: () => void;
   /** Friendly cancel: keep benefits until billing period ends */
@@ -77,7 +80,7 @@ export function MembershipProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [state, setState] = useState<MembershipState>(() => ({
     tierId: "free",
     startedAt: null,
@@ -143,7 +146,9 @@ export function MembershipProvider({
     const email = user?.email ?? profile?.email ?? null;
     const local = loadMembership();
     const customerId =
-      local.stripeCustomerId || profile?.stripeCustomerId || null;
+      local.stripeCustomerId ||
+      profile?.stripeCustomerId ||
+      null;
 
     if (!email && !customerId) {
       // Signed-out / anonymous: do not invent Impact from stale local flags alone
@@ -200,9 +205,11 @@ export function MembershipProvider({
     };
   }, [refresh]);
 
-  // On login / sign-up: Stripe is source of truth (reconcile only — does not cancel).
-  // On sign-out: drop Stripe-backed local cache so guests aren't treated as Impact.
+  // Stripe is source of truth after auth is ready.
+  // Never wipe local Stripe-backed cache while Firebase Auth is still loading.
   useEffect(() => {
+    if (authLoading) return;
+
     if (!user?.uid) {
       const local = loadMembership();
       if (local.stripeSubscriptionId || local.stripeCustomerId) {
@@ -210,8 +217,9 @@ export function MembershipProvider({
       }
       return;
     }
+
     void reconcileFromStripe();
-  }, [user?.uid, user?.email, reconcileFromStripe]);
+  }, [authLoading, user?.uid, user?.email, reconcileFromStripe]);
 
   // Keep admin ledger in sync when this device has Impact Member
   useEffect(() => {
@@ -221,7 +229,9 @@ export function MembershipProvider({
   }, [state, syncAdminLedger]);
 
   const upgradeToImpact = useCallback(
-    async (email?: string): Promise<"stripe" | "demo" | "error"> => {
+    async (
+      email?: string
+    ): Promise<"stripe" | "demo" | "already" | "error"> => {
       const current = loadMembership();
       const checkoutEmail =
         email?.trim() || user?.email || "member@forestbuddies.eco";
@@ -238,6 +248,18 @@ export function MembershipProvider({
         syncAdminLedger(next, checkoutEmail);
         await persistProfileMembership(next);
         return "demo";
+      }
+      if ("alreadyMember" in result) {
+        const next = applyStripeMembership({
+          customerId: result.customerId,
+          subscriptionId: result.subscriptionId,
+          periodEndsAt: result.periodEndsAt,
+          cancelAtPeriodEnd: result.cancelAtPeriodEnd,
+        });
+        setState(next);
+        syncAdminLedger(next, checkoutEmail);
+        await persistProfileMembership(next);
+        return "already";
       }
       if ("error" in result) {
         console.error(result.error);
@@ -375,9 +397,33 @@ export function MembershipProvider({
       setState(next);
       syncAdminLedger(next, verified.customerEmail ?? user?.email);
       await persistProfileMembership(next);
+
+      // Re-query Stripe so Firebase + local cache match live subscription status
+      // (covers late webhooks and Price IDs without Impact metadata).
+      const email =
+        verified.customerEmail ?? user?.email ?? profile?.email ?? null;
+      const reconcile = await reconcileMembership({
+        email,
+        customerId: verified.customerId ?? next.stripeCustomerId,
+        userId: user?.uid ?? null,
+      });
+      if (!("error" in reconcile) && reconcile.reconciled && reconcile.mode === "live") {
+        const fromStripe = applyReconcileResult(reconcile);
+        setState(fromStripe);
+        syncAdminLedger(fromStripe, email);
+        await persistProfileMembership(fromStripe);
+        return fromStripe.tierId === "impact";
+      }
+
       return true;
     },
-    [persistProfileMembership, syncAdminLedger, user?.email]
+    [
+      persistProfileMembership,
+      syncAdminLedger,
+      user?.email,
+      user?.uid,
+      profile?.email,
+    ]
   );
 
   const consumeCauseCredit = useCallback(() => {

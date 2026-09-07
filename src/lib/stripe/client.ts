@@ -91,7 +91,18 @@ export async function startDonateCheckout(
 
 export async function startMembershipCheckout(
   body: unknown
-): Promise<{ url: string } | { demo: true } | { error: string }> {
+): Promise<
+  | { url: string }
+  | { demo: true }
+  | {
+      alreadyMember: true;
+      customerId: string | null;
+      subscriptionId: string | null;
+      periodEndsAt: string | null;
+      cancelAtPeriodEnd: boolean;
+    }
+  | { error: string }
+> {
   const res = await fetch("/api/membership/create-session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -101,9 +112,23 @@ export async function startMembershipCheckout(
     url?: string;
     mode?: string;
     error?: string;
+    alreadyMember?: boolean;
+    customerId?: string | null;
+    subscriptionId?: string | null;
+    periodEndsAt?: string | null;
+    cancelAtPeriodEnd?: boolean;
   };
   if (res.status === 503 || data.mode === "demo") {
     return { demo: true };
+  }
+  if (data.alreadyMember && data.subscriptionId) {
+    return {
+      alreadyMember: true,
+      customerId: data.customerId ?? null,
+      subscriptionId: data.subscriptionId,
+      periodEndsAt: data.periodEndsAt ?? null,
+      cancelAtPeriodEnd: Boolean(data.cancelAtPeriodEnd),
+    };
   }
   if (!res.ok || !data.url) {
     return { error: data.error ?? "Could not start membership checkout." };

@@ -42,9 +42,12 @@ const TAP = "min-h-11 min-w-11";
 function LanguageSelect({
   id,
   className,
+  /** Short codes only (EN) — use on desktop header below ~1400px width budget */
+  codesOnly = false,
 }: {
   id: string;
   className?: string;
+  codesOnly?: boolean;
 }) {
   const { lang, setLang, isLangReady } = useI18n();
   const selected = SUPPORTED_LANGUAGES.find((l) => l.code === lang);
@@ -55,13 +58,18 @@ function LanguageSelect({
         id={id}
         value={lang}
         onChange={(e) => setLang(e.target.value as Language)}
-        className="h-11 w-full rounded-lg border border-border bg-background px-2.5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring lg:h-11 lg:max-w-[10.5rem] lg:text-xs xl:max-w-[11.5rem] xl:text-sm"
+        className={cn(
+          "h-11 rounded-lg border border-border bg-background text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring",
+          codesOnly
+            ? "h-10 w-[3.25rem] shrink-0 px-1.5 text-xs"
+            : "w-full px-2.5 lg:h-10 lg:w-[8.75rem] lg:shrink-0 lg:px-2 lg:text-xs"
+        )}
         aria-label="Select language"
         title={selected ? formatLanguageOptionLabel(selected) : "Language"}
       >
         {SUPPORTED_LANGUAGES.map((l) => (
           <option key={l.code} value={l.code}>
-            {formatLanguageOptionLabel(l)}
+            {codesOnly ? l.short : formatLanguageOptionLabel(l)}
           </option>
         ))}
       </select>
@@ -229,32 +237,46 @@ export function SiteHeader() {
   }, [menuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-cream shadow-[0_1px_0_0_rgba(27,67,50,0.06)]">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
-        {/* Left: mark + full Forest Buddies® — never truncated / overlapped */}
-        <Link
-          href="/"
-          className="group flex shrink-0 items-center gap-1.5 font-heading font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2"
-          aria-label="Forest Buddies® home"
-        >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105">
-            <Leaf className="size-4 sm:size-5" aria-hidden />
-          </span>
-          <BrandMark
-            compactOnNarrow={false}
-            className="whitespace-nowrap text-sm leading-none tracking-tight sm:text-base md:text-lg"
+    <header className="sticky top-0 z-50 box-border w-full max-w-[100dvw] border-b border-border bg-cream shadow-[0_1px_0_0_rgba(27,67,50,0.06)]">
+      <div
+        className={cn(
+          // Full canvas width (not 100vw) so scrollbar isn’t counted; CTA stays inside
+          "box-border mx-auto flex h-14 w-full max-w-full min-w-0 items-center gap-1.5 sm:h-16 sm:gap-2",
+          "pl-3 sm:pl-4 lg:pl-5",
+          // Keep last control inside the canvas (scrollbar / safe-area)
+          "pr-[max(1.25rem,env(safe-area-inset-right,0px))] sm:pr-[max(1.5rem,env(safe-area-inset-right,0px))]"
+        )}
+      >
+        {/* Left: logo + nav — shrinks first */}
+        <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-1.5">
+          <Link
+            href="/"
+            className="group flex shrink-0 items-center gap-1.5 font-heading font-semibold text-primary transition-opacity hover:opacity-90 sm:gap-2"
+            aria-label="Forest Buddies® home"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105">
+              <Leaf className="size-4 sm:size-5" aria-hidden />
+            </span>
+            <BrandMark
+              compactOnNarrow={false}
+              className="whitespace-nowrap text-sm leading-none tracking-tight sm:text-base"
+            />
+          </Link>
+
+          <MainNav
+            variant="primary"
+            className="ml-0.5 hidden min-w-0 flex-1 lg:flex"
           />
-        </Link>
+        </div>
 
-        {/* Desktop primary nav — only when utilities are also desktop (lg+) */}
-        <MainNav
-          variant="primary"
-          className="mx-1 hidden flex-1 justify-center lg:flex"
-        />
-
-        {/* Desktop utilities (lg+): language · mic · chat · cart · auth */}
-        <div className="ml-auto hidden shrink-0 items-center gap-1 lg:flex xl:gap-1.5">
-          <LanguageSelect id="lang-switcher-desktop" />
+        {/* Right cluster — never shrink; CTA/avatar stay fully visible */}
+        <div className="ml-auto hidden shrink-0 items-center gap-0.5 lg:flex">
+          <div className="min-[1400px]:hidden">
+            <LanguageSelect id="lang-switcher-desktop" codesOnly />
+          </div>
+          <div className="hidden shrink-0 min-[1400px]:block">
+            <LanguageSelect id="lang-switcher-desktop-wide" />
+          </div>
           <VoiceNavControl variant="icon" />
           <Button
             type="button"
@@ -274,20 +296,26 @@ export function SiteHeader() {
                 render={<Link href="/dashboard" />}
                 size="sm"
                 variant="outline"
-                className={cn("shrink-0 whitespace-nowrap px-3", TAP)}
+                className={cn(
+                  "shrink-0 overflow-visible whitespace-nowrap px-2.5",
+                  TAP
+                )}
               >
                 Dashboard
               </Button>
               <AccountMenu />
             </>
           ) : (
-            <div className="flex shrink-0 items-center gap-1.5 pl-0.5">
+            <div className="flex shrink-0 items-center gap-1">
               <Button
                 nativeButton={false}
                 render={<Link href={loginHref} />}
                 variant="outline"
                 size="sm"
-                className={cn("shrink-0 whitespace-nowrap px-3", TAP)}
+                className={cn(
+                  "shrink-0 overflow-visible whitespace-nowrap px-2.5",
+                  TAP
+                )}
               >
                 Sign in
               </Button>
@@ -295,7 +323,10 @@ export function SiteHeader() {
                 nativeButton={false}
                 render={<Link href={registerHref} />}
                 size="sm"
-                className={cn("shrink-0 whitespace-nowrap px-3", TAP)}
+                className={cn(
+                  "shrink-0 overflow-visible whitespace-nowrap px-2.5",
+                  TAP
+                )}
               >
                 Get started
               </Button>
@@ -303,7 +334,7 @@ export function SiteHeader() {
           )}
         </div>
 
-        {/* Mobile / tablet (< lg): mic · cart · Sign in/Account · menu */}
+        {/* Mobile / tablet (< lg / <1024): mic · cart · Sign in/Account · menu */}
         <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1 lg:hidden">
           <VoiceNavControl variant="icon" className={TAP} />
           <CartButton />
@@ -336,7 +367,7 @@ export function SiteHeader() {
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="flex h-dvh max-h-dvh w-[min(100vw-0.75rem,22.5rem)] max-w-full flex-col gap-0 overflow-hidden p-0"
+              className="flex h-dvh max-h-dvh w-[min(100%,22.5rem)] max-w-full flex-col gap-0 overflow-hidden p-0"
             >
               <SheetHeader className="shrink-0 space-y-1 border-b border-border/70 bg-cream px-4 py-3.5 pr-14 text-left sm:px-5">
                 <SheetTitle className="font-heading text-lg text-primary">
@@ -359,7 +390,7 @@ export function SiteHeader() {
                         />
                       }
                       variant="outline"
-                      className="min-h-11 w-full"
+                      className="min-h-11 w-full overflow-visible whitespace-nowrap"
                     >
                       Sign in
                     </Button>
@@ -371,7 +402,7 @@ export function SiteHeader() {
                           onClick={() => setMenuOpen(false)}
                         />
                       }
-                      className="min-h-11 w-full whitespace-nowrap"
+                      className="min-h-11 w-full overflow-visible whitespace-nowrap"
                     >
                       Get started
                     </Button>

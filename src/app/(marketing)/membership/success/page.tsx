@@ -12,8 +12,13 @@ import { formatMembershipDate } from "@/lib/membership-storage";
 
 function MembershipSuccessInner() {
   const searchParams = useSearchParams();
-  const { syncFromCheckoutSession, isImpactMember, periodEndsAt, refresh } =
-    useMembership();
+  const {
+    syncFromCheckoutSession,
+    reconcileFromStripe,
+    isImpactMember,
+    periodEndsAt,
+    refresh,
+  } = useMembership();
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
@@ -33,6 +38,8 @@ function MembershipSuccessInner() {
 
       const confirmed = await confirmPaidOrder(sessionId);
       const synced = await syncFromCheckoutSession(sessionId);
+      // Stripe retrieve again via reconcile (same Firebase user record the page reads)
+      await reconcileFromStripe();
       refresh();
 
       if (cancelled) return;
@@ -53,7 +60,7 @@ function MembershipSuccessInner() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, syncFromCheckoutSession, refresh]);
+  }, [searchParams, syncFromCheckoutSession, reconcileFromStripe, refresh]);
 
   if (status === "loading") {
     return (

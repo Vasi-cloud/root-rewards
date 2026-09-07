@@ -7,11 +7,8 @@ import { getStripe } from "@/lib/stripe/server";
 import { getSubscriptionPeriodEnd } from "@/lib/stripe/subscription";
 import type { MembershipTierId } from "@/types";
 
-const ACTIVE_STATUSES = new Set([
-  "active",
-  "trialing",
-  "past_due",
-]);
+/** Statuses that mean the shopper is an Impact Member right now. */
+const IMPACT_ENTITLED_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 export type MembershipReconcileResult = {
   mode: "live" | "demo";
@@ -56,12 +53,15 @@ function isImpactSubscription(sub: Stripe.Subscription): boolean {
     const name = (product as Stripe.Product).name?.toLowerCase() ?? "";
     if (name.includes("impact member")) return true;
   }
+  // Price nickname / description fallbacks when product isn't expanded
+  const nickname = item?.price?.nickname?.toLowerCase() ?? "";
+  if (nickname.includes("impact")) return true;
   return false;
 }
 
 function toResult(sub: Stripe.Subscription, customerId: string): MembershipReconcileResult {
-  const active = ACTIVE_STATUSES.has(sub.status);
-  if (!active) {
+  const entitled = IMPACT_ENTITLED_STATUSES.has(sub.status);
+  if (!entitled) {
     return {
       mode: "live",
       tierId: "free",
@@ -98,14 +98,19 @@ async function listCustomerSubscriptions(
   return page.data;
 }
 
+/**
+ * Prefer Impact-tagged subs; otherwise any subscription for this customer
+ * (Forest Buddies only sells one membership plan — Price IDs may omit metadata).
+ */
 function pickBestSubscription(
   subs: Stripe.Subscription[]
 ): Stripe.Subscription | null {
-  const impact = subs.filter(isImpactSubscription);
-  if (impact.length === 0) return null;
-  const ranked = [...impact].sort((a, b) => {
-    const aActive = ACTIVE_STATUSES.has(a.status) ? 1 : 0;
-    const bActive = ACTIVE_STATUSES.has(b.status) ? 1 : 0;
+  if (subs.length === 0) return null;
+  const tagged = subs.filter(isImpactSubscription);
+  const pool = tagged.length > 0 ? tagged : subs;
+  const ranked = [...pool].sort((a, b) => {
+    const aActive = IMPACT_ENTITLED_STATUSES.has(a.status) ? 1 : 0;
+    const bActive = IMPACT_ENTITLED_STATUSES.has(b.status) ? 1 : 0;
     if (aActive !== bActive) return bActive - aActive;
     return (b.created ?? 0) - (a.created ?? 0);
   });
@@ -153,8 +158,8 @@ export async function reconcileMembershipFromStripe(opts: {
       if (!pick) continue;
       if (
         !best ||
-        (ACTIVE_STATUSES.has(pick.status) &&
-          !ACTIVE_STATUSES.has(best.sub.status)) ||
+        (IMPACT_ENTITLED_STATUSES.has(pick.status) &&
+          !IMPACT_ENTITLED_STATUSES.has(best.sub.status)) ||
         (pick.created ?? 0) > (best.sub.created ?? 0)
       ) {
         best = { sub: pick, customerId: cid };

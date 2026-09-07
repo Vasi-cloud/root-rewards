@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { useMembership } from "@/contexts/membership-context";
+import { buildLoginHref } from "@/lib/auth-redirect";
 import { IMPACT_MEMBER_PRIMARY, MEMBERSHIP_TIERS } from "@/lib/membership";
 import {
   daysUntilPeriodEnd,
@@ -56,7 +57,7 @@ const UPGRADE_HIGHLIGHTS = [
 ] as const;
 
 export default function MembershipPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const {
     tier,
     isImpactMember,
@@ -67,16 +68,26 @@ export default function MembershipPage() {
     keepMembership,
     manageBilling,
     stripeCustomerId,
+    reconcileFromStripe,
   } = useMembership();
   const [stripeEnabled, setStripeEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+  const signedIn = Boolean(user?.uid);
+  const loginHref = buildLoginHref("/membership");
 
   useEffect(() => {
     void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
   }, []);
 
+  // Every visit: Stripe subscription status is source of truth for this account.
+  useEffect(() => {
+    if (authLoading || !user?.uid) return;
+    void reconcileFromStripe();
+  }, [authLoading, user?.uid, user?.email, reconcileFromStripe]);
+
   async function handleUpgrade() {
+    if (!signedIn) return;
     setBusy(true);
     setBanner(null);
     let email = user?.email ?? "";
@@ -94,6 +105,11 @@ export default function MembershipPage() {
     if (result === "demo") {
       setBanner(
         "Demo upgrade complete — no card charged (Stripe not configured)."
+      );
+      setBusy(false);
+    } else if (result === "already") {
+      setBanner(
+        "You’re already an Impact Member on this email — no new charge."
       );
       setBusy(false);
     } else if (result === "error") {
@@ -155,42 +171,53 @@ export default function MembershipPage() {
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-2 font-heading text-lg font-semibold text-emerald-950 sm:text-xl">
                 <Leaf className="size-4 shrink-0 text-emerald-800" />
-                {tier.name}
-                {isImpactMember && (
+                {!signedIn ? "Sign in to see your plan" : tier.name}
+                {signedIn && isImpactMember && (
                   <Badge className="bg-emerald-800 text-cream">
                     Impact Member
                   </Badge>
                 )}
-                {cancelScheduled && (
+                {signedIn && cancelScheduled && (
                   <Badge className="bg-amber-100 text-amber-950">
                     Canceling · ends {formatMembershipDate(periodEndsAt)}
                   </Badge>
                 )}
               </p>
               <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                {isImpactMember
-                  ? cancelScheduled
-                    ? `Benefits continue until ${formatMembershipDate(periodEndsAt)}.`
-                    : causeCreditAvailable
-                      ? "Cause credit ready this month · manage billing below."
-                      : periodEndsAt
-                        ? `Period renews ${formatMembershipDate(periodEndsAt)} · ${daysUntilPeriodEnd(periodEndsAt)} days left.`
-                        : "You’re on Impact Member — manage or cancel below."
-                  : "You’re on Free — upgrade anytime for cause credit, platform support, and badge."}
+                {!signedIn
+                  ? "Already an Impact Member on this email? Sign in to restore your plan — we won’t ask you to pay again."
+                  : isImpactMember
+                    ? cancelScheduled
+                      ? `Benefits continue until ${formatMembershipDate(periodEndsAt)}.`
+                      : causeCreditAvailable
+                        ? "Cause credit ready this month · manage billing below."
+                        : periodEndsAt
+                          ? `Period renews ${formatMembershipDate(periodEndsAt)} · ${daysUntilPeriodEnd(periodEndsAt)} days left.`
+                          : "You’re on Impact Member — manage or cancel below."
+                    : "You’re on Free — upgrade anytime for cause credit, platform support, and badge."}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {!isImpactMember && (
+              {!signedIn ? (
                 <Button
                   className="h-11 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-9"
-                  disabled={busy}
+                  nativeButton={false}
+                  render={<Link href={loginHref} />}
+                >
+                  Sign in to see your plan
+                </Button>
+              ) : null}
+              {signedIn && !isImpactMember ? (
+                <Button
+                  className="h-11 gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-9"
+                  disabled={busy || authLoading}
                   onClick={() => void handleUpgrade()}
                 >
                   <Sparkles className="size-3.5" />
                   Upgrade to Impact
                 </Button>
-              )}
-              {isImpactMember && stripeCustomerId && stripeEnabled && (
+              ) : null}
+              {signedIn && isImpactMember && stripeCustomerId && stripeEnabled && (
                 <Button
                   variant="outline"
                   className="h-11 gap-2 sm:h-9"
@@ -201,7 +228,7 @@ export default function MembershipPage() {
                   Manage membership
                 </Button>
               )}
-              {isImpactMember && (
+              {signedIn && isImpactMember && (
                 <Button
                   variant="outline"
                   className="h-11 sm:h-9"
@@ -479,10 +506,18 @@ export default function MembershipPage() {
                           : ""}
                       </Button>
                     )
+                  ) : !signedIn ? (
+                    <Button
+                      className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
+                      nativeButton={false}
+                      render={<Link href={loginHref} />}
+                    >
+                      Sign in to see your plan
+                    </Button>
                   ) : (
                     <Button
                       className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
-                      disabled={busy}
+                      disabled={busy || authLoading}
                       onClick={() => void handleUpgrade()}
                     >
                       <Trees className="size-4" />

@@ -2,6 +2,7 @@
 
 import {
   ChefHat,
+  ChevronDown,
   HeartHandshake,
   MapPin,
   Sparkles,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -89,13 +91,10 @@ const accountNavItems: NavItem[] = [
   },
 ];
 
-/**
- * Top-bar priority links — never truncated.
- * Secondary items (Membership, About, account) live in the overflow menu.
- */
-const desktopPrimaryItems: NavItem[] = [
+/** Always visible in the top bar (never folded into More). */
+const desktopCoreItems: NavItem[] = [
   { href: "/marketplace", label: "Marketplace" },
-  ...LEAFY_NAV_ITEMS,
+  LEAFY_NAV_ITEMS[0], // Buy Local
   {
     href: "/membership",
     label: "Impact Member",
@@ -103,9 +102,145 @@ const desktopPrimaryItems: NavItem[] = [
   },
 ];
 
+/** Fold into More below 1400px so Get started / avatar never clip. */
+const desktopOverflowItems: NavItem[] = [
+  LEAFY_NAV_ITEMS[1], // Kitchen
+  LEAFY_NAV_ITEMS[2], // Parts
+  LEAFY_NAV_ITEMS[3], // Ask
+];
+
 function isActivePath(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname.startsWith(href);
+}
+
+function NavLink({
+  item,
+  pathname,
+  compactAsk,
+}: {
+  item: NavItem;
+  pathname: string;
+  compactAsk?: boolean;
+}) {
+  const active = isActivePath(pathname, item.href);
+  const featured = Boolean(item.featured);
+  const shortAsk = compactAsk && item.href === "/recommend";
+  const shortImpact = item.href === "/membership";
+
+  return (
+    <Link
+      href={item.href}
+      title={item.description ?? item.label}
+      className={cn(
+        "shrink-0 rounded-lg px-1 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 min-[1400px]:px-1.5 2xl:px-2.5",
+        active
+          ? "bg-primary/10 text-primary shadow-sm"
+          : featured
+            ? "text-emerald-900 hover:bg-emerald-50 hover:text-emerald-950 active:scale-[0.98]"
+            : "text-foreground/80 hover:bg-muted hover:text-primary active:scale-[0.98]"
+      )}
+    >
+      {shortAsk ? (
+        <>
+          <span className="2xl:hidden">Ask</span>
+          <span className="hidden 2xl:inline">Ask Leafy</span>
+        </>
+      ) : shortImpact ? (
+        <>
+          <span className="min-[1400px]:hidden">Impact</span>
+          <span className="hidden min-[1400px]:inline">Impact Member</span>
+        </>
+      ) : (
+        item.label
+      )}
+    </Link>
+  );
+}
+
+function MoreNavMenu({
+  items,
+  pathname,
+}: {
+  items: NavItem[];
+  pathname: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+  const anyActive = items.some((item) => isActivePath(pathname, item.href));
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative shrink-0 min-[1400px]:hidden" ref={rootRef}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-0.5 rounded-lg px-1.5 py-2 text-sm font-medium whitespace-nowrap transition-colors",
+          anyActive || open
+            ? "bg-primary/10 text-primary"
+            : "text-emerald-900 hover:bg-emerald-50"
+        )}
+      >
+        More
+        <ChevronDown
+          className={cn(
+            "size-3.5 opacity-70 transition-transform",
+            open && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <div
+          id={menuId}
+          role="menu"
+          className="absolute left-0 z-50 mt-1 min-w-[12rem] overflow-hidden rounded-xl border border-border/80 bg-cream py-1 shadow-lg"
+        >
+          {items.map((item) => {
+            const active = isActivePath(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                role="menuitem"
+                className={cn(
+                  "flex min-h-11 items-center gap-2 px-3 py-2 text-sm whitespace-nowrap hover:bg-emerald-50",
+                  active ? "font-medium text-primary" : "text-foreground/90"
+                )}
+                onClick={() => setOpen(false)}
+              >
+                {Icon ? (
+                  <Icon className="size-3.5 shrink-0 text-emerald-800" />
+                ) : null}
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function MainNav({
@@ -121,49 +256,24 @@ export function MainNav({
   if (variant === "primary") {
     return (
       <nav
-        className={cn(
-          // No overflow-x-auto: that clipped “Marketplace” to “…tplace”.
-          // Tighter gaps so full labels fit; shrink-0 links never clip.
-          "flex items-center justify-center gap-0.5 xl:gap-1 2xl:gap-2",
-          className
-        )}
+        className={cn("flex min-w-0 items-center gap-0.5", className)}
         aria-label="Primary"
       >
-        {desktopPrimaryItems.map((item) => {
-          const active = isActivePath(pathname, item.href);
-          const featured = Boolean(item.featured);
-          const shortAsk = item.href === "/recommend";
-          const shortImpact = item.href === "/membership";
-          return (
-            <Link
+        {desktopCoreItems.map((item) => (
+          <NavLink key={item.href} item={item} pathname={pathname} />
+        ))}
+        {/* Full Leafy labels only when there is room (≥1400px) */}
+        <div className="hidden items-center gap-0.5 min-[1400px]:flex">
+          {desktopOverflowItems.map((item) => (
+            <NavLink
               key={item.href}
-              href={item.href}
-              title={item.description ?? item.label}
-              className={cn(
-                "shrink-0 rounded-lg px-1.5 py-2 text-sm font-medium whitespace-nowrap transition-[color,background-color,transform,box-shadow] duration-200 xl:px-2 2xl:px-3",
-                active
-                  ? "bg-primary/10 text-primary shadow-sm"
-                  : featured
-                    ? "text-emerald-900 hover:bg-emerald-50 hover:text-emerald-950 active:scale-[0.98]"
-                    : "text-foreground/80 hover:bg-muted hover:text-primary active:scale-[0.98]"
-              )}
-            >
-              {shortAsk ? (
-                <>
-                  <span className="2xl:hidden">Ask</span>
-                  <span className="hidden 2xl:inline">Ask Leafy</span>
-                </>
-              ) : shortImpact ? (
-                <>
-                  <span className="2xl:hidden">Impact</span>
-                  <span className="hidden 2xl:inline">Impact Member</span>
-                </>
-              ) : (
-                item.label
-              )}
-            </Link>
-          );
-        })}
+              item={item}
+              pathname={pathname}
+              compactAsk
+            />
+          ))}
+        </div>
+        <MoreNavMenu items={desktopOverflowItems} pathname={pathname} />
       </nav>
     );
   }
@@ -247,16 +357,9 @@ export function MainNav({
                   )}
                 >
                   {Icon ? (
-                    <Icon className="size-4 shrink-0 text-emerald-800" aria-hidden />
+                    <Icon className="size-4 shrink-0 opacity-80" />
                   ) : null}
-                  <span className="min-w-0">
-                    <span className="block leading-tight">{item.label}</span>
-                    {item.description ? (
-                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                        {item.description}
-                      </span>
-                    ) : null}
-                  </span>
+                  {item.label}
                 </Link>
               </li>
             );
@@ -268,7 +371,7 @@ export function MainNav({
         <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Explore
         </p>
-        <ul className="mt-2 space-y-0.5">
+        <ul className="mt-2 flex flex-wrap gap-1.5">
           {exploreNavItems.map((item) => {
             const active = isActivePath(pathname, item.href);
             return (
@@ -276,10 +379,10 @@ export function MainNav({
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex min-h-12 items-center rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors active:scale-[0.99]",
+                    "inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-medium",
                     active
                       ? "bg-primary/10 text-primary"
-                      : "text-foreground/85 hover:bg-muted hover:text-primary"
+                      : "text-foreground/80 hover:bg-muted"
                   )}
                 >
                   {item.label}

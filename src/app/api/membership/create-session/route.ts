@@ -8,6 +8,7 @@ import {
   IMPACT_MEMBER_UNIT_AMOUNT_CENTS,
   isStripeConfigured,
 } from "@/lib/stripe/config";
+import { reconcileMembershipFromStripe } from "@/lib/stripe/reconcile-membership";
 import { getStripe } from "@/lib/stripe/server";
 import { validateEmail } from "@/lib/validation";
 
@@ -47,10 +48,37 @@ export async function POST(request: Request) {
   const priceId = getImpactMemberPriceId();
   const userId =
     typeof raw.userId === "string" ? raw.userId.slice(0, 128) : undefined;
-  const existingCustomer =
+  const customerIdHint =
     typeof raw.customerId === "string" && raw.customerId.startsWith("cus_")
       ? raw.customerId
-      : undefined;
+      : null;
+
+  // Reuse existing active Impact sub — never charge the same email twice.
+  const existing = await reconcileMembershipFromStripe({
+    email: emailResult.value,
+    customerId: customerIdHint,
+    userId: userId ?? null,
+  });
+
+  if (
+    existing.reconciled &&
+    existing.tierId === "impact" &&
+    existing.subscriptionId
+  ) {
+    return NextResponse.json({
+      mode: "live",
+      alreadyMember: true,
+      customerId: existing.customerId,
+      subscriptionId: existing.subscriptionId,
+      periodEndsAt: existing.periodEndsAt,
+      cancelAtPeriodEnd: existing.cancelAtPeriodEnd,
+    });
+  }
+
+  const existingCustomer =
+    customerIdHint ||
+    (existing.customerId?.startsWith("cus_") ? existing.customerId : null) ||
+    undefined;
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = priceId
     ? [{ price: priceId, quantity: 1 }]
