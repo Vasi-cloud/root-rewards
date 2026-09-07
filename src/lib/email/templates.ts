@@ -173,13 +173,18 @@ export function causeGiftEmailHtml(opts: {
          When payments are live, Stripe sends your card receipt separately.
        </p>`;
 
+  const hasTreesGift = opts.giftLines.some((line) =>
+    line.trim().toLowerCase().startsWith("trees")
+  );
+  const illustrativeTrees = hasTreesGift
+    ? " For Trees, roughly £5 ≈ 1 tree unit toward partner programmes —"
+    : " —";
+
   const bodyHtml = `
     ${noChargeLine}
     <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 14px;">
-      Thank you — your Forest Buddies® cause gift supports partner programmes
-      for <strong>Trees</strong>, <strong>Ocean</strong>, <strong>Animals</strong>,
-      <strong>Education</strong>, and <strong>Climate</strong>.
+      Thank you — your Forest Buddies® cause gift supports partner programmes.
     </p>
     <p style="margin:0 0 6px;font-size:13px;color:#5c7366;">Gift reference</p>
     <p style="margin:0 0 16px;font-family:ui-monospace,monospace;font-weight:600;">${escapeHtml(opts.orderNumber)}</p>
@@ -190,8 +195,8 @@ export function causeGiftEmailHtml(opts: {
       </tr>
     </table>
     <p style="margin:16px 0 14px;font-size:14px;color:#2d6a4f;">
-      Impact is illustrative. For Trees, roughly £5 ≈ 1 tree unit toward partner
-      programmes — not a GPS pin for a planted tree, and not a live carbon audit.
+      Impact is illustrative.${illustrativeTrees} not a GPS pin for a planted tree,
+      and not a live carbon audit.
     </p>
     <p style="margin:0 0 16px;font-size:13px;color:#5c7366;">
       This is not product cashback and not an affiliate payout.
@@ -210,18 +215,21 @@ export function causeGiftEmailHtml(opts: {
 
   const text = `${opts.noCharge ? "No card was charged.\n\n" : ""}Hi ${name},
 
-Thank you — your Forest Buddies® cause gift supports partner programmes for Trees, Ocean, Animals, Education, and Climate.
+Thank you — your Forest Buddies® cause gift supports partner programmes.
 
 Gift reference: ${opts.orderNumber}
 Gift total: £${total}
 
 ${opts.giftLines.map((l) => `- ${l}`).join("\n") || "- Cause gift to partner programmes"}
 
-Impact is illustrative. For Trees, roughly £5 ≈ 1 tree unit toward partner programmes — not a GPS pin for a planted tree, and not a live carbon audit.
+Impact is illustrative.${hasTreesGift ? " For Trees, roughly £5 ≈ 1 tree unit toward partner programmes —" : " —"} not a GPS pin for a planted tree, and not a live carbon audit.
 This is not product cashback and not an affiliate payout.
 ${opts.noCharge ? "" : "When payments are live, Stripe sends your card receipt separately.\n"}
 View Your impact: ${impactUrl}
 Support a cause: ${appUrl}/donate
+
+You’re receiving this because you made a Forest Buddies® cause gift.
+Grown with care · Cause gifts fund partner programmes. Impact stays illustrative.
 
 — Forest Buddies`;
 
@@ -232,6 +240,10 @@ Support a cause: ${appUrl}/donate
         "Your cause gift supports partner programmes — illustrative impact only.",
       title: "Thank you for your cause gift",
       bodyHtml,
+      footerBlurb:
+        "Grown with care · Cause gifts fund partner programmes. Impact stays illustrative.",
+      receivingReason:
+        "You’re receiving this because you made a Forest Buddies® cause gift.",
     }),
     text,
   };

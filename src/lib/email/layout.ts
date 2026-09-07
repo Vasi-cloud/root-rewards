@@ -5,8 +5,18 @@ export function emailLayout(opts: {
   preheader: string;
   title: string;
   bodyHtml: string;
+  /** Inner footer line under the body (defaults to shop-oriented copy). */
+  footerBlurb?: string;
+  /** Fine-print under the card (defaults to account/order wording). */
+  receivingReason?: string;
 }): string {
   const appUrl = getAppUrlForEmail();
+  const footerBlurb =
+    opts.footerBlurb ??
+    "Grown with care · Every purchase can fund trees, oceans, and climate education.";
+  const receivingReason =
+    opts.receivingReason ??
+    "You’re receiving this because you have an account or order with Forest Buddies.";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -42,7 +52,7 @@ export function emailLayout(opts: {
           </tr>
           <tr>
             <td style="padding:0 28px 28px;font-family:'DM Sans',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.5;color:#5c7366;">
-              <p style="margin:0 0 8px;">Grown with care · Every purchase can fund trees, oceans, and climate education.</p>
+              <p style="margin:0 0 8px;">${escapeHtml(footerBlurb)}</p>
               <p style="margin:0;">
                 <a href="${appUrl}" style="color:#1b4332;font-weight:600;">Visit Forest Buddies</a>
                 &nbsp;·&nbsp;
@@ -54,7 +64,7 @@ export function emailLayout(opts: {
           </tr>
         </table>
         <p style="margin:16px 0 0;font-family:'DM Sans',Helvetica,Arial,sans-serif;font-size:12px;color:#7a9084;">
-          You’re receiving this because you have an account or order with Forest Buddies.
+          ${escapeHtml(receivingReason)}
         </p>
       </td>
     </tr>
