@@ -253,36 +253,38 @@ export default function MembershipPage() {
           ) : null}
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
-            nativeButton={false}
-            render={<Link href="/dashboard" />}
-          >
-            <LayoutDashboard className="size-3.5" />
-            Dashboard
-          </Button>
-          <Button
-            variant="ghost"
-            className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
-            nativeButton={false}
-            render={<Link href="/dashboard/my-forest" />}
-          >
-            <Trees className="size-3.5" />
-            My Forest
-          </Button>
-          <Button
-            variant="ghost"
-            className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
-            nativeButton={false}
-            render={<Link href="/dashboard/settings" />}
-          >
-            <Settings className="size-3.5" />
-            Account settings
-            <ArrowRight className="size-3.5 opacity-70" />
-          </Button>
-        </div>
+        {signedIn ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
+              nativeButton={false}
+              render={<Link href="/dashboard" />}
+            >
+              <LayoutDashboard className="size-3.5" />
+              Dashboard
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
+              nativeButton={false}
+              render={<Link href="/dashboard/my-forest" />}
+            >
+              <Trees className="size-3.5" />
+              My Forest
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
+              nativeButton={false}
+              render={<Link href="/dashboard/settings" />}
+            >
+              <Settings className="size-3.5" />
+              Account settings
+              <ArrowRight className="size-3.5 opacity-70" />
+            </Button>
+          </div>
+        ) : null}
 
         {banner && (
           <p
@@ -293,10 +295,10 @@ export default function MembershipPage() {
           </p>
         )}
 
-        {/* What's included (members) / Why upgrade? (prospects) */}
+        {/* What's included — same cards for members and signed-out explain */}
         <section className="mt-8 sm:mt-10">
           <h2 className="font-heading text-xl font-semibold text-primary sm:text-2xl">
-            {showManage ? "What’s included" : "Why upgrade?"}
+            What’s included
           </h2>
           <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
             Cause credit and platform support — the heart of Impact Member.
@@ -420,13 +422,20 @@ export default function MembershipPage() {
                   </CardContent>
                   <CardFooter className="flex-col gap-2 px-4 pb-5 sm:px-6 sm:pb-6">
                     {!signedIn ? (
-                      <Button
-                        className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
-                        nativeButton={false}
-                        render={<Link href={loginHref} />}
-                      >
-                        Sign in
-                      </Button>
+                      t.id === "free" ? (
+                        <p className="w-full text-center text-sm text-muted-foreground">
+                          No account needed to browse. Sign in above to see a
+                          saved plan.
+                        </p>
+                      ) : (
+                        <Button
+                          className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
+                          nativeButton={false}
+                          render={<Link href={loginHref} />}
+                        >
+                          Sign in to join or restore
+                        </Button>
+                      )
                     ) : t.id === "free" ? (
                       active ? (
                         <Button
@@ -485,10 +494,12 @@ export default function MembershipPage() {
             ? stripeEnabled
               ? "Manage billing in the Stripe portal, or cancel above — you keep benefits until period end."
               : "Demo billing — cancel above anytime. Benefits last until your period ends."
-            : stripeEnabled
-              ? "Live Stripe subscriptions — cards are charged securely. Cancel anytime from this page or the Stripe portal."
-              : "Demo billing — no card charged until Stripe keys are added. Cancel anytime from this page or your "}
-          {!showManage && !stripeEnabled && (
+            : !signedIn
+              ? "Sign in to join Impact Member or restore a plan already on your email — we won’t charge twice."
+              : stripeEnabled
+                ? "Live Stripe subscriptions — cards are charged securely. Cancel anytime from this page or the Stripe portal."
+                : "Demo billing — no card charged until Stripe keys are added. Cancel anytime from this page or your "}
+          {signedIn && !showManage && !stripeEnabled && (
             <>
               <Link
                 href="/dashboard#membership"
