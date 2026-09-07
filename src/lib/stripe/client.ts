@@ -100,8 +100,10 @@ export async function startMembershipCheckout(
       subscriptionId: string | null;
       periodEndsAt: string | null;
       cancelAtPeriodEnd: boolean;
+      membershipUrl?: string | null;
+      portalUrl?: string | null;
     }
-  | { error: string }
+  | { error: string; membershipUrl?: string }
 > {
   const res = await fetch("/api/membership/create-session", {
     method: "POST",
@@ -117,17 +119,30 @@ export async function startMembershipCheckout(
     subscriptionId?: string | null;
     periodEndsAt?: string | null;
     cancelAtPeriodEnd?: boolean;
+    membershipUrl?: string | null;
+    portalUrl?: string | null;
   };
   if (res.status === 503 || data.mode === "demo") {
     return { demo: true };
   }
-  if (data.alreadyMember && data.subscriptionId) {
+  // Existing Impact sub — never follow a Checkout URL
+  if (data.alreadyMember) {
     return {
       alreadyMember: true,
       customerId: data.customerId ?? null,
-      subscriptionId: data.subscriptionId,
+      subscriptionId: data.subscriptionId ?? null,
       periodEndsAt: data.periodEndsAt ?? null,
       cancelAtPeriodEnd: Boolean(data.cancelAtPeriodEnd),
+      membershipUrl: data.membershipUrl ?? "/membership",
+      portalUrl: data.portalUrl ?? null,
+    };
+  }
+  if (res.status === 409) {
+    return {
+      error:
+        data.error ??
+        "Could not verify membership. Open Membership instead of Checkout.",
+      membershipUrl: data.membershipUrl ?? "/membership",
     };
   }
   if (!res.ok || !data.url) {

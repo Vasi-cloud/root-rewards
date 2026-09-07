@@ -2,7 +2,11 @@ import "server-only";
 
 import type Stripe from "stripe";
 
-import { isStripeConfigured } from "@/lib/stripe/config";
+import {
+  getImpactMemberPriceId,
+  IMPACT_MEMBER_UNIT_AMOUNT_CENTS,
+  isStripeConfigured,
+} from "@/lib/stripe/config";
 import { getStripe } from "@/lib/stripe/server";
 import { getSubscriptionPeriodEnd } from "@/lib/stripe/subscription";
 import type { MembershipTierId } from "@/types";
@@ -45,9 +49,24 @@ function isImpactSubscription(sub: Stripe.Subscription): boolean {
   ) {
     return true;
   }
-  // Checkout product_data name: "Forest Buddies Impact Member"
+
   const item = sub.items?.data?.[0];
-  const product = item?.price?.product;
+  const price = item?.price;
+  const configuredPriceId = getImpactMemberPriceId();
+  if (configuredPriceId && price?.id === configuredPriceId) {
+    return true;
+  }
+
+  // Inline Checkout price_data (£5/mo GBP) — Forest Buddies only sells this plan
+  if (
+    price?.unit_amount === IMPACT_MEMBER_UNIT_AMOUNT_CENTS &&
+    price?.recurring?.interval === "month" &&
+    (price.currency === "gbp" || !price.currency)
+  ) {
+    return true;
+  }
+
+  const product = price?.product;
   if (
     typeof product === "object" &&
     product &&
@@ -56,8 +75,7 @@ function isImpactSubscription(sub: Stripe.Subscription): boolean {
     const name = (product as Stripe.Product).name?.toLowerCase() ?? "";
     if (name.includes("impact member")) return true;
   }
-  // Price nickname / description fallbacks when product isn't expanded
-  const nickname = item?.price?.nickname?.toLowerCase() ?? "";
+  const nickname = price?.nickname?.toLowerCase() ?? "";
   if (nickname.includes("impact")) return true;
   return false;
 }
@@ -114,15 +132,15 @@ async function listCustomerSubscriptions(
   const page = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
-    limit: 20,
+    limit: 100,
     expand: ["data.items.data.price.product"],
   });
   return page.data;
 }
 
 /**
- * Prefer Impact-tagged subs; otherwise any subscription for this customer
- * (Forest Buddies only sells one membership plan — Price IDs may omit metadata).
+ * Prefer Impact-tagged / £5 Impact price subs; otherwise any subscription
+ * (Forest Buddies only sells one membership plan).
  */
 function pickBestSubscription(
   subs: Stripe.Subscription[]
@@ -137,6 +155,26 @@ function pickBestSubscription(
     return (b.created ?? 0) - (a.created ?? 0);
   });
   return ranked[0] ?? null;
+}
+
+/** Entitled Impact sub only — used to block duplicate Checkout. */
+function pickEntitledImpactSubscription(
+  subs: Stripe.Subscription[]
+): Stripe.Subscription | null {
+  const entitled = subs.filter(
+    (s) => IMPACT_ENTITLED_STATUSES.has(s.status) && isImpactSubscription(s)
+  );
+  if (entitled.length === 0) {
+    // Single-plan fallback: any entitled sub for this customer
+    const anyEntitled = subs.filter((s) =>
+      IMPACT_ENTITLED_STATUSES.has(s.status)
+    );
+    if (anyEntitled.length === 0) return null;
+    return [...anyEntitled].sort(
+      (a, b) => (b.created ?? 0) - (a.created ?? 0)
+    )[0]!;
+  }
+  return [...entitled].sort((a, b) => (b.created ?? 0) - (a.created ?? 0))[0]!;
 }
 
 function preferBetter(
@@ -154,7 +192,7 @@ function preferBetter(
     : current;
 }
 
-async function collectCustomerIdsByEmail(
+export async function collectCustomerIdsByEmail(
   stripe: Stripe,
   email: string
 ): Promise<string[]> {
@@ -163,7 +201,6 @@ async function collectCustomerIdsByEmail(
   for (const c of listed.data) {
     if (!ids.includes(c.id)) ids.push(c.id);
   }
-  // Search API catches customers list pagination / exact-match edge cases
   try {
     const escaped = email.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     const searched = await stripe.customers.search({
@@ -202,6 +239,92 @@ async function findSubsByUserIdMetadata(
 }
 
 /**
+ * Hard guard for Checkout: find any active/trialing/past_due Impact sub
+ * for this customer id and/or email. Prefer stored cus_, else email.
+ */
+export async function findBlockingImpactMembership(opts: {
+  email?: string | null;
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  userId?: string | null;
+}): Promise<MembershipReconcileResult> {
+  if (!isStripeConfigured()) {
+    return emptyFree("demo", false);
+  }
+
+  const stripe = getStripe();
+  const email = opts.email?.trim().toLowerCase() || null;
+  const customerIdHint =
+    opts.customerId?.startsWith("cus_") ? opts.customerId : null;
+  const subscriptionIdHint =
+    opts.subscriptionId?.startsWith("sub_") ? opts.subscriptionId : null;
+  const userId =
+    typeof opts.userId === "string" && opts.userId.trim()
+      ? opts.userId.trim().slice(0, 128)
+      : null;
+
+  try {
+    let best: { sub: Stripe.Subscription; customerId: string } | null = null;
+
+    if (subscriptionIdHint) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(subscriptionIdHint, {
+          expand: ["items.data.price.product"],
+        });
+        const cid = customerIdOf(sub);
+        if (cid && IMPACT_ENTITLED_STATUSES.has(sub.status)) {
+          best = preferBetter(best, { sub, customerId: cid });
+        }
+      } catch (err) {
+        console.warn(
+          "[stripe] blocking guard: subscription retrieve failed",
+          subscriptionIdHint,
+          err
+        );
+      }
+    }
+
+    const customerIds: string[] = [];
+    if (customerIdHint) customerIds.push(customerIdHint);
+    if (email) {
+      for (const id of await collectCustomerIdsByEmail(stripe, email)) {
+        if (!customerIds.includes(id)) customerIds.push(id);
+      }
+    }
+
+    for (const cid of customerIds) {
+      const subs = await listCustomerSubscriptions(stripe, cid);
+      const pick = pickEntitledImpactSubscription(subs);
+      if (!pick) continue;
+      best = preferBetter(best, { sub: pick, customerId: cid });
+    }
+
+    if (userId) {
+      for (const hit of await findSubsByUserIdMetadata(stripe, userId)) {
+        if (IMPACT_ENTITLED_STATUSES.has(hit.sub.status)) {
+          best = preferBetter(best, hit);
+        }
+      }
+    }
+
+    if (!best) {
+      return {
+        ...emptyFree("live", true),
+        customerId: customerIds[0] ?? customerIdHint,
+      };
+    }
+
+    return toResult(best.sub, best.customerId);
+  } catch (err) {
+    console.error("[stripe] blocking Impact lookup failed", err);
+    return {
+      ...emptyFree("live", false),
+      status: "error",
+    };
+  }
+}
+
+/**
  * Resolve Impact Member from Stripe (source of truth).
  * Prefer stored subscription / customer id; fall back to email + userId metadata.
  */
@@ -229,7 +352,6 @@ export async function reconcileMembershipFromStripe(opts: {
   try {
     let best: { sub: Stripe.Subscription; customerId: string } | null = null;
 
-    // 1) Direct retrieve of stored subscription id (survives localStorage wipe)
     if (subscriptionIdHint) {
       try {
         const sub = await stripe.subscriptions.retrieve(subscriptionIdHint, {
@@ -248,7 +370,6 @@ export async function reconcileMembershipFromStripe(opts: {
       }
     }
 
-    // 2) Customers: stored id + email list/search
     const customerIds: string[] = [];
     if (customerIdHint) customerIds.push(customerIdHint);
     if (email) {
@@ -264,7 +385,6 @@ export async function reconcileMembershipFromStripe(opts: {
       best = preferBetter(best, { sub: pick, customerId: cid });
     }
 
-    // 3) Subscriptions tagged with this Firebase uid
     if (userId) {
       for (const hit of await findSubsByUserIdMetadata(stripe, userId)) {
         best = preferBetter(best, hit);
@@ -280,7 +400,6 @@ export async function reconcileMembershipFromStripe(opts: {
 
     const result = toResult(best.sub, best.customerId);
 
-    // Attach Firebase UID to subscription metadata when we know it (non-blocking)
     if (
       result.tierId === "impact" &&
       userId &&
@@ -303,7 +422,6 @@ export async function reconcileMembershipFromStripe(opts: {
     return result;
   } catch (err) {
     console.error("[stripe] membership reconcile failed", err);
-    // Fail open for local UX: do not invent Free if Stripe errored — caller keeps cache
     return {
       ...emptyFree("live", false),
       status: "error",

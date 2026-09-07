@@ -354,17 +354,35 @@ export function MembershipProvider({
         setState(next);
         syncAdminLedger(next, checkoutEmail);
         await persistProfileMembership(next);
-        if (
-          typeof window !== "undefined" &&
-          !window.location.pathname.startsWith("/membership")
-        ) {
-          window.location.assign("/membership");
+        if (typeof window !== "undefined") {
+          // Prefer manage page; portal is optional from the API
+          const dest =
+            result.membershipUrl?.trim() ||
+            "/membership";
+          if (!window.location.pathname.startsWith("/membership")) {
+            window.location.assign(dest);
+          }
         }
         return "already";
       }
       if ("error" in result) {
         console.error(result.error);
+        if (
+          typeof window !== "undefined" &&
+          "membershipUrl" in result &&
+          result.membershipUrl
+        ) {
+          window.location.assign(result.membershipUrl);
+        }
         return "error";
+      }
+      // Never open Checkout if we somehow still look like Impact locally
+      const guard = loadMembership();
+      if (guard.tierId === "impact" && guard.stripeSubscriptionId) {
+        if (typeof window !== "undefined") {
+          window.location.assign("/membership");
+        }
+        return "already";
       }
       window.location.href = result.url;
       return "stripe";
