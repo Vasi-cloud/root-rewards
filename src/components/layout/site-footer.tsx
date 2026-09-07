@@ -105,15 +105,8 @@ export function SiteFooter({
             Impact Member · £5/mo
           </Link>{" "}
           — cause credit toward partner programmes, and support for the
-          platform. Not product cashback. Optional share-link estimates may
-          appear later after partners pay — see{" "}
-          <Link
-            href="/membership#how-earnings-work"
-            className="font-medium text-sage underline-offset-2 hover:underline"
-          >
-            Later
-          </Link>
-          . Cause and tree payments fund partner programmes. See{" "}
+          platform. Not product cashback. Cause and tree payments fund partner
+          programmes. See{" "}
           <Link
             href="/terms"
             className="font-medium text-sage underline-offset-2 hover:underline"

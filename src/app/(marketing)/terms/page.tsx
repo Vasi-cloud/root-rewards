@@ -82,6 +82,12 @@ export default function TermsPage() {
             Third-party stores have their own terms. Commission figures are not
             guarantees.
           </p>
+          <p className="mt-3 text-muted-foreground">
+            Affiliate sharing may come later. It is not a cash wallet, and it is
+            not what the Impact Member £5/mo fee is for. That fee is cause credit
+            toward partner programmes and support for the platform — not product
+            cashback or a payout.
+          </p>
         </section>
 
         <section>

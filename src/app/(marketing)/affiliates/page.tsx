@@ -105,11 +105,11 @@ export default function AffiliatesPage() {
             </Button>
             <Button
               nativeButton={false}
-              render={<Link href="/membership#how-earnings-work" />}
+              render={<Link href="/terms" />}
               variant="outline"
               size="lg"
             >
-              Later notes
+              Terms
             </Button>
           </CardContent>
         </Card>
@@ -257,10 +257,10 @@ export default function AffiliatesPage() {
         Membership fees support the platform. Cause payments fund partner
         programmes — not cashback.{" "}
         <Link
-          href="/membership#how-earnings-work"
+          href="/terms"
           className="font-medium text-primary underline-offset-2 hover:underline"
         >
-          How earnings work
+          Terms
         </Link>
       </p>
     </div>

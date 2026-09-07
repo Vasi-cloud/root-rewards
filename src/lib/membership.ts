@@ -34,7 +34,6 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
       "Marketplace shopping & cause checkout",
       "Personal impact dashboard",
       "Buy Local, Kitchen, Parts, and Ask Leafy",
-      "Optional: explore affiliate tools later on Impact Member",
     ],
   },
   {
@@ -52,7 +51,6 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
       "Your membership supports the Forest Buddies platform",
       "Impact Member badge on your profile",
       "Cancel anytime — benefits last until your period ends",
-      "Later: optional share link & commission estimates (after partners pay)",
     ],
   },
 ];

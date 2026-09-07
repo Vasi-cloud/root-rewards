@@ -129,10 +129,6 @@ function MembershipSuccessInner() {
           <li>Impact Member badge on your profile</li>
           <li>Cancel anytime — benefits last until your period ends</li>
         </ul>
-        <p className="mt-3 text-xs text-emerald-900/70">
-          Later: optional share link and commission estimates may appear on your
-          dashboard after partners pay — not the definition of membership.
-        </p>
       </div>
 
       <div className="mt-8 flex flex-col gap-3">

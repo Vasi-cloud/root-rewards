@@ -326,33 +326,6 @@ export default function MembershipPage() {
           </ul>
         </section>
 
-        {/* Later — optional affiliate notes (not the definition of membership) */}
-        <section
-          id="how-earnings-work"
-          className="mt-8 scroll-mt-24 rounded-2xl border border-border/60 bg-muted/20 px-3.5 py-4 sm:mt-10 sm:px-5 sm:py-5"
-        >
-          <h2 className="font-heading text-base font-semibold text-primary sm:text-lg">
-            Later
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Optional share link and commission estimates may appear for Impact
-            Members after partners pay — not a cash wallet, and not what
-            membership is for. Membership fees support the platform; cause and
-            tree payments fund partner programmes — illustrative impact, not
-            cashback.
-          </p>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Full details in our{" "}
-            <Link
-              href="/terms"
-              className="font-medium text-primary underline-offset-2 hover:underline"
-            >
-              Terms of Service
-            </Link>
-            .
-          </p>
-        </section>
-
         {/* Free vs Impact comparison — prospects only (no Checkout pitch for members) */}
         {!showManage ? (
           <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-6 md:grid-cols-2">

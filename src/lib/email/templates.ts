@@ -325,10 +325,6 @@ export function membershipSuccessEmailHtml(opts: {
       <li>Impact Member badge on your profile</li>
       <li>Cancel anytime — benefits last until the end of the billing period</li>
     </ul>
-    <p style="margin:0 0 18px;font-size:13px;color:#5c7366;">
-      Later: optional share link and commission estimates may appear on your
-      dashboard after partners pay — not a cash wallet, and not what membership is for.
-    </p>
     ${ctaButton(`${appUrl}/dashboard`, "Go to your dashboard")}
     <p style="margin:16px 0 0;">
       <a href="${appUrl}/marketplace" style="color:#1b4332;font-weight:600;">Continue to marketplace</a>
@@ -350,8 +346,6 @@ Impact Member · £5/mo — cause credit toward partner programmes, and support 
 - Your membership helps support the Forest Buddies platform
 - Impact Member badge on your profile
 - Cancel anytime — benefits last until the end of the billing period
-
-Later: optional share link / commission estimates after partners pay — not the definition of membership.
 
 Dashboard: ${appUrl}/dashboard
 Marketplace: ${appUrl}/marketplace
