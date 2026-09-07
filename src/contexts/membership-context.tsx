@@ -309,6 +309,12 @@ export function MembershipProvider({
       ) {
         syncAdminLedger(afterReconcile, checkoutEmail);
         await persistProfileMembership(afterReconcile);
+        if (
+          typeof window !== "undefined" &&
+          !window.location.pathname.startsWith("/membership")
+        ) {
+          window.location.assign("/membership");
+        }
         return "already";
       }
 
@@ -348,6 +354,12 @@ export function MembershipProvider({
         setState(next);
         syncAdminLedger(next, checkoutEmail);
         await persistProfileMembership(next);
+        if (
+          typeof window !== "undefined" &&
+          !window.location.pathname.startsWith("/membership")
+        ) {
+          window.location.assign("/membership");
+        }
         return "already";
       }
       if ("error" in result) {

@@ -223,7 +223,9 @@ export function SiteHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const loginHref = buildLoginHref(pathname);
-  const registerHref = buildRegisterHref(pathname);
+  // After auth, land on membership so Stripe reconcile can restore Impact
+  // instead of opening a second Checkout for an existing sub.
+  const registerHref = buildRegisterHref("/membership");
 
   useEffect(() => {
     setMenuOpen(false);

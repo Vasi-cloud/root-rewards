@@ -36,7 +36,7 @@ import {
 import { fetchPaymentsStatus } from "@/lib/stripe/client";
 import { cn } from "@/lib/utils";
 
-const UPGRADE_HIGHLIGHTS = [
+const INCLUDED_HIGHLIGHTS = [
   {
     title: "£5 monthly cause credit",
     detail:
@@ -75,6 +75,8 @@ export default function MembershipPage() {
   const [banner, setBanner] = useState<string | null>(null);
   const signedIn = Boolean(user?.uid);
   const loginHref = buildLoginHref("/membership");
+  /** Manage view for active Impact (active / trialing / past_due → isImpactMember). */
+  const showManage = signedIn && isImpactMember;
 
   useEffect(() => {
     void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
@@ -88,6 +90,7 @@ export default function MembershipPage() {
 
   async function handleUpgrade() {
     if (!signedIn) return;
+    if (isImpactMember) return;
     setBusy(true);
     setBanner(null);
     let email = user?.email ?? "";
@@ -155,11 +158,12 @@ export default function MembershipPage() {
         </div>
 
         <h1 className="font-heading mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-primary sm:text-5xl">
-          Free vs Impact Member
+          {showManage ? "Your Impact Member plan" : "Free vs Impact Member"}
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:mt-4 sm:text-lg">
-          {IMPACT_MEMBER_PRIMARY} Not product cashback or a shopping balance.
-          Cancel anytime; benefits last until your period ends.
+          {showManage
+            ? "Cause credit, platform support, and your badge — manage billing or cancel anytime. Benefits last until your period ends."
+            : `${IMPACT_MEMBER_PRIMARY} Not product cashback or a shopping balance. Cancel anytime; benefits last until your period ends.`}
         </p>
 
         {/* Current plan + shortcuts */}
@@ -217,29 +221,36 @@ export default function MembershipPage() {
                   Upgrade to Impact
                 </Button>
               ) : null}
-              {signedIn && isImpactMember && stripeCustomerId && stripeEnabled && (
-                <Button
-                  variant="outline"
-                  className="h-11 gap-2 sm:h-9"
-                  disabled={busy}
-                  onClick={() => void handlePortal()}
-                >
-                  <CreditCard className="size-3.5" />
-                  Manage membership
-                </Button>
-              )}
-              {signedIn && isImpactMember && (
-                <Button
-                  variant="outline"
-                  className="h-11 sm:h-9"
-                  nativeButton={false}
-                  render={<Link href="#manage" />}
-                >
-                  Manage / cancel
-                </Button>
-              )}
             </div>
           </div>
+
+          {/* Impact: one billing row — portal + cancel (no duplicate Manage buttons) */}
+          {showManage ? (
+            <div
+              id="manage"
+              className="mt-4 scroll-mt-24 space-y-3 border-t border-emerald-100 pt-4"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-800/70">
+                Billing
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+                {stripeCustomerId && stripeEnabled ? (
+                  <Button
+                    variant="outline"
+                    className="h-11 gap-2 sm:h-9"
+                    disabled={busy}
+                    onClick={() => void handlePortal()}
+                  >
+                    <CreditCard className="size-3.5" />
+                    Open Stripe billing portal
+                  </Button>
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <MembershipCancelControls />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -282,16 +293,16 @@ export default function MembershipPage() {
           </p>
         )}
 
-        {/* Why upgrade */}
+        {/* What's included (members) / Why upgrade? (prospects) */}
         <section className="mt-8 sm:mt-10">
           <h2 className="font-heading text-xl font-semibold text-primary sm:text-2xl">
-            Why upgrade?
+            {showManage ? "What’s included" : "Why upgrade?"}
           </h2>
           <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
             Cause credit and platform support — the heart of Impact Member.
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-3">
-            {UPGRADE_HIGHLIGHTS.map((item) => {
+            {INCLUDED_HIGHLIGHTS.map((item) => {
               const Icon = item.icon;
               return (
                 <li
@@ -340,203 +351,144 @@ export default function MembershipPage() {
           </p>
         </section>
 
-        {isImpactMember && (
-          <Card
-            id="manage"
-            className="mt-8 scroll-mt-24 border-emerald-200/80 bg-white/90"
-          >
-            <CardHeader className="space-y-1 px-4 pb-2 sm:px-6">
-              <CardTitle className="font-heading text-lg sm:text-xl">
-                Manage membership
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Update billing in Stripe when connected, or cancel here. You
-                keep Impact benefits through the end of the billing period. Also
-                available from your{" "}
-                <Link
-                  href="/dashboard#membership"
-                  className="font-medium text-primary underline-offset-2 hover:underline"
-                >
-                  dashboard
-                </Link>
-                .
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 px-4 sm:px-6">
-              {stripeCustomerId && stripeEnabled && (
-                <Button
-                  variant="outline"
-                  className="h-11 w-full gap-2 sm:h-9 sm:w-auto"
-                  disabled={busy}
-                  onClick={() => void handlePortal()}
-                >
-                  <CreditCard className="size-4" />
-                  Open Stripe billing portal
-                </Button>
-              )}
-              <MembershipCancelControls />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Plan comparison */}
-        <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-6 md:grid-cols-2">
-          {MEMBERSHIP_TIERS.map((t) => {
-            const active = signedIn && tier.id === t.id;
-            return (
-              <Card
-                key={t.id}
-                className={cn(
-                  "relative overflow-hidden",
-                  t.highlight
-                    ? "border-emerald-700/40 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 shadow-sm"
-                    : "border-border/70 bg-card",
-                  active && "ring-2 ring-emerald-700/30"
-                )}
-              >
-                <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 sm:top-4 sm:right-4">
-                  {active && (
-                    <Badge className="bg-emerald-800 text-cream">
-                      Current plan
-                    </Badge>
+        {/* Free vs Impact comparison — prospects only (no Checkout pitch for members) */}
+        {!showManage ? (
+          <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-6 md:grid-cols-2">
+            {MEMBERSHIP_TIERS.map((t) => {
+              const active = signedIn && tier.id === t.id;
+              return (
+                <Card
+                  key={t.id}
+                  className={cn(
+                    "relative overflow-hidden",
+                    t.highlight
+                      ? "border-emerald-700/40 bg-gradient-to-br from-emerald-50 via-cream to-sky-50/40 shadow-sm"
+                      : "border-border/70 bg-card",
+                    active && "ring-2 ring-emerald-700/30"
                   )}
-                  {t.highlight && !active && (
-                    <Badge className="gap-1 bg-emerald-800/90 text-cream">
-                      <Sparkles className="size-3" /> Recommended
-                    </Badge>
-                  )}
-                </div>
-                <CardHeader className="space-y-1 px-4 pt-5 sm:px-6 sm:pt-6">
-                  <CardTitle className="font-heading pr-24 text-2xl">
-                    {t.name}
-                  </CardTitle>
-                  <CardDescription className="text-sm sm:text-base">
-                    {t.tagline}
-                  </CardDescription>
-                  <div className="pt-2">
-                    <span className="font-heading text-4xl font-semibold text-primary">
-                      {t.priceMonthly === 0 ? "£0" : `£${t.priceMonthly}`}
-                    </span>
-                    <span className="text-muted-foreground"> / month</span>
+                >
+                  <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 sm:top-4 sm:right-4">
+                    {active && (
+                      <Badge className="bg-emerald-800 text-cream">
+                        Current plan
+                      </Badge>
+                    )}
+                    {t.highlight && !active && (
+                      <Badge className="gap-1 bg-emerald-800/90 text-cream">
+                        <Sparkles className="size-3" /> Recommended
+                      </Badge>
+                    )}
                   </div>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-6">
-                  <ul className="space-y-2.5">
-                    {t.perks.map((perk) => {
-                      const emphasize =
-                        t.highlight &&
-                        /(£5|platform|badge|Everything in Free|Cancel anytime)/i.test(
-                          perk
+                  <CardHeader className="space-y-1 px-4 pt-5 sm:px-6 sm:pt-6">
+                    <CardTitle className="font-heading pr-24 text-2xl">
+                      {t.name}
+                    </CardTitle>
+                    <CardDescription className="text-sm sm:text-base">
+                      {t.tagline}
+                    </CardDescription>
+                    <div className="pt-2">
+                      <span className="font-heading text-4xl font-semibold text-primary">
+                        {t.priceMonthly === 0
+                          ? "£0"
+                          : `£${t.priceMonthly}`}
+                      </span>
+                      <span className="text-muted-foreground"> / month</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-4 sm:px-6">
+                    <ul className="space-y-2.5">
+                      {t.perks.map((perk) => {
+                        const emphasize =
+                          t.highlight &&
+                          /(£5|platform|badge|Everything in Free|Cancel anytime)/i.test(
+                            perk
+                          );
+                        return (
+                          <li
+                            key={perk}
+                            className={cn(
+                              "flex gap-2 text-sm sm:text-base",
+                              emphasize && "font-medium text-emerald-950"
+                            )}
+                          >
+                            <Check className="mt-0.5 size-4 shrink-0 text-emerald-700" />
+                            <span>{perk}</span>
+                          </li>
                         );
-                      return (
-                        <li
-                          key={perk}
-                          className={cn(
-                            "flex gap-2 text-sm sm:text-base",
-                            emphasize && "font-medium text-emerald-950"
-                          )}
-                        >
-                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-700" />
-                          <span>{perk}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </CardContent>
-                <CardFooter className="flex-col gap-2 px-4 pb-5 sm:px-6 sm:pb-6">
-                  {!signedIn ? (
-                    <Button
-                      className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
-                      nativeButton={false}
-                      render={<Link href={loginHref} />}
-                    >
-                      Sign in
-                    </Button>
-                  ) : t.id === "free" ? (
-                    active ? (
+                      })}
+                    </ul>
+                  </CardContent>
+                  <CardFooter className="flex-col gap-2 px-4 pb-5 sm:px-6 sm:pb-6">
+                    {!signedIn ? (
                       <Button
-                        className="h-12 w-full sm:h-10"
-                        disabled
-                        variant="outline"
+                        className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
+                        nativeButton={false}
+                        render={<Link href={loginHref} />}
                       >
-                        Current plan — Free
+                        Sign in
                       </Button>
-                    ) : cancelScheduled ? (
-                      <div className="w-full space-y-2 text-center">
+                    ) : t.id === "free" ? (
+                      active ? (
                         <Button
                           className="h-12 w-full sm:h-10"
                           disabled
                           variant="outline"
                         >
-                          Switches to Free on{" "}
-                          {formatMembershipDate(periodEndsAt)}
+                          Current plan — Free
                         </Button>
-                        <Button
-                          className="h-11 w-full sm:h-9"
-                          variant="ghost"
-                          disabled={busy}
-                          onClick={() => void keepMembership()}
-                        >
-                          Keep Impact Member instead
-                        </Button>
-                      </div>
+                      ) : cancelScheduled ? (
+                        <div className="w-full space-y-2 text-center">
+                          <Button
+                            className="h-12 w-full sm:h-10"
+                            disabled
+                            variant="outline"
+                          >
+                            Switches to Free on{" "}
+                            {formatMembershipDate(periodEndsAt)}
+                          </Button>
+                          <Button
+                            className="h-11 w-full sm:h-9"
+                            variant="ghost"
+                            disabled={busy}
+                            onClick={() => void keepMembership()}
+                          >
+                            Keep Impact Member instead
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="w-full text-center text-sm text-muted-foreground">
+                          Upgrade with Impact Member for cause credit and
+                          platform support.
+                        </p>
+                      )
                     ) : (
-                      <p className="w-full text-center text-sm text-muted-foreground">
-                        To leave Impact Member, use{" "}
-                        <a
-                          href="#manage"
-                          className="font-medium text-primary underline-offset-2 hover:underline"
-                        >
-                          Manage membership
-                        </a>{" "}
-                        — you keep benefits until period end.
-                      </p>
-                    )
-                  ) : active ? (
-                    cancelScheduled ? (
                       <Button
                         className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
-                        disabled={busy}
-                        onClick={() => void keepMembership()}
+                        disabled={busy || authLoading}
+                        onClick={() => void handleUpgrade()}
                       >
-                        <Sparkles className="size-4" />
-                        Keep Impact Member
+                        <Trees className="size-4" />
+                        {stripeEnabled
+                          ? "Upgrade with Stripe — £5/mo"
+                          : "Become Impact Member (demo)"}
                       </Button>
-                    ) : (
-                      <Button
-                        className="h-12 w-full sm:h-10"
-                        disabled
-                        variant="outline"
-                      >
-                        You&apos;re an Impact Member
-                        {periodEndsAt
-                          ? ` · ${daysUntilPeriodEnd(periodEndsAt)}d left`
-                          : ""}
-                      </Button>
-                    )
-                  ) : (
-                    <Button
-                      className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
-                      disabled={busy || authLoading}
-                      onClick={() => void handleUpgrade()}
-                    >
-                      <Trees className="size-4" />
-                      {stripeEnabled
-                        ? "Upgrade with Stripe — £5/mo"
-                        : "Become Impact Member (demo)"}
-                    </Button>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
+                    )}
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        ) : null}
 
         <p className="mt-8 text-center text-xs leading-relaxed text-muted-foreground sm:text-sm">
-          {stripeEnabled
-            ? "Live Stripe subscriptions — cards are charged securely. Cancel anytime from Manage membership or the Stripe portal."
-            : "Demo billing — no card charged until Stripe keys are added. Cancel anytime from this page or your "}
-          {!stripeEnabled && (
+          {showManage
+            ? stripeEnabled
+              ? "Manage billing in the Stripe portal, or cancel above — you keep benefits until period end."
+              : "Demo billing — cancel above anytime. Benefits last until your period ends."
+            : stripeEnabled
+              ? "Live Stripe subscriptions — cards are charged securely. Cancel anytime from this page or the Stripe portal."
+              : "Demo billing — no card charged until Stripe keys are added. Cancel anytime from this page or your "}
+          {!showManage && !stripeEnabled && (
             <>
               <Link
                 href="/dashboard#membership"

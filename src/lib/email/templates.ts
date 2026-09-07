@@ -202,7 +202,7 @@ export function causeGiftEmailHtml(opts: {
       This is not product cashback and not an affiliate payout.
     </p>
     ${receiptLine}
-    ${ctaButton(impactUrl, "View Your impact")}
+    ${ctaButton(impactUrl, "View your impact")}
     <p style="margin:16px 0 0;font-size:14px;">
       <a href="${appUrl}/donate" style="color:#1b4332;font-weight:600;">Support a cause</a>
       &nbsp;·&nbsp;
@@ -225,7 +225,7 @@ ${opts.giftLines.map((l) => `- ${l}`).join("\n") || "- Cause gift to partner pro
 Impact is illustrative.${hasTreesGift ? " For Trees, roughly £5 ≈ 1 tree unit toward partner programmes —" : " —"} not a GPS pin for a planted tree, and not a live carbon audit.
 This is not product cashback and not an affiliate payout.
 ${opts.noCharge ? "" : "When payments are live, Stripe sends your card receipt separately.\n"}
-View Your impact: ${impactUrl}
+View your impact: ${impactUrl}
 Support a cause: ${appUrl}/donate
 
 You’re receiving this because you made a Forest Buddies® cause gift.
