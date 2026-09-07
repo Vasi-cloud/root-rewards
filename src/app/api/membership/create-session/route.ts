@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     email?: string;
     userId?: string | null;
     customerId?: string | null;
+    subscriptionId?: string | null;
   };
 
   const emailResult = validateEmail(String(raw.email ?? ""));
@@ -52,11 +53,17 @@ export async function POST(request: Request) {
     typeof raw.customerId === "string" && raw.customerId.startsWith("cus_")
       ? raw.customerId
       : null;
+  const subscriptionIdHint =
+    typeof raw.subscriptionId === "string" &&
+    raw.subscriptionId.startsWith("sub_")
+      ? raw.subscriptionId
+      : null;
 
-  // Reuse existing active Impact sub — never charge the same email twice.
+  // Reuse existing active/trialing/past_due Impact sub — never charge twice.
   const existing = await reconcileMembershipFromStripe({
     email: emailResult.value,
     customerId: customerIdHint,
+    subscriptionId: subscriptionIdHint,
     userId: userId ?? null,
   });
 

@@ -57,7 +57,7 @@ const UPGRADE_HIGHLIGHTS = [
 ] as const;
 
 export default function MembershipPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const {
     tier,
     isImpactMember,
@@ -82,9 +82,9 @@ export default function MembershipPage() {
 
   // Every visit: Stripe subscription status is source of truth for this account.
   useEffect(() => {
-    if (authLoading || !user?.uid) return;
+    if (authLoading || !user?.uid || !profile) return;
     void reconcileFromStripe();
-  }, [authLoading, user?.uid, user?.email, reconcileFromStripe]);
+  }, [authLoading, user?.uid, user?.email, profile, reconcileFromStripe]);
 
   async function handleUpgrade() {
     if (!signedIn) return;
@@ -204,7 +204,7 @@ export default function MembershipPage() {
                   nativeButton={false}
                   render={<Link href={loginHref} />}
                 >
-                  Sign in to see your plan
+                  Sign in
                 </Button>
               ) : null}
               {signedIn && !isImpactMember ? (
@@ -382,7 +382,7 @@ export default function MembershipPage() {
         {/* Plan comparison */}
         <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-6 md:grid-cols-2">
           {MEMBERSHIP_TIERS.map((t) => {
-            const active = tier.id === t.id;
+            const active = signedIn && tier.id === t.id;
             return (
               <Card
                 key={t.id}
@@ -444,7 +444,15 @@ export default function MembershipPage() {
                   </ul>
                 </CardContent>
                 <CardFooter className="flex-col gap-2 px-4 pb-5 sm:px-6 sm:pb-6">
-                  {t.id === "free" ? (
+                  {!signedIn ? (
+                    <Button
+                      className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
+                      nativeButton={false}
+                      render={<Link href={loginHref} />}
+                    >
+                      Sign in
+                    </Button>
+                  ) : t.id === "free" ? (
                     active ? (
                       <Button
                         className="h-12 w-full sm:h-10"
@@ -506,14 +514,6 @@ export default function MembershipPage() {
                           : ""}
                       </Button>
                     )
-                  ) : !signedIn ? (
-                    <Button
-                      className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"
-                      nativeButton={false}
-                      render={<Link href={loginHref} />}
-                    >
-                      Sign in to see your plan
-                    </Button>
                   ) : (
                     <Button
                       className="h-12 w-full gap-2 bg-emerald-800 text-cream hover:bg-emerald-900 sm:h-10"

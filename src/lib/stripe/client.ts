@@ -151,6 +151,7 @@ export type MembershipReconcileClient = {
 export async function reconcileMembership(opts: {
   email?: string | null;
   customerId?: string | null;
+  subscriptionId?: string | null;
   userId?: string | null;
 }): Promise<MembershipReconcileClient | { error: string }> {
   try {
@@ -160,6 +161,7 @@ export async function reconcileMembership(opts: {
       body: JSON.stringify({
         email: opts.email ?? undefined,
         customerId: opts.customerId ?? undefined,
+        subscriptionId: opts.subscriptionId ?? undefined,
         userId: opts.userId ?? undefined,
       }),
       cache: "no-store",

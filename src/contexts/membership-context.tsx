@@ -22,6 +22,7 @@ import {
   loadMembership,
   markCauseCreditUsed,
   resumeMembership,
+  saveMembership,
   scheduleMembershipCancel,
   setMembershipTier,
   type MembershipState,
@@ -142,18 +143,68 @@ export function MembershipProvider({
     setState(loadMembership());
   }, []);
 
+  /** Restore Impact flags from Firebase profile before Stripe answers. */
+  const seedFromProfile = useCallback((): MembershipState | null => {
+    if (!user?.uid || !profile) return null;
+    const customerId =
+      typeof profile.stripeCustomerId === "string" &&
+      profile.stripeCustomerId.startsWith("cus_")
+        ? profile.stripeCustomerId
+        : null;
+    const subscriptionId =
+      typeof profile.stripeSubscriptionId === "string" &&
+      profile.stripeSubscriptionId.startsWith("sub_")
+        ? profile.stripeSubscriptionId
+        : null;
+
+    if (profile.membershipTier === "impact" && subscriptionId) {
+      const next = applyStripeMembership({
+        customerId,
+        subscriptionId,
+        periodEndsAt: null,
+        cancelAtPeriodEnd: false,
+      });
+      setState(next);
+      return next;
+    }
+
+    // Keep customer id available for Stripe lookup even if tier was wiped locally
+    if (customerId) {
+      const local = loadMembership();
+      if (local.stripeCustomerId !== customerId) {
+        const next: MembershipState = {
+          ...local,
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscriptionId ?? local.stripeSubscriptionId,
+          updatedAt: new Date().toISOString(),
+        };
+        saveMembership(next);
+        setState(next);
+        return next;
+      }
+    }
+    return null;
+  }, [user?.uid, profile]);
+
   const reconcileFromStripe = useCallback(async () => {
     const email = user?.email ?? profile?.email ?? null;
     const local = loadMembership();
     const customerId =
       local.stripeCustomerId ||
-      profile?.stripeCustomerId ||
+      (profile?.stripeCustomerId?.startsWith("cus_")
+        ? profile.stripeCustomerId
+        : null) ||
+      null;
+    const subscriptionId =
+      local.stripeSubscriptionId ||
+      (profile?.stripeSubscriptionId?.startsWith("sub_")
+        ? profile.stripeSubscriptionId
+        : null) ||
       null;
 
-    if (!email && !customerId) {
+    if (!email && !customerId && !subscriptionId) {
       // Signed-out / anonymous: do not invent Impact from stale local flags alone
       if (local.tierId === "impact" && !local.stripeSubscriptionId) {
-        // keep demo local Impact without Stripe ids
         setState(local);
       }
       return;
@@ -162,16 +213,18 @@ export function MembershipProvider({
     const result = await reconcileMembership({
       email,
       customerId,
+      subscriptionId,
       userId: user?.uid ?? null,
     });
 
     if ("error" in result) {
       console.warn("[membership] reconcile error", result.error);
+      // Keep profile-seeded Impact if Stripe request failed
       setState(loadMembership());
       return;
     }
 
-    // Demo mode (no Stripe keys): keep local cache; do not clear Impact demos
+    // Demo mode / Stripe error (reconciled: false): keep local/profile seed
     if (result.mode === "demo" || !result.reconciled) {
       setState(loadMembership());
       return;
@@ -186,6 +239,7 @@ export function MembershipProvider({
     user?.uid,
     profile?.email,
     profile?.stripeCustomerId,
+    profile?.stripeSubscriptionId,
     syncAdminLedger,
     persistProfileMembership,
   ]);
@@ -218,8 +272,19 @@ export function MembershipProvider({
       return;
     }
 
+    // Wait until profile has loaded so we can pass stored Stripe ids
+    if (!profile) return;
+
+    seedFromProfile();
     void reconcileFromStripe();
-  }, [authLoading, user?.uid, user?.email, reconcileFromStripe]);
+  }, [
+    authLoading,
+    user?.uid,
+    user?.email,
+    profile,
+    seedFromProfile,
+    reconcileFromStripe,
+  ]);
 
   // Keep admin ledger in sync when this device has Impact Member
   useEffect(() => {
@@ -232,15 +297,39 @@ export function MembershipProvider({
     async (
       email?: string
     ): Promise<"stripe" | "demo" | "already" | "error"> => {
-      const current = loadMembership();
       const checkoutEmail =
         email?.trim() || user?.email || "member@forestbuddies.eco";
+
+      // Always reconcile first — never open Checkout for an existing Impact sub
+      await reconcileFromStripe();
+      const afterReconcile = loadMembership();
+      if (
+        afterReconcile.tierId === "impact" &&
+        afterReconcile.stripeSubscriptionId
+      ) {
+        syncAdminLedger(afterReconcile, checkoutEmail);
+        await persistProfileMembership(afterReconcile);
+        return "already";
+      }
+
       const customerId =
-        current.stripeCustomerId || profile?.stripeCustomerId || null;
+        afterReconcile.stripeCustomerId ||
+        (profile?.stripeCustomerId?.startsWith("cus_")
+          ? profile.stripeCustomerId
+          : null) ||
+        null;
+      const subscriptionId =
+        afterReconcile.stripeSubscriptionId ||
+        (profile?.stripeSubscriptionId?.startsWith("sub_")
+          ? profile.stripeSubscriptionId
+          : null) ||
+        null;
+
       const result = await startMembershipCheckout({
         email: checkoutEmail,
         userId: user?.uid ?? null,
         customerId,
+        subscriptionId,
       });
       if ("demo" in result) {
         const next = setMembershipTier("impact");
@@ -272,6 +361,8 @@ export function MembershipProvider({
       user?.email,
       user?.uid,
       profile?.stripeCustomerId,
+      profile?.stripeSubscriptionId,
+      reconcileFromStripe,
       syncAdminLedger,
       persistProfileMembership,
     ]
@@ -405,6 +496,7 @@ export function MembershipProvider({
       const reconcile = await reconcileMembership({
         email,
         customerId: verified.customerId ?? next.stripeCustomerId,
+        subscriptionId: verified.subscriptionId ?? next.stripeSubscriptionId,
         userId: user?.uid ?? null,
       });
       if (!("error" in reconcile) && reconcile.reconciled && reconcile.mode === "live") {

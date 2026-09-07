@@ -22,7 +22,10 @@ export type MembershipReconcileResult = {
   reconciled: boolean;
 };
 
-function emptyFree(mode: "live" | "demo", reconciled: boolean): MembershipReconcileResult {
+function emptyFree(
+  mode: "live" | "demo",
+  reconciled: boolean
+): MembershipReconcileResult {
   return {
     mode,
     tierId: "free",
@@ -59,7 +62,26 @@ function isImpactSubscription(sub: Stripe.Subscription): boolean {
   return false;
 }
 
-function toResult(sub: Stripe.Subscription, customerId: string): MembershipReconcileResult {
+function customerIdOf(sub: Stripe.Subscription): string | null {
+  if (typeof sub.customer === "string" && sub.customer.startsWith("cus_")) {
+    return sub.customer;
+  }
+  if (
+    sub.customer &&
+    typeof sub.customer === "object" &&
+    "id" in sub.customer &&
+    typeof sub.customer.id === "string" &&
+    sub.customer.id.startsWith("cus_")
+  ) {
+    return sub.customer.id;
+  }
+  return null;
+}
+
+function toResult(
+  sub: Stripe.Subscription,
+  customerId: string
+): MembershipReconcileResult {
   const entitled = IMPACT_ENTITLED_STATUSES.has(sub.status);
   if (!entitled) {
     return {
@@ -117,13 +139,76 @@ function pickBestSubscription(
   return ranked[0] ?? null;
 }
 
+function preferBetter(
+  current: { sub: Stripe.Subscription; customerId: string } | null,
+  candidate: { sub: Stripe.Subscription; customerId: string }
+): { sub: Stripe.Subscription; customerId: string } {
+  if (!current) return candidate;
+  const curActive = IMPACT_ENTITLED_STATUSES.has(current.sub.status) ? 1 : 0;
+  const nextActive = IMPACT_ENTITLED_STATUSES.has(candidate.sub.status) ? 1 : 0;
+  if (nextActive !== curActive) {
+    return nextActive > curActive ? candidate : current;
+  }
+  return (candidate.sub.created ?? 0) > (current.sub.created ?? 0)
+    ? candidate
+    : current;
+}
+
+async function collectCustomerIdsByEmail(
+  stripe: Stripe,
+  email: string
+): Promise<string[]> {
+  const ids: string[] = [];
+  const listed = await stripe.customers.list({ email, limit: 100 });
+  for (const c of listed.data) {
+    if (!ids.includes(c.id)) ids.push(c.id);
+  }
+  // Search API catches customers list pagination / exact-match edge cases
+  try {
+    const escaped = email.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const searched = await stripe.customers.search({
+      query: `email:'${escaped}'`,
+      limit: 100,
+    });
+    for (const c of searched.data) {
+      if (!ids.includes(c.id)) ids.push(c.id);
+    }
+  } catch (err) {
+    console.warn("[stripe] customer email search unavailable", err);
+  }
+  return ids;
+}
+
+async function findSubsByUserIdMetadata(
+  stripe: Stripe,
+  userId: string
+): Promise<Array<{ sub: Stripe.Subscription; customerId: string }>> {
+  const out: Array<{ sub: Stripe.Subscription; customerId: string }> = [];
+  try {
+    const escaped = userId.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const page = await stripe.subscriptions.search({
+      query: `metadata['userId']:'${escaped}'`,
+      limit: 20,
+      expand: ["data.items.data.price.product"],
+    });
+    for (const sub of page.data) {
+      const cid = customerIdOf(sub);
+      if (cid) out.push({ sub, customerId: cid });
+    }
+  } catch (err) {
+    console.warn("[stripe] subscription userId search unavailable", err);
+  }
+  return out;
+}
+
 /**
  * Resolve Impact Member from Stripe (source of truth).
- * Prefer customer id; fall back to email customer search.
+ * Prefer stored subscription / customer id; fall back to email + userId metadata.
  */
 export async function reconcileMembershipFromStripe(opts: {
   email?: string | null;
   customerId?: string | null;
+  subscriptionId?: string | null;
   userId?: string | null;
 }): Promise<MembershipReconcileResult> {
   if (!isStripeConfigured()) {
@@ -134,42 +219,62 @@ export async function reconcileMembershipFromStripe(opts: {
   const email = opts.email?.trim().toLowerCase() || null;
   const customerIdHint =
     opts.customerId?.startsWith("cus_") ? opts.customerId : null;
+  const subscriptionIdHint =
+    opts.subscriptionId?.startsWith("sub_") ? opts.subscriptionId : null;
+  const userId =
+    typeof opts.userId === "string" && opts.userId.trim()
+      ? opts.userId.trim().slice(0, 128)
+      : null;
 
   try {
-    const customerIds: string[] = [];
-    if (customerIdHint) customerIds.push(customerIdHint);
+    let best: { sub: Stripe.Subscription; customerId: string } | null = null;
 
-    if (email) {
-      const found = await stripe.customers.list({ email, limit: 10 });
-      for (const c of found.data) {
-        if (!customerIds.includes(c.id)) customerIds.push(c.id);
+    // 1) Direct retrieve of stored subscription id (survives localStorage wipe)
+    if (subscriptionIdHint) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(subscriptionIdHint, {
+          expand: ["items.data.price.product"],
+        });
+        const cid = customerIdOf(sub);
+        if (cid) {
+          best = preferBetter(best, { sub, customerId: cid });
+        }
+      } catch (err) {
+        console.warn(
+          "[stripe] stored subscription retrieve failed",
+          subscriptionIdHint,
+          err
+        );
       }
     }
 
-    if (customerIds.length === 0) {
-      return emptyFree("live", true);
+    // 2) Customers: stored id + email list/search
+    const customerIds: string[] = [];
+    if (customerIdHint) customerIds.push(customerIdHint);
+    if (email) {
+      for (const id of await collectCustomerIdsByEmail(stripe, email)) {
+        if (!customerIds.includes(id)) customerIds.push(id);
+      }
     }
-
-    let best: { sub: Stripe.Subscription; customerId: string } | null = null;
 
     for (const cid of customerIds) {
       const subs = await listCustomerSubscriptions(stripe, cid);
       const pick = pickBestSubscription(subs);
       if (!pick) continue;
-      if (
-        !best ||
-        (IMPACT_ENTITLED_STATUSES.has(pick.status) &&
-          !IMPACT_ENTITLED_STATUSES.has(best.sub.status)) ||
-        (pick.created ?? 0) > (best.sub.created ?? 0)
-      ) {
-        best = { sub: pick, customerId: cid };
+      best = preferBetter(best, { sub: pick, customerId: cid });
+    }
+
+    // 3) Subscriptions tagged with this Firebase uid
+    if (userId) {
+      for (const hit of await findSubsByUserIdMetadata(stripe, userId)) {
+        best = preferBetter(best, hit);
       }
     }
 
     if (!best) {
       return {
         ...emptyFree("live", true),
-        customerId: customerIds[0] ?? null,
+        customerId: customerIds[0] ?? customerIdHint,
       };
     }
 
@@ -178,8 +283,8 @@ export async function reconcileMembershipFromStripe(opts: {
     // Attach Firebase UID to subscription metadata when we know it (non-blocking)
     if (
       result.tierId === "impact" &&
-      opts.userId &&
-      best.sub.metadata?.userId !== opts.userId
+      userId &&
+      best.sub.metadata?.userId !== userId
     ) {
       try {
         await stripe.subscriptions.update(best.sub.id, {
@@ -187,7 +292,7 @@ export async function reconcileMembershipFromStripe(opts: {
             ...best.sub.metadata,
             kind: "impact_member",
             tierId: "impact",
-            userId: opts.userId,
+            userId,
           },
         });
       } catch (err) {

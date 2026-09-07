@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   const raw = body as {
     email?: string;
     customerId?: string | null;
+    subscriptionId?: string | null;
     userId?: string | null;
   };
 
@@ -37,14 +38,22 @@ export async function POST(request: Request) {
     typeof raw.customerId === "string" && raw.customerId.startsWith("cus_")
       ? raw.customerId
       : null;
+  const subscriptionId =
+    typeof raw.subscriptionId === "string" &&
+    raw.subscriptionId.startsWith("sub_")
+      ? raw.subscriptionId
+      : null;
   const userId =
     typeof raw.userId === "string" && raw.userId.trim()
       ? raw.userId.trim().slice(0, 128)
       : null;
 
-  if (!email && !customerId) {
+  if (!email && !customerId && !subscriptionId) {
     return NextResponse.json(
-      { error: "Email or Stripe customer id is required." },
+      {
+        error:
+          "Email, Stripe customer id, or Stripe subscription id is required.",
+      },
       { status: 400 }
     );
   }
@@ -52,6 +61,7 @@ export async function POST(request: Request) {
   const result = await reconcileMembershipFromStripe({
     email,
     customerId,
+    subscriptionId,
     userId,
   });
 
