@@ -95,11 +95,6 @@ const accountNavItems: NavItem[] = [
 const desktopCoreItems: NavItem[] = [
   { href: "/marketplace", label: "Marketplace" },
   LEAFY_NAV_ITEMS[0], // Buy Local
-  {
-    href: "/membership",
-    label: "Impact Member",
-    description: "Cause credit · support the platform",
-  },
 ];
 
 /** Fold into More below 1400px so Get started / avatar never clip. */
@@ -126,7 +121,6 @@ function NavLink({
   const active = isActivePath(pathname, item.href);
   const featured = Boolean(item.featured);
   const shortAsk = compactAsk && item.href === "/recommend";
-  const shortImpact = item.href === "/membership";
 
   return (
     <Link
@@ -145,11 +139,6 @@ function NavLink({
         <>
           <span className="2xl:hidden">Ask</span>
           <span className="hidden 2xl:inline">Ask Leafy</span>
-        </>
-      ) : shortImpact ? (
-        <>
-          <span className="min-[1400px]:hidden">Impact</span>
-          <span className="hidden min-[1400px]:inline">Impact Member</span>
         </>
       ) : (
         item.label

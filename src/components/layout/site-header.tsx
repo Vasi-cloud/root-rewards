@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BadgeCheck,
   Leaf,
   LogOut,
   Menu,
@@ -108,7 +109,7 @@ function CartButton({ className }: { className?: string }) {
   );
 }
 
-/** Account dropdown — Settings + Sign out. */
+/** Account dropdown — Membership, Settings, Sign out. */
 function AccountMenu() {
   const { user, profile, signOut } = useAuth();
   const router = useRouter();
@@ -187,6 +188,15 @@ function AccountMenu() {
               </p>
             ) : null}
           </div>
+          <Link
+            href="/membership"
+            role="menuitem"
+            className="flex min-h-11 items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-emerald-50"
+            onClick={() => setOpen(false)}
+          >
+            <BadgeCheck className="size-3.5 text-emerald-800" />
+            Membership
+          </Link>
           <Link
             href="/dashboard/settings"
             role="menuitem"
@@ -311,6 +321,18 @@ export function SiteHeader() {
             <div className="flex shrink-0 items-center gap-1">
               <Button
                 nativeButton={false}
+                render={<Link href="/membership" />}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "shrink-0 overflow-visible whitespace-nowrap px-2.5",
+                  TAP
+                )}
+              >
+                Membership
+              </Button>
+              <Button
+                nativeButton={false}
                 render={<Link href={loginHref} />}
                 variant="outline"
                 size="sm"
@@ -343,18 +365,32 @@ export function SiteHeader() {
           {user ? (
             <AccountMenu />
           ) : (
-            <Button
-              nativeButton={false}
-              render={<Link href={loginHref} />}
-              size="sm"
-              variant="outline"
-              className={cn(
-                "inline-flex shrink-0 items-center overflow-visible px-2.5 text-xs whitespace-nowrap sm:px-3 sm:text-sm",
-                TAP
-              )}
-            >
-              Sign in
-            </Button>
+            <>
+              <Button
+                nativeButton={false}
+                render={<Link href="/membership" />}
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "inline-flex shrink-0 items-center overflow-visible px-2 text-xs whitespace-nowrap sm:px-2.5 sm:text-sm",
+                  TAP
+                )}
+              >
+                Membership
+              </Button>
+              <Button
+                nativeButton={false}
+                render={<Link href={loginHref} />}
+                size="sm"
+                variant="outline"
+                className={cn(
+                  "inline-flex shrink-0 items-center overflow-visible px-2.5 text-xs whitespace-nowrap sm:px-3 sm:text-sm",
+                  TAP
+                )}
+              >
+                Sign in
+              </Button>
+            </>
           )}
 
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
