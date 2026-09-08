@@ -100,10 +100,12 @@ export async function startMembershipCheckout(
       subscriptionId: string | null;
       periodEndsAt: string | null;
       cancelAtPeriodEnd: boolean;
+      /** Always /membership (or absolute) — never Checkout */
+      url: string;
       membershipUrl?: string | null;
       portalUrl?: string | null;
     }
-  | { error: string; membershipUrl?: string }
+  | { error: string; membershipUrl?: string; url?: string }
 > {
   const res = await fetch("/api/membership/create-session", {
     method: "POST",
@@ -125,15 +127,22 @@ export async function startMembershipCheckout(
   if (res.status === 503 || data.mode === "demo") {
     return { demo: true };
   }
-  // Existing Impact sub — never follow a Checkout URL
   if (data.alreadyMember) {
+    const dest =
+      data.membershipUrl?.trim() ||
+      data.url?.trim() ||
+      "/membership";
+    // Never treat a Checkout URL as the already-member destination
+    const safeUrl =
+      dest.includes("checkout.stripe.com") ? "/membership" : dest;
     return {
       alreadyMember: true,
       customerId: data.customerId ?? null,
       subscriptionId: data.subscriptionId ?? null,
       periodEndsAt: data.periodEndsAt ?? null,
       cancelAtPeriodEnd: Boolean(data.cancelAtPeriodEnd),
-      membershipUrl: data.membershipUrl ?? "/membership",
+      url: safeUrl,
+      membershipUrl: safeUrl,
       portalUrl: data.portalUrl ?? null,
     };
   }
@@ -142,7 +151,8 @@ export async function startMembershipCheckout(
       error:
         data.error ??
         "Could not verify membership. Open Membership instead of Checkout.",
-      membershipUrl: data.membershipUrl ?? "/membership",
+      membershipUrl: data.membershipUrl ?? data.url ?? "/membership",
+      url: data.url ?? data.membershipUrl ?? "/membership",
     };
   }
   if (!res.ok || !data.url) {

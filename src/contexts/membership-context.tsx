@@ -355,24 +355,16 @@ export function MembershipProvider({
         syncAdminLedger(next, checkoutEmail);
         await persistProfileMembership(next);
         if (typeof window !== "undefined") {
-          // Prefer manage page; portal is optional from the API
-          const dest =
-            result.membershipUrl?.trim() ||
-            "/membership";
-          if (!window.location.pathname.startsWith("/membership")) {
-            window.location.assign(dest);
-          }
+          const dest = result.url || result.membershipUrl || "/membership";
+          window.location.assign(dest);
         }
         return "already";
       }
       if ("error" in result) {
         console.error(result.error);
-        if (
-          typeof window !== "undefined" &&
-          "membershipUrl" in result &&
-          result.membershipUrl
-        ) {
-          window.location.assign(result.membershipUrl);
+        if (typeof window !== "undefined") {
+          const dest = result.url || result.membershipUrl;
+          if (dest) window.location.assign(dest);
         }
         return "error";
       }
@@ -382,6 +374,14 @@ export function MembershipProvider({
         if (typeof window !== "undefined") {
           window.location.assign("/membership");
         }
+        return "already";
+      }
+      // Refuse Stripe Checkout URLs if response looks like membership manage
+      if (
+        result.url.includes("/membership") &&
+        !result.url.includes("checkout.stripe.com")
+      ) {
+        window.location.assign(result.url);
         return "already";
       }
       window.location.href = result.url;

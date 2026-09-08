@@ -9,14 +9,18 @@ import {
   isStripeConfigured,
 } from "@/lib/stripe/config";
 import {
-  collectCustomerIdsByEmail,
-  findBlockingImpactMembership,
-} from "@/lib/stripe/reconcile-membership";
+  findOpenSubscriptionCheckoutUrl,
+  guardImpactSubscriptionCheckout,
+} from "@/lib/stripe/guard-impact-checkout";
 import { getStripe } from "@/lib/stripe/server";
 import { validateEmail } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
+/**
+ * ONLY server entry that may create Impact Member (mode: subscription) Checkout.
+ * Donate + marketplace checkout use mode: payment — not this route.
+ */
 export async function POST(request: Request) {
   if (!isStripeConfigured()) {
     return NextResponse.json(
@@ -39,7 +43,6 @@ export async function POST(request: Request) {
     email?: string;
     userId?: string | null;
     customerId?: string | null;
-    subscriptionId?: string | null;
   };
 
   const emailResult = validateEmail(String(raw.email ?? ""));
@@ -49,7 +52,6 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
   const appUrl = getAppUrl();
-  const membershipUrl = `${appUrl}/membership`;
   const priceId = getImpactMemberPriceId();
   const userId =
     typeof raw.userId === "string" ? raw.userId.slice(0, 128) : undefined;
@@ -57,111 +59,64 @@ export async function POST(request: Request) {
     typeof raw.customerId === "string" && raw.customerId.startsWith("cus_")
       ? raw.customerId
       : null;
-  const subscriptionIdHint =
-    typeof raw.subscriptionId === "string" &&
-    raw.subscriptionId.startsWith("sub_")
-      ? raw.subscriptionId
-      : null;
 
-  // Hard guard: never open Checkout when an entitled Impact sub already exists.
-  const existing = await findBlockingImpactMembership({
+  const guard = await guardImpactSubscriptionCheckout({
     email: emailResult.value,
-    customerId: customerIdHint,
-    subscriptionId: subscriptionIdHint,
+    customerIdHint,
     userId: userId ?? null,
   });
 
-  // Fail closed — do not create a second Checkout if Stripe lookup failed.
-  if (!existing.reconciled) {
+  if (guard.block && guard.alreadyMember) {
+    return NextResponse.json({
+      mode: "live",
+      alreadyMember: true,
+      customerId: guard.customerId,
+      subscriptionId: guard.subscriptionId,
+      subscriptionIds: guard.subscriptionIds,
+      periodEndsAt: guard.periodEndsAt,
+      cancelAtPeriodEnd: guard.cancelAtPeriodEnd,
+      url: guard.url,
+      membershipUrl: guard.url,
+      portalUrl: guard.portalUrl,
+    });
+  }
+
+  if (guard.block && !guard.alreadyMember) {
     return NextResponse.json(
       {
-        error:
-          "Could not verify existing membership. Open Membership to continue — we will not start a new Checkout.",
-        membershipUrl,
+        error: guard.error,
+        membershipUrl: guard.url,
+        url: guard.url,
         alreadyMember: false,
       },
       { status: 409 }
     );
   }
 
-  if (existing.tierId === "impact" && existing.subscriptionId) {
-    let portalUrl: string | null = null;
-    if (existing.customerId?.startsWith("cus_")) {
-      try {
-        const portal = await stripe.billingPortal.sessions.create({
-          customer: existing.customerId,
-          return_url: membershipUrl,
-        });
-        portalUrl = portal.url;
-      } catch (err) {
-        console.warn("[stripe] portal for already-member skipped", err);
-      }
-    }
-    return NextResponse.json({
-      mode: "live",
-      alreadyMember: true,
-      customerId: existing.customerId,
-      subscriptionId: existing.subscriptionId,
-      periodEndsAt: existing.periodEndsAt,
-      cancelAtPeriodEnd: existing.cancelAtPeriodEnd,
-      membershipUrl,
-      portalUrl,
-    });
-  }
-
-  // Reuse one Stripe customer — never customer_email alone (that duplicates cus_).
-  let customerId =
-    customerIdHint ||
-    (existing.customerId?.startsWith("cus_") ? existing.customerId : null);
-
-  if (!customerId) {
-    const byEmail = await collectCustomerIdsByEmail(
-      stripe,
-      emailResult.value
+  if (guard.block || !("customerId" in guard)) {
+    return NextResponse.json(
+      {
+        error: "Could not resolve Stripe customer for membership.",
+        membershipUrl: `${appUrl}/membership`,
+        url: `${appUrl}/membership`,
+      },
+      { status: 409 }
     );
-    customerId = byEmail[0] ?? null;
   }
 
-  if (!customerId) {
-    try {
-      const created = await stripe.customers.create({
-        email: emailResult.value,
-        metadata: {
-          userId: userId ?? "",
-          source: "impact_member_checkout",
-        },
-      });
-      customerId = created.id;
-    } catch (err) {
-      console.error("[stripe] create customer for membership failed", err);
-      return NextResponse.json(
-        { error: "Could not start membership checkout. Please try again." },
-        { status: 502 }
-      );
-    }
-  }
+  const customerId = guard.customerId;
 
-  // Re-check after resolving customer (covers race / multi-cus_ emails)
-  const recheck = await findBlockingImpactMembership({
-    email: emailResult.value,
-    customerId,
-    subscriptionId: subscriptionIdHint,
-    userId: userId ?? null,
-  });
-  if (
-    recheck.reconciled &&
-    recheck.tierId === "impact" &&
-    recheck.subscriptionId
-  ) {
+  // Reuse an already-open subscription Checkout instead of creating another
+  const openUrl = await findOpenSubscriptionCheckoutUrl(customerId);
+  if (openUrl) {
+    console.info("[stripe] returning existing open Impact Checkout", {
+      email: emailResult.value,
+      customerId,
+    });
     return NextResponse.json({
       mode: "live",
-      alreadyMember: true,
-      customerId: recheck.customerId,
-      subscriptionId: recheck.subscriptionId,
-      periodEndsAt: recheck.periodEndsAt,
-      cancelAtPeriodEnd: recheck.cancelAtPeriodEnd,
-      membershipUrl,
-      portalUrl: null,
+      sessionId: null,
+      url: openUrl,
     });
   }
 
@@ -183,6 +138,27 @@ export async function POST(request: Request) {
       ];
 
   try {
+    // Final moment-of-create re-list (race: parallel Upgrade clicks)
+    const fresh = await guardImpactSubscriptionCheckout({
+      email: emailResult.value,
+      customerIdHint: customerId,
+      userId: userId ?? null,
+    });
+    if (fresh.block && fresh.alreadyMember) {
+      return NextResponse.json({
+        mode: "live",
+        alreadyMember: true,
+        customerId: fresh.customerId,
+        subscriptionId: fresh.subscriptionId,
+        subscriptionIds: fresh.subscriptionIds,
+        periodEndsAt: fresh.periodEndsAt,
+        cancelAtPeriodEnd: fresh.cancelAtPeriodEnd,
+        url: fresh.url,
+        membershipUrl: fresh.url,
+        portalUrl: fresh.portalUrl,
+      });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       adaptive_pricing: { enabled: false },
@@ -211,21 +187,6 @@ export async function POST(request: Request) {
         { error: "Stripe did not return a checkout URL." },
         { status: 502 }
       );
-    }
-
-    if (session.subscription && typeof session.subscription === "string") {
-      try {
-        await stripe.subscriptions.update(session.subscription, {
-          metadata: {
-            kind: "impact_member",
-            tierId: "impact",
-            userId: userId ?? "",
-            checkoutSessionId: session.id,
-          },
-        });
-      } catch {
-        // Subscription may not exist until Checkout completes.
-      }
     }
 
     return NextResponse.json({
