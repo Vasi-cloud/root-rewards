@@ -203,22 +203,33 @@ export async function reconcileMembership(opts: {
   }
 }
 
-export async function openBillingPortal(
-  customerId: string
-): Promise<{ url: string } | { error: string }> {
+export async function openBillingPortal(opts: {
+  email: string;
+  customerId?: string | null;
+}): Promise<
+  | { url: string; customerId: string | null }
+  | { error: string }
+> {
   const res = await fetch("/api/membership/portal", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ customerId }),
+    body: JSON.stringify({
+      email: opts.email,
+      customerId: opts.customerId ?? undefined,
+    }),
   });
   const data = (await res.json().catch(() => ({}))) as {
     url?: string;
+    customerId?: string | null;
     error?: string;
   };
   if (!res.ok || !data.url) {
     return { error: data.error ?? "Could not open billing portal." };
   }
-  return { url: data.url };
+  return {
+    url: data.url,
+    customerId: data.customerId?.startsWith("cus_") ? data.customerId : null,
+  };
 }
 
 export type VerifiedSession = {

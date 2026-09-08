@@ -354,8 +354,13 @@ export function MembershipProvider({
         setState(next);
         syncAdminLedger(next, checkoutEmail);
         await persistProfileMembership(next);
+    // Prefer portal URL for THIS email-matched customer when already a member
         if (typeof window !== "undefined") {
-          const dest = result.url || result.membershipUrl || "/membership";
+          const dest =
+            result.portalUrl ||
+            result.url ||
+            result.membershipUrl ||
+            "/membership";
           window.location.assign(dest);
         }
         return "already";
@@ -492,15 +497,43 @@ export function MembershipProvider({
   }, [persistProfileMembership]);
 
   const manageBilling = useCallback(async (): Promise<"portal" | "demo" | "error"> => {
+    const email = user?.email?.trim() || profile?.email?.trim() || null;
+    if (!email) return "error";
+
     const current = loadMembership();
-    const customerId =
-      current.stripeCustomerId || profile?.stripeCustomerId || null;
-    if (!customerId) return "demo";
-    const result = await openBillingPortal(customerId);
+    const customerIdHint =
+      current.stripeCustomerId ||
+      (profile?.stripeCustomerId?.startsWith("cus_")
+        ? profile.stripeCustomerId
+        : null) ||
+      null;
+
+    const result = await openBillingPortal({
+      email,
+      customerId: customerIdHint,
+    });
     if ("error" in result) return "error";
+
+    // Persist the email-matched customer id (may replace a stale mismatched id)
+    if (result.customerId && result.customerId !== current.stripeCustomerId) {
+      const patched: MembershipState = {
+        ...current,
+        stripeCustomerId: result.customerId,
+        updatedAt: new Date().toISOString(),
+      };
+      saveMembership(patched);
+      setState(patched);
+      await persistProfileMembership(patched);
+    }
+
     window.location.href = result.url;
     return "portal";
-  }, [profile?.stripeCustomerId]);
+  }, [
+    user?.email,
+    profile?.email,
+    profile?.stripeCustomerId,
+    persistProfileMembership,
+  ]);
 
   const syncFromCheckoutSession = useCallback(
     async (sessionId: string) => {

@@ -3,7 +3,11 @@ import "server-only";
 import type Stripe from "stripe";
 
 import { getAppUrl, isStripeConfigured } from "@/lib/stripe/config";
-import { collectCustomerIdsByEmail } from "@/lib/stripe/reconcile-membership";
+import {
+  collectEmailMatchedCustomerIds,
+  normalizeBillingEmail,
+  resolveStripeCustomerForEmail,
+} from "@/lib/stripe/resolve-customer";
 import { getStripe } from "@/lib/stripe/server";
 import { getSubscriptionPeriodEnd } from "@/lib/stripe/subscription";
 
@@ -100,8 +104,7 @@ export async function cancelExtraEntitledSubscriptions(
 
 /**
  * Hard server guard before Impact Member Checkout.
- * ANY active|trialing|past_due sub on any customer for this email → block.
- * Reuses existing Stripe customer; does not create a second cus_ for the same email.
+ * Customer must match signed-in email. Stale stripeCustomerId is ignored.
  */
 export async function guardImpactSubscriptionCheckout(opts: {
   email: string;
@@ -118,16 +121,22 @@ export async function guardImpactSubscriptionCheckout(opts: {
   }
 
   const stripe = getStripe();
-  const email = opts.email.trim().toLowerCase();
+  const email = normalizeBillingEmail(opts.email);
   const membershipUrl = `${getAppUrl()}/membership`;
-  const hint =
-    opts.customerIdHint?.startsWith("cus_") ? opts.customerIdHint : null;
 
   try {
-    const customerIds: string[] = [];
-    if (hint) customerIds.push(hint);
-    for (const id of await collectCustomerIdsByEmail(stripe, email)) {
-      if (!customerIds.includes(id)) customerIds.push(id);
+    const { customerIds, preferredCustomerId, ignoredStaleCustomerId } =
+      await collectEmailMatchedCustomerIds(
+        stripe,
+        email,
+        opts.customerIdHint
+      );
+
+    if (ignoredStaleCustomerId) {
+      console.warn("[stripe] checkout guard ignored stale customer id", {
+        email,
+        ignoredStaleCustomerId,
+      });
     }
 
     const entitled: Stripe.Subscription[] = [];
@@ -143,7 +152,8 @@ export async function guardImpactSubscriptionCheckout(opts: {
         (a, b) => (b.created ?? 0) - (a.created ?? 0)
       );
       const keep = ranked[0]!;
-      const customerId = customerIdOf(keep) ?? customerIds[0]!;
+      const customerId =
+        customerIdOf(keep) ?? preferredCustomerId ?? customerIds[0]!;
       const allIds = ranked.map((s) => s.id);
 
       console.info("[stripe] duplicate Impact Checkout blocked", {
@@ -153,7 +163,6 @@ export async function guardImpactSubscriptionCheckout(opts: {
         statuses: ranked.map((s) => s.status),
       });
 
-      // Test / live cleanup: keep newest, cancel extras at period end
       await cancelExtraEntitledSubscriptions(stripe, ranked);
 
       let portalUrl: string | null = null;
@@ -180,9 +189,21 @@ export async function guardImpactSubscriptionCheckout(opts: {
       };
     }
 
-    // Reuse existing customer — never create a second cus_ for this email
-    if (customerIds.length > 0) {
-      return { block: false, customerId: customerIds[0]! };
+    // Reuse email-matched customer — never create a second cus_ for this email
+    if (preferredCustomerId || customerIds.length > 0) {
+      return {
+        block: false,
+        customerId: preferredCustomerId ?? customerIds[0]!,
+      };
+    }
+
+    // Re-list once more before create (parallel Upgrade / race)
+    const again = await resolveStripeCustomerForEmail({
+      email,
+      customerIdHint: opts.customerIdHint,
+    });
+    if (again.customerId) {
+      return { block: false, customerId: again.customerId };
     }
 
     const created = await stripe.customers.create({
@@ -223,3 +244,6 @@ export async function findOpenSubscriptionCheckoutUrl(
     return null;
   }
 }
+
+/** Re-export for callers that need email-first resolution without the guard. */
+export { resolveStripeCustomerForEmail };

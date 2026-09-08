@@ -67,7 +67,6 @@ export default function MembershipPage() {
     periodEndsAt,
     keepMembership,
     manageBilling,
-    stripeCustomerId,
     reconcileFromStripe,
   } = useMembership();
   const [stripeEnabled, setStripeEnabled] = useState(false);
@@ -127,13 +126,9 @@ export default function MembershipPage() {
     const result = await manageBilling();
     if (result !== "portal") {
       setBusy(false);
-      if (result === "demo") {
-        setBanner(
-          "Billing portal needs a Stripe customer — cancel below instead."
-        );
-      } else {
-        setBanner("Could not open the billing portal.");
-      }
+      setBanner(
+        "Could not open the billing portal for this signed-in email. Try again after refresh."
+      );
     }
   }
 
@@ -232,7 +227,7 @@ export default function MembershipPage() {
                 Billing
               </p>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
-                {stripeCustomerId && stripeEnabled ? (
+                {stripeEnabled && signedIn ? (
                   <Button
                     variant="outline"
                     className="h-11 gap-2 sm:h-9"

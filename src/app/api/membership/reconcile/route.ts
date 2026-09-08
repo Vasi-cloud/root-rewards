@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 /**
  * Login/sign-up reconcile — Stripe is source of truth.
+ * Firebase Auth email selects the customer; stale stripeCustomerId is ignored.
  * Does not cancel subscriptions; only reports current state for the client cache.
  */
 export async function POST(request: Request) {
@@ -25,14 +26,14 @@ export async function POST(request: Request) {
   };
 
   const emailRaw = String(raw.email ?? "").trim();
-  let email: string | null = null;
-  if (emailRaw) {
-    const emailResult = validateEmail(emailRaw);
-    if (!emailResult.ok) {
-      return NextResponse.json({ error: emailResult.error }, { status: 400 });
-    }
-    email = emailResult.value;
+  const emailResult = validateEmail(emailRaw);
+  if (!emailResult.ok) {
+    return NextResponse.json(
+      { error: "Signed-in email is required to reconcile membership." },
+      { status: 400 }
+    );
   }
+  const email = emailResult.value;
 
   const customerId =
     typeof raw.customerId === "string" && raw.customerId.startsWith("cus_")
@@ -47,16 +48,6 @@ export async function POST(request: Request) {
     typeof raw.userId === "string" && raw.userId.trim()
       ? raw.userId.trim().slice(0, 128)
       : null;
-
-  if (!email && !customerId && !subscriptionId) {
-    return NextResponse.json(
-      {
-        error:
-          "Email, Stripe customer id, or Stripe subscription id is required.",
-      },
-      { status: 400 }
-    );
-  }
 
   const result = await reconcileMembershipFromStripe({
     email,
