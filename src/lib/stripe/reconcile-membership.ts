@@ -47,7 +47,7 @@ function emptyFree(
   };
 }
 
-function isImpactSubscription(sub: Stripe.Subscription): boolean {
+export function isImpactSubscription(sub: Stripe.Subscription): boolean {
   if (
     sub.metadata?.kind === "impact_member" ||
     sub.metadata?.tierId === "impact"

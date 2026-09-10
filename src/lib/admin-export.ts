@@ -12,6 +12,7 @@ import {
   stampFilename,
   toCsv,
 } from "@/lib/admin-csv";
+import type { AdminStripeMember } from "@/lib/admin-stripe-members";
 import {
   loadAdminMembers,
   type AdminMemberRecord,
@@ -60,28 +61,66 @@ export function exportCausesCsv(
   return { ok: true, filename, rowCount: list.length };
 }
 
+/** Legacy device ledger CSV — prefer buildStripeMembersCsv. */
 export function buildMembersCsv(
   rows: AdminMemberRecord[] = loadAdminMembers()
 ): string {
   const headers = [
     "startDate",
-    "emailOrName",
+    "email",
     "amount",
     "currency",
     "status",
     "plan",
+    "periodEnd",
   ];
   const data = rows.map((m) => [
     isoDate(m.startedAt),
-    m.email?.trim() || m.displayName?.trim() || "guest",
+    m.email?.trim() || m.stripeCustomerId || "email missing",
     m.amountMonthly.toFixed(2),
     ADMIN_EXPORT_CURRENCY,
     m.status,
-    "monthly",
+    "Impact Member",
+    "",
   ]);
   return toCsv(headers, data);
 }
 
+export function buildStripeMembersCsv(rows: AdminStripeMember[]): string {
+  const headers = [
+    "startDate",
+    "email",
+    "customerId",
+    "amount",
+    "currency",
+    "status",
+    "plan",
+    "periodEnd",
+    "subscriptionId",
+  ];
+  const data = rows.map((m) => [
+    isoDate(m.startedAt),
+    m.email?.trim() || "email missing in Stripe",
+    m.customerId,
+    m.amountMonthly.toFixed(2),
+    ADMIN_EXPORT_CURRENCY,
+    m.status,
+    m.plan,
+    m.periodEndsAt ? isoDate(m.periodEndsAt) : "",
+    m.subscriptionId,
+  ]);
+  return toCsv(headers, data);
+}
+
+export function exportStripeMembersCsv(
+  rows: AdminStripeMember[]
+): { ok: true; filename: string; rowCount: number } {
+  const filename = stampFilename("forest-buddies-members");
+  downloadCsv(filename, buildStripeMembersCsv(rows));
+  return { ok: true, filename, rowCount: rows.length };
+}
+
+/** Legacy — prefer exportStripeMembersCsv with Stripe rows. */
 export function exportMembersCsv(
   rows?: AdminMemberRecord[]
 ): { ok: true; filename: string; rowCount: number } {

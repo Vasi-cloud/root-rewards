@@ -1,18 +1,23 @@
-"use client";
+﻿"use client";
 
 import { BookOpen, Check, Leaf, PawPrint, Sun, Waves } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import {
   CAUSE_GIFT_MIN_GBP,
   CAUSE_GIFT_PRESETS,
-  CAUSES,
   clampCauseGiftGbp,
   formatCauseUnits,
   illustrativeUnitsForGift,
+  type Cause,
   type CauseGiftAmounts,
   type CauseId,
 } from "@/lib/causes";
+import {
+  listDonateCauses,
+  subscribeCauseActive,
+} from "@/lib/cause-visibility";
 import { cn } from "@/lib/utils";
 
 const CAUSE_ICONS = {
@@ -32,6 +37,14 @@ export function CauseGiftPicker({
   onChange: (next: CauseGiftAmounts) => void;
   className?: string;
 }) {
+  const [causes, setCauses] = useState<Cause[]>(() => listDonateCauses());
+
+  useEffect(() => {
+    const refresh = () => setCauses(listDonateCauses());
+    refresh();
+    return subscribeCauseActive(refresh);
+  }, []);
+
   function setGift(id: CauseId, amount: number) {
     onChange({ ...gifts, [id]: clampCauseGiftGbp(amount) });
   }
@@ -45,14 +58,18 @@ export function CauseGiftPicker({
     setGift(id, CAUSE_GIFT_PRESETS[0]);
   }
 
-  // Selected UI follows the same amount threshold as giftTotal / giftSelectedCount.
-  const payableTotal = CAUSES.reduce((sum, cause) => {
+  const payableTotal = causes.reduce((sum, cause) => {
     const n = Number(gifts[cause.id]) || 0;
     return sum + (n >= CAUSE_GIFT_MIN_GBP ? n : 0);
   }, 0);
   return (
     <div className={cn("space-y-3", className)}>
-      {CAUSES.map((cause) => {
+      {causes.length === 0 ? (
+        <p className="rounded-xl border border-border/70 bg-white/80 px-4 py-6 text-center text-sm text-muted-foreground">
+          No cause programmes are active right now.
+        </p>
+      ) : null}
+      {causes.map((cause) => {
         const Icon = CAUSE_ICONS[cause.icon];
         const amount = Number(gifts[cause.id]) || 0;
         const selected =

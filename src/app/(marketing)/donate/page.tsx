@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import {
   CAUSE_GIFT_PRESETS,
-  CAUSES,
   clampCauseGiftGbp,
   emptyCauseGifts,
   formatGiftImpactSummary,
@@ -35,6 +34,10 @@ import {
   type CauseGiftAmounts,
   type CauseId,
 } from "@/lib/causes";
+import {
+  listDonateCauses,
+  subscribeCauseActive,
+} from "@/lib/cause-visibility";
 import { savePendingDonation } from "@/lib/donate";
 import { saveLastDonation } from "@/lib/impact-storage";
 import { startDonateCheckout } from "@/lib/stripe/client";
@@ -68,7 +71,8 @@ function bootstrapDonateGifts(): CauseGiftAmounts {
   const fromCart = loadCartCauseGifts();
   if (giftTotal(fromCart) >= 1) return syncCauseGifts(fromCart);
   const next = emptyCauseGifts();
-  next.trees = CAUSE_GIFT_PRESETS[0];
+  const first = listDonateCauses()[0];
+  if (first) next[first.id] = CAUSE_GIFT_PRESETS[0];
   return next;
 }
 
@@ -77,6 +81,7 @@ export default function DonatePage() {
   const { user } = useAuth();
   /** Always start empty; client effect applies the real selection once. */
   const [gifts, setGiftsState] = useState<CauseGiftAmounts>(emptyCauseGifts);
+  const [donateCauses, setDonateCauses] = useState(() => listDonateCauses());
   const [pickerKey, setPickerKey] = useState(0);
   const [email, setEmail] = useState(user?.email ?? "");
   const [name, setName] = useState("");
@@ -122,6 +127,27 @@ export default function DonatePage() {
     applyGifts(emptyCauseGifts(), true);
     setError(message);
   }
+
+  useEffect(() => {
+    setDonateCauses(listDonateCauses());
+    return subscribeCauseActive(() => setDonateCauses(listDonateCauses()));
+  }, []);
+
+  // Drop £ gifts for programmes turned off in Admin → Programmes
+  useEffect(() => {
+    const active = new Set(donateCauses.map((c) => c.id));
+    setGiftsState((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      (Object.keys(next) as CauseId[]).forEach((id) => {
+        if (!active.has(id) && (Number(next[id]) || 0) > 0) {
+          next[id] = 0;
+          changed = true;
+        }
+      });
+      return changed ? syncCauseGifts(next) : prev;
+    });
+  }, [donateCauses]);
 
   // Client hydrate: load real gifts (or empty after cancel) — never trust SSR seed.
   useEffect(() => {
@@ -448,7 +474,7 @@ export default function DonatePage() {
               to checkout
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {CAUSES.map((cause) => (
+              {donateCauses.map((cause) => (
                 <Button
                   key={cause.id}
                   type="button"
