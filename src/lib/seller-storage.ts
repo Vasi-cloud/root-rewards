@@ -209,7 +209,12 @@ export function normalizeSeller(profile: SellerProfile): SellerProfile {
 
   return {
     ...profile,
-    sellerType: profile.sellerType === "individual" ? "individual" : "business",
+    sellerType:
+      profile.sellerType === "individual"
+        ? "individual"
+        : profile.sellerType === "business"
+          ? "business"
+          : undefined,
     products,
     slug: profile.slug || slugifyShopName(profile.shopName),
     bio: profile.bio ?? "",

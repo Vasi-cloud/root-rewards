@@ -44,6 +44,7 @@ import { AdminCausesPanel } from "@/components/admin/admin-causes-panel";
 import { AdminMembersPanel } from "@/components/admin/admin-members-panel";
 import { AdminOverviewPanel } from "@/components/admin/admin-overview-panel";
 import { AdminReportsPanel } from "@/components/admin/admin-reports-panel";
+import { AdminSellersPanel } from "@/components/admin/admin-sellers-panel";
 import { isAdminUser } from "@/lib/admin";
 import {
   type AdminCatalogProduct,
@@ -84,10 +85,7 @@ import type {
   AdminListingKind,
   CommerceType,
   ListingType,
-  ProductApprovalStatus,
   ProviderType,
-  SellerStatus,
-  SellerTrustTier,
 } from "@/types";
 import { REPORT_REASON_LABELS } from "@/types/moderation";
 import type { ProductReviewRecord, ReviewStatus } from "@/types/reviews";
@@ -294,45 +292,6 @@ function statusBadgeClass(status: OrderStatus) {
   }
 }
 
-function sellerAccountBadge(status: SellerStatus) {
-  switch (status) {
-    case "approved":
-      return { label: "Approved", className: "bg-emerald-100 text-emerald-800" };
-    case "paused":
-      return { label: "Paused", className: "bg-amber-100 text-amber-950" };
-    case "rejected":
-      return { label: "Rejected", className: "bg-destructive/10 text-destructive" };
-    case "pending":
-      return { label: "Pending", className: "bg-gold/25 text-primary" };
-    case "none":
-      return { label: "Canceled", className: "bg-muted text-muted-foreground" };
-    default:
-      return { label: status, className: "bg-muted text-muted-foreground" };
-  }
-}
-
-function listingBadge(status: ProductApprovalStatus) {
-  switch (status) {
-    case "approved":
-      return { label: "Approved", className: "bg-emerald-100 text-emerald-800" };
-    case "rejected":
-      return { label: "Rejected", className: "bg-destructive/10 text-destructive" };
-    default:
-      return { label: "Pending", className: "bg-gold/25 text-primary" };
-  }
-}
-
-function trustBadge(tier?: SellerTrustTier) {
-  switch (tier) {
-    case "trusted":
-      return { label: "Trusted", className: "bg-emerald-100 text-emerald-800" };
-    case "standard":
-      return { label: "Standard", className: "bg-primary/10 text-primary" };
-    default:
-      return { label: "New", className: "bg-muted text-muted-foreground" };
-  }
-}
-
 function flagSeverityClass(severity: string) {
   switch (severity) {
     case "block":
@@ -350,9 +309,6 @@ export default function AdminDashboard() {
   const {
     allSellers,
     refreshSellers,
-    setSellerAccountStatus,
-    setSellerTrustOverride,
-    setProductApproval,
   } = useSeller();
   const {
     openFlags,
@@ -364,6 +320,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   const [tab, setTab] = useState<AdminTab>("overview");
+  const [sellersPanelKey, setSellersPanelKey] = useState(0);
   const [products, setProducts] = useState<AdminCatalogProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productSaveError, setProductSaveError] = useState<string | null>(null);
@@ -382,11 +339,6 @@ export default function AdminDashboard() {
     "All" | ListingType
   >("All");
   const [orderFilter, setOrderFilter] = useState<"All" | OrderStatus>("All");
-  const [listingFilter, setListingFilter] = useState<
-    "All" | ProductApprovalStatus
-  >("pending");
-  const [rejectingKey, setRejectingKey] = useState<string | null>(null);
-  const [rejectNote, setRejectNote] = useState("");
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
   const [feedbackFilter, setFeedbackFilter] = useState<
     "All" | FeedbackStatus
@@ -735,19 +687,6 @@ export default function AdminDashboard() {
     );
   }
 
-  const pendingSellerAccounts = allSellers.filter((s) => s.status === "pending");
-  const pendingListings = allSellers.flatMap((s) =>
-    s.products
-      .filter((p) => p.status === "pending")
-      .map((product) => ({ seller: s, product }))
-  );
-  const allListings = allSellers.flatMap((s) =>
-    s.products.map((product) => ({ seller: s, product }))
-  );
-  const filteredListings = allListings.filter(
-    (row) => listingFilter === "All" || row.product.status === listingFilter
-  );
-
   const fbStats = feedbackStats(feedbackItems);
   const filteredFeedback = feedbackItems.filter(
     (item) => feedbackFilter === "All" || item.status === feedbackFilter
@@ -868,7 +807,14 @@ export default function AdminDashboard() {
 
       <main className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8">
         {tab === "overview" && (
-          <AdminOverviewPanel onNavigate={(t) => setTab(t)} />
+          <AdminOverviewPanel
+            onNavigate={(t) => {
+              if (t === "sellers") {
+                setSellersPanelKey((k) => k + 1);
+              }
+              setTab(t);
+            }}
+          />
         )}
 
         {tab === "reports" && <AdminReportsPanel />}
@@ -1645,447 +1591,7 @@ export default function AdminDashboard() {
         )}
 
         {tab === "sellers" && (
-          <div className="space-y-8">
-            <div>
-              <h2 className="font-heading text-2xl font-semibold text-primary">
-                Seller moderation
-              </h2>
-              <p className="mt-1 text-muted-foreground">
-                Simple pending → approved / rejected review for shops and
-                listings.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <StatCard
-                icon={Store}
-                label="Seller shops"
-                value={String(allSellers.length)}
-                hint={`${pendingSellerAccounts.length} awaiting approval`}
-              />
-              <StatCard
-                icon={ShoppingBag}
-                label="Listings in review"
-                value={String(pendingListings.length)}
-                hint="Pending product approvals"
-                accent
-              />
-              <StatCard
-                icon={Check}
-                label="Live listings"
-                value={String(
-                  allListings.filter((r) => r.product.status === "approved")
-                    .length
-                )}
-                hint="Approved for marketplace"
-              />
-            </div>
-
-            <Card className="overflow-hidden border-primary/20">
-              <CardHeader className="border-b border-primary/10 bg-emerald-50/50">
-                <div className="flex items-center gap-2 text-primary">
-                  <Leaf className="size-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wide">
-                    Shop applications
-                  </span>
-                </div>
-                <CardTitle className="font-heading">Seller accounts</CardTitle>
-                <CardDescription>
-                  Approve individuals and companies before they can list
-                  products or services.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="divide-y p-0">
-                {allSellers.length === 0 ? (
-                  <div className="px-6 py-10 text-center">
-                    <Store className="mx-auto size-8 text-primary/40" />
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      No seller applications yet. Sellers apply from the Seller
-                      Hub.
-                    </p>
-                  </div>
-                ) : (
-                  allSellers.map((s) => {
-                    const badge = sellerAccountBadge(s.status);
-                    return (
-                      <div
-                        key={s.uid}
-                        className={`flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between ${
-                          s.status === "pending" ? "bg-gold/10" : ""
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium">{s.shopName}</span>
-                            <Badge className={badge.className}>
-                              {badge.label}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className={
-                                s.sellerType === "individual"
-                                  ? "border-sky-300 bg-sky-50 text-sky-900"
-                                  : undefined
-                              }
-                            >
-                              {s.sellerType === "individual"
-                                ? "Self-employed"
-                                : "Business"}
-                            </Badge>
-                            <Badge className={trustBadge(s.trustTier).className}>
-                              {trustBadge(s.trustTier).label}
-                            </Badge>
-                            {s.trustOverride === "trusted" && (
-                              <Badge variant="outline">Override</Badge>
-                            )}
-                          </div>
-                          <p className="mt-0.5 text-sm text-muted-foreground">
-                            {s.email} · {s.products.length} listings ·{" "}
-                            {
-                              s.products.filter((p) => p.status === "approved")
-                                .length
-                            }{" "}
-                            approved
-                          </p>
-                          {s.bio ? (
-                            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                              {s.bio}
-                            </p>
-                          ) : null}
-                          {s.sellerType === "individual" &&
-                            (s.tradingName ||
-                              s.servicesOffered ||
-                              s.professionalBackground) && (
-                              <div className="mt-2 space-y-1 rounded-lg border border-sky-200/80 bg-sky-50/50 px-2.5 py-2 text-[11px] text-sky-950">
-                                {s.tradingName && (
-                                  <p>
-                                    <span className="font-medium">Trading: </span>
-                                    {s.tradingName}
-                                  </p>
-                                )}
-                                {s.servicesOffered && (
-                                  <p>
-                                    <span className="font-medium">Offers: </span>
-                                    {s.servicesOffered}
-                                  </p>
-                                )}
-                                {s.professionalBackground && (
-                                  <p className="line-clamp-2">
-                                    <span className="font-medium">Background: </span>
-                                    {s.professionalBackground}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          {s.sellerType === "business" && s.companyName && (
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              Company: {s.companyName}
-                            </p>
-                          )}
-                          {s.appliedAt && s.status === "pending" && (
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              Applied {s.appliedAt.slice(0, 10)}
-                            </p>
-                          )}
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            Auto-approve at {TRUST_CONFIG.trustedMinApproved}+
-                            approved listings & low rejection rate
-                            {s.trustTier === "trusted"
-                              ? " · currently eligible"
-                              : ""}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {s.status !== "approved" && s.status !== "paused" && (
-                            <Button
-                              size="sm"
-                              className="gap-1"
-                              onClick={() =>
-                                setSellerAccountStatus(s.uid, "approved")
-                              }
-                            >
-                              <Check className="size-3.5" />
-                              Approve
-                            </Button>
-                          )}
-                          {s.status === "paused" && (
-                            <Button
-                              size="sm"
-                              className="gap-1"
-                              onClick={() =>
-                                setSellerAccountStatus(s.uid, "approved")
-                              }
-                            >
-                              <Check className="size-3.5" />
-                              Resume
-                            </Button>
-                          )}
-                          {s.status === "approved" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                setSellerAccountStatus(s.uid, "paused")
-                              }
-                            >
-                              Pause
-                            </Button>
-                          )}
-                          {s.status === "approved" &&
-                            s.trustOverride !== "trusted" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="gap-1"
-                                onClick={() =>
-                                  setSellerTrustOverride(s.uid, "trusted")
-                                }
-                              >
-                                <Shield className="size-3.5" />
-                                Mark trusted
-                              </Button>
-                            )}
-                          {s.trustOverride === "trusted" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                setSellerTrustOverride(s.uid, null)
-                              }
-                            >
-                              Clear trust override
-                            </Button>
-                          )}
-                          {s.status !== "rejected" && s.status !== "none" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1 text-destructive"
-                              onClick={() =>
-                                setSellerAccountStatus(s.uid, "rejected")
-                              }
-                            >
-                              <XCircle className="size-3.5" />
-                              Reject
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="overflow-hidden border-primary/20">
-              <CardHeader className="border-b border-primary/10 bg-emerald-50/40">
-                <div className="flex items-center gap-2 text-primary">
-                  <ShoppingBag className="size-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wide">
-                    Listing review
-                  </span>
-                </div>
-                <CardTitle className="font-heading">Product listings</CardTitle>
-                <CardDescription>
-                  Check eco score and details, then approve or reject.
-                </CardDescription>
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {(
-                    [
-                      ["pending", "Pending"],
-                      ["approved", "Approved"],
-                      ["rejected", "Rejected"],
-                      ["All", "All"],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setListingFilter(value)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                        listingFilter === value
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-background text-foreground/70 ring-1 ring-border hover:text-primary"
-                      }`}
-                    >
-                      {label}
-                      {value !== "All" && (
-                        <span className="ml-1 opacity-70">
-                          (
-                          {
-                            allListings.filter((r) => r.product.status === value)
-                              .length
-                          }
-                          )
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </CardHeader>
-              <CardContent className="divide-y p-0">
-                {filteredListings.length === 0 ? (
-                  <div className="px-6 py-10 text-center">
-                    <Leaf className="mx-auto size-8 text-primary/40" />
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      No listings in this filter.
-                    </p>
-                  </div>
-                ) : (
-                  filteredListings.map(({ seller: s, product }) => {
-                    const badge = listingBadge(product.status ?? "pending");
-                    const key = `${s.uid}-${product.id}`;
-                    const isRejecting = rejectingKey === key;
-                    return (
-                      <div
-                        key={key}
-                        className={`space-y-3 px-5 py-4 ${
-                          product.status === "pending" ? "bg-gold/10" : ""
-                        }`}
-                      >
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium">{product.name}</span>
-                              <Badge className={badge.className}>
-                                {badge.label}
-                              </Badge>
-                              <Badge
-                                variant="secondary"
-                                className={
-                                  product.listingType === "service"
-                                    ? "bg-sky-100 text-sky-900"
-                                    : undefined
-                                }
-                              >
-                                {product.listingType === "service"
-                                  ? "Service"
-                                  : "Product"}
-                              </Badge>
-                              <Badge variant="outline">{product.category}</Badge>
-                              <Badge className="bg-emerald-100 text-emerald-800">
-                                {product.ecoScore}% eco
-                              </Badge>
-                            </div>
-                            <p className="mt-0.5 text-sm text-muted-foreground">
-                              {s.shopName} · ${product.price.toFixed(2)} ·{" "}
-                              {product.stock}{" "}
-                              {product.listingType === "service"
-                                ? "slots"
-                                : "stock"}
-                            </p>
-                            {product.subtitle ? (
-                              <p className="mt-1 text-sm text-primary/80">
-                                {product.subtitle}
-                              </p>
-                            ) : null}
-                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                              {product.description || "No description"}
-                            </p>
-                            {(product.flagHits?.length ?? 0) > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                {product.flagHits!.map((hit) => (
-                                  <Badge
-                                    key={`${product.id}-${hit.ruleId}-${hit.message}`}
-                                    className={flagSeverityClass(hit.severity)}
-                                  >
-                                    {hit.ruleId}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                            {product.autoApproved && (
-                              <p className="mt-1 text-xs text-emerald-700">
-                                Auto-approved via trusted seller
-                              </p>
-                            )}
-                          </div>
-                          {!isRejecting && (
-                            <div className="flex shrink-0 flex-wrap gap-2">
-                              {product.status !== "approved" && (
-                                <Button
-                                  size="sm"
-                                  className="gap-1"
-                                  onClick={() => {
-                                    setRejectingKey(null);
-                                    setProductApproval(
-                                      s.uid,
-                                      product.id,
-                                      "approved"
-                                    );
-                                  }}
-                                >
-                                  <Check className="size-3.5" />
-                                  Approve
-                                </Button>
-                              )}
-                              {product.status !== "rejected" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1 text-destructive"
-                                  onClick={() => {
-                                    setRejectingKey(key);
-                                    setRejectNote(product.reviewNote ?? "");
-                                  }}
-                                >
-                                  <XCircle className="size-3.5" />
-                                  Reject
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {isRejecting && (
-                          <div className="rounded-xl border border-destructive/20 bg-background p-3">
-                            <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                              Note for seller (optional)
-                            </label>
-                            <input
-                              value={rejectNote}
-                              onChange={(e) => setRejectNote(e.target.value)}
-                              placeholder="e.g. Please clarify materials and eco score"
-                              className="mb-3 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                            />
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="gap-1"
-                                onClick={() => {
-                                  setProductApproval(
-                                    s.uid,
-                                    product.id,
-                                    "rejected",
-                                    rejectNote
-                                  );
-                                  setRejectingKey(null);
-                                  setRejectNote("");
-                                }}
-                              >
-                                <XCircle className="size-3.5" />
-                                Confirm reject
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setRejectingKey(null);
-                                  setRejectNote("");
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          <AdminSellersPanel key={sellersPanelKey} initialSubView="shops" />
         )}
 
         {tab === "moderation" && (

@@ -4,6 +4,7 @@ import {
   Download,
   Flag,
   HeartHandshake,
+  Store,
   TreePine,
   Users,
   type LucideIcon,
@@ -37,7 +38,7 @@ import {
   subscribeAdminCauses,
   sumAdminCausesThisMonth,
 } from "@/lib/admin-causes-ledger";
-import { listAllSellers } from "@/lib/seller-storage";
+import { listAllSellers, SELLERS_STORAGE_KEY } from "@/lib/seller-storage";
 
 function StatTile({
   icon: Icon,
@@ -72,8 +73,14 @@ function StatTile({
   );
 }
 
+export type OverviewNavigateTab =
+  | "reports"
+  | "members"
+  | "causes"
+  | "sellers";
+
 type AdminOverviewPanelProps = {
-  onNavigate: (tab: "reports" | "members" | "causes") => void;
+  onNavigate: (tab: OverviewNavigateTab) => void;
 };
 
 export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
@@ -81,6 +88,12 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
   const [memberCount, setMemberCount] = useState(0);
   const [causesMonth, setCausesMonth] = useState(0);
   const [knownAccounts, setKnownAccounts] = useState(0);
+  const [storeStats, setStoreStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    paused: 0,
+  });
   const [exportNote, setExportNote] = useState<string | null>(null);
 
   const refresh = () => {
@@ -96,21 +109,41 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
       if (m.email?.trim()) emails.add(m.email.trim().toLowerCase());
     }
     setKnownAccounts(emails.size);
+    setStoreStats({
+      total: sellers.length,
+      pending: sellers.filter((s) => s.status === "pending").length,
+      approved: sellers.filter((s) => s.status === "approved").length,
+      paused: sellers.filter((s) => s.status === "paused").length,
+    });
   };
 
   useEffect(() => {
     refresh();
     const unsubM = subscribeAdminMembers(refresh);
     const unsubC = subscribeAdminCauses(refresh);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key && e.key !== SELLERS_STORAGE_KEY) return;
+      refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("forest-buddies-sellers-updated", refresh);
     return () => {
       unsubM();
       unsubC();
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("forest-buddies-sellers-updated", refresh);
     };
   }, []);
 
   const links = useMemo(
     () =>
       [
+        {
+          id: "sellers" as const,
+          label: "Stores",
+          description: "Seller shops table",
+          count: storeStats.total,
+        },
         {
           id: "reports" as const,
           label: "Reports",
@@ -130,7 +163,7 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
           count: loadAdminCauseContributions().length,
         },
       ] as const,
-    [openReports.length, memberCount]
+    [openReports.length, memberCount, storeStats.total]
   );
 
   return (
@@ -203,12 +236,18 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
         </p>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <StatTile
+          icon={Store}
+          label="Stores"
+          value={String(storeStats.total)}
+          hint={`${storeStats.pending} awaiting · ${storeStats.approved} approved · ${storeStats.paused} paused`}
+        />
         <StatTile
           icon={Users}
           label="Known accounts"
           value={String(knownAccounts)}
-          hint="Sellers + members on this device"
+          hint="Firebase accounts visible to admin"
         />
         <StatTile
           icon={HeartHandshake}
@@ -234,10 +273,10 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
         <CardHeader className="pb-3">
           <CardTitle className="font-heading text-lg">Quick links</CardTitle>
           <CardDescription>
-            Jump to Reports, Members, or the causes ledger.
+            Jump to Stores, Reports, Members, or the causes ledger.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-3">
+        <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {links.map((link) => (
             <button
               key={link.id}
