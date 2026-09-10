@@ -198,9 +198,6 @@ export function causeGiftEmailHtml(opts: {
       Impact is illustrative.${illustrativeTrees} not a GPS pin for a planted tree,
       and not a live carbon audit.
     </p>
-    <p style="margin:0 0 16px;font-size:13px;color:#5c7366;">
-      This is not product cashback and not an affiliate payout.
-    </p>
     ${receiptLine}
     ${ctaButton(impactUrl, "View your impact")}
     <p style="margin:16px 0 0;font-size:14px;">
@@ -223,7 +220,6 @@ Gift total: £${total}
 ${opts.giftLines.map((l) => `- ${l}`).join("\n") || "- Cause gift to partner programmes"}
 
 Impact is illustrative.${hasTreesGift ? " For Trees, roughly £5 ≈ 1 tree unit toward partner programmes —" : " —"} not a GPS pin for a planted tree, and not a live carbon audit.
-This is not product cashback and not an affiliate payout.
 ${opts.noCharge ? "" : "When payments are live, Stripe sends your card receipt separately.\n"}
 View your impact: ${impactUrl}
 Support a cause: ${appUrl}/donate
