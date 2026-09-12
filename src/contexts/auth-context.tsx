@@ -87,7 +87,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const data = await ensureUserProfile(nextUser);
+      // Never block the signed-in session on a hung Firestore write.
+      let data: UserProfile | null = null;
+      try {
+        data = await Promise.race([
+          ensureUserProfile(nextUser),
+          new Promise<null>((resolve) =>
+            window.setTimeout(() => resolve(null), 4000)
+          ),
+        ]);
+      } catch (err) {
+        console.warn("[auth] ensureUserProfile failed", err);
+        data = null;
+      }
+
       const overrides = getProfileOverrides(nextUser.uid);
       const nextProfile =
         data ??

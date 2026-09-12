@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,9 @@ import { useAuth } from "@/contexts/auth-context";
 import { consumeDeactivatedNotice } from "@/lib/account-storage";
 import {
   buildLoginHref,
+  buildLoginHrefEmailExists,
   buildRegisterHref,
+  DEFAULT_AUTH_REDIRECT,
   readAuthReturnParam,
 } from "@/lib/auth-redirect";
 import { getAuthErrorMessage } from "@/lib/firebase/errors";
@@ -50,6 +52,15 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
+function isEmailAlreadyInUse(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: string }).code === "auth/email-already-in-use"
+  );
+}
+
 function AuthFormInner({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,6 +71,11 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  /** True while we intentionally leave this page after auth. */
+  const [redirecting, setRedirecting] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  const navigatedRef = useRef(false);
+  const authAttemptedRef = useRef(false);
 
   const returnTarget = readAuthReturnParam(searchParams);
   const returnRaw = searchParams.get("next") ?? searchParams.get("return");
@@ -76,28 +92,68 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
     }
   }, [mode]);
 
-  // Already signed in — honour return URL (or dashboard) without re-auth.
   useEffect(() => {
-    if (loading || !user || submitting) return;
-    router.replace(returnTarget);
-  }, [loading, user, submitting, returnTarget, router]);
+    if (mode !== "login") return;
+    if (searchParams.get("notice") !== "email-exists") return;
+    setError("This email is already registered. Sign in instead.");
+  }, [mode, searchParams]);
 
-  async function finishAuthRedirect() {
-    // Auth listener may soft-block deactivated accounts and set a notice
-    await new Promise((r) => setTimeout(r, 350));
+  function goToDestination(dest: string = returnTarget) {
+    if (navigatedRef.current) return;
+    navigatedRef.current = true;
+    setRedirecting(true);
+    setStuck(false);
+    router.replace(dest);
+  }
+
+  // Signed-in user: leave this page (never stay on the waiter).
+  useEffect(() => {
+    if (loading) return;
+    if (!user) return;
+    if (stuck) return;
     if (consumeDeactivatedNotice()) {
       setInfo(
         "Your account is deactivated. Sign-in is blocked while it stays inactive. Contact support if you need help restoring access — we keep records for legal reasons."
       );
+      setRedirecting(false);
+      setSubmitting(false);
       return;
     }
-    router.push(returnTarget);
-  }
+    goToDestination(returnTarget);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- navigate once when user is ready
+  }, [loading, user, returnTarget, stuck]);
+
+  // 4s: signed-in but still here → force /dashboard
+  useEffect(() => {
+    if (!user) return;
+    const id = window.setTimeout(() => {
+      goToDestination(DEFAULT_AUTH_REDIRECT);
+    }, 4000);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // 8s: auth attempt started, still signed out → stop forever-wait
+  useEffect(() => {
+    if (user) return;
+    if (!authAttemptedRef.current && !submitting && !redirecting) return;
+    const id = window.setTimeout(() => {
+      if (user) return;
+      navigatedRef.current = false;
+      setRedirecting(false);
+      setSubmitting(false);
+      setStuck(true);
+      setError("Couldn’t finish sign-in. Please try again.");
+    }, 8000);
+    return () => window.clearTimeout(id);
+  }, [user, submitting, redirecting]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setInfo(null);
+    setStuck(false);
+    navigatedRef.current = false;
 
     const emailResult = validateEmail(email);
     if (!emailResult.ok) {
@@ -116,7 +172,9 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
       return;
     }
 
+    authAttemptedRef.current = true;
     setSubmitting(true);
+    setRedirecting(true);
 
     try {
       if (!firebaseReady) {
@@ -129,8 +187,22 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
       } else {
         await register(emailResult.value, passwordResult.value);
       }
-      await finishAuthRedirect();
+      // Profile ensure runs in AuthProvider; navigate now — do not wait forever.
+      if (consumeDeactivatedNotice()) {
+        setRedirecting(false);
+        setSubmitting(false);
+        setInfo(
+          "Your account is deactivated. Sign-in is blocked while it stays inactive. Contact support if you need help restoring access — we keep records for legal reasons."
+        );
+        return;
+      }
+      goToDestination(returnTarget);
     } catch (err) {
+      setRedirecting(false);
+      if (mode === "register" && isEmailAlreadyInUse(err)) {
+        router.replace(buildLoginHrefEmailExists(returnRaw));
+        return;
+      }
       setError(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -140,12 +212,16 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
   async function handleGoogleSignIn() {
     setError(null);
     setInfo(null);
+    setStuck(false);
+    navigatedRef.current = false;
     const rate = consumeRateLimit("auth");
     if (!rate.allowed) {
       setError(rate.message);
       return;
     }
+    authAttemptedRef.current = true;
     setSubmitting(true);
+    setRedirecting(true);
 
     try {
       if (!firebaseReady) {
@@ -154,8 +230,17 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
         );
       }
       await signInGoogle();
-      await finishAuthRedirect();
+      if (consumeDeactivatedNotice()) {
+        setRedirecting(false);
+        setSubmitting(false);
+        setInfo(
+          "Your account is deactivated. Sign-in is blocked while it stays inactive. Contact support if you need help restoring access — we keep records for legal reasons."
+        );
+        return;
+      }
+      goToDestination(returnTarget);
     } catch (err) {
+      setRedirecting(false);
       setError(getAuthErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -164,7 +249,58 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
 
   const isLogin = mode === "login";
 
-  if (loading || user) {
+  if (stuck && !user) {
+    return (
+      <Card className="w-full max-w-md border-border/80 shadow-lg">
+        <CardHeader>
+          <CardTitle className="font-heading text-2xl">
+            Couldn’t finish sign-in
+          </CardTitle>
+          <CardDescription>
+            Something stalled while creating your session. You can try again or
+            head to the shop.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {error ? (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            onClick={() => {
+              setStuck(false);
+              setError(null);
+              authAttemptedRef.current = false;
+              navigatedRef.current = false;
+            }}
+          >
+            Try again
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            nativeButton={false}
+            render={<Link href={buildLoginHref(returnRaw)} />}
+          >
+            Sign in
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            nativeButton={false}
+            render={<Link href="/marketplace" />}
+          >
+            Marketplace
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Waiter only while actively leaving — never for idle `loading` alone.
+  if (redirecting || (user && !stuck)) {
     return (
       <Card className="w-full max-w-md border-border/80 shadow-lg">
         <CardHeader>
@@ -174,7 +310,7 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
           <CardDescription>Taking you to your destination…</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Please wait…</p>
+          <p className="text-sm text-muted-foreground">One moment…</p>
         </CardContent>
       </Card>
     );
@@ -188,15 +324,16 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
         </CardTitle>
         <CardDescription>
           {isLogin
-            ? "Sign in to shop, track orders, and manage affiliate links."
-            : "Join Forest Buddies to shop sustainably or start earning as an affiliate."}
+            ? "Sign in to shop, track orders, and manage your account."
+            : "Join Forest Buddies to shop sustainably and track your impact."}
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           {!firebaseReady && (
             <p className="rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-primary">
-              Demo mode: configure Firebase in <code className="text-xs">.env.local</code> to enable auth.
+              Demo mode: configure Firebase in{" "}
+              <code className="text-xs">.env.local</code> to enable auth.
             </p>
           )}
           {error && (
@@ -213,8 +350,8 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
             type="button"
             variant="outline"
             className="w-full"
-            disabled={submitting}
-            onClick={handleGoogleSignIn}
+            disabled={submitting || loading}
+            onClick={() => void handleGoogleSignIn()}
           >
             <GoogleIcon className="mr-2 size-4" />
             Continue with Google
@@ -258,19 +395,33 @@ function AuthFormInner({ mode }: { mode: AuthMode }) {
           <p className="text-xs text-muted-foreground">
             Sign-in attempts are rate-limited in this browser (demo). By
             continuing you agree to our{" "}
-            <Link href="/terms" className="text-primary underline-offset-2 hover:underline">
+            <Link
+              href="/terms"
+              className="text-primary underline-offset-2 hover:underline"
+            >
               Terms
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-primary underline-offset-2 hover:underline">
+            <Link
+              href="/privacy"
+              className="text-primary underline-offset-2 hover:underline"
+            >
               Privacy Policy
             </Link>
             .
           </p>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "Please wait…" : isLogin ? "Sign in" : "Create account"}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={submitting || loading}
+          >
+            {submitting
+              ? "One moment…"
+              : isLogin
+                ? "Sign in"
+                : "Create account"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             {isLogin ? (
