@@ -1,13 +1,10 @@
 "use client";
 
 import {
-  ArrowRight,
   BadgeCheck,
   Check,
   CreditCard,
-  LayoutDashboard,
   Leaf,
-  Settings,
   Sparkles,
   Trees,
 } from "lucide-react";
@@ -245,39 +242,6 @@ export default function MembershipPage() {
             </div>
           ) : null}
         </div>
-
-        {signedIn ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              variant="ghost"
-              className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
-              nativeButton={false}
-              render={<Link href="/dashboard" />}
-            >
-              <LayoutDashboard className="size-3.5" />
-              Dashboard
-            </Button>
-            <Button
-              variant="ghost"
-              className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
-              nativeButton={false}
-              render={<Link href="/dashboard/my-forest" />}
-            >
-              <Trees className="size-3.5" />
-              My Forest
-            </Button>
-            <Button
-              variant="ghost"
-              className="h-11 gap-1.5 px-2.5 text-emerald-950 sm:h-8"
-              nativeButton={false}
-              render={<Link href="/dashboard/settings" />}
-            >
-              <Settings className="size-3.5" />
-              Account settings
-              <ArrowRight className="size-3.5 opacity-70" />
-            </Button>
-          </div>
-        ) : null}
 
         {banner && (
           <p

@@ -49,13 +49,12 @@ export function MembershipCancelControls({
           </p>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-amber-950/85">
-          You keep all benefits until then
-          {daysLeft > 0 ? ` (${daysLeft} day${daysLeft === 1 ? "" : "s"} left)` : ""}
-          : {tier.affiliateBoost}× affiliate boost
-          {tier.monthlyCauseCredit > 0
-            ? `, £${tier.monthlyCauseCredit} monthly cause credit`
+          You keep cause credit, platform support, and your Impact badge until{" "}
+          {endsLabel}
+          {daysLeft > 0
+            ? ` (${daysLeft} day${daysLeft === 1 ? "" : "s"} left)`
             : ""}
-          , and your Impact badge.
+          . Not cashback. Not an affiliate boost.
         </p>
         <ul className="mt-3 space-y-1.5 text-sm text-amber-950/90">
           {tier.perks.slice(1).map((perk) => (

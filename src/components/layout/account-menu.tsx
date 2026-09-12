@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, LogOut, Settings } from "lucide-react";
+import { BadgeCheck, LogOut, Settings, Trees } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 const TAP = "min-h-11 min-w-11";
 
-/** Account dropdown — Membership, Settings, Sign out (public header + dashboard). */
+/** Account dropdown — Membership, My Forest, Account settings, Sign out. */
 export function AccountMenu({ className }: { className?: string }) {
   const { user, profile, signOut } = useAuth();
   const router = useRouter();
@@ -100,13 +100,22 @@ export function AccountMenu({ className }: { className?: string }) {
             Membership
           </Link>
           <Link
+            href="/dashboard/my-forest"
+            role="menuitem"
+            className="flex min-h-11 items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-emerald-50"
+            onClick={() => setOpen(false)}
+          >
+            <Trees className="size-3.5 text-emerald-800" />
+            My Forest
+          </Link>
+          <Link
             href="/dashboard/settings"
             role="menuitem"
             className="flex min-h-11 items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-emerald-50"
             onClick={() => setOpen(false)}
           >
             <Settings className="size-3.5 text-emerald-800" />
-            Settings
+            Account settings
           </Link>
           <button
             type="button"
