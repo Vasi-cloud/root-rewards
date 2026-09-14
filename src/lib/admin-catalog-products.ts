@@ -584,17 +584,32 @@ export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]>
 }
 
 /**
- * Public marketplace helper — same documents as admin catalog.
+ * Public marketplace helper — admin/live catalog PLUS approved seller listings
+ * (same shops Admin Sellers shows). Seller rows win on id collision.
  */
 export async function listLiveMarketplaceProducts(): Promise<Product[]> {
+  let live: Product[] = [];
   try {
     const rows = await listAdminCatalogProducts();
-    return rows.map(toMarketplaceProduct);
+    live = rows.map(toMarketplaceProduct);
   } catch (err) {
     // Marketplace stays usable from local cache if Firestore is briefly down.
     console.warn("[products] Live list falling back to local cache", err);
-    return loadLocal().map(toMarketplaceProduct);
+    live = loadLocal().map(toMarketplaceProduct);
   }
+
+  // Same approved shops/listings Admin Sellers uses (client-only when window exists)
+  let sellerLive: Product[] = [];
+  try {
+    const { listApprovedSellerMarketplaceProducts } = await import(
+      "@/lib/seller-storage"
+    );
+    sellerLive = listApprovedSellerMarketplaceProducts();
+  } catch (err) {
+    console.warn("[products] seller catalogue unavailable", err);
+  }
+
+  return mergeMarketplaceCatalog(sellerLive, live);
 }
 
 /**

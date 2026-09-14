@@ -1,4 +1,5 @@
 import type {
+  Product,
   ProductApprovalStatus,
   SellerAnalytics,
   SellerPayout,
@@ -268,6 +269,65 @@ export function listPublicBrandShops(): SellerProfile[] {
 /** Self-employed / solo makers — for Featured Solo Makers. */
 export function listPublicSoloShops(): SellerProfile[] {
   return listPublicShops().filter((s) => s.sellerType === "individual");
+}
+
+/**
+ * Approved listings from approved shops — same source Admin Sellers uses.
+ * Maps seller products into marketplace `Product` rows (goods + services).
+ */
+export function listApprovedSellerMarketplaceProducts(): Product[] {
+  ensureDemoShops();
+  const out: Product[] = [];
+  for (const shop of listPublicShops()) {
+    for (const product of shop.products) {
+      if (product.status !== "approved") continue;
+      out.push(sellerProductToMarketplaceProduct(product, shop));
+    }
+  }
+  return out;
+}
+
+function sellerProductToMarketplaceProduct(
+  product: SellerProduct,
+  shop: SellerProfile
+): Product {
+  const isService = product.listingType === "service";
+  const isSolo = shop.sellerType === "individual";
+  return {
+    id: product.id,
+    name: product.name,
+    description:
+      product.description?.trim() ||
+      product.subtitle?.trim() ||
+      shop.shopName,
+    price: product.price,
+    imageUrl: product.imageUrl?.trim() || "/shop/cover-grove.svg",
+    category: product.category,
+    sustainabilityScore: product.ecoScore,
+    affiliateCommissionPercent: 10,
+    sellerUid: shop.uid,
+    sellerId: shop.uid,
+    commerceType: "first_party",
+    listingType: isService ? "service" : "product",
+    stock: product.stock,
+    materials: product.materials,
+    madeIn: product.madeIn,
+    careNotes: product.careNotes,
+    fitGuide: product.fitGuide,
+    dimensions: product.dimensions,
+    sizeChart: product.sizeChart,
+    duration: product.duration,
+    deliveryMode: product.deliveryMode,
+    availabilityNote: product.availabilityNote,
+    vehicleMake: product.vehicleMake,
+    vehicleModel: product.vehicleModel,
+    vehicleYear: product.vehicleYear,
+    oemNote: product.oemNote,
+    providerType: isSolo ? "self_employed" : "company",
+    providerName:
+      shop.tradingName || shop.companyName || shop.shopName || undefined,
+    areaServed: shop.location,
+  };
 }
 
 /** Public shop + listings only when actively approved (not paused/canceled). */

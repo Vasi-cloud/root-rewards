@@ -135,7 +135,7 @@ export default function MarketplaceClient() {
   const { t, lang } = useI18n(); // lang forces re-render on change
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [section, setSection] = useState<MarketSection>("products");
+  const [section, setSection] = useState<MarketSection>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [minPrice, setMinPrice] = useState("");
@@ -162,7 +162,7 @@ export default function MarketplaceClient() {
       listLiveMarketplaceProducts()
         .then((live) => {
           if (cancelled) return;
-          // Firestore live catalog only — seed demos are hidden.
+          // Approved seller listings + live admin/Firestore catalog (same shops as Admin).
           setCatalog(live);
         })
         .catch(() => {
@@ -177,17 +177,28 @@ export default function MarketplaceClient() {
 
     const onCatalogUpdated = () => loadLive();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === CATALOG_REV_KEY || e.key === "forest-buddies-live-products") {
+      if (
+        e.key === CATALOG_REV_KEY ||
+        e.key === "forest-buddies-live-products" ||
+        e.key === "forest-buddies-sellers" ||
+        e.key === null
+      ) {
         loadLive();
       }
     };
+    const onSellersUpdated = () => loadLive();
     window.addEventListener(CATALOG_UPDATED_EVENT, onCatalogUpdated);
     window.addEventListener("storage", onStorage);
+    window.addEventListener("forest-buddies-sellers-updated", onSellersUpdated);
 
     return () => {
       cancelled = true;
       window.removeEventListener(CATALOG_UPDATED_EVENT, onCatalogUpdated);
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener(
+        "forest-buddies-sellers-updated",
+        onSellersUpdated
+      );
     };
   }, []);
 

@@ -13,6 +13,7 @@ import {
   ensureDemoShops,
   listPublicBrandShops,
   listPublicSoloShops,
+  SELLERS_STORAGE_KEY,
 } from "@/lib/seller-storage";
 import type { SellerProfile } from "@/types";
 
@@ -103,9 +104,21 @@ export default function ShopsIndexPage() {
   const [solos, setSolos] = useState<SellerProfile[]>([]);
 
   useEffect(() => {
-    ensureDemoShops();
-    setBrands(listPublicBrandShops());
-    setSolos(listPublicSoloShops());
+    function refresh() {
+      ensureDemoShops();
+      setBrands(listPublicBrandShops());
+      setSolos(listPublicSoloShops());
+    }
+    refresh();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SELLERS_STORAGE_KEY || e.key === null) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("forest-buddies-sellers-updated", refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("forest-buddies-sellers-updated", refresh);
+    };
   }, []);
 
   const empty = brands.length === 0 && solos.length === 0;

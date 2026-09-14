@@ -26,6 +26,7 @@ import {
   defaultAnalytics,
   defaultEarnings,
   defaultPayouts,
+  ensureDemoShops,
   loadAllSellers,
   normalizeSeller,
   saveAllSellers,
@@ -136,6 +137,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshSellers = useCallback(() => {
+    ensureDemoShops();
     const all = loadAllSellers();
     const list = Object.values(all).map(normalizeSeller);
     setAllSellers(list);
