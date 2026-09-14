@@ -54,7 +54,7 @@ const IMPACT = [
   { value: "Shop", label: "Eco-scored goods from makers & partners" },
   { value: "Fund", label: "Illustrative cause gifts at checkout or Donate" },
   { value: "Local", label: "Stores, makers & markets to check in person" },
-  { value: "Share", label: "Optional tools — membership is cause credit first" },
+  { value: "Share", label: "Optional tools — membership supports the platform" },
 ];
 
 const FEATURED = [
@@ -192,8 +192,7 @@ export default function HomePage() {
                 Impact Member · £5/mo
               </Link>
               {" — "}
-              cause credit toward partner programmes, and support for the
-              platform.
+              £5/mo supports partner programmes and the Forest Buddies platform.
             </p>
           </div>
         </div>

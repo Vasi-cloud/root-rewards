@@ -56,7 +56,6 @@ export default function DashboardPage() {
   const {
     tier,
     isImpactMember,
-    causeCreditAvailable,
     cancelScheduled,
     periodEndsAt,
   } = useMembership();
@@ -162,23 +161,15 @@ export default function DashboardPage() {
                       <BadgeCheck className="size-3" />
                       Impact badge
                     </Badge>
-                    {causeCreditAvailable && tier.monthlyCauseCredit > 0 ? (
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-300 bg-white/80 text-emerald-950"
-                      >
-                        £{tier.monthlyCauseCredit} cause credit ready (toward
-                        causes)
-                      </Badge>
-                    ) : null}
                   </span>
                 </>
               ) : (
                 <span className="block">
                   <span className="font-medium text-emerald-950">Free plan</span>
                   {" — "}
-                  shop and fund partner programmes. Membership adds cause credit
-                  and supports the platform — not product cashback.
+                  shop and fund partner programmes. Membership · £5/mo supports
+                  partner programmes and the Forest Buddies platform — not
+                  product cashback.
                 </span>
               )}
               <span className="block text-xs text-emerald-800/70">

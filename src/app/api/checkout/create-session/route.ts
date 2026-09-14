@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Order total must be at least £0.50 after cause credit. Add items or reduce credit applied.",
+          "Order total must be at least £0.50. Add items or a cause gift.",
       },
       { status: 400 }
     );
@@ -129,29 +129,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
-    let couponId: string | undefined;
-
-    if (data.memberCreditCents > 0) {
-      // Credit only offsets cause line items; never drive total ≤ 0.
-      const maxCredit = Math.min(
-        data.memberCreditCents,
-        data.causesCents,
-        Math.max(0, data.goodsCents + data.causesCents - 50)
-      );
-      if (maxCredit > 0) {
-        const coupon = await stripe.coupons.create({
-          amount_off: maxCredit,
-          currency: STRIPE_CHECKOUT_CURRENCY,
-          duration: "once",
-          name: "Impact Member cause credit",
-          max_redemptions: 1,
-        });
-        couponId = coupon.id;
-        discounts.push({ coupon: coupon.id });
-      }
-    }
-
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       // Lock presentment to GBP — override Dashboard Adaptive Pricing (no local-currency selector).
@@ -159,7 +136,6 @@ export async function POST(request: Request) {
       customer_email: data.email,
       client_reference_id: data.userId ?? undefined,
       line_items: stripeLineItems,
-      ...(discounts.length > 0 ? { discounts } : {}),
       success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/checkout/cancel`,
       billing_address_collection: "auto",
@@ -186,12 +162,11 @@ export async function POST(request: Request) {
         shippingAddress: data.address.slice(0, 200),
         shippingCity: data.city.slice(0, 80),
         shippingZip: data.zip.slice(0, 20),
-        memberCreditCents: String(data.memberCreditCents),
+        memberCreditCents: "0",
         causeSelection: JSON.stringify(data.causeSelection).slice(0, 450),
         causeGifts: JSON.stringify(data.causeGifts).slice(0, 450),
         userId: data.userId ?? "",
         currency: STRIPE_CHECKOUT_CURRENCY,
-        ...(couponId ? { memberCreditCoupon: couponId } : {}),
       },
       payment_intent_data: {
         metadata: {
@@ -223,7 +198,6 @@ export async function POST(request: Request) {
       type: payload.type,
       error: payload.error,
       totalCents: data.totalCents,
-      memberCreditCents: data.memberCreditCents,
     });
     return NextResponse.json(
       { error: payload.error, type: payload.type },

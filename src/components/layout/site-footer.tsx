@@ -104,7 +104,7 @@ export function SiteFooter({
           >
             Impact Member · £5/mo
           </Link>{" "}
-          — cause credit toward partner programmes, and support for the
+          — £5/mo supports partner programmes and the Forest Buddies
           platform. Not product cashback. Cause and tree payments fund partner
           programmes. See{" "}
           <Link

@@ -35,9 +35,9 @@ import { cn } from "@/lib/utils";
 
 const INCLUDED_HIGHLIGHTS = [
   {
-    title: "£5 monthly cause credit",
+    title: "£5/mo supports partner programmes",
     detail:
-      "Applies at checkout toward trees and causes (partner programmes) — not product cashback or a shopping balance.",
+      "Your membership fee supports partner programmes and the Forest Buddies platform — not a checkout coupon, cashback, or shopping balance.",
     icon: Trees,
   },
   {
@@ -59,7 +59,6 @@ export default function MembershipPage() {
     tier,
     isImpactMember,
     upgradeToImpact,
-    causeCreditAvailable,
     cancelScheduled,
     periodEndsAt,
     keepMembership,
@@ -152,7 +151,7 @@ export default function MembershipPage() {
         </h1>
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:mt-4 sm:text-lg">
           {showManage
-            ? "Cause credit, platform support, and your badge — manage billing or cancel anytime. Benefits last until your period ends."
+            ? "£5/mo supports partner programmes and the Forest Buddies platform — manage billing or cancel anytime. Benefits last until your period ends."
             : `${IMPACT_MEMBER_PRIMARY} Not product cashback or a shopping balance. Cancel anytime; benefits last until your period ends.`}
         </p>
 
@@ -183,12 +182,10 @@ export default function MembershipPage() {
                   : isImpactMember
                     ? cancelScheduled
                       ? `Benefits continue until ${formatMembershipDate(periodEndsAt)}.`
-                      : causeCreditAvailable
-                        ? "Cause credit ready this month · manage billing below."
-                        : periodEndsAt
-                          ? `Period renews ${formatMembershipDate(periodEndsAt)} · ${daysUntilPeriodEnd(periodEndsAt)} days left.`
-                          : "You’re on Impact Member — manage or cancel below."
-                    : "You’re on Free — upgrade anytime for cause credit, platform support, and badge."}
+                      : periodEndsAt
+                        ? `Period renews ${formatMembershipDate(periodEndsAt)} · ${daysUntilPeriodEnd(periodEndsAt)} days left.`
+                        : "You’re on Impact Member — manage or cancel below."
+                    : "You’re on Free — upgrade anytime for platform support and your Impact badge."}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -396,8 +393,8 @@ export default function MembershipPage() {
                         </div>
                       ) : (
                         <p className="w-full text-center text-sm text-muted-foreground">
-                          Upgrade with Impact Member for cause credit and
-                          platform support.
+                          Upgrade with Impact Member to support partner
+                          programmes and the platform.
                         </p>
                       )
                     ) : (

@@ -18,7 +18,6 @@ const MAX_LINE_ITEMS = 40;
 const MAX_QTY = 50;
 const MAX_UNIT_CENTS = 500_000; // £5,000
 const MAX_ORDER_CENTS = 2_000_000; // £20,000
-const MAX_MEMBER_CREDIT_CENTS = 500; // £5 Impact credit
 
 export type ValidatedCheckout = {
   email: string;
@@ -149,14 +148,10 @@ export function validateCheckoutBody(body: unknown): {
     };
   }
 
-  let memberCreditCents = Math.floor(Number(b.memberCreditCents) || 0);
-  if (memberCreditCents < 0) memberCreditCents = 0;
-  if (memberCreditCents > MAX_MEMBER_CREDIT_CENTS) {
-    memberCreditCents = MAX_MEMBER_CREDIT_CENTS;
-  }
-  memberCreditCents = Math.min(memberCreditCents, catalogCausesCents);
+  // Membership fee is not a checkout coupon — never subtract credit from order total.
+  const memberCreditCents = 0;
 
-  const totalCents = goodsCents + catalogCausesCents - memberCreditCents;
+  const totalCents = goodsCents + catalogCausesCents;
   if (totalCents < 50) {
     return {
       ok: false,

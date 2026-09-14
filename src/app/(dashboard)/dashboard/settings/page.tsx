@@ -221,8 +221,8 @@ function AccountSettingsPageInner() {
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {isImpactMember
-              ? "Manage billing, cause credit, or cancel from Membership."
-              : "Upgrade for affiliate credit share, £5 monthly cause credit (toward causes), and a badge."}
+              ? "Manage billing or cancel from Membership."
+              : "Upgrade for £5/mo platform support and an Impact badge."}
           </p>
         </div>
         <Button

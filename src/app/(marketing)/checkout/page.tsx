@@ -6,7 +6,6 @@ import { CauseGiftPicker } from "@/components/causes/cause-gift-picker";
 import { useAuth } from "@/contexts/auth-context";
 import { useCart } from "@/contexts/cart-context";
 import { useI18n } from "@/contexts/i18n-context";
-import { useMembership } from "@/contexts/membership-context";
 import {
   recordAffiliateConversion,
   recordPartnerOutboundClick,
@@ -63,16 +62,9 @@ export default function CheckoutPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const router = useRouter();
-  const {
-    isImpactMember,
-    causeCreditAvailable,
-    tier,
-    consumeCauseCredit,
-  } = useMembership();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [stripeEnabled, setStripeEnabled] = useState(false);
-  const [applyMemberCredit, setApplyMemberCredit] = useState(true);
   const [gifts, setGifts] = useState<CauseGiftAmounts>(emptyCauseGifts);
 
   useEffect(() => {
@@ -120,14 +112,7 @@ export default function CheckoutPage() {
     [illustrativeUnits]
   );
 
-  const memberCredit =
-    isImpactMember && causeCreditAvailable && applyMemberCredit
-      ? Math.min(causeGiftTotal, tier.monthlyCauseCredit)
-      : 0;
-  const finalTotal = Math.max(
-    0,
-    firstPartySubtotal + causeGiftTotal - memberCredit
-  );
+  const finalTotal = Math.max(0, firstPartySubtotal + causeGiftTotal);
 
   const treesEstimate = estimateTreesFromSubtotal(firstPartySubtotal);
   const co2Estimate = estimateCo2FromTrees(treesEstimate);
@@ -233,7 +218,7 @@ export default function CheckoutPage() {
 
     if (finalTotal < 0.5) {
       setFormError(
-        "Order total must be at least £0.50 after cause credit. Add items or adjust your cause gift."
+        "Order total must be at least £0.50. Add items or a cause gift."
       );
       return;
     }
@@ -262,7 +247,7 @@ export default function CheckoutPage() {
     savePendingCheckout({
       selection: causeSelection,
       gifts,
-      memberCreditApplied: memberCredit > 0,
+      memberCreditApplied: false,
       orderTotal: finalTotal,
       cartSubtotal: firstPartySubtotal,
       weightedAffiliatePercent: weightedPercent,
@@ -287,7 +272,7 @@ export default function CheckoutPage() {
       city: cityResult.value,
       zip: zipResult.value,
       userId: user?.uid ?? null,
-      memberCreditCents: Math.round(memberCredit * 100),
+      memberCreditCents: 0,
       causeGifts: gifts,
       causeSelection,
       lineItems: firstParty.map((item) => ({
@@ -317,7 +302,6 @@ export default function CheckoutPage() {
       source: "checkout",
       userEmail: email || null,
     });
-    if (memberCredit > 0) consumeCauseCredit();
     recordAffiliateConversion({
       orderTotal: firstPartySubtotal,
       basePercent: weightedPercent,
@@ -468,28 +452,6 @@ export default function CheckoutPage() {
                 </span>
               </div>
             ))}
-
-            {memberCredit > 0 && (
-              <div className="mt-2 flex justify-between gap-3 text-base text-emerald-900">
-                <span>Impact Member cause credit</span>
-                <span className="tabular-nums">−£{memberCredit.toFixed(2)}</span>
-              </div>
-            )}
-
-            {isImpactMember && causeCreditAvailable && causeGiftTotal > 0 && (
-              <label className="mt-3 flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3.5 py-3.5 text-base text-emerald-900">
-                <input
-                  type="checkbox"
-                  className="mt-1 size-5 shrink-0 accent-emerald-700"
-                  checked={applyMemberCredit}
-                  onChange={(e) => setApplyMemberCredit(e.target.checked)}
-                />
-                <span>
-                  Apply this month&apos;s £{tier.monthlyCauseCredit} cause
-                  credit (toward causes — not product cashback)
-                </span>
-              </label>
-            )}
 
             <div className="mt-3 flex justify-between border-t pt-4 text-2xl font-semibold">
               <span>Total</span>

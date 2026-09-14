@@ -81,8 +81,8 @@ export default function AffiliatesPage() {
           Affiliate tools for Impact Members
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Impact Member · £5/mo — cause credit toward partner programmes, and
-          support for the platform. Share-link estimates are optional and appear
+          Impact Member · £5/mo supports partner programmes and the Forest
+          Buddies platform. Share-link estimates are optional and appear
           after partners pay — not a cash wallet, and not what membership is for.
         </p>
         <Card className="mt-8 border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-cream to-cream">

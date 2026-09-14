@@ -21,7 +21,7 @@ export function welcomeEmailHtml(opts: {
       <li>Shop eco brands &amp; solo makers</li>
       <li>Book legal, repair, workshop &amp; wellness services</li>
       <li>Fund trees and causes at checkout (partner programmes)</li>
-      <li>Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform</li>
+      <li>Impact Member · £5/mo supports partner programmes and the Forest Buddies platform</li>
     </ul>
     ${ctaButton(`${appUrl}/marketplace`, "Explore the marketplace")}
     <p style="margin:20px 0 0;font-size:14px;color:#5c7366;">
@@ -310,14 +310,13 @@ export function membershipSuccessEmailHtml(opts: {
     <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 14px;">
       Your Impact Member subscription is active.
-      <strong>Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.</strong>
+      <strong>Impact Member · £5/mo supports partner programmes and the Forest Buddies platform.</strong>
     </p>
     <ul style="margin:0 0 18px;padding-left:18px;color:#2d6a4f;">
       <li>
-        <strong>£5 monthly cause credit</strong> at checkout toward trees and
-        causes (partner programmes) — not product cashback or a shopping balance.
+        <strong>£5/mo</strong> supports partner programmes and the Forest Buddies
+        platform — not product cashback or a shopping balance.
       </li>
-      <li>Your membership helps support the Forest Buddies platform</li>
       <li>Impact Member badge on your profile</li>
       <li>Cancel anytime — benefits last until the end of the billing period</li>
     </ul>
@@ -336,10 +335,9 @@ export function membershipSuccessEmailHtml(opts: {
   const text = `Hi ${name},
 
 You're an Impact Member.
-Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.
+Impact Member · £5/mo supports partner programmes and the Forest Buddies platform.
 
-- £5 monthly cause credit at checkout toward trees/causes (partner programmes) — not product cashback or a shopping balance.
-- Your membership helps support the Forest Buddies platform
+- £5/mo supports partner programmes and the Forest Buddies platform — not product cashback or a shopping balance.
 - Impact Member badge on your profile
 - Cancel anytime — benefits last until the end of the billing period
 
@@ -353,7 +351,7 @@ Donate: ${appUrl}/donate
     subject,
     html: emailLayout({
       preheader:
-        "Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.",
+        "Impact Member · £5/mo supports partner programmes and the Forest Buddies platform.",
       title: "You’re an Impact Member",
       bodyHtml,
     }),

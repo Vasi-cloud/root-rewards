@@ -49,7 +49,7 @@ export function MembershipCancelControls({
           </p>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-amber-950/85">
-          You keep cause credit, platform support, and your Impact badge until{" "}
+          You keep platform support and your Impact badge until{" "}
           {endsLabel}
           {daysLeft > 0
             ? ` (${daysLeft} day${daysLeft === 1 ? "" : "s"} left)`
@@ -112,12 +112,11 @@ export function MembershipCancelControls({
           <ul className="mt-2 space-y-1 text-sm text-emerald-950/90">
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
-              £{tier.monthlyCauseCredit} monthly cause credit (toward causes —
-              not product cashback)
+              £5/mo supports partner programmes and the Forest Buddies platform
             </li>
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />
-              Platform support via your membership
+              Not product cashback or a shopping balance
             </li>
             <li className="flex gap-2">
               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-700" />

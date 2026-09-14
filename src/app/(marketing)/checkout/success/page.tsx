@@ -15,7 +15,6 @@ import { Suspense, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
-import { useMembership } from "@/contexts/membership-context";
 import { recordAffiliateConversion } from "@/lib/affiliate-storage";
 import {
   emptyCauseGifts,
@@ -48,7 +47,6 @@ const CAUSE_ICONS = {
 function CheckoutSuccessInner() {
   const searchParams = useSearchParams();
   const { clearCart } = useCart();
-  const { consumeCauseCredit } = useMembership();
   const [order, setOrder] = useState<ConfirmedOrderClient | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +157,6 @@ function CheckoutSuccessInner() {
         recordEcoPurchase({
           productName: pending.productName,
         });
-        if (pending.memberCreditApplied) consumeCauseCredit();
         recordAffiliateConversion({
           orderTotal: pending.cartSubtotal,
           basePercent: pending.weightedAffiliatePercent,
@@ -188,7 +185,7 @@ function CheckoutSuccessInner() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, clearCart, consumeCauseCredit]);
+  }, [searchParams, clearCart]);
 
   if (status === "loading") {
     return (

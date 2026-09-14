@@ -114,7 +114,7 @@ function MembershipSuccessInner() {
           <Leaf className="size-4" /> Impact Member · £5/mo
         </div>
         <p className="text-emerald-900/85">
-          Cause credit toward partner programmes, and support for the platform.
+          £5/mo supports partner programmes and the Forest Buddies platform.
           Not product cashback or a shopping balance.
         </p>
         <div className="mt-4 mb-2 flex items-center gap-2 font-medium">
@@ -122,10 +122,9 @@ function MembershipSuccessInner() {
         </div>
         <ul className="list-inside list-disc space-y-1 text-emerald-900/90">
           <li>
-            £5 monthly cause credit at checkout (toward causes — not product
-            cashback)
+            £5/mo supports partner programmes and the Forest Buddies platform
           </li>
-          <li>Your membership helps support the Forest Buddies platform</li>
+          <li>Not product cashback or a shopping balance</li>
           <li>Impact Member badge on your profile</li>
           <li>Cancel anytime — benefits last until your period ends</li>
         </ul>

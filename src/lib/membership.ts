@@ -7,7 +7,7 @@ export interface MembershipTier {
   priceMonthly: number;
   /** Multiplier on base affiliate commission (1 = 100%) */
   affiliateBoost: number;
-  /** Demo monthly cause credit in GBP applied at checkout */
+  /** Historical field — not applied at checkout (membership is not a coupon). */
   monthlyCauseCredit: number;
   perks: string[];
   highlight?: boolean;
@@ -15,11 +15,11 @@ export interface MembershipTier {
 
 /** Public one-liner — homepage, membership, Stripe line item, email. */
 export const IMPACT_MEMBER_PRIMARY =
-  "Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform.";
+  "Impact Member · £5/mo supports partner programmes and the Forest Buddies platform.";
 
 /** Stripe Checkout product_data.description — must not lead with commissions. */
 export const IMPACT_MEMBER_STRIPE_DESCRIPTION =
-  "Impact Member · £5/mo — cause credit toward partner programmes, and support for the platform. Not product cashback or a shopping balance. Cancel anytime.";
+  "Impact Member · £5/mo supports partner programmes and the Forest Buddies platform. Not product cashback or a shopping balance. Cancel anytime.";
 
 /** Scalable catalog — add tiers here without rewriting UI. */
 export const MEMBERSHIP_TIERS: MembershipTier[] = [
@@ -40,15 +40,15 @@ export const MEMBERSHIP_TIERS: MembershipTier[] = [
     id: "impact",
     name: "Impact Member",
     tagline:
-      "£5/mo — cause credit toward partner programmes, and support for the platform.",
+      "£5/mo supports partner programmes and the Forest Buddies platform.",
     priceMonthly: 5,
     affiliateBoost: 1.25,
-    monthlyCauseCredit: 5,
+    monthlyCauseCredit: 0,
     highlight: true,
     perks: [
       "Everything in Free",
-      "£5 monthly cause credit at checkout (toward causes — not product cashback or a shopping balance)",
-      "Your membership supports the Forest Buddies platform",
+      "£5/mo supports partner programmes and the Forest Buddies platform",
+      "Not product cashback or a shopping balance",
       "Impact Member badge on your profile",
       "Cancel anytime — benefits last until your period ends",
     ],
