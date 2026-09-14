@@ -86,8 +86,7 @@ export function orderConfirmationEmailHtml(opts: {
   const bodyHtml = `
     <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 14px;">
-      Thank you — your order is confirmed and being prepared with care.
-      A little more good is on its way into the world.
+      Thank you — your order is confirmed. Partners usually dispatch in 1–3 days; tracking arrives by email when they ship.
     </p>
     <p style="margin:0 0 6px;font-size:13px;color:#5c7366;">Order number</p>
     <p style="margin:0 0 16px;font-family:ui-monospace,monospace;font-weight:600;">${escapeHtml(opts.orderNumber)}</p>
@@ -107,7 +106,9 @@ export function orderConfirmationEmailHtml(opts: {
 
   const text = `Hi ${name},
 
-Your Forest Buddies order ${opts.orderNumber} is confirmed.
+Thank you — your order is confirmed. Partners usually dispatch in 1–3 days; tracking arrives by email when they ship.
+
+Order number: ${opts.orderNumber}
 Total: £${total}
 
 ${opts.lineItems.map((i) => `- ${i.name} × ${i.quantity}: £${(i.amountCents / 100).toFixed(2)}`).join("\n")}
