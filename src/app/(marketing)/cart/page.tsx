@@ -26,6 +26,7 @@ import {
   emptyCauseGifts,
   giftLines,
   giftTotal,
+  loadCartCauseGifts,
   saveCartCauseGifts,
   type CauseGiftAmounts,
 } from "@/lib/causes";
@@ -38,15 +39,18 @@ import {
   deliveryEstimateForCart,
   deliveryEstimateForProduct,
 } from "@/lib/delivery-estimates";
+import { isRentalListing } from "@/lib/listing-categories";
 import type { CartItem } from "@/types";
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, totalItems } = useCart();
-  /** Cause gifts start unchecked — match /checkout (shopper must opt in). */
+  /** Shared with /checkout via localStorage — opt-in only, never auto-select all. */
   const [gifts, setGifts] = useState<CauseGiftAmounts>(() => emptyCauseGifts());
+  const [giftsReady, setGiftsReady] = useState(false);
 
   useEffect(() => {
-    saveCartCauseGifts(emptyCauseGifts());
+    setGifts(loadCartCauseGifts());
+    setGiftsReady(true);
   }, []);
 
   function updateGifts(next: CauseGiftAmounts) {
@@ -71,7 +75,28 @@ export default function CartPage() {
   const causeGiftTotal = giftTotal(gifts);
   const causeGiftLines = giftLines(gifts);
   const stripePayable = firstPartySubtotal + causeGiftTotal;
-  const delivery = deliveryEstimateForCart(firstParty);
+
+  const hasHire = useMemo(
+    () => firstParty.some((item) => isRentalListing(item)),
+    [firstParty]
+  );
+  const goodsOnly = useMemo(
+    () => firstParty.filter((item) => !isRentalListing(item)),
+    [firstParty]
+  );
+  const hireOnly =
+    firstParty.length > 0 && goodsOnly.length === 0 && hasHire;
+  const delivery = deliveryEstimateForCart(goodsOnly);
+  const fulfillmentSummary = hasHire
+    ? hireOnly
+      ? "Hire — partner confirms dates. Not a posted parcel."
+      : "Mixed basket · hire dates confirmed by partner · goods dropship separately"
+    : delivery.summary;
+  const fulfillmentDetail = hasHire
+    ? hireOnly
+      ? "This cart includes hire fees. The partner confirms collection or return dates — nothing is posted like a parcel."
+      : "Hire lines need date confirmation from the partner. Physical goods (if any) ship by partner dropship with tracking by email."
+    : delivery.detail;
 
   function shopAmazon(item: CartItem) {
     const { url } = recordPartnerOutboundClick({
@@ -190,8 +215,8 @@ export default function CartPage() {
           <div className="flex gap-3 rounded-2xl border border-sky-200/80 bg-sky-50/50 px-4 py-3.5 text-sm text-sky-950">
             <Truck className="mt-0.5 size-5 shrink-0 text-sky-800" />
             <div className="min-w-0">
-              <p className="font-medium text-foreground">{delivery.summary}</p>
-              <p className="mt-0.5 text-muted-foreground">{delivery.detail}</p>
+              <p className="font-medium text-foreground">{fulfillmentSummary}</p>
+              <p className="mt-0.5 text-muted-foreground">{fulfillmentDetail}</p>
             </div>
           </div>
         </section>
@@ -225,9 +250,9 @@ export default function CartPage() {
               Optional — Support a cause
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Tick a cause to fund partner programmes — nothing is pre-selected.
-              Illustrative units appear only for amounts you choose. £5 / £10 /
-              £25 or custom (min £1). Not a GPS pin for a tree.
+              Tick a cause to fund partner programmes. Selections carry to
+              checkout. Illustrative units only for amounts you choose. £5 /
+              £10 / £25 or custom (min £1). Not a GPS pin for a tree.
             </p>
           </div>
           <Button
@@ -240,7 +265,10 @@ export default function CartPage() {
             Open full donate page
           </Button>
         </div>
-        <CauseGiftPicker gifts={gifts} onChange={updateGifts} />
+        <CauseGiftPicker
+          gifts={giftsReady ? gifts : emptyCauseGifts()}
+          onChange={updateGifts}
+        />
       </section>
 
       <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm sm:rounded-3xl sm:p-8">
@@ -385,7 +413,9 @@ function CartLine({
         {mode === "first_party" ? (
           <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-sky-900">
             <Truck className="size-3.5 shrink-0 opacity-80" />
-            {deliveryEstimateForProduct(item).label}
+            {isRentalListing(item)
+              ? "Hire — partner confirms dates. Not a posted parcel."
+              : deliveryEstimateForProduct(item).label}
           </p>
         ) : (
           <Button

@@ -23,6 +23,7 @@ import {
   giftLines,
   giftTotal,
   giftsToIllustrativeUnits,
+  loadCartCauseGifts,
   saveCartCauseGifts,
   type CauseGiftAmounts,
 } from "@/lib/causes";
@@ -60,11 +61,13 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [stripeEnabled, setStripeEnabled] = useState(false);
-  /** Cause gifts start unchecked — shopper must opt in (never hydrate from cart). */
+  /** Shared with /cart via localStorage — opt-in only, never auto-select all. */
   const [gifts, setGifts] = useState<CauseGiftAmounts>(() => emptyCauseGifts());
+  const [giftsReady, setGiftsReady] = useState(false);
 
   useEffect(() => {
-    saveCartCauseGifts(emptyCauseGifts());
+    setGifts(loadCartCauseGifts());
+    setGiftsReady(true);
     void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
   }, []);
 
@@ -484,7 +487,10 @@ export default function CheckoutPage() {
               Amounts are partner-funded / illustrative — not affiliate cashback.
             </p>
 
-            <CauseGiftPicker gifts={gifts} onChange={updateGifts} />
+            <CauseGiftPicker
+              gifts={giftsReady ? gifts : emptyCauseGifts()}
+              onChange={updateGifts}
+            />
 
             <div
               className={`mt-5 rounded-2xl border px-4 py-4 transition-colors ${
