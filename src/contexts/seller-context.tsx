@@ -150,15 +150,11 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
     // Soft-launch demos + any approved shops — seed even when logged out so
     // /marketplace and /shop match Admin Sellers on the same device.
     ensureDemoShops();
-    if (!user) {
-      setSeller(null);
-      setAllSellers(Object.values(loadAllSellers()).map(normalizeSeller));
-      setLoading(false);
-      return;
-    }
-
     refreshSellers();
     setLoading(false);
+    if (!user) {
+      setSeller(null);
+    }
   }, [user, refreshSellers]);
 
   useEffect(() => {

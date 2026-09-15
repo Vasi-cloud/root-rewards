@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 
 export const metadata = {
   title: "Terms of Service",
-  description: "Terms for using the Forest Buddies marketplace demo.",
+  description: "Terms for using the Forest Buddies marketplace.",
 };
 
 export default function TermsPage() {
@@ -18,7 +18,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Last updated: July 17, 2026 · Demo / MVP wording — not legal advice.
+        Last updated: September 15, 2026 · Soft-launch wording — not legal advice.
       </p>
 
       <Separator className="my-8" />
@@ -42,12 +42,14 @@ export default function TermsPage() {
 
         <section>
           <h2 className="font-heading text-xl font-semibold text-primary">
-            2. Demo nature
+            2. Payments &amp; membership
           </h2>
           <p className="mt-2 text-muted-foreground">
-            This product is an MVP demo. Prices, inventory, affiliate earnings,
-            memberships, vision matching, and local stock are simulated unless
-            otherwise stated. No real payment is charged.
+            Marketplace checkout and Impact Member (£5/mo) use Stripe Checkout.
+            Charges are real in Stripe Test or Live mode, depending on which
+            secret key is configured. Impact Member · £5/mo supports partner
+            programmes and the Forest Buddies platform — not product cashback or
+            a shopping balance.
           </p>
         </section>
 
@@ -68,25 +70,28 @@ export default function TermsPage() {
           </h2>
           <p className="mt-2 text-muted-foreground">
             Listings must be accurate and lawful. Misleading eco claims may be
-            flagged or removed. Seller tools in this demo store data locally
-            until a production backend is connected.
+            flagged or removed. Soft-launch seller tools may store some data on
+            this device until a full production backend is connected.
           </p>
         </section>
 
         <section>
           <h2 className="font-heading text-xl font-semibold text-primary">
-            5. Affiliates &amp; partners
+            5. Affiliates, partners &amp; impact
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Affiliate stats and partner outbound links are illustrative.
-            Third-party stores have their own terms. Commission figures are not
-            guarantees.
+            Affiliate stats and partner outbound links are illustrative where
+            marked. Third-party stores have their own terms. Commission figures
+            are not guarantees.
+          </p>
+          <p className="mt-3 text-muted-foreground">
+            Cause gifts and tree funding support partner programmes.
+            Impact figures are illustrative — not product cashback, and not a
+            GPS pin for a planted tree.
           </p>
           <p className="mt-3 text-muted-foreground">
             Affiliate sharing may come later. It is not a cash wallet, and it is
-            not what the Impact Member £5/mo fee is for. That fee supports partner
-            programmes and the Forest Buddies platform — not product cashback or a
-            payout.
+            not what the Impact Member £5/mo fee is for.
           </p>
         </section>
 
@@ -102,7 +107,7 @@ export default function TermsPage() {
             >
               Returns &amp; size guide
             </Link>{" "}
-            for the demo return window and sizing help.
+            for return windows and sizing help.
           </p>
         </section>
 
@@ -122,8 +127,8 @@ export default function TermsPage() {
           </h2>
           <p className="mt-2 text-muted-foreground">
             The service is provided “as is” without warranties. We are not liable
-            for demo data loss, third-party sites, or decisions made from
-            simulated recommendations.
+            for third-party sites, partner fulfilment delays, or decisions made
+            from illustrative impact or recommendation tools.
           </p>
         </section>
 

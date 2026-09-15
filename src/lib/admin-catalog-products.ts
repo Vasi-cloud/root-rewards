@@ -18,6 +18,9 @@ import {
 import { isFirebaseClientConfigured } from "@/lib/firebase/config";
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import { DEFAULT_BOOKING_NOTE, isValidHttpUrl } from "@/lib/listing-categories";
+import {
+  listApprovedSellerMarketplaceProducts,
+} from "@/lib/seller-storage";
 import type {
   CommerceType,
   ListingType,
@@ -584,32 +587,25 @@ export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]>
 }
 
 /**
- * Public marketplace helper — admin/live catalog PLUS approved seller listings
- * (same shops Admin Sellers shows). Seller rows win on id collision.
+ * Public marketplace helper — approved seller listings (same shops Admin Sellers
+ * uses) PLUS admin/Firestore catalog. Seller rows win on id collision.
+ * Seller catalogue is loaded first so guests never see an empty grid when
+ * Firestore is empty or slow.
  */
 export async function listLiveMarketplaceProducts(): Promise<Product[]> {
+  // Same approved shops/listings Admin Sellers uses — sync, local, guest-safe.
+  const sellerLive = listApprovedSellerMarketplaceProducts();
+
   let live: Product[] = [];
   try {
     const rows = await listAdminCatalogProducts();
     live = rows.map(toMarketplaceProduct);
   } catch (err) {
-    // Marketplace stays usable from local cache if Firestore is briefly down.
+    // Marketplace stays usable from seller shops + local cache if Firestore is down.
     console.warn("[products] Live list falling back to local cache", err);
     live = loadLocal().map(toMarketplaceProduct);
   }
 
-  // Same approved shops/listings Admin Sellers uses (client-only when window exists)
-  let sellerLive: Product[] = [];
-  try {
-    const { listApprovedSellerMarketplaceProducts } = await import(
-      "@/lib/seller-storage"
-    );
-    sellerLive = listApprovedSellerMarketplaceProducts();
-  } catch (err) {
-    console.warn("[products] seller catalogue unavailable", err);
-  }
-
-  // Seller approved listings win over admin/Firestore rows with the same id.
   return mergeMarketplaceCatalog(live, sellerLive);
 }
 

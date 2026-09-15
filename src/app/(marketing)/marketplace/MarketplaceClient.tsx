@@ -54,7 +54,10 @@ import {
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
-import { ensureDemoShops } from "@/lib/seller-storage";
+import {
+  ensureDemoShops,
+  listApprovedSellerMarketplaceProducts,
+} from "@/lib/seller-storage";
 import type { CartItem, Product } from "@/types";
 
 type MarketSection = "all" | "products" | "services" | "rentals";
@@ -161,14 +164,23 @@ export default function MarketplaceClient() {
 
     function loadLive() {
       ensureDemoShops();
+      // Show approved seller listings immediately (same source as Admin Sellers).
+      const sellerNow = listApprovedSellerMarketplaceProducts();
+      if (!cancelled && sellerNow.length > 0) {
+        setCatalog(sellerNow);
+        setCatalogLoading(false);
+      }
+
       listLiveMarketplaceProducts()
         .then((live) => {
           if (cancelled) return;
-          // Approved seller listings + live admin/Firestore catalog (same shops as Admin).
           setCatalog(live);
         })
         .catch(() => {
-          if (!cancelled) setCatalog([]);
+          if (cancelled) return;
+          // Never wipe a non-empty seller catalogue on Firestore failure.
+          const fallback = listApprovedSellerMarketplaceProducts();
+          setCatalog(fallback);
         })
         .finally(() => {
           if (!cancelled) setCatalogLoading(false);

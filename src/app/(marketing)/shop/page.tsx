@@ -3,14 +3,18 @@
 import { Leaf, MapPin, Store, UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useSeller } from "@/contexts/seller-context";
 import { defaultProductImage } from "@/lib/shop-presentation";
-import { isSellerPubliclyVisible } from "@/lib/seller-storage";
+import {
+  SELLERS_STORAGE_KEY,
+  ensureDemoShops,
+  listPublicBrandShops,
+  listPublicSoloShops,
+} from "@/lib/seller-storage";
 import type { SellerProfile } from "@/types";
 
 function ShopCard({
@@ -96,23 +100,31 @@ function ShopCard({
 }
 
 export default function ShopsIndexPage() {
-  // Same SellerProvider / forest-buddies-sellers store Admin Sellers uses.
-  const { allSellers, loading } = useSeller();
+  // Same forest-buddies-sellers store Admin Sellers uses — load directly so
+  // guests never depend on auth-tied SellerProvider timing.
+  const [brands, setBrands] = useState<SellerProfile[]>([]);
+  const [solos, setSolos] = useState<SellerProfile[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const brands = useMemo(
-    () =>
-      allSellers.filter(
-        (s) => isSellerPubliclyVisible(s) && s.sellerType !== "individual"
-      ),
-    [allSellers]
-  );
-  const solos = useMemo(
-    () =>
-      allSellers.filter(
-        (s) => isSellerPubliclyVisible(s) && s.sellerType === "individual"
-      ),
-    [allSellers]
-  );
+  useEffect(() => {
+    function refresh() {
+      ensureDemoShops();
+      setBrands(listPublicBrandShops());
+      setSolos(listPublicSoloShops());
+      setLoading(false);
+    }
+    refresh();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SELLERS_STORAGE_KEY || e.key === null) refresh();
+    };
+    const onCustom = () => refresh();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("forest-buddies-sellers-updated", onCustom);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("forest-buddies-sellers-updated", onCustom);
+    };
+  }, []);
 
   const empty = !loading && brands.length === 0 && solos.length === 0;
 
