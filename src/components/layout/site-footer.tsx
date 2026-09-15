@@ -105,8 +105,7 @@ export function SiteFooter({
             Impact Member
           </Link>
           {" · "}
-          £5/mo supports partner programmes and the Forest Buddies platform. Not
-          product cashback. Cause and tree payments fund partner programmes. See{" "}
+          £5/mo supports partner programmes and the Forest Buddies platform. See{" "}
           <Link
             href="/terms"
             className="font-medium text-sage underline-offset-2 hover:underline"

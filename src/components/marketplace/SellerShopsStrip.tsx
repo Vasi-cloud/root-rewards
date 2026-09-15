@@ -2,24 +2,44 @@
 
 import { Store } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { useSeller } from "@/contexts/seller-context";
-import { isSellerPubliclyVisible } from "@/lib/seller-storage";
+import {
+  SELLERS_STORAGE_KEY,
+  ensureDemoShops,
+  listPublicShops,
+} from "@/lib/seller-storage";
+import type { SellerProfile } from "@/types";
 
-/** Brand / company shops only — solos live in FeaturedSoloMakers. */
+function shopLabel(shop: SellerProfile): string {
+  return shop.tradingName?.trim() || shop.shopName;
+}
+
+/** All approved shops (same six Admin Sellers shows) — hide paused/rejected. */
 export function SellerShopsStrip() {
-  const { allSellers } = useSeller();
-  const shops = useMemo(
-    () =>
-      allSellers
-        .filter(
-          (s) => isSellerPubliclyVisible(s) && s.sellerType !== "individual"
-        )
-        .slice(0, 6),
-    [allSellers]
-  );
+  const [shops, setShops] = useState<SellerProfile[]>([]);
+
+  useEffect(() => {
+    function refresh() {
+      ensureDemoShops();
+      const next = listPublicShops().sort((a, b) =>
+        shopLabel(a).localeCompare(shopLabel(b))
+      );
+      setShops(next);
+    }
+    refresh();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SELLERS_STORAGE_KEY || e.key === null) refresh();
+    };
+    const onCustom = () => refresh();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("forest-buddies-sellers-updated", onCustom);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("forest-buddies-sellers-updated", onCustom);
+    };
+  }, []);
 
   if (shops.length === 0) return null;
 
@@ -32,7 +52,7 @@ export function SellerShopsStrip() {
             <h2 className="font-heading text-lg font-semibold">Eco brand shops</h2>
           </div>
           <p className="mt-1 text-sm text-emerald-800/80">
-            Curated studios and brands with story-led product catalogs.
+            Approved shops with live listings — goods, services, and hire.
           </p>
         </div>
         <Button
@@ -51,7 +71,7 @@ export function SellerShopsStrip() {
             href={`/shop/${shop.slug}`}
             className="inline-flex min-h-10 items-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-medium text-emerald-950 hover:bg-emerald-100"
           >
-            {shop.shopName}
+            {shopLabel(shop)}
           </Link>
         ))}
       </div>

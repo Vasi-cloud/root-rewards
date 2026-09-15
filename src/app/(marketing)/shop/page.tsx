@@ -12,22 +12,19 @@ import { defaultProductImage } from "@/lib/shop-presentation";
 import {
   SELLERS_STORAGE_KEY,
   ensureDemoShops,
-  listPublicBrandShops,
-  listPublicSoloShops,
+  listPublicShops,
 } from "@/lib/seller-storage";
 import type { SellerProfile } from "@/types";
 
-function ShopCard({
-  shop,
-  accent = "brand",
-}: {
-  shop: SellerProfile;
-  accent?: "brand" | "solo";
-}) {
+function shopLabel(shop: SellerProfile): string {
+  return shop.tradingName?.trim() || shop.shopName;
+}
+
+function ShopCard({ shop }: { shop: SellerProfile }) {
   const approved = shop.products.filter((p) => p.status === "approved");
   const preview = approved[0];
   const cover = shop.coverImageUrl ?? "/shop/cover-grove.svg";
-  const isSolo = accent === "solo";
+  const isSolo = shop.sellerType === "individual";
 
   return (
     <Link
@@ -58,7 +55,7 @@ function ShopCard({
         </div>
         <div className="absolute right-4 bottom-4 left-4">
           <h2 className="font-heading text-2xl font-semibold text-cream">
-            {shop.tradingName || shop.shopName}
+            {shopLabel(shop)}
           </h2>
           {shop.location && (
             <p className="mt-1 flex items-center gap-1 text-sm text-cream/80">
@@ -100,17 +97,18 @@ function ShopCard({
 }
 
 export default function ShopsIndexPage() {
-  // Same forest-buddies-sellers store Admin Sellers uses — load directly so
-  // guests never depend on auth-tied SellerProvider timing.
-  const [brands, setBrands] = useState<SellerProfile[]>([]);
-  const [solos, setSolos] = useState<SellerProfile[]>([]);
+  // Same approved shops as Admin Sellers / marketplace chip row.
+  const [shops, setShops] = useState<SellerProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     function refresh() {
       ensureDemoShops();
-      setBrands(listPublicBrandShops());
-      setSolos(listPublicSoloShops());
+      setShops(
+        listPublicShops().sort((a, b) =>
+          shopLabel(a).localeCompare(shopLabel(b))
+        )
+      );
       setLoading(false);
     }
     refresh();
@@ -126,7 +124,7 @@ export default function ShopsIndexPage() {
     };
   }, []);
 
-  const empty = !loading && brands.length === 0 && solos.length === 0;
+  const empty = !loading && shops.length === 0;
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-sage/20 via-cream to-cream">
@@ -141,11 +139,10 @@ export default function ShopsIndexPage() {
           Meet makers with a story
         </h1>
         <p className="mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Eco brands with curated catalogs, plus self-employed practices for
-          legal, consulting, and workshops — each on their own terms.
+          Approved shops with live listings — goods, services, and hire.
         </p>
 
-        {brands.length > 0 && (
+        {shops.length > 0 && (
           <section className="mt-12">
             <div className="mb-5 flex items-center gap-2 text-primary">
               <Store className="size-4" />
@@ -154,28 +151,8 @@ export default function ShopsIndexPage() {
               </h2>
             </div>
             <div className="grid gap-6 sm:grid-cols-2">
-              {brands.map((shop) => (
-                <ShopCard key={shop.uid} shop={shop} accent="brand" />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {solos.length > 0 && (
-          <section id="solo-makers" className="mt-14 scroll-mt-24">
-            <div className="mb-2 flex items-center gap-2 text-primary">
-              <UserRound className="size-4" />
-              <h2 className="font-heading text-xl font-semibold sm:text-2xl">
-                Featured solo makers
-              </h2>
-            </div>
-            <p className="mb-5 max-w-xl text-sm text-muted-foreground">
-              Legal, consulting, workshops, repair, wellness, garden, and home —
-              one-person practices with the same impact-backed care as brand shops.
-            </p>
-            <div className="grid gap-6 sm:grid-cols-2">
-              {solos.map((shop) => (
-                <ShopCard key={shop.uid} shop={shop} accent="solo" />
+              {shops.map((shop) => (
+                <ShopCard key={shop.uid} shop={shop} />
               ))}
             </div>
           </section>
