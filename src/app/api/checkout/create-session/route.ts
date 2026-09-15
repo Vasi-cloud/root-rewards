@@ -166,6 +166,13 @@ export async function POST(request: Request) {
         causeSelection: JSON.stringify(data.causeSelection).slice(0, 450),
         causeGifts: JSON.stringify(data.causeGifts).slice(0, 450),
         userId: data.userId ?? "",
+        hasHire: data.lineItems.some(
+          (li) =>
+            /\bhire\b/i.test(li.name) ||
+            (li.description?.toLowerCase().includes("hire") ?? false)
+        )
+          ? "1"
+          : "0",
         currency: STRIPE_CHECKOUT_CURRENCY,
       },
       payment_intent_data: {

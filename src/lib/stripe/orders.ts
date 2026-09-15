@@ -36,6 +36,8 @@ export type ConfirmedOrder = {
     quantity: number;
     amountCents: number;
   }>;
+  /** From Checkout metadata — hire / rental basket */
+  hasHire?: boolean;
   fulfilledAt: string;
   fulfilledBy: "webhook" | "success_page" | "demo";
   status: "paid" | "fulfilled";
@@ -104,6 +106,15 @@ function getStore(): OrderStore {
 
 export function getOrderBySessionId(sessionId: string): ConfirmedOrder | null {
   return getStore().ordersBySession[sessionId] ?? null;
+}
+
+/** Newest first — fulfilled marketplace + membership sessions on this server. */
+export function listConfirmedOrders(): ConfirmedOrder[] {
+  const store = getStore();
+  return Object.values(store.ordersBySession).sort(
+    (a, b) =>
+      new Date(b.fulfilledAt).getTime() - new Date(a.fulfilledAt).getTime()
+  );
 }
 
 export function saveConfirmedOrder(order: ConfirmedOrder): ConfirmedOrder {

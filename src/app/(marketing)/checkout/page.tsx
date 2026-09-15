@@ -11,11 +11,7 @@ import {
   recordPartnerOutboundClick,
 } from "@/lib/affiliate-storage";
 import { getAmazonStoreLabel } from "@/lib/amazon-affiliate";
-import {
-  estimateCo2FromTrees,
-  estimateTreesFromSubtotal,
-  formatCartMoney,
-} from "@/lib/cart-impact";
+import { formatCartMoney } from "@/lib/cart-impact";
 import { isAffiliateProduct, isFirstPartyProduct } from "@/lib/commerce-type";
 import {
   deliveryEstimateForCart,
@@ -27,11 +23,14 @@ import {
   giftLines,
   giftTotal,
   giftsToIllustrativeUnits,
-  loadCartCauseGifts,
   saveCartCauseGifts,
   type CauseGiftAmounts,
 } from "@/lib/causes";
 import { saveLastDonation } from "@/lib/impact-storage";
+import {
+  formatListingPrice,
+  isRentalListing,
+} from "@/lib/listing-categories";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import {
   fetchPaymentsStatus,
@@ -61,14 +60,12 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [stripeEnabled, setStripeEnabled] = useState(false);
-  const [gifts, setGifts] = useState<CauseGiftAmounts>(emptyCauseGifts);
+  /** Cause gifts start unchecked — shopper must opt in (never hydrate from cart). */
+  const [gifts, setGifts] = useState<CauseGiftAmounts>(() => emptyCauseGifts());
 
   useEffect(() => {
+    saveCartCauseGifts(emptyCauseGifts());
     void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
-  }, []);
-
-  useEffect(() => {
-    setGifts(loadCartCauseGifts());
   }, []);
 
   function updateGifts(next: CauseGiftAmounts) {
@@ -91,6 +88,18 @@ export default function CheckoutPage() {
     [firstParty]
   );
 
+  const hasHire = useMemo(
+    () => firstParty.some((item) => isRentalListing(item)),
+    [firstParty]
+  );
+  const goodsOnly = useMemo(
+    () =>
+      firstParty.filter((item) => !isRentalListing(item)),
+    [firstParty]
+  );
+  const hireOnly =
+    firstParty.length > 0 && goodsOnly.length === 0 && hasHire;
+
   const causeGiftTotal = giftTotal(gifts);
   const lines = useMemo(() => giftLines(gifts), [gifts]);
   const liveImpact = useMemo(() => formatGiftImpactSummary(gifts), [gifts]);
@@ -110,9 +119,17 @@ export default function CheckoutPage() {
 
   const finalTotal = Math.max(0, firstPartySubtotal + causeGiftTotal);
 
-  const treesEstimate = estimateTreesFromSubtotal(firstPartySubtotal);
-  const co2Estimate = estimateCo2FromTrees(treesEstimate);
-  const delivery = deliveryEstimateForCart(firstParty);
+  const delivery = deliveryEstimateForCart(goodsOnly);
+  const fulfillmentSummary = hasHire
+    ? hireOnly
+      ? "Hire — partner confirms dates. Not a posted parcel."
+      : "Mixed basket · hire dates confirmed by partner · goods dropship separately"
+    : delivery.summary;
+  const fulfillmentDetail = hasHire
+    ? hireOnly
+      ? "This checkout is for hire fees. The partner confirms collection or return dates — nothing is posted like a parcel."
+      : "Hire lines need date confirmation from the partner. Physical goods (if any) ship by partner dropship with tracking by email."
+    : `${delivery.detail} One checkout here — partners ship directly to your door.`;
 
   function shopAmazon(item: (typeof cart)[number]) {
     const { url } = recordPartnerOutboundClick({
@@ -270,15 +287,21 @@ export default function CheckoutPage() {
       memberCreditCents: 0,
       causeGifts: gifts,
       causeSelection,
-      lineItems: firstParty.map((item) => ({
-        id: item.id,
-        name: item.name,
-        unitAmountCents: Math.round(item.price * 100),
-        quantity: item.quantity,
-        description: item.rentalDuration
-          ? `${item.rentalDuration}-day rental`
-          : item.category,
-      })),
+      lineItems: firstParty.map((item) => {
+        const hire = isRentalListing(item);
+        const baseName = item.name.trim();
+        const name =
+          hire && !/\bhire\b/i.test(baseName) ? `${baseName} — Hire` : baseName;
+        return {
+          id: item.id,
+          name,
+          unitAmountCents: Math.round(item.price * 100),
+          quantity: item.quantity,
+          description: hire
+            ? `Hire · ${item.priceNote || item.hirePeriod || "partner confirms dates"}`
+            : item.category,
+        };
+      }),
     });
 
     if ("url" in stripeResult) {
@@ -318,24 +341,22 @@ export default function CheckoutPage() {
             {t("checkout.title")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-            Simple, secure checkout · {delivery.summary}
+            Simple, secure checkout · {fulfillmentSummary}
           </p>
         </div>
       </div>
 
-      {/* Trees pledge — illustrative / partner-funded */}
+      {/* Optional cause gifts — no auto-tree math from product/hire subtotal */}
       <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-300/80 bg-gradient-to-r from-emerald-50 via-cream to-sky-50/50 px-4 py-3.5 text-emerald-950 sm:px-5">
         <TreePine className="mt-0.5 size-5 shrink-0 text-emerald-800" />
         <div>
           <p className="text-base font-semibold tracking-tight">
-            Every purchase helps fund tree programmes
+            Optional cause gifts
           </p>
           <p className="mt-0.5 text-sm leading-relaxed text-emerald-900/85">
-            Your first-party basket (~{formatCartMoney(firstPartySubtotal)})
-            could illustratively support about {treesEstimate} tree
-            {treesEstimate === 1 ? "" : "s"} (~{co2Estimate} kg CO₂e) when you
-            add a Trees gift below — partner-funded impact, not a GPS pin.
-            Or choose another cause.
+            Tick a cause below to fund partner programmes — illustrative units
+            only when you choose an amount. Not a GPS pin, not product cashback,
+            and not added from your product or hire subtotal.
           </p>
         </div>
       </div>
@@ -350,7 +371,9 @@ export default function CheckoutPage() {
             </h2>
 
             <div className="divide-y">
-              {firstParty.map((item) => (
+              {firstParty.map((item) => {
+                const isHire = isRentalListing(item);
+                return (
                 <div
                   key={item.id}
                   className="flex items-start justify-between gap-4 py-3.5"
@@ -360,20 +383,25 @@ export default function CheckoutPage() {
                       {item.name}
                     </div>
                     <div className="mt-0.5 text-sm text-muted-foreground">
-                      {item.rentalDuration
-                        ? `${item.rentalDuration}-day rental`
-                        : `Qty ${item.quantity} · ${formatCartMoney(item.price)} each`}
+                      {isHire
+                        ? formatListingPrice(item.price, item.priceNote)
+                        : item.rentalDuration
+                          ? `${item.rentalDuration}-day rental`
+                          : `Qty ${item.quantity} · ${formatCartMoney(item.price)} each`}
                     </div>
                     <p className="mt-1 flex items-center gap-1 text-xs font-medium text-sky-900">
                       <Truck className="size-3.5 shrink-0 opacity-80" />
-                      {deliveryEstimateForProduct(item).label}
+                      {isHire
+                        ? "Hire — partner confirms dates. Not a posted parcel."
+                        : deliveryEstimateForProduct(item).label}
                     </p>
                   </div>
                   <div className="shrink-0 text-base font-semibold tabular-nums text-primary">
                     {formatCartMoney(item.price * item.quantity)}
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               {affiliate.map((item) => (
                 <div
@@ -415,9 +443,8 @@ export default function CheckoutPage() {
               <TreePine className="mt-0.5 size-4 shrink-0 text-emerald-800" />
               <p>
                 Optional cause gifts below fund partner programmes — not a GPS
-                pin for a tree. Illustrative from first-party goods: ~{treesEstimate}{" "}
-                tree{treesEstimate === 1 ? "" : "s"} if you choose Trees. Amazon
-                items never auto-add a tree.
+                pin for a tree. Illustrative units appear only for amounts you
+                tick. Amazon items never auto-add a tree.
               </p>
             </div>
 
@@ -482,8 +509,8 @@ export default function CheckoutPage() {
                 </>
               ) : (
                 <p className="text-base leading-relaxed">
-                  Add any amount above to see illustrative impact — e.g. “£15
-                  plants 3 trees”.
+                  Tick a cause amount above to see illustrative units — nothing
+                  is added from your product or hire subtotal.
                 </p>
               )}
             </div>
@@ -499,17 +526,16 @@ export default function CheckoutPage() {
           >
             <div className="rounded-2xl border bg-card p-5 sm:rounded-3xl sm:p-6">
               <h2 className="font-heading mb-2 text-xl font-semibold sm:text-2xl">
-                Shipping details
+                {hireOnly ? "Contact & collection details" : "Shipping details"}
               </h2>
               <div className="mb-5 flex gap-2.5 rounded-xl border border-sky-200/80 bg-sky-50/60 px-3.5 py-3 text-sm text-sky-950">
                 <Truck className="mt-0.5 size-4 shrink-0 text-sky-800" />
                 <div className="min-w-0">
                   <p className="font-medium text-foreground">
-                    {delivery.summary}
+                    {fulfillmentSummary}
                   </p>
                   <p className="mt-0.5 text-muted-foreground">
-                    {delivery.detail} One checkout here — partners ship
-                    directly to your door.
+                    {fulfillmentDetail}
                   </p>
                 </div>
               </div>
@@ -646,7 +672,10 @@ export default function CheckoutPage() {
               </p>
             </div>
 
-            <TrustBadges variant="checkout" />
+            <TrustBadges
+              variant="checkout"
+              stripeEnabled={stripeEnabled}
+            />
 
             {/* Desktop submit */}
             <div className="hidden sm:block">

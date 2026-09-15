@@ -1,6 +1,10 @@
 /** Shared Admin Members row shape (Stripe-backed). Safe for client + server. */
 
-export type AdminMemberStatus = "active" | "cancelled" | "past_due";
+export type AdminMemberStatus =
+  | "active"
+  | "trialing"
+  | "cancelled"
+  | "past_due";
 
 export type AdminStripeMember = {
   subscriptionId: string;

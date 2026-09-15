@@ -114,6 +114,7 @@ export async function fulfillCheckoutSession(
     causeGifts: parseCauseGiftsFromMetadata(meta.causeGifts),
     memberCreditCents,
     lineItems,
+    hasHire: meta.hasHire === "1" || meta.hasHire === "true",
     fulfilledAt: new Date().toISOString(),
     fulfilledBy,
     status: "fulfilled",

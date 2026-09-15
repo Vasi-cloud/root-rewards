@@ -52,11 +52,17 @@ export function orderConfirmationEmailHtml(opts: {
   amountTotalCents: number;
   lineItems: Array<{ name: string; quantity: number; amountCents: number }>;
   causeLines?: string[];
+  /** Hire-only or hire+causes — no dropship / 1–3 day dispatch copy */
+  fulfillment?: "goods" | "hire";
 }): { subject: string; html: string; text: string } {
   const appUrl = getAppUrlForEmail();
   const name = opts.customerName?.trim() || "there";
   const total = (opts.amountTotalCents / 100).toFixed(2);
   const subject = `Order confirmed — ${opts.orderNumber}`;
+  const isHire = opts.fulfillment === "hire";
+  const opening = isHire
+    ? "Thank you — your hire request is confirmed. The partner will confirm dates. This is not a posted parcel."
+    : "Thank you — your order is confirmed. Partners usually dispatch in 1–3 days; tracking arrives by email when they ship.";
 
   const rows = opts.lineItems
     .map(
@@ -86,7 +92,7 @@ export function orderConfirmationEmailHtml(opts: {
   const bodyHtml = `
     <p style="margin:0 0 14px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 14px;">
-      Thank you — your order is confirmed. Partners usually dispatch in 1–3 days; tracking arrives by email when they ship.
+      ${escapeHtml(opening)}
     </p>
     <p style="margin:0 0 6px;font-size:13px;color:#5c7366;">Order number</p>
     <p style="margin:0 0 16px;font-family:ui-monospace,monospace;font-weight:600;">${escapeHtml(opts.orderNumber)}</p>
@@ -106,7 +112,7 @@ export function orderConfirmationEmailHtml(opts: {
 
   const text = `Hi ${name},
 
-Thank you — your order is confirmed. Partners usually dispatch in 1–3 days; tracking arrives by email when they ship.
+${opening}
 
 Order number: ${opts.orderNumber}
 Total: £${total}

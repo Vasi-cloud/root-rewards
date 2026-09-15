@@ -33,7 +33,7 @@ export const TRUST_BADGES: TrustBadge[] = [
     id: "secure-checkout",
     label: "Secure checkout",
     shortLabel: "Secure checkout",
-    description: "HTTPS checkout · Stripe when configured, otherwise demo pay",
+    description: "HTTPS checkout · Stripe when configured",
     icon: Lock,
   },
   {

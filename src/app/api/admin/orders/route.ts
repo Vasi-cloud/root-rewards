@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isAdminUser } from "@/lib/admin";
-import { listImpactMembersFromStripe } from "@/lib/stripe/list-impact-members";
-import { getStripeKeyMode, isStripeConfigured } from "@/lib/stripe/config";
+import { listAdminOrders } from "@/lib/stripe/list-admin-orders";
 
 export const runtime = "nodejs";
 
@@ -12,13 +11,10 @@ function stripeErrorMessage(err: unknown): string {
     if (typeof m === "string" && m.trim()) return m.trim();
   }
   if (err instanceof Error && err.message.trim()) return err.message.trim();
-  return "Unknown Stripe error";
+  return "Unknown error";
 }
 
-/**
- * Admin: Impact Member subscriptions from Stripe (same STRIPE_SECRET_KEY as
- * membership Checkout — Test or Live depending on the key).
- */
+/** Admin: real first-party / Stripe marketplace orders in GBP. */
 export async function GET(request: Request) {
   const email =
     request.headers.get("x-admin-email")?.trim() ||
@@ -29,36 +25,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
-  if (!isStripeConfigured()) {
-    return NextResponse.json({
-      mode: "demo",
-      keyMode: null,
-      members: [],
-      count: 0,
-      error: "Stripe is not configured (set STRIPE_SECRET_KEY).",
-    });
-  }
-
   try {
-    const result = await listImpactMembersFromStripe();
+    const result = await listAdminOrders();
     return NextResponse.json({
       mode: result.mode,
-      keyMode: getStripeKeyMode(),
-      members: result.members,
-      count: result.members.length,
+      keyMode: result.keyMode,
+      orders: result.orders,
+      count: result.orders.length,
     });
   } catch (err) {
-    console.error("[admin] list Impact members failed", err);
+    console.error("[admin] list orders failed", err);
     const payload: Record<string, unknown> = {
-      error: "Could not load members from Stripe.",
-      keyMode: getStripeKeyMode(),
+      error: "Could not load orders.",
     };
     if (process.env.NODE_ENV === "development") {
       payload.stripeError = stripeErrorMessage(err);
-      payload.stripeType =
-        err && typeof err === "object" && "type" in err
-          ? String((err as { type?: unknown }).type ?? "")
-          : undefined;
     }
     return NextResponse.json(payload, { status: 502 });
   }

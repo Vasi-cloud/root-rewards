@@ -34,6 +34,9 @@ function statusBadge(status: AdminStripeMember["status"]) {
   if (status === "active") {
     return { label: "active", className: "bg-emerald-100 text-emerald-950" };
   }
+  if (status === "trialing") {
+    return { label: "trialing", className: "bg-sky-100 text-sky-950" };
+  }
   if (status === "past_due") {
     return { label: "past_due", className: "bg-amber-100 text-amber-950" };
   }
@@ -44,6 +47,7 @@ export function AdminMembersPanel() {
   const { user } = useAuth();
   const [members, setMembers] = useState<AdminStripeMember[]>([]);
   const [mode, setMode] = useState<"live" | "demo" | null>(null);
+  const [keyMode, setKeyMode] = useState<"test" | "live" | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
@@ -68,15 +72,27 @@ export function AdminMembersPanel() {
       const data = (await res.json().catch(() => ({}))) as {
         members?: AdminStripeMember[];
         mode?: "live" | "demo";
+        keyMode?: "test" | "live" | null;
         error?: string;
+        stripeError?: string;
       };
       if (!res.ok) {
-        setError(data.error ?? "Could not load members from Stripe.");
+        setError(
+          [data.error ?? "Could not load members from Stripe.", data.stripeError]
+            .filter(Boolean)
+            .join(" ")
+        );
         setMembers([]);
         return;
       }
       setMembers(data.members ?? []);
       setMode(data.mode ?? null);
+      setKeyMode(data.keyMode ?? null);
+      if (data.error && (data.members?.length ?? 0) === 0) {
+        setError(
+          [data.error, data.stripeError].filter(Boolean).join(" ")
+        );
+      }
     } catch {
       setError("Could not load members from Stripe.");
       setMembers([]);
@@ -106,9 +122,13 @@ export function AdminMembersPanel() {
             Members
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Impact Member subscriptions from Stripe. Export uses{" "}
-            {ADMIN_EXPORT_CURRENCY} · monthly plan
-            {mode === "demo" ? " · Stripe not configured (demo)" : ""}.
+            Impact Member subscriptions from Stripe
+            {mode === "demo"
+              ? " · Stripe not configured (demo)"
+              : keyMode
+                ? ` · ${keyMode} mode`
+                : ""}
+            . Export uses {ADMIN_EXPORT_CURRENCY} · monthly plan.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

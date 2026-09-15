@@ -15,11 +15,14 @@ export function TrustBadges({
   ids,
   className = "",
   showDescriptions = false,
+  stripeEnabled = false,
 }: {
   variant?: TrustBadgesVariant;
   ids?: TrustBadgeId[];
   className?: string;
   showDescriptions?: boolean;
+  /** When true on checkout, hide demo-pay wording */
+  stripeEnabled?: boolean;
 }) {
   const resolvedIds =
     ids ??
@@ -28,7 +31,19 @@ export function TrustBadges({
       : variant === "footer"
         ? FOOTER_TRUST_IDS
         : PRODUCT_TRUST_IDS);
-  const badges = getTrustBadges(resolvedIds);
+  const badges = getTrustBadges(resolvedIds).map((badge) => {
+    if (
+      stripeEnabled &&
+      badge.id === "secure-checkout" &&
+      variant === "checkout"
+    ) {
+      return {
+        ...badge,
+        description: "HTTPS checkout · Stripe Checkout (card details on Stripe)",
+      };
+    }
+    return badge;
+  });
 
   if (variant === "footer") {
     return (
@@ -83,13 +98,27 @@ export function TrustBadges({
           })}
         </ul>
         <p className="mt-3 text-xs text-emerald-900/70">
-          Demo signals — Stripe powers live checkout when configured.{" "}
-          <Link
-            href="/returns"
-            className="font-medium underline-offset-2 hover:underline"
-          >
-            Returns guidance
-          </Link>
+          {stripeEnabled ? (
+            <>
+              Secure Stripe Checkout.{" "}
+              <Link
+                href="/returns"
+                className="font-medium underline-offset-2 hover:underline"
+              >
+                Returns guidance
+              </Link>
+            </>
+          ) : (
+            <>
+              Demo signals — Stripe powers live checkout when configured.{" "}
+              <Link
+                href="/returns"
+                className="font-medium underline-offset-2 hover:underline"
+              >
+                Returns guidance
+              </Link>
+            </>
+          )}
         </p>
       </div>
     );

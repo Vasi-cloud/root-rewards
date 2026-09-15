@@ -42,6 +42,7 @@ import { useModeration } from "@/contexts/moderation-context";
 import { useSeller } from "@/contexts/seller-context";
 import { AdminCausesPanel } from "@/components/admin/admin-causes-panel";
 import { AdminMembersPanel } from "@/components/admin/admin-members-panel";
+import { AdminOrdersPanel } from "@/components/admin/admin-orders-panel";
 import { AdminOverviewPanel } from "@/components/admin/admin-overview-panel";
 import { AdminReportsPanel } from "@/components/admin/admin-reports-panel";
 import { AdminSellersPanel } from "@/components/admin/admin-sellers-panel";
@@ -135,70 +136,7 @@ const CATEGORIES = [
   "Camping",
 ];
 
-const ORDER_STATUSES: OrderStatus[] = [
-  "Processing",
-  "Shipped",
-  "Delivered",
-  "Cancelled",
-];
-
-const INITIAL_ORDERS: AdminOrder[] = [
-  {
-    id: "ORD-7842",
-    customer: "maya@eco.co",
-    total: 124,
-    status: "Shipped",
-    date: "Jun 22",
-    items: 3,
-    trees: 5,
-  },
-  {
-    id: "ORD-7841",
-    customer: "jake@green.io",
-    total: 89,
-    status: "Processing",
-    date: "Jun 22",
-    items: 2,
-    trees: 1,
-  },
-  {
-    id: "ORD-7840",
-    customer: "luna@root.app",
-    total: 215,
-    status: "Shipped",
-    date: "Jun 21",
-    items: 5,
-    trees: 10,
-  },
-  {
-    id: "ORD-7839",
-    customer: "sam@earth.org",
-    total: 47,
-    status: "Delivered",
-    date: "Jun 20",
-    items: 1,
-    trees: 1,
-  },
-  {
-    id: "ORD-7838",
-    customer: "ada@forest.co",
-    total: 156,
-    status: "Delivered",
-    date: "Jun 19",
-    items: 4,
-    trees: 5,
-  },
-  {
-    id: "ORD-7837",
-    customer: "noah@leaf.io",
-    total: 72,
-    status: "Cancelled",
-    date: "Jun 18",
-    items: 2,
-    trees: 0,
-  },
-];
-
+const INITIAL_ORDERS: AdminOrder[] = [];
 const INITIAL_USERS: AdminUser[] = [
   {
     id: "u1",
@@ -279,19 +217,6 @@ const emptyProductForm = {
   whatsNotIncluded: "",
 };
 
-function statusBadgeClass(status: OrderStatus) {
-  switch (status) {
-    case "Delivered":
-      return "bg-emerald-100 text-emerald-800";
-    case "Shipped":
-      return "bg-primary/10 text-primary";
-    case "Processing":
-      return "bg-gold/20 text-primary";
-    case "Cancelled":
-      return "bg-destructive/10 text-destructive";
-  }
-}
-
 function flagSeverityClass(severity: string) {
   switch (severity) {
     case "block":
@@ -328,7 +253,7 @@ export default function AdminDashboard() {
     null
   );
   const [productSaving, setProductSaving] = useState(false);
-  const [orders, setOrders] = useState<AdminOrder[]>(INITIAL_ORDERS);
+  const [orders] = useState<AdminOrder[]>(INITIAL_ORDERS);
   const [users] = useState<AdminUser[]>(INITIAL_USERS);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -338,7 +263,6 @@ export default function AdminDashboard() {
   const [listingTypeFilter, setListingTypeFilter] = useState<
     "All" | ListingType
   >("All");
-  const [orderFilter, setOrderFilter] = useState<"All" | OrderStatus>("All");
   const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
   const [feedbackFilter, setFeedbackFilter] = useState<
     "All" | FeedbackStatus
@@ -444,10 +368,6 @@ export default function AdminDashboard() {
       (p.listingType ?? "product") === listingTypeFilter;
     return matchesQuery && matchesType;
   });
-
-  const filteredOrders = orders.filter(
-    (o) => orderFilter === "All" || o.status === orderFilter
-  );
 
   function openAddForm() {
     setEditingId(null);
@@ -655,12 +575,6 @@ export default function AdminDashboard() {
     } catch (err) {
       alert(err instanceof Error ? err.message : "Could not delete product.");
     }
-  }
-
-  function updateOrderStatus(id: string, status: OrderStatus) {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status } : o))
-    );
   }
 
   if (loading) {
@@ -2088,79 +2002,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {tab === "orders" && (
-          <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 className="font-heading text-2xl font-semibold text-primary">
-                  Order management
-                </h2>
-                <p className="mt-1 text-muted-foreground">
-                  Update fulfillment status for each order.
-                </p>
-              </div>
-              <select
-                value={orderFilter}
-                onChange={(e) =>
-                  setOrderFilter(e.target.value as "All" | OrderStatus)
-                }
-                className="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="All">All statuses</option>
-                {ORDER_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Card>
-              <CardContent className="divide-y p-0">
-                {filteredOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between"
-                  >
-                    <div>
-                      <div className="font-mono text-xs text-muted-foreground">
-                        {order.id}
-                      </div>
-                      <div className="font-medium">{order.customer}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {order.date} · {order.items} items · {order.trees} trees
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="font-semibold tabular-nums text-primary">
-                        ${order.total}
-                      </div>
-                      <Badge className={statusBadgeClass(order.status)}>
-                        {order.status}
-                      </Badge>
-                      <select
-                        value={order.status}
-                        onChange={(e) =>
-                          updateOrderStatus(
-                            order.id,
-                            e.target.value as OrderStatus
-                          )
-                        }
-                        className="rounded-lg border border-input bg-background px-2 py-1.5 text-sm"
-                      >
-                        {ORDER_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {tab === "orders" && <AdminOrdersPanel />}
 
         {tab === "users" && (
           <div className="space-y-6">

@@ -53,9 +53,8 @@ function mapAdminStatus(sub: Stripe.Subscription): AdminStripeMember["status"] |
   ) {
     return "cancelled";
   }
-  if (sub.status === "active" || sub.status === "trialing") {
-    return "active";
-  }
+  if (sub.status === "trialing") return "trialing";
+  if (sub.status === "active") return "active";
   return null;
 }
 
@@ -73,6 +72,11 @@ function startedAtOf(sub: Stripe.Subscription): string {
   return new Date(start * 1000).toISOString();
 }
 
+/**
+ * List Impact Member subscriptions via the same STRIPE_SECRET_KEY as
+ * membership Checkout (Test when sk_test_*, Live when sk_live_*).
+ * Prefer plain list (no Search API) so Test mode works without Search enabled.
+ */
 async function collectSubscriptions(
   stripe: Stripe
 ): Promise<Stripe.Subscription[]> {
@@ -84,13 +88,36 @@ async function collectSubscriptions(
     }
   };
 
+  const statuses: Stripe.SubscriptionListParams["status"][] = [
+    "active",
+    "trialing",
+    "past_due",
+    "canceled",
+    "unpaid",
+  ];
+
+  for (const status of statuses) {
+    let startingAfter: string | undefined;
+    for (let i = 0; i < 8; i++) {
+      // No expand — deleted customers / expand quirks must not fail the whole list.
+      const page = await stripe.subscriptions.list({
+        status,
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+      absorb(page.data);
+      if (!page.has_more || page.data.length === 0) break;
+      startingAfter = page.data[page.data.length - 1]?.id;
+    }
+  }
+
+  // Optional Search enrichment (may be unavailable on some accounts).
   try {
     let pageToken: string | undefined;
     for (let i = 0; i < 10; i++) {
       const page = await stripe.subscriptions.search({
         query: "metadata['kind']:'impact_member'",
         limit: 100,
-        expand: ["data.customer", "data.items.data.price.product"],
         ...(pageToken ? { page: pageToken } : {}),
       });
       absorb(page.data);
@@ -99,28 +126,6 @@ async function collectSubscriptions(
     }
   } catch (err) {
     console.warn("[stripe] Impact member search unavailable", err);
-  }
-
-  const statuses: Stripe.SubscriptionListParams["status"][] = [
-    "active",
-    "trialing",
-    "past_due",
-    "canceled",
-    "unpaid",
-  ];
-  for (const status of statuses) {
-    let startingAfter: string | undefined;
-    for (let i = 0; i < 5; i++) {
-      const page = await stripe.subscriptions.list({
-        status,
-        limit: 100,
-        expand: ["data.customer", "data.items.data.price.product"],
-        ...(startingAfter ? { starting_after: startingAfter } : {}),
-      });
-      absorb(page.data);
-      if (!page.has_more || page.data.length === 0) break;
-      startingAfter = page.data[page.data.length - 1]?.id;
-    }
   }
 
   return [...byId.values()];

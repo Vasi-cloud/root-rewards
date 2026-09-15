@@ -17,6 +17,14 @@ export function isStripeConfigured(): boolean {
   return Boolean(key && key.startsWith("sk_"));
 }
 
+/** Test vs live from the active secret — same key membership Checkout uses. */
+export function getStripeKeyMode(): "test" | "live" | null {
+  const key = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  if (key.startsWith("sk_test_")) return "test";
+  if (key.startsWith("sk_live_")) return "live";
+  return isStripeConfigured() ? "live" : null;
+}
+
 const WEBHOOK_SECRET_ENV_KEYS = [
   "STRIPE_WEBHOOK_SECRET",
   "STRIPE_WEBHOOK_SECRET_LIVE",

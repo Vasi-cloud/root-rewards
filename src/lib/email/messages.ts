@@ -24,6 +24,16 @@ function isCauseGiftLineItemName(name: string): boolean {
   return n.startsWith("support:") || n.startsWith("impact:");
 }
 
+function isHireLineItemName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return (
+    n.includes("hire") ||
+    n.includes("rental") ||
+    n.startsWith("hire ·") ||
+    /\bhire\b/.test(n)
+  );
+}
+
 /** True when the paid session funded causes only (no physical catalogue items). */
 export function isCauseOnlyOrder(order: ConfirmedOrder): boolean {
   const hasUnits = CAUSES.some((c) => (order.causeSelection[c.id] || 0) > 0);
@@ -33,6 +43,15 @@ export function isCauseOnlyOrder(order: ConfirmedOrder): boolean {
     (li) => !isCauseGiftLineItemName(li.name)
   );
   return physical.length === 0;
+}
+
+/** Hire-only or hire + cause gifts (no dropship goods lines). */
+export function isHireFulfillmentOrder(order: ConfirmedOrder): boolean {
+  const nonCause = order.lineItems.filter(
+    (li) => !isCauseGiftLineItemName(li.name)
+  );
+  if (nonCause.length === 0) return false;
+  return nonCause.every((li) => isHireLineItemName(li.name));
 }
 
 function impactTrackUrlForOrder(order: ConfirmedOrder): string {
@@ -134,6 +153,7 @@ export async function sendOrderConfirmationEmail(
     amountTotalCents: order.amountTotalCents,
     lineItems: order.lineItems,
     causeLines,
+    fulfillment: isHireFulfillmentOrder(order) ? "hire" : "goods",
   });
 
   return sendTransactionalEmail({
