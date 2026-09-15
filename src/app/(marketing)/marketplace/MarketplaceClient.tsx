@@ -54,6 +54,7 @@ import {
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
+import { ensureDemoShops } from "@/lib/seller-storage";
 import type { CartItem, Product } from "@/types";
 
 type MarketSection = "all" | "products" | "services" | "rentals";
@@ -159,6 +160,7 @@ export default function MarketplaceClient() {
     let cancelled = false;
 
     function loadLive() {
+      ensureDemoShops();
       listLiveMarketplaceProducts()
         .then((live) => {
           if (cancelled) return;

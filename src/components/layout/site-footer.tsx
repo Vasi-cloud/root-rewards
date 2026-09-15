@@ -102,11 +102,11 @@ export function SiteFooter({
             href="/membership"
             className="font-medium text-sage underline-offset-2 hover:underline"
           >
-            Impact Member · £5/mo
-          </Link>{" "}
-          — £5/mo supports partner programmes and the Forest Buddies
-          platform. Not product cashback. Cause and tree payments fund partner
-          programmes. See{" "}
+            Impact Member
+          </Link>
+          {" · "}
+          £5/mo supports partner programmes and the Forest Buddies platform. Not
+          product cashback. Cause and tree payments fund partner programmes. See{" "}
           <Link
             href="/terms"
             className="font-medium text-sage underline-offset-2 hover:underline"

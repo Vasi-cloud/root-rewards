@@ -2,20 +2,24 @@
 
 import { Store } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
-import { ensureDemoShops, listPublicBrandShops } from "@/lib/seller-storage";
-import type { SellerProfile } from "@/types";
+import { useSeller } from "@/contexts/seller-context";
+import { isSellerPubliclyVisible } from "@/lib/seller-storage";
 
 /** Brand / company shops only — solos live in FeaturedSoloMakers. */
 export function SellerShopsStrip() {
-  const [shops, setShops] = useState<SellerProfile[]>([]);
-
-  useEffect(() => {
-    ensureDemoShops();
-    setShops(listPublicBrandShops().slice(0, 6));
-  }, []);
+  const { allSellers } = useSeller();
+  const shops = useMemo(
+    () =>
+      allSellers
+        .filter(
+          (s) => isSellerPubliclyVisible(s) && s.sellerType !== "individual"
+        )
+        .slice(0, 6),
+    [allSellers]
+  );
 
   if (shops.length === 0) return null;
 

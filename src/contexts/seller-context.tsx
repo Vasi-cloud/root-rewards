@@ -147,6 +147,9 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    // Soft-launch demos + any approved shops — seed even when logged out so
+    // /marketplace and /shop match Admin Sellers on the same device.
+    ensureDemoShops();
     if (!user) {
       setSeller(null);
       setAllSellers(Object.values(loadAllSellers()).map(normalizeSeller));

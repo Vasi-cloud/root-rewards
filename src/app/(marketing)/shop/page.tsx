@@ -3,18 +3,14 @@
 import { Leaf, MapPin, Store, UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 
 import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useSeller } from "@/contexts/seller-context";
 import { defaultProductImage } from "@/lib/shop-presentation";
-import {
-  ensureDemoShops,
-  listPublicBrandShops,
-  listPublicSoloShops,
-  SELLERS_STORAGE_KEY,
-} from "@/lib/seller-storage";
+import { isSellerPubliclyVisible } from "@/lib/seller-storage";
 import type { SellerProfile } from "@/types";
 
 function ShopCard({
@@ -100,28 +96,25 @@ function ShopCard({
 }
 
 export default function ShopsIndexPage() {
-  const [brands, setBrands] = useState<SellerProfile[]>([]);
-  const [solos, setSolos] = useState<SellerProfile[]>([]);
+  // Same SellerProvider / forest-buddies-sellers store Admin Sellers uses.
+  const { allSellers, loading } = useSeller();
 
-  useEffect(() => {
-    function refresh() {
-      ensureDemoShops();
-      setBrands(listPublicBrandShops());
-      setSolos(listPublicSoloShops());
-    }
-    refresh();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === SELLERS_STORAGE_KEY || e.key === null) refresh();
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("forest-buddies-sellers-updated", refresh);
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("forest-buddies-sellers-updated", refresh);
-    };
-  }, []);
+  const brands = useMemo(
+    () =>
+      allSellers.filter(
+        (s) => isSellerPubliclyVisible(s) && s.sellerType !== "individual"
+      ),
+    [allSellers]
+  );
+  const solos = useMemo(
+    () =>
+      allSellers.filter(
+        (s) => isSellerPubliclyVisible(s) && s.sellerType === "individual"
+      ),
+    [allSellers]
+  );
 
-  const empty = brands.length === 0 && solos.length === 0;
+  const empty = !loading && brands.length === 0 && solos.length === 0;
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-b from-sage/20 via-cream to-cream">

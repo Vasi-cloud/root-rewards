@@ -388,8 +388,14 @@ export function ensureDemoShops() {
 
   for (const demo of demos) {
     const existing = all[demo.uid];
+    // Respect admin pause / reject — do not resurrect those demos.
+    if (existing?.status === "paused" || existing?.status === "rejected") {
+      continue;
+    }
+
     const needsRefresh =
       !existing ||
+      existing.status !== "approved" ||
       !existing.coverImageUrl ||
       !existing.impactStory ||
       (existing.products?.length ?? 0) < demo.products.length ||
@@ -1089,6 +1095,7 @@ function buildDemoShops(): SellerProfile[] {
 }
 
 export function listAllSellers(): SellerProfile[] {
+  ensureDemoShops();
   return Object.values(loadAllSellers()).map(normalizeSeller);
 }
 

@@ -2,15 +2,16 @@
 
 import { ArrowRight, MapPin, Sparkles, UserRound } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useSeller } from "@/contexts/seller-context";
 import {
   SOLO_DOMAIN_CHIPS,
   type SoloDomainId,
 } from "@/lib/listing-categories";
-import { ensureDemoShops, listPublicSoloShops } from "@/lib/seller-storage";
+import { isSellerPubliclyVisible } from "@/lib/seller-storage";
 import type { SellerProfile } from "@/types";
 
 function shopMatchesDomain(shop: SellerProfile, domain: SoloDomainId): boolean {
@@ -28,13 +29,16 @@ function shopMatchesDomain(shop: SellerProfile, domain: SoloDomainId): boolean {
  * so Leaf Counsel and peers feel intentional, not squeezed into brand pills.
  */
 export function FeaturedSoloMakers() {
-  const [solos, setSolos] = useState<SellerProfile[]>([]);
+  const { allSellers } = useSeller();
   const [domain, setDomain] = useState<"all" | SoloDomainId>("all");
 
-  useEffect(() => {
-    ensureDemoShops();
-    setSolos(listPublicSoloShops());
-  }, []);
+  const solos = useMemo(
+    () =>
+      allSellers.filter(
+        (s) => isSellerPubliclyVisible(s) && s.sellerType === "individual"
+      ),
+    [allSellers]
+  );
 
   const domainCounts = useMemo(() => {
     const counts: Record<string, number> = {};

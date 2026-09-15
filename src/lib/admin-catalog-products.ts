@@ -609,7 +609,21 @@ export async function listLiveMarketplaceProducts(): Promise<Product[]> {
     console.warn("[products] seller catalogue unavailable", err);
   }
 
-  return mergeMarketplaceCatalog(sellerLive, live);
+  // Seller approved listings win over admin/Firestore rows with the same id.
+  return mergeMarketplaceCatalog(live, sellerLive);
+}
+
+/**
+ * Merge catalogs. `overlay` wins on id collision (second argument).
+ */
+export function mergeMarketplaceCatalog(
+  base: Product[],
+  overlay: Product[]
+): Product[] {
+  const overlayIds = new Set(overlay.map((p) => p.id));
+  const overlayFirst = overlay.filter((p) => overlayIds.has(p.id));
+  const baseRest = base.filter((p) => !overlayIds.has(p.id));
+  return [...overlayFirst, ...baseRest];
 }
 
 /**
@@ -739,21 +753,4 @@ export async function saveSellerFirstPartyListing(
     },
     { existingCreatedAt: product.createdAt }
   );
-}
-
-/**
- * Merge static seed catalog with live admin products.
- * Live docs win on id collision.
- */
-export function mergeMarketplaceCatalog(
-  seed: Product[],
-  live: Product[]
-): Product[] {
-  const byId = new Map<string, Product>();
-  for (const p of seed) byId.set(p.id, p);
-  for (const p of live) byId.set(p.id, p);
-  const liveIds = new Set(live.map((p) => p.id));
-  const liveFirst = live.filter((p) => liveIds.has(p.id));
-  const seedRest = seed.filter((p) => !liveIds.has(p.id));
-  return [...liveFirst, ...seedRest];
 }
