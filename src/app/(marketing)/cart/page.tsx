@@ -26,7 +26,6 @@ import {
   emptyCauseGifts,
   giftLines,
   giftTotal,
-  loadCartCauseGifts,
   saveCartCauseGifts,
   type CauseGiftAmounts,
 } from "@/lib/causes";
@@ -39,18 +38,15 @@ import {
   deliveryEstimateForCart,
   deliveryEstimateForProduct,
 } from "@/lib/delivery-estimates";
-import {
-  platformFeeFromSubtotal,
-  platformFeeIncludesLine,
-} from "@/lib/platform-fee";
 import type { CartItem } from "@/types";
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, totalItems } = useCart();
-  const [gifts, setGifts] = useState<CauseGiftAmounts>(emptyCauseGifts);
+  /** Cause gifts start unchecked — match /checkout (shopper must opt in). */
+  const [gifts, setGifts] = useState<CauseGiftAmounts>(() => emptyCauseGifts());
 
   useEffect(() => {
-    setGifts(loadCartCauseGifts());
+    saveCartCauseGifts(emptyCauseGifts());
   }, []);
 
   function updateGifts(next: CauseGiftAmounts) {
@@ -76,7 +72,6 @@ export default function CartPage() {
   const causeGiftLines = giftLines(gifts);
   const stripePayable = firstPartySubtotal + causeGiftTotal;
   const delivery = deliveryEstimateForCart(firstParty);
-  const platformFeeIncluded = platformFeeFromSubtotal(firstPartySubtotal);
 
   function shopAmazon(item: CartItem) {
     const { url } = recordPartnerOutboundClick({
@@ -230,9 +225,9 @@ export default function CartPage() {
               Optional — Support a cause
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Multi-select Trees, Ocean, Animals, Education, Climate — partner
-              programmes, not a GPS pin for a tree. £5 / £10 / £25 or custom
-              (min £1). Amazon lines never auto-add a tree.
+              Tick a cause to fund partner programmes — nothing is pre-selected.
+              Illustrative units appear only for amounts you choose. £5 / £10 /
+              £25 or custom (min £1). Not a GPS pin for a tree.
             </p>
           </div>
           <Button
@@ -259,20 +254,11 @@ export default function CartPage() {
               {formatCartMoney(firstPartySubtotal)}
             </span>
           </li>
-          {firstPartySubtotal > 0 && (
-            <li className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              {platformFeeIncludesLine()}
-              {platformFeeIncluded > 0 ? (
-                <span className="ml-1 tabular-nums">
-                  (≈ {formatCartMoney(platformFeeIncluded)} of product total)
-                </span>
-              ) : null}
-            </li>
-          )}
-          {causeGiftLines.map(({ cause, amount }) => (
+          {causeGiftLines.map(({ cause, amount, units }) => (
             <li key={cause.id} className="flex justify-between gap-3">
               <span className="text-muted-foreground">
                 Cause gift · {cause.name}
+                {units > 0 ? ` (≈ ${units} illustrative)` : ""}
               </span>
               <span className="tabular-nums font-medium">
                 £{amount.toFixed(2)}
