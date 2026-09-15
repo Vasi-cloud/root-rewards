@@ -168,7 +168,12 @@ export function normalizeProduct(p: SellerProduct): SellerProduct {
 
   return {
     ...p,
-    listingType: p.listingType === "service" ? "service" : "product",
+    listingType:
+      p.listingType === "service"
+        ? "service"
+        : p.listingType === "rental"
+          ? "rental"
+          : "product",
     subtitle: p.subtitle ?? "",
     tags: Array.isArray(p.tags) ? p.tags : [],
     status,
@@ -183,6 +188,9 @@ export function normalizeProduct(p: SellerProduct): SellerProduct {
     dimensions: p.dimensions,
     sizeChart: p.sizeChart,
     duration: p.duration,
+    hirePeriod: p.hirePeriod,
+    priceNote: p.priceNote,
+    bookingNote: p.bookingNote,
     deliveryMode: p.deliveryMode,
     availabilityNote: p.availabilityNote,
     vehicleMake: p.vehicleMake,
@@ -291,8 +299,14 @@ function sellerProductToMarketplaceProduct(
   product: SellerProduct,
   shop: SellerProfile
 ): Product {
-  const isService = product.listingType === "service";
+  const listingType =
+    product.listingType === "service"
+      ? "service"
+      : product.listingType === "rental"
+        ? "rental"
+        : "product";
   const isSolo = shop.sellerType === "individual";
+  const isRental = listingType === "rental";
   return {
     id: product.id,
     name: product.name,
@@ -308,7 +322,7 @@ function sellerProductToMarketplaceProduct(
     sellerUid: shop.uid,
     sellerId: shop.uid,
     commerceType: "first_party",
-    listingType: isService ? "service" : "product",
+    listingType,
     stock: product.stock,
     materials: product.materials,
     madeIn: product.madeIn,
@@ -317,6 +331,13 @@ function sellerProductToMarketplaceProduct(
     dimensions: product.dimensions,
     sizeChart: product.sizeChart,
     duration: product.duration,
+    hirePeriod:
+      product.hirePeriod?.trim() ||
+      (isRental ? product.duration?.trim() : undefined),
+    priceNote: product.priceNote?.trim() || undefined,
+    bookingNote:
+      product.bookingNote?.trim() ||
+      (isRental ? "Rental — partner confirms dates." : undefined),
     deliveryMode: product.deliveryMode,
     availabilityNote: product.availabilityNote,
     vehicleMake: product.vehicleMake,
@@ -409,7 +430,9 @@ export function ensureDemoShops() {
           (!d.dimensions || p.dimensions != null) &&
           (!d.careNotes || p.careNotes != null) &&
           (!d.listingType || p.listingType === d.listingType) &&
-          (!d.duration || p.duration != null)
+          (!d.duration || p.duration != null) &&
+          (!d.hirePeriod || p.hirePeriod != null) &&
+          (!d.priceNote || p.priceNote != null)
         );
       }) ||
       (demo.sellerType === "individual" &&
@@ -673,6 +696,63 @@ function buildDemoShops(): SellerProfile[] {
           sales: 33,
           createdAt: "2026-04-01T00:00:00.000Z",
         },
+        {
+          id: "demo-tl-rental-1",
+          listingType: "rental",
+          name: "Coastal Day Kit",
+          subtitle: "Dry bag, bottle & shore tote — day hire",
+          description:
+            "Borrow a compact coastal kit for a day by the water: dry bag, insulated bottle, and a small tote. Collection in Brighton & Hove by arrangement. Not a GPS tree pin — just kit you return clean.",
+          category: "Garden & Outdoor",
+          tags: ["rental", "coastal", "day hire"],
+          price: 22,
+          priceNote: "per day",
+          hirePeriod: "1 day",
+          ecoScore: 91,
+          stock: 4,
+          imageUrl: "/shop/bottle.svg",
+          gallery: ["/shop/bottle.svg", "/shop/tote.svg", "/shop/pouch.svg"],
+          materials: "Dry bag, bottle, tote — inspected between hires",
+          madeIn: "Brighton & Hove, UK",
+          availabilityNote: "Collect locally · return same day by 6pm",
+          bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "Pack light for a shoreline walk — bring it back rinsed.",
+          impactNote:
+            "Hire fees help Tide Line keep recovery kit in circulation.",
+          status: "approved",
+          reviewedAt: "2026-06-01T00:00:00.000Z",
+          views: 48,
+          sales: 5,
+          createdAt: "2026-06-01T00:00:00.000Z",
+        },
+        {
+          id: "demo-tl-rental-2",
+          listingType: "rental",
+          name: "Weekend Beach Gear Bundle",
+          subtitle: "Family tote set for Fri–Mon",
+          description:
+            "Weekend hire of a beach tote bundle (towels not included): insulated bottle pair, dry pouch, and carry tote. UK collection point agreed by message. Return Monday evening.",
+          category: "Garden & Outdoor",
+          tags: ["rental", "weekend", "beach"],
+          price: 45,
+          priceNote: "per weekend",
+          hirePeriod: "Fri–Mon weekend",
+          ecoScore: 90,
+          stock: 3,
+          imageUrl: "/shop/tote.svg",
+          gallery: ["/shop/tote.svg", "/shop/bottle.svg", "/shop/pouch.svg"],
+          materials: "Reusable bottles, dry pouch, tote",
+          madeIn: "Brighton & Hove, UK",
+          availabilityNote: "Weekend slots · message to confirm pickup",
+          bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "Enough kit for a short coastal break — no new plastic.",
+          impactNote: "Weekend hires support ocean recovery programmes.",
+          status: "approved",
+          reviewedAt: "2026-06-02T00:00:00.000Z",
+          views: 36,
+          sales: 3,
+          createdAt: "2026-06-02T00:00:00.000Z",
+        },
       ],
       earnings: defaultEarnings(),
       analytics: defaultAnalytics(),
@@ -880,6 +960,62 @@ function buildDemoShops(): SellerProfile[] {
           sales: 11,
           createdAt: "2026-05-15T00:00:00.000Z",
         },
+        {
+          id: "demo-ss-rental-1",
+          listingType: "rental",
+          name: "Domestic Sewing Machine Hire",
+          subtitle: "Day rate · beginner-friendly machine",
+          description:
+            "Hire a well-maintained domestic sewing machine for a day of mending or simple makes. Includes basic foot, bobbins, and a short setup note. Collect in Bristol by appointment. You supply fabric and thread.",
+          category: "Repair & Upcycling",
+          tags: ["rental", "sewing", "day hire"],
+          price: 15,
+          priceNote: "per day",
+          hirePeriod: "1 day",
+          ecoScore: 94,
+          stock: 2,
+          imageUrl: "/shop/linen.svg",
+          gallery: ["/shop/linen.svg", "/shop/pouch.svg"],
+          materials: "Domestic machine + basic feet · no fabric included",
+          madeIn: "Bristol, UK",
+          availabilityNote: "Tue–Sat · same-day return preferred",
+          bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "Try before you buy another machine that sits unused.",
+          impactNote: "Hire fees keep the mend studio stocked with patches.",
+          status: "approved",
+          reviewedAt: "2026-06-03T00:00:00.000Z",
+          views: 41,
+          sales: 7,
+          createdAt: "2026-06-03T00:00:00.000Z",
+        },
+        {
+          id: "demo-ss-rental-2",
+          listingType: "rental",
+          name: "Visible Mending Kit Hire",
+          subtitle: "Needles, contrasting thread & hoop — day rate",
+          description:
+            "Borrow a starter mending kit (needles, contrasting thread, small hoop, scrap cloth for practice). Ideal for a day of sashiko-style patches at home. Return the kit complete; keep your finished mend.",
+          category: "Repair & Upcycling",
+          tags: ["rental", "mending", "kit"],
+          price: 8,
+          priceNote: "per day",
+          hirePeriod: "1 day",
+          ecoScore: 95,
+          stock: 5,
+          imageUrl: "/shop/pouch.svg",
+          gallery: ["/shop/pouch.svg", "/shop/linen.svg"],
+          materials: "Needles, thread, hoop, practice scrap",
+          madeIn: "Bristol, UK",
+          availabilityNote: "Collect with machine hire or alone",
+          bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "The tools for one good mend — without buying a drawerful.",
+          impactNote: "Kit hires support climate lesson packs.",
+          status: "approved",
+          reviewedAt: "2026-06-03T00:00:00.000Z",
+          views: 29,
+          sales: 4,
+          createdAt: "2026-06-03T00:00:00.000Z",
+        },
       ],
       earnings: defaultEarnings(),
       analytics: defaultAnalytics(),
@@ -966,6 +1102,34 @@ function buildDemoShops(): SellerProfile[] {
           views: 42,
           sales: 4,
           createdAt: "2026-05-18T00:00:00.000Z",
+        },
+        {
+          id: "demo-bp-rental-1",
+          listingType: "rental",
+          name: "Mat & Bolster Set",
+          subtitle: "Yoga mat + two bolsters — session or day",
+          description:
+            "Hire a clean yoga mat and two firm bolsters for a home practice or a short retreat day. Collected in Greater Manchester by arrangement. Wipe down and return; not a GPS-tracked tree — just props you don’t need to store.",
+          category: "Wellness",
+          tags: ["rental", "wellness", "yoga"],
+          price: 12,
+          priceNote: "per day",
+          hirePeriod: "Session or 1 day",
+          ecoScore: 89,
+          stock: 4,
+          imageUrl: "/shop/sponge.svg",
+          gallery: ["/shop/sponge.svg", "/shop/servers.svg"],
+          materials: "Mat + two bolsters · cleaned between hires",
+          madeIn: "Greater Manchester, UK",
+          availabilityNote: "Same-day or overnight · message for slot",
+          bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "Props for one deep practice — without buying another mat.",
+          impactNote: "Hire fees support outdoor education packs.",
+          status: "approved",
+          reviewedAt: "2026-06-04T00:00:00.000Z",
+          views: 33,
+          sales: 6,
+          createdAt: "2026-06-04T00:00:00.000Z",
         },
       ],
       earnings: defaultEarnings(),
@@ -1085,6 +1249,34 @@ function buildDemoShops(): SellerProfile[] {
           views: 64,
           sales: 15,
           createdAt: "2026-05-21T00:00:00.000Z",
+        },
+        {
+          id: "demo-pg-rental-1",
+          listingType: "rental",
+          name: "Garden Hand-Tool Kit",
+          subtitle: "Trowel, fork, gloves & kneeler — day rate",
+          description:
+            "Day hire of a compact hand-tool kit for balcony or small-plot work: trowel, hand fork, gloves, and a foldable kneeler. Collect in Leeds by arrangement. Return soil-free — no invented tree GPS, just tools you borrow.",
+          category: "Garden & Outdoor",
+          tags: ["rental", "garden", "tools"],
+          price: 18,
+          priceNote: "per day",
+          hirePeriod: "1 day",
+          ecoScore: 93,
+          stock: 3,
+          imageUrl: "/shop/servers.svg",
+          gallery: ["/shop/servers.svg", "/shop/bottle.svg"],
+          materials: "Hand tools + kneeler · cleaned between hires",
+          madeIn: "Leeds, UK",
+          availabilityNote: "Weekdays & weekends · weather dependent",
+          bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "Dig for a day without buying another set for the shed.",
+          impactNote: "Tool hires help fund school garden kits.",
+          status: "approved",
+          reviewedAt: "2026-06-05T00:00:00.000Z",
+          views: 27,
+          sales: 4,
+          createdAt: "2026-06-05T00:00:00.000Z",
         },
       ],
       earnings: defaultEarnings(),

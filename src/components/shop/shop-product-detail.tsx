@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DELIVERY_MODE_LABELS,
+  formatListingPrice,
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import type { SellerProduct } from "@/types";
@@ -38,6 +39,7 @@ export function ShopProductDetail({
   onAdd: () => void;
 }) {
   const isService = product.listingType === "service";
+  const isRental = product.listingType === "rental";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -93,7 +95,9 @@ export function ShopProductDetail({
             <div>
               <p className="text-base text-muted-foreground">{product.subtitle}</p>
               <p className="font-heading mt-2 text-3xl font-semibold tabular-nums text-primary sm:text-4xl">
-                £{product.price.toFixed(2)}
+                {isRental
+                  ? formatListingPrice(product.price, product.priceNote)
+                  : `£${product.price.toFixed(2)}`}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge className="gap-1 bg-emerald-100 text-emerald-900">
@@ -102,13 +106,20 @@ export function ShopProductDetail({
                 </Badge>
                 <Badge
                   variant="secondary"
-                  className={isService ? "bg-sky-100 text-sky-900" : undefined}
+                  className={
+                    isService || isRental ? "bg-sky-100 text-sky-900" : undefined
+                  }
                 >
                   {listingTypeLabel(product.listingType)}
                 </Badge>
                 <Badge variant="outline">{product.category}</Badge>
                 {isService && product.duration && (
                   <Badge variant="outline">{product.duration}</Badge>
+                )}
+                {isRental && (product.hirePeriod || product.priceNote) && (
+                  <Badge variant="outline">
+                    {product.hirePeriod || product.priceNote}
+                  </Badge>
                 )}
                 {isService && product.deliveryMode && (
                   <Badge variant="outline">
@@ -119,16 +130,23 @@ export function ShopProductDetail({
                   <Badge className="border border-border bg-cream text-forest">
                     {isService
                       ? `${product.stock} slots open`
-                      : `In stock · ${product.stock}`}
+                      : isRental
+                        ? `${product.stock} available`
+                        : `In stock · ${product.stock}`}
                   </Badge>
                 ) : (
                   <Badge variant="destructive">
-                    {isService ? "Fully booked" : "Sold out"}
+                    {isService
+                      ? "Fully booked"
+                      : isRental
+                        ? "Fully booked"
+                        : "Sold out"}
                   </Badge>
                 )}
                 {product.sales > 0 && (
                   <Badge variant="secondary">
-                    {product.sales} {isService ? "booked" : "sold"}
+                    {product.sales}{" "}
+                    {isService ? "booked" : isRental ? "hires" : "sold"}
                   </Badge>
                 )}
               </div>
@@ -153,7 +171,7 @@ export function ShopProductDetail({
 
             <TrustBadges variant="product" />
 
-            {!isService && (
+            {!isService && !isRental && (
               <ProductPartnerLinks
                 product={
                   {
@@ -178,7 +196,11 @@ export function ShopProductDetail({
               <div className="rounded-2xl border border-border/70 bg-white/80 p-4">
                 <p className="flex items-center gap-2 text-sm font-semibold text-primary">
                   <Sparkles className="size-4 text-gold" />
-                  {isService ? "Practitioner note" : "Maker note"}
+                  {isService
+                    ? "Practitioner note"
+                    : isRental
+                      ? "Hire note"
+                      : "Maker note"}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
                   {product.storySnippet}
@@ -186,11 +208,18 @@ export function ShopProductDetail({
               </div>
             )}
 
+            {isRental ? (
+              <p className="rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-950">
+                Rental — partner confirms dates.
+              </p>
+            ) : null}
+
             {product.impactNote && (
               <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-cream p-4">
                 <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
                   <Leaf className="size-4" />
-                  Impact with this {isService ? "session" : "piece"}
+                  Impact with this{" "}
+                  {isService ? "session" : isRental ? "hire" : "piece"}
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-emerald-900/85 sm:text-base">
                   {product.impactNote}
@@ -201,7 +230,7 @@ export function ShopProductDetail({
             <ProductDetailsPanel
               details={product}
               category={product.category}
-              fallbackSizeGuide={!isService && product.category === "Apparel"}
+              fallbackSizeGuide={!isService && !isRental && product.category === "Apparel"}
             />
 
             <ProductReviews
@@ -230,7 +259,9 @@ export function ShopProductDetail({
                 <Leaf className="size-4" />
                 {isService
                   ? `Book session — £${product.price.toFixed(2)}`
-                  : `Add to cart — £${product.price.toFixed(2)}`}
+                  : isRental
+                    ? `Request to rent — ${formatListingPrice(product.price, product.priceNote)}`
+                    : `Add to cart — £${product.price.toFixed(2)}`}
               </Button>
             </div>
           </div>

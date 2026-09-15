@@ -1272,13 +1272,13 @@ function ListingGrid({
             </CardContent>
 
             <CardFooter className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t px-4 pt-4 sm:px-6">
-              {!(isService || isRental) ? (
-                <span className="text-lg font-semibold tabular-nums text-primary sm:text-xl">
-                  {formatListingPrice(product.price)}
-                </span>
-              ) : (
+              {isService ? (
                 <span className="text-sm font-medium text-muted-foreground">
                   Details to book
+                </span>
+              ) : (
+                <span className="text-lg font-semibold tabular-nums text-primary sm:text-xl">
+                  {formatListingPrice(product.price, product.priceNote)}
                 </span>
               )}
               <div className="flex flex-wrap gap-2">
@@ -1299,12 +1299,19 @@ function ListingGrid({
                   >
                     {isAdded
                       ? t("marketplace.added")
-                      : qtyInCart > 0
-                        ? t("marketplace.addmore")
-                        : t("marketplace.add")}
+                      : isRental
+                        ? "Request to rent"
+                        : qtyInCart > 0
+                          ? t("marketplace.addmore")
+                          : t("marketplace.add")}
                   </Button>
                 )}
               </div>
+              {isRental ? (
+                <p className="w-full text-xs text-muted-foreground">
+                  Rental — partner confirms dates.
+                </p>
+              ) : null}
             </CardFooter>
           </Card>
         );

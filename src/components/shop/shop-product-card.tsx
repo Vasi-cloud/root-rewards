@@ -5,7 +5,10 @@ import { Leaf, MapPin } from "lucide-react";
 import { ProductPhoto } from "@/components/shop/product-photo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { listingTypeLabel } from "@/lib/listing-categories";
+import {
+  formatListingPrice,
+  listingTypeLabel,
+} from "@/lib/listing-categories";
 import type { SellerProduct } from "@/types";
 
 export function ShopProductCard({
@@ -18,6 +21,7 @@ export function ShopProductCard({
   onQuickAdd: () => void;
 }) {
   const isService = product.listingType === "service";
+  const isRental = product.listingType === "rental";
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-white shadow-[0_12px_32px_-20px_rgba(27,67,50,0.35)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_40px_-22px_rgba(27,67,50,0.4)]">
@@ -31,7 +35,7 @@ export function ShopProductCard({
             </Badge>
             <Badge
               className={
-                isService
+                isService || isRental
                   ? "bg-sky-100/95 text-sky-900 shadow-sm"
                   : "bg-cream/95 text-forest shadow-sm"
               }
@@ -67,11 +71,12 @@ export function ShopProductCard({
           </div>
           <div className="flex items-end justify-between gap-2 pt-1">
             <p className="font-heading text-2xl font-semibold tabular-nums text-primary">
-              £{product.price.toFixed(2)}
+              {formatListingPrice(product.price, product.priceNote)}
             </p>
             {product.sales > 0 && (
               <span className="text-xs text-muted-foreground">
-                {product.sales} {isService ? "booked" : "sold"}
+                {product.sales}{" "}
+                {isService ? "booked" : isRental ? "hires" : "sold"}
               </span>
             )}
           </div>
@@ -83,7 +88,7 @@ export function ShopProductCard({
         </Button>
         <Button className="flex-1 gap-1.5" onClick={onQuickAdd}>
           <Leaf className="size-4" />
-          {isService ? "Book" : "Add"}
+          {isService ? "Book" : isRental ? "Request to rent" : "Add"}
         </Button>
       </div>
     </article>

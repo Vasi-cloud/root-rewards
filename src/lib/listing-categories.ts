@@ -164,7 +164,7 @@ export function defaultCategoryFor(listingType: ListingType): string {
 
 export function listingTypeLabel(listingType: ListingType | undefined): string {
   if (listingType === "service") return "Service";
-  if (listingType === "rental") return "Rental";
+  if (listingType === "rental") return "Rent";
   return "Product";
 }
 
@@ -180,13 +180,13 @@ export function isRentalListing(
   return product?.listingType === "rental";
 }
 
-/** First-party goods that can use Add to cart / Stripe (not service, rental, or Amazon). */
+/** First-party goods + rentals that can use Add to cart / request (not services or Amazon). */
 export function canAddProductToCart(product: {
   listingType?: ListingType;
   commerceType?: string;
   amazonAffiliateUrl?: string;
 }): boolean {
-  if (isServiceListing(product) || isRentalListing(product)) return false;
+  if (isServiceListing(product)) return false;
   if (product.commerceType === "affiliate") return false;
   if (product.amazonAffiliateUrl?.trim()) return false;
   return true;

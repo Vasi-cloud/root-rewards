@@ -59,7 +59,7 @@ export function ServiceRentalMeta({
             className="inline-flex min-h-9 items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
             onClick={(e) => e.stopPropagation()}
           >
-            Request a time
+            {isRental ? "Request to rent" : "Request a time"}
             <ExternalLink className="size-3 opacity-80" />
           </a>
         ) : null}
@@ -108,7 +108,10 @@ export function ServiceRentalBookingBlock({ product }: { product: Product }) {
   if (!isService && !isRental) return null;
 
   const bookingNote =
-    product.bookingNote?.trim() || DEFAULT_BOOKING_NOTE;
+    product.bookingNote?.trim() ||
+    (isRental
+      ? "Rental — partner confirms dates."
+      : DEFAULT_BOOKING_NOTE);
   const bookingUrl = product.bookingUrl?.trim();
   const safeBookingUrl =
     bookingUrl && isValidHttpUrl(bookingUrl) ? bookingUrl : null;
@@ -118,7 +121,9 @@ export function ServiceRentalBookingBlock({ product }: { product: Product }) {
     <div className="space-y-3 rounded-2xl border border-border/70 bg-secondary/30 p-4">
       <div className="flex items-center gap-2 text-primary">
         <CalendarClock className="size-4 shrink-0" />
-        <h3 className="font-heading text-base font-semibold">Booking</h3>
+        <h3 className="font-heading text-base font-semibold">
+          {isRental ? "Hire" : "Booking"}
+        </h3>
       </div>
 
       {safeBookingUrl ? (
@@ -133,7 +138,7 @@ export function ServiceRentalBookingBlock({ product }: { product: Product }) {
             />
           }
         >
-          Request a time
+          {isRental ? "Request to rent" : "Request a time"}
           <ExternalLink className="size-3.5 opacity-80" />
         </Button>
       ) : null}

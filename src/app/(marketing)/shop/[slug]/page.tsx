@@ -27,6 +27,12 @@ function sellerProductToCartItem(
   shopName: string,
   sellerUid: string
 ): Product {
+  const listingType =
+    product.listingType === "service"
+      ? "service"
+      : product.listingType === "rental"
+        ? "rental"
+        : "product";
   return {
     id: product.id,
     name: product.name,
@@ -39,7 +45,12 @@ function sellerProductToCartItem(
     sellerUid,
     sellerId: sellerUid,
     commerceType: "first_party",
-    listingType: product.listingType === "service" ? "service" : "product",
+    listingType,
+    hirePeriod: product.hirePeriod,
+    priceNote: product.priceNote,
+    bookingNote:
+      product.bookingNote ||
+      (listingType === "rental" ? "Rental — partner confirms dates." : undefined),
     vehicleMake: product.vehicleMake,
     vehicleModel: product.vehicleModel,
     vehicleYear: product.vehicleYear,

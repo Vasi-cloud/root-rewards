@@ -126,6 +126,12 @@ export interface SellerProduct {
   sizeChart?: SizeChart;
   /** Service duration e.g. "60 min", "half day" */
   duration?: string;
+  /** Rental hire window e.g. "per day", "per weekend" */
+  hirePeriod?: string;
+  /** Price unit note e.g. "per day" — shown with £ amount */
+  priceNote?: string;
+  /** Booking / hire guidance (no live calendar) */
+  bookingNote?: string;
   /** How the service is delivered */
   deliveryMode?: ServiceDeliveryMode;
   /** Booking / availability note */

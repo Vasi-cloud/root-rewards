@@ -65,9 +65,11 @@ export function MarketplaceProductDetail({
 
   const trustCopy = isAffiliate
     ? "Sold on Amazon via our Associates link — stock and fulfilment are handled by Amazon."
-    : isBookable
-      ? "Request a time with the provider. Availability is not live on Forest Buddies®."
-      : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet.";
+    : isRental
+      ? "Rental — partner confirms dates. Availability is not live on Forest Buddies®."
+      : isService
+        ? "Request a time with the provider. Availability is not live on Forest Buddies®."
+        : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet.";
 
   return (
     <div
@@ -113,9 +115,9 @@ export function MarketplaceProductDetail({
               service={isBookable}
             />
             <div className="min-w-0 flex-1">
-              {!isBookable ? (
+              {!isService ? (
                 <p className="font-heading text-3xl font-semibold tabular-nums text-primary">
-                  £{product.price}
+                  {formatListingPrice(product.price, product.priceNote)}
                 </p>
               ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
@@ -177,7 +179,7 @@ export function MarketplaceProductDetail({
 
           {isBookable ? <ServiceRentalBookingBlock product={product} /> : null}
 
-          {!isBookable ? (
+          {isRental || !isBookable ? (
             <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-900/90 sm:text-sm">
               {trustCopy}
             </p>
@@ -212,8 +214,15 @@ export function MarketplaceProductDetail({
               >
                 <Leaf className="size-4" />
                 {addLabel ??
-                  `Add to cart — ${formatListingPrice(product.price)}`}
+                  (isRental
+                    ? `Request to rent — ${formatListingPrice(product.price, product.priceNote)}`
+                    : `Add to cart — ${formatListingPrice(product.price)}`)}
               </Button>
+              {isRental ? (
+                <p className="mt-2 text-center text-sm text-muted-foreground">
+                  Rental — partner confirms dates.
+                </p>
+              ) : null}
               {addedLabel && (
                 <p className="mt-2 text-center text-sm text-emerald-800">
                   {addedLabel}
