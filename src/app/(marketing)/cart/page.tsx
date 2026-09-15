@@ -25,9 +25,9 @@ import { recordPartnerOutboundClick } from "@/lib/affiliate-storage";
 import {
   emptyCauseGifts,
   giftLines,
-  giftTotal,
   loadCartCauseGifts,
   saveCartCauseGifts,
+  syncCauseGifts,
   type CauseGiftAmounts,
 } from "@/lib/causes";
 import { formatCartMoney } from "@/lib/cart-impact";
@@ -41,21 +41,24 @@ import {
 } from "@/lib/delivery-estimates";
 import { isRentalListing } from "@/lib/listing-categories";
 import type { CartItem } from "@/types";
+import type { CauseGiftChange } from "@/components/causes/cause-gift-picker";
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, totalItems } = useCart();
-  /** Shared with /checkout via localStorage — opt-in only, never auto-select all. */
+  /** Shared with /checkout — opt-in only; never auto-select all five. */
   const [gifts, setGifts] = useState<CauseGiftAmounts>(() => emptyCauseGifts());
-  const [giftsReady, setGiftsReady] = useState(false);
 
   useEffect(() => {
     setGifts(loadCartCauseGifts());
-    setGiftsReady(true);
   }, []);
 
-  function updateGifts(next: CauseGiftAmounts) {
-    setGifts(next);
-    saveCartCauseGifts(next);
+  function updateGifts(next: CauseGiftChange) {
+    setGifts((prev) => {
+      const raw = typeof next === "function" ? next(prev) : next;
+      const synced = syncCauseGifts(raw);
+      saveCartCauseGifts(synced);
+      return synced;
+    });
   }
 
   const firstParty = useMemo(
@@ -72,8 +75,12 @@ export default function CartPage() {
       firstParty.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [firstParty]
   );
-  const causeGiftTotal = giftTotal(gifts);
-  const causeGiftLines = giftLines(gifts);
+  /** Single source: summary lines → header total → payable. */
+  const causeGiftLines = useMemo(() => giftLines(gifts), [gifts]);
+  const causeGiftTotal = useMemo(
+    () => causeGiftLines.reduce((sum, line) => sum + line.amount, 0),
+    [causeGiftLines]
+  );
   const stripePayable = firstPartySubtotal + causeGiftTotal;
 
   const hasHire = useMemo(
@@ -265,10 +272,7 @@ export default function CartPage() {
             Open full donate page
           </Button>
         </div>
-        <CauseGiftPicker
-          gifts={giftsReady ? gifts : emptyCauseGifts()}
-          onChange={updateGifts}
-        />
+        <CauseGiftPicker gifts={gifts} onChange={updateGifts} />
       </section>
 
       <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm sm:rounded-3xl sm:p-8">

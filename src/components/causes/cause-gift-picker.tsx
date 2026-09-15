@@ -10,6 +10,7 @@ import {
   clampCauseGiftGbp,
   formatCauseUnits,
   illustrativeUnitsForGift,
+  syncCauseGifts,
   type Cause,
   type CauseGiftAmounts,
   type CauseId,
@@ -28,13 +29,17 @@ const CAUSE_ICONS = {
   sun: Sun,
 } as const;
 
+export type CauseGiftChange =
+  | CauseGiftAmounts
+  | ((prev: CauseGiftAmounts) => CauseGiftAmounts);
+
 export function CauseGiftPicker({
   gifts,
   onChange,
   className,
 }: {
   gifts: CauseGiftAmounts;
-  onChange: (next: CauseGiftAmounts) => void;
+  onChange: (next: CauseGiftChange) => void;
   className?: string;
 }) {
   const [causes, setCauses] = useState<Cause[]>(() => listDonateCauses());
@@ -46,7 +51,9 @@ export function CauseGiftPicker({
   }, []);
 
   function setGift(id: CauseId, amount: number) {
-    onChange({ ...gifts, [id]: clampCauseGiftGbp(amount) });
+    onChange((prev) =>
+      syncCauseGifts({ ...prev, [id]: clampCauseGiftGbp(amount) })
+    );
   }
 
   function toggle(id: CauseId) {
@@ -58,10 +65,6 @@ export function CauseGiftPicker({
     setGift(id, CAUSE_GIFT_PRESETS[0]);
   }
 
-  const payableTotal = causes.reduce((sum, cause) => {
-    const n = Number(gifts[cause.id]) || 0;
-    return sum + (n >= CAUSE_GIFT_MIN_GBP ? n : 0);
-  }, 0);
   return (
     <div className={cn("space-y-3", className)}>
       {causes.length === 0 ? (
@@ -72,8 +75,8 @@ export function CauseGiftPicker({
       {causes.map((cause) => {
         const Icon = CAUSE_ICONS[cause.icon];
         const amount = Number(gifts[cause.id]) || 0;
-        const selected =
-          payableTotal >= CAUSE_GIFT_MIN_GBP && amount >= CAUSE_GIFT_MIN_GBP;
+        // Ticked only when this cause has a payable £ amount — never auto-select all.
+        const selected = amount >= CAUSE_GIFT_MIN_GBP;
         const units = selected
           ? illustrativeUnitsForGift(cause, amount)
           : 0;
@@ -186,7 +189,7 @@ export function CauseGiftPicker({
                     onChange={(e) => {
                       const n = parseFloat(e.target.value);
                       if (e.target.value.trim() === "") {
-                        setGift(cause.id, CAUSE_GIFT_PRESETS[0]);
+                        setGift(cause.id, 0);
                         return;
                       }
                       if (Number.isFinite(n)) setGift(cause.id, n);

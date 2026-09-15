@@ -3,7 +3,7 @@ import {
   emptyCauseSelection,
   giftTotal,
   giftsToIllustrativeUnits,
-  parseCauseGifts,
+  syncCauseGifts,
   type CauseGiftAmounts,
   type CauseSelection,
 } from "@/lib/causes";
@@ -126,12 +126,17 @@ export function validateCheckoutBody(body: unknown): {
     }
   }
 
-  // Prefer exact £ gifts; fall back to legacy unit × catalog price
-  const causeGifts = parseCauseGifts(b.causeGifts);
+  // Prefer exact £ gifts when the client sent causeGifts (even all zeros).
+  // Never invent £ lines from illustrative causeSelection units.
+  const hasExplicitGifts = Object.prototype.hasOwnProperty.call(
+    b,
+    "causeGifts"
+  );
+  const causeGifts = syncCauseGifts(b.causeGifts);
   let catalogCausesCents = Math.round(giftTotal(causeGifts) * 100);
   let causeSelection = giftsToIllustrativeUnits(causeGifts);
 
-  if (catalogCausesCents <= 0) {
+  if (!hasExplicitGifts && catalogCausesCents <= 0) {
     causeSelection = parseCauseSelection(b.causeSelection);
     catalogCausesCents = 0;
     for (const cause of CAUSES) {

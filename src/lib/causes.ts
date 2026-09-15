@@ -118,17 +118,13 @@ export function selectionCost(selection: CauseSelection): number {
   );
 }
 
-/** Sum of exact £ gifts (cart / donate money UX). */
+/** Sum of exact £ gifts (cart / donate money UX). Only counts ticked amounts. */
 export function giftTotal(gifts: CauseGiftAmounts): number {
-  return CAUSES.reduce((sum, cause) => {
-    const n = Number(gifts[cause.id]) || 0;
-    return sum + (n > 0 ? n : 0);
-  }, 0);
+  return giftLines(gifts).reduce((sum, line) => sum + line.amount, 0);
 }
 
 export function giftSelectedCount(gifts: CauseGiftAmounts): number {
-  return CAUSES.filter((c) => (Number(gifts[c.id]) || 0) >= CAUSE_GIFT_MIN_GBP)
-    .length;
+  return giftLines(gifts).length;
 }
 
 /** Convert a GBP donation into whole units for a cause (floor). */
@@ -141,6 +137,7 @@ export function unitsToDollars(cause: Cause, units: number): number {
   return Math.max(0, units) * cause.unitPrice;
 }
 
+/** Selected cause gift lines only — unticked (£0) causes are omitted. */
 export function giftLines(gifts: CauseGiftAmounts) {
   return CAUSES.filter(
     (c) => (Number(gifts[c.id]) || 0) >= CAUSE_GIFT_MIN_GBP
@@ -273,7 +270,10 @@ const CART_GIFTS_KEY = "forest-buddies-cart-cause-gifts";
 export function saveCartCauseGifts(gifts: CauseGiftAmounts) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(CART_GIFTS_KEY, JSON.stringify(gifts));
+    localStorage.setItem(
+      CART_GIFTS_KEY,
+      JSON.stringify(syncCauseGifts(gifts))
+    );
   } catch {
     /* ignore */
   }
@@ -284,7 +284,7 @@ export function loadCartCauseGifts(): CauseGiftAmounts {
   try {
     const raw = localStorage.getItem(CART_GIFTS_KEY);
     if (!raw) return emptyCauseGifts();
-    return parseCauseGifts(JSON.parse(raw));
+    return syncCauseGifts(JSON.parse(raw));
   } catch {
     return emptyCauseGifts();
   }
@@ -301,11 +301,16 @@ export function parseCauseGifts(raw: unknown): CauseGiftAmounts {
 }
 
 /**
- * Single source of truth for cause gift UI: clamp amounts, then drop any
- * selection that would show a checkmark with a £0 payable total.
+ * Single source of truth for cause gift UI + payable totals:
+ * clamp amounts; unticked / sub-min → £0. Never invents presets for unticked causes.
  */
 export function syncCauseGifts(raw: unknown): CauseGiftAmounts {
-  const next = parseCauseGifts(raw);
+  const parsed = parseCauseGifts(raw);
+  const next = emptyCauseGifts();
+  for (const cause of CAUSES) {
+    const amount = Number(parsed[cause.id]) || 0;
+    next[cause.id] = amount >= CAUSE_GIFT_MIN_GBP ? amount : 0;
+  }
   if (giftTotal(next) < CAUSE_GIFT_MIN_GBP) return emptyCauseGifts();
   return next;
 }

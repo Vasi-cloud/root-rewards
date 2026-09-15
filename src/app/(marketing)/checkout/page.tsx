@@ -25,6 +25,7 @@ import {
   giftsToIllustrativeUnits,
   loadCartCauseGifts,
   saveCartCauseGifts,
+  syncCauseGifts,
   type CauseGiftAmounts,
 } from "@/lib/causes";
 import { saveLastDonation } from "@/lib/impact-storage";
@@ -48,6 +49,7 @@ import { ExternalLink, Leaf, TreePine, Truck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import type { CauseGiftChange } from "@/components/causes/cause-gift-picker";
 
 /** 16px+ inputs prevent iOS auto-zoom on focus */
 const fieldClass =
@@ -61,19 +63,21 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [stripeEnabled, setStripeEnabled] = useState(false);
-  /** Shared with /cart via localStorage — opt-in only, never auto-select all. */
+  /** Shared with /cart — opt-in only; never auto-select all five. */
   const [gifts, setGifts] = useState<CauseGiftAmounts>(() => emptyCauseGifts());
-  const [giftsReady, setGiftsReady] = useState(false);
 
   useEffect(() => {
     setGifts(loadCartCauseGifts());
-    setGiftsReady(true);
     void fetchPaymentsStatus().then((s) => setStripeEnabled(s.stripeEnabled));
   }, []);
 
-  function updateGifts(next: CauseGiftAmounts) {
-    setGifts(next);
-    saveCartCauseGifts(next);
+  function updateGifts(next: CauseGiftChange) {
+    setGifts((prev) => {
+      const raw = typeof next === "function" ? next(prev) : next;
+      const synced = syncCauseGifts(raw);
+      saveCartCauseGifts(synced);
+      return synced;
+    });
   }
 
   const firstParty = useMemo(
@@ -257,13 +261,14 @@ export default function CheckoutPage() {
 
     const email = emailResult.value;
     const name = nameResult.value;
-    const causeSelection = giftsToIllustrativeUnits(gifts);
+    const syncedGifts = syncCauseGifts(gifts);
+    const causeSelection = giftsToIllustrativeUnits(syncedGifts);
 
     savePendingCheckout({
       selection: causeSelection,
-      gifts,
+      gifts: syncedGifts,
       memberCreditApplied: false,
-      orderTotal: finalTotal,
+      orderTotal: firstPartySubtotal + giftTotal(syncedGifts),
       cartSubtotal: firstPartySubtotal,
       weightedAffiliatePercent: weightedPercent,
       productName: firstParty[0]?.name,
@@ -288,7 +293,7 @@ export default function CheckoutPage() {
       zip: zipResult.value,
       userId: user?.uid ?? null,
       memberCreditCents: 0,
-      causeGifts: gifts,
+      causeGifts: syncedGifts,
       causeSelection,
       lineItems: firstParty.map((item) => {
         const hire = isRentalListing(item);
@@ -487,10 +492,7 @@ export default function CheckoutPage() {
               Amounts are partner-funded / illustrative — not affiliate cashback.
             </p>
 
-            <CauseGiftPicker
-              gifts={giftsReady ? gifts : emptyCauseGifts()}
-              onChange={updateGifts}
-            />
+            <CauseGiftPicker gifts={gifts} onChange={updateGifts} />
 
             <div
               className={`mt-5 rounded-2xl border px-4 py-4 transition-colors ${
