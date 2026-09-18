@@ -201,18 +201,6 @@ export function SiteHeader() {
             <div className="flex shrink-0 items-center gap-1">
               <Button
                 nativeButton={false}
-                render={<Link href="/membership" />}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "shrink-0 overflow-visible whitespace-nowrap px-2.5",
-                  TAP
-                )}
-              >
-                Membership
-              </Button>
-              <Button
-                nativeButton={false}
                 render={<Link href={loginHref} />}
                 variant="outline"
                 size="sm"
@@ -248,18 +236,6 @@ export function SiteHeader() {
             <>
               <Button
                 nativeButton={false}
-                render={<Link href="/membership" />}
-                size="sm"
-                variant="ghost"
-                className={cn(
-                  "inline-flex shrink-0 items-center overflow-visible px-2 text-xs whitespace-nowrap sm:px-2.5 sm:text-sm",
-                  TAP
-                )}
-              >
-                Membership
-              </Button>
-              <Button
-                nativeButton={false}
                 render={<Link href={loginHref} />}
                 size="sm"
                 variant="outline"
@@ -269,6 +245,17 @@ export function SiteHeader() {
                 )}
               >
                 Sign in
+              </Button>
+              <Button
+                nativeButton={false}
+                render={<Link href={registerHref} />}
+                size="sm"
+                className={cn(
+                  "inline-flex shrink-0 items-center overflow-visible px-2 text-xs whitespace-nowrap sm:px-2.5 sm:text-sm",
+                  TAP
+                )}
+              >
+                Get started
               </Button>
             </>
           )}

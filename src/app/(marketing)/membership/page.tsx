@@ -255,7 +255,7 @@ export default function MembershipPage() {
             What’s included
           </h2>
           <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-            Cause credit and platform support — the heart of Impact Member.
+            £5/mo supports partner programmes and the Forest Buddies platform.
           </p>
           <ul className="mt-4 grid gap-3 sm:grid-cols-3">
             {INCLUDED_HIGHLIGHTS.map((item) => {

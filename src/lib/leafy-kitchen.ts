@@ -52,12 +52,12 @@ export const SAMPLE_RECIPES: SampleRecipe[] = [
   {
     id: "herb-lentil-bowl",
     title: "Herb Lentil Power Bowl",
-    tagline: "Weeknight greens · 30 min",
+    tagline: "Weeknight greens · 30 min · basket ~£6",
     cookMinutes: 30,
     servings: 2,
     tags: ["vegan", "vegetarian", "gluten-free", "high-protein"],
     text: `Herb Lentil Power Bowl
-Serves 2 · About 30 minutes
+Serves 2 · Cook ~30 min · Shop ~15 min · Basket ~£6 (illustrative)
 
 Ingredients:
 - 1 cup green lentils, rinsed
@@ -83,12 +83,12 @@ Method:
   {
     id: "one-pan-salmon",
     title: "One-Pan Lemon Herb Salmon",
-    tagline: "Light supper · 25 min",
+    tagline: "Light supper · 25 min · basket ~£9",
     cookMinutes: 25,
     servings: 2,
     tags: ["pescatarian", "gluten-free", "quick"],
     text: `One-Pan Lemon Herb Salmon
-Serves 2 · About 25 minutes
+Serves 2 · Cook ~25 min · Shop ~15 min · Basket ~£9 (illustrative)
 
 Ingredients:
 - 2 salmon fillets (about 140g each)
@@ -110,12 +110,12 @@ Method:
   {
     id: "forest-chia-pudding",
     title: "Forest Berry Chia Pudding",
-    tagline: "Make-ahead breakfast · 10 min + chill",
+    tagline: "Make-ahead breakfast · 10 min · basket ~£4",
     cookMinutes: 10,
     servings: 2,
     tags: ["vegan", "vegetarian", "breakfast", "make-ahead"],
     text: `Forest Berry Chia Pudding
-Serves 2 · 10 minutes active + overnight chill
+Serves 2 · Cook ~10 min + chill · Shop ~10 min · Basket ~£4 (illustrative)
 
 Ingredients:
 - 6 tbsp chia seeds
@@ -131,6 +131,192 @@ Method:
 1. Stir chia, oat milk, maple, vanilla, and cinnamon; rest 5 minutes, stir again.
 2. Chill overnight (or at least 2 hours).
 3. Top with berries, yoghurt, and pumpkin seeds.
+`,
+  },
+  {
+    id: "sausage-root-traybake",
+    title: "Sausage & Root Veg Traybake",
+    tagline: "Midweek traybake · 45 min · basket ~£8",
+    cookMinutes: 45,
+    servings: 4,
+    tags: ["family", "one-pan", "weeknight"],
+    text: `Sausage & Root Veg Traybake
+Serves 4 · Cook ~45 min · Shop ~15 min · Basket ~£8 (illustrative)
+
+Ingredients:
+- 8 British pork or veggie sausages
+- 400g potatoes, chunked
+- 2 carrots, chunked
+- 1 red onion, wedges
+- 2 tbsp olive oil
+- 1 tbsp wholegrain mustard
+- 1 tsp dried thyme
+- Sea salt and black pepper
+- Handful of fresh parsley
+
+Method:
+1. Heat oven to 200°C. Toss veg with oil, mustard, thyme, salt and pepper on a large tray.
+2. Nestle sausages among the veg. Roast 40–45 minutes, turning once, until golden.
+3. Scatter parsley and serve straight from the tray.
+`,
+  },
+  {
+    id: "apple-cinnamon-porridge",
+    title: "Apple & Cinnamon Porridge",
+    tagline: "Oat breakfast · 15 min · basket ~£3",
+    cookMinutes: 15,
+    servings: 2,
+    tags: ["vegetarian", "breakfast", "quick"],
+    text: `Apple & Cinnamon Porridge
+Serves 2 · Cook ~15 min · Shop ~10 min · Basket ~£3 (illustrative)
+
+Ingredients:
+- 100g porridge oats
+- 500ml milk or oat milk
+- 1 eating apple, grated
+- 1 tbsp runny honey or maple
+- ½ tsp ground cinnamon
+- Pinch of salt
+- 2 tbsp raisins (optional)
+- A few toasted hazelnuts (optional)
+
+Method:
+1. Simmer oats, milk, grated apple, cinnamon and salt for 5–8 minutes, stirring.
+2. Stir in raisins if using. Loosen with a splash more milk if needed.
+3. Spoon into bowls, drizzle honey, top with hazelnuts.
+`,
+  },
+  {
+    id: "leek-potato-soup",
+    title: "Leek & Potato Soup",
+    tagline: "Simple soup · 35 min · basket ~£4",
+    cookMinutes: 35,
+    servings: 4,
+    tags: ["vegetarian", "gluten-free", "comfort"],
+    text: `Leek & Potato Soup
+Serves 4 · Cook ~35 min · Shop ~12 min · Basket ~£4 (illustrative)
+
+Ingredients:
+- 2 large leeks, sliced and washed
+- 400g floury potatoes, diced
+- 1 onion, chopped
+- 2 tbsp butter or olive oil
+- 1 litre vegetable stock
+- 100ml single cream or oat cream (optional)
+- Sea salt and black pepper
+- Chives or parsley to finish
+
+Method:
+1. Soften leeks and onion in butter for 8 minutes without colouring.
+2. Add potatoes and stock; simmer 20 minutes until soft.
+3. Blend smooth (or mash roughly). Stir in cream if using, season, finish with herbs.
+`,
+  },
+  {
+    id: "courgette-tomato-pasta",
+    title: "Courgette & Cherry Tomato Pasta",
+    tagline: "Seasonal pasta · 25 min · basket ~£5",
+    cookMinutes: 25,
+    servings: 2,
+    tags: ["vegetarian", "quick", "seasonal"],
+    text: `Courgette & Cherry Tomato Pasta
+Serves 2 · Cook ~25 min · Shop ~12 min · Basket ~£5 (illustrative)
+
+Ingredients:
+- 200g pasta (penne or spaghetti)
+- 1 large courgette, sliced into ribbons or coins
+- 200g cherry tomatoes, halved
+- 2 tbsp olive oil
+- 2 garlic cloves, sliced
+- Pinch of chilli flakes
+- 40g grated Parmesan or vegetarian hard cheese
+- Handful of basil
+- Sea salt and black pepper
+
+Method:
+1. Boil pasta in salted water until al dente; reserve a cup of cooking water.
+2. Fry garlic and chilli in oil 1 minute; add courgette and tomatoes 5–6 minutes.
+3. Toss with pasta, cheese, basil and a splash of pasta water. Season and serve.
+`,
+  },
+  {
+    id: "beetroot-feta-salad",
+    title: "Beetroot, Walnut & Feta Salad",
+    tagline: "Fresh salad · 20 min · basket ~£6",
+    cookMinutes: 20,
+    servings: 2,
+    tags: ["vegetarian", "gluten-free", "salad"],
+    text: `Beetroot, Walnut & Feta Salad
+Serves 2 · Cook ~20 min · Shop ~12 min · Basket ~£6 (illustrative)
+
+Ingredients:
+- 250g cooked beetroot, wedges
+- 100g bag mixed salad leaves
+- 80g feta or salad cheese, crumbled
+- 40g walnuts, roughly chopped
+- 2 tbsp olive oil
+- 1 tbsp balsamic vinegar
+- 1 tsp honey
+- Sea salt and black pepper
+
+Method:
+1. Whisk oil, balsamic, honey, salt and pepper for a dressing.
+2. Toss leaves and beetroot with half the dressing on a platter.
+3. Scatter feta and walnuts; drizzle remaining dressing.
+`,
+  },
+  {
+    id: "apple-crumble-pudding",
+    title: "Quick Apple Crumble",
+    tagline: "Simple pudding · 40 min · basket ~£4",
+    cookMinutes: 40,
+    servings: 4,
+    tags: ["vegetarian", "pudding", "family"],
+    text: `Quick Apple Crumble
+Serves 4 · Cook ~40 min · Shop ~12 min · Basket ~£4 (illustrative)
+
+Ingredients:
+- 4 eating apples, peeled and sliced
+- 1 tbsp caster sugar
+- ½ tsp cinnamon
+- 100g plain flour
+- 50g cold butter, cubed
+- 50g soft brown sugar
+- 2 tbsp porridge oats
+- Custard or ice cream to serve (optional)
+
+Method:
+1. Heat oven to 190°C. Toss apples with caster sugar and cinnamon in a baking dish.
+2. Rub butter into flour until sandy; stir in brown sugar and oats. Scatter over apples.
+3. Bake 30–35 minutes until golden and bubbling. Serve with custard if you like.
+`,
+  },
+  {
+    id: "butter-bean-tomato-stew",
+    title: "Tomato & Butter Bean Stew",
+    tagline: "Store-cupboard supper · 30 min · basket ~£5",
+    cookMinutes: 30,
+    servings: 3,
+    tags: ["vegan", "vegetarian", "gluten-free", "weeknight"],
+    text: `Tomato & Butter Bean Stew
+Serves 3 · Cook ~30 min · Shop ~10 min · Basket ~£5 (illustrative)
+
+Ingredients:
+- 1 onion, chopped
+- 2 garlic cloves, crushed
+- 1 tbsp olive oil
+- 1 tsp smoked paprika
+- 400g tin chopped tomatoes
+- 400g tin butter beans, drained
+- 150ml vegetable stock
+- Handful of spinach
+- Salt and black pepper
+- Crusty bread to serve (optional)
+
+Method:
+1. Soften onion in oil 5 minutes; add garlic and paprika 1 minute.
+2. Tip in tomatoes, beans and stock; simmer 15 minutes until thick.
+3. Wilt spinach through, season, and serve with bread if you like.
 `,
   },
 ];
