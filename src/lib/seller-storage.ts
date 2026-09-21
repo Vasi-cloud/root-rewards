@@ -56,6 +56,24 @@ export function defaultEarnings() {
   };
 }
 
+/** Real applicants / empty shops — never seed demo Kitchen/Beauty totals. */
+export function emptyEarnings(): SellerProfile["earnings"] {
+  return {
+    total: 0,
+    pending: 0,
+    available: 0,
+    thisMonth: 0,
+    orders: 0,
+    breakdown: {
+      productSales: 0,
+      platformFee: 0,
+      sellerShare: 0,
+      causeContribution: 0,
+      byCategory: [],
+    },
+  };
+}
+
 export function defaultEarningsBreakdown() {
   const productSales = 403.24;
   const platformFee = Number((productSales * PLATFORM_FEE_RATE).toFixed(2));
@@ -89,6 +107,16 @@ export function defaultSellerImpact() {
   ];
 }
 
+export function emptySellerImpact(): SellerProfile["impact"] {
+  return [
+    {
+      causeId: "trees",
+      unitsSupported: 0,
+      label: "Trees you will help fund",
+    },
+  ];
+}
+
 export function defaultAnalytics(): SellerAnalytics {
   return {
     views: 3840,
@@ -96,6 +124,16 @@ export function defaultAnalytics(): SellerAnalytics {
     sales: 47,
     salesThisMonth: 14,
     conversionRate: 1.2,
+  };
+}
+
+export function emptyAnalytics(): SellerAnalytics {
+  return {
+    views: 0,
+    viewsThisMonth: 0,
+    sales: 0,
+    salesThisMonth: 0,
+    conversionRate: 0,
   };
 }
 
@@ -127,6 +165,11 @@ export function defaultPayouts(): SellerPayout[] {
       paidAt: "2026-05-31",
     },
   ];
+}
+
+/** New shops start with no payout history (no ····4821 seed). */
+export function emptyPayouts(): SellerPayout[] {
+  return [];
 }
 
 export function seedProductMetrics(product: {
@@ -203,18 +246,50 @@ export function normalizeProduct(p: SellerProduct): SellerProduct {
 }
 
 export function normalizeSeller(profile: SellerProfile): SellerProfile {
-  const earnings = {
-    ...defaultEarnings(),
-    ...profile.earnings,
-    available:
-      profile.earnings?.available ??
-      Math.max(0, (profile.earnings?.pending ?? 216) * 0.78),
-  };
-
   const products = (profile.products ?? []).map(normalizeProduct);
   const openReports = countOpenReportsForSeller(profile.uid);
   const metrics = computeTrustMetrics({ products }, openReports);
   const trustTier = deriveTrustTier(metrics, profile.trustOverride ?? null);
+
+  // New shops with no listings: force real zeros — never Kitchen/Beauty/4821 seeds.
+  const isEmptyShop = products.length === 0;
+
+  const earnings = isEmptyShop
+    ? emptyEarnings()
+    : {
+        ...defaultEarnings(),
+        ...profile.earnings,
+        available:
+          profile.earnings?.available ??
+          Math.max(0, (profile.earnings?.pending ?? 0) * 0.78),
+        breakdown:
+          profile.earnings?.breakdown ?? defaultEarningsBreakdown(),
+      };
+
+  const analytics = isEmptyShop
+    ? emptyAnalytics()
+    : { ...defaultAnalytics(), ...profile.analytics };
+
+  const payouts = isEmptyShop
+    ? emptyPayouts()
+    : profile.payouts && profile.payouts.length > 0
+      ? profile.payouts
+      : defaultPayouts();
+
+  const payoutMethod = isEmptyShop
+    ? profile.payoutMethod
+    : profile.payoutMethod ?? "Bank transfer ····4821";
+
+  const impact = isEmptyShop
+    ? profile.impact && profile.impact.length > 0
+      ? profile.impact.map((row) => ({
+          ...row,
+          unitsSupported: 0,
+        }))
+      : emptySellerImpact()
+    : profile.impact && profile.impact.length > 0
+      ? profile.impact
+      : defaultSellerImpact();
 
   return {
     ...profile,
@@ -236,20 +311,14 @@ export function normalizeSeller(profile: SellerProfile): SellerProfile {
     location: profile.location,
     founderNote: profile.founderNote,
     impactStory: profile.impactStory,
-    impact:
-      profile.impact && profile.impact.length > 0
-        ? profile.impact
-        : defaultSellerImpact(),
+    impact,
     earnings: {
       ...earnings,
-      breakdown: earnings.breakdown ?? defaultEarningsBreakdown(),
+      breakdown: earnings.breakdown ?? emptyEarnings().breakdown,
     },
-    analytics: { ...defaultAnalytics(), ...profile.analytics },
-    payouts:
-      profile.payouts && profile.payouts.length > 0
-        ? profile.payouts
-        : defaultPayouts(),
-    payoutMethod: profile.payoutMethod ?? "Bank transfer ····4821",
+    analytics,
+    payouts,
+    payoutMethod,
     trustTier,
   };
 }
@@ -1359,9 +1428,6 @@ export function setProductApproval(
             reviewedAt: new Date().toISOString(),
             reviewNote: reviewNote?.trim() || undefined,
             autoApproved: false,
-            ...(status === "approved" && p.views === 0
-              ? seedProductMetrics(p)
-              : {}),
           }
         : p
     ),

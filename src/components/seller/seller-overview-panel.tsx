@@ -67,7 +67,9 @@ export function SellerOverviewPanel({
       action: () => onTab("analytics"),
     },
     {
-      done: (seller.earnings.available ?? 0) >= 10,
+      done:
+        (seller.earnings.orders ?? 0) > 0 &&
+        (seller.earnings.available ?? 0) >= 10,
       label: "Reach £10 available to payout",
       action: () => onTab("earnings"),
     },

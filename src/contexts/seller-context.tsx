@@ -23,9 +23,10 @@ import {
 } from "@/lib/moderation";
 import {
   SELLERS_STORAGE_KEY,
-  defaultAnalytics,
-  defaultEarnings,
-  defaultPayouts,
+  emptyAnalytics,
+  emptyEarnings,
+  emptyPayouts,
+  emptySellerImpact,
   ensureDemoShops,
   loadAllSellers,
   normalizeSeller,
@@ -66,7 +67,6 @@ interface SellerContextValue {
     companyName?: string;
     location?: string;
   }) => void;
-  simulateApproval: () => void;
   pauseSeller: () => void;
   resumeSeller: () => void;
   cancelSeller: () => void;
@@ -223,23 +223,26 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
           sellerType === "business" ? companyName || shopName : undefined,
         impact: existing?.impact?.length
           ? existing.impact
-          : [
-              {
-                causeId: "trees",
-                unitsSupported: 0,
-                label: "Trees you will help fund",
-              },
-            ],
+          : emptySellerImpact(),
         status: "pending" as SellerStatus,
         appliedAt: new Date().toISOString(),
         approvedAt: undefined,
         pausedAt: undefined,
         canceledAt: undefined,
         products: existing?.products ?? [],
-        earnings: existing?.earnings ?? defaultEarnings(),
-        analytics: existing?.analytics ?? defaultAnalytics(),
-        payouts: existing?.payouts ?? defaultPayouts(),
-        payoutMethod: existing?.payoutMethod ?? "Bank transfer ····4821",
+        earnings:
+          existing?.products?.length
+            ? existing.earnings
+            : emptyEarnings(),
+        analytics:
+          existing?.products?.length
+            ? existing.analytics
+            : emptyAnalytics(),
+        payouts:
+          existing?.products?.length
+            ? existing.payouts
+            : emptyPayouts(),
+        payoutMethod: existing?.payoutMethod,
         trustOverride: existing?.trustOverride,
         coverImageUrl: existing?.coverImageUrl,
         founderNote: existing?.founderNote,
@@ -302,20 +305,6 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
     },
     [seller, user, persistCurrent]
   );
-
-  const simulateApproval = useCallback(() => {
-    if (!seller) return;
-    persistCurrent({
-      ...seller,
-      status: "approved",
-      approvedAt: new Date().toISOString(),
-      pausedAt: undefined,
-      canceledAt: undefined,
-      earnings: seller.earnings.total ? seller.earnings : defaultEarnings(),
-      analytics: seller.analytics ?? defaultAnalytics(),
-      payouts: seller.payouts?.length ? seller.payouts : defaultPayouts(),
-    });
-  }, [seller, persistCurrent]);
 
   const pauseSeller = useCallback(() => {
     if (!user) return;
@@ -478,7 +467,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         id: `po-${Date.now()}`,
         amount: Number(requestAmount.toFixed(2)),
         status: "processing" as const,
-        method: seller.payoutMethod ?? "Bank transfer ····4821",
+        method: seller.payoutMethod ?? "Bank transfer",
         scheduledFor: scheduled.toISOString().slice(0, 10),
       };
 
@@ -509,7 +498,6 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       refreshSellers,
       applyAsSeller,
       updateSellerProfile,
-      simulateApproval,
       pauseSeller,
       resumeSeller,
       cancelSeller,
@@ -529,7 +517,6 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       refreshSellers,
       applyAsSeller,
       updateSellerProfile,
-      simulateApproval,
       pauseSeller,
       resumeSeller,
       cancelSeller,

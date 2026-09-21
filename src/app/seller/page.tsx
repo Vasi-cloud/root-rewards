@@ -269,7 +269,6 @@ export default function SellerPage() {
     seller,
     loading: sellerLoading,
     applyAsSeller,
-    simulateApproval,
     resumeSeller,
     addProduct,
     addProducts,
@@ -473,8 +472,8 @@ export default function SellerPage() {
               You&apos;re on the list
             </h1>
             <p className="mt-2 text-muted-foreground">
-              <strong>{seller.shopName}</strong> is under review. We check eco
-              clarity and fit — usually quick in this demo.
+              <strong>{seller.shopName}</strong> — Pending review. Admin →
+              Sellers approves. No self-approve button in production.
             </p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               <Badge className="bg-gold/25 text-primary">Pending review</Badge>
@@ -556,15 +555,17 @@ export default function SellerPage() {
           <div className="mt-6 rounded-2xl border border-dashed border-primary/25 bg-card p-5">
             <p className="text-sm font-medium text-primary">Approval process</p>
             <ol className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li>1. Our team reviews your application (demo: you can unlock below).</li>
-              <li>2. Once approved, list products or bookable services.</li>
+              <li>
+                1. Admin reviews your application in Admin → Sellers.
+              </li>
+              <li>
+                2. Once Approved, your shop goes live — then list products,
+                services, or hire.
+              </li>
               <li>3. Shoppers find you on Marketplace and your public shop.</li>
             </ol>
-            <Button onClick={simulateApproval} className="mt-5 w-full">
-              Simulate approval (demo)
-            </Button>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              Production uses the Admin → Sellers queue instead of this button.
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              We&apos;ll email when your shop is approved.
             </p>
           </div>
 
@@ -706,9 +707,19 @@ export default function SellerPage() {
   }
 
   // Approved seller dashboard
-  function openAdd() {
+  const hireFocused = Boolean(
+    seller.servicesOffered &&
+      /rental|hire/i.test(seller.servicesOffered)
+  );
+
+  function openAdd(listingType: ListingType = "product") {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      listingType,
+      category: defaultCategoryFor(listingType),
+      stock: listingType === "product" ? "25" : "1",
+    });
     setPanel("single");
     setTab("products");
   }
@@ -733,8 +744,14 @@ export default function SellerPage() {
 
   function openEdit(product: SellerProduct) {
     setEditingId(product.id);
+    const listingType: ListingType =
+      product.listingType === "service"
+        ? "service"
+        : product.listingType === "rental"
+          ? "rental"
+          : "product";
     setForm({
-      listingType: product.listingType === "service" ? "service" : "product",
+      listingType,
       name: product.name,
       subtitle: product.subtitle ?? "",
       description: product.description,
@@ -751,7 +768,7 @@ export default function SellerPage() {
       dimensions: product.dimensions ?? "",
       includeSizeChart: Boolean(product.sizeChart?.rows?.length),
       sizeChartNote: product.sizeChart?.note ?? "",
-      duration: product.duration ?? "",
+      duration: product.duration ?? product.hirePeriod ?? "",
       deliveryMode: product.deliveryMode ?? "remote",
       availabilityNote: product.availabilityNote ?? "",
       imageUrl: product.imageUrl ?? "",
@@ -784,6 +801,7 @@ export default function SellerPage() {
       ? seller?.products.find((p) => p.id === editingId)
       : undefined;
     const isService = form.listingType === "service";
+    const isRental = form.listingType === "rental";
     const payload: Omit<SellerProduct, "id" | "createdAt"> = {
       listingType: form.listingType,
       name: form.name.trim(),
@@ -796,29 +814,45 @@ export default function SellerPage() {
       stock: Math.max(0, Number(form.stock) || 0),
       materials: form.materials.trim() || undefined,
       madeIn: form.madeIn.trim() || undefined,
-      careNotes: isService ? undefined : form.careNotes.trim() || undefined,
-      fitGuide: isService ? undefined : form.fitGuide.trim() || undefined,
-      dimensions: isService ? undefined : form.dimensions.trim() || undefined,
+      careNotes:
+        isService || isRental
+          ? undefined
+          : form.careNotes.trim() || undefined,
+      fitGuide:
+        isService || isRental
+          ? undefined
+          : form.fitGuide.trim() || undefined,
+      dimensions:
+        isService || isRental
+          ? undefined
+          : form.dimensions.trim() || undefined,
       sizeChart:
-        !isService && form.includeSizeChart
+        !isService && !isRental && form.includeSizeChart
           ? apparelSizeChart(form.sizeChartNote.trim() || undefined)
           : undefined,
       duration: isService ? form.duration.trim() || undefined : undefined,
+      hirePeriod: isRental ? form.duration.trim() || undefined : undefined,
       deliveryMode: isService ? form.deliveryMode : undefined,
       availabilityNote: isService
         ? form.availabilityNote.trim() || undefined
         : undefined,
       imageUrl: form.imageUrl.trim() || existing?.imageUrl,
-      vehicleMake: isService
-        ? undefined
-        : form.vehicleMake.trim() || undefined,
-      vehicleModel: isService
-        ? undefined
-        : form.vehicleModel.trim() || undefined,
-      vehicleYear: isService
-        ? undefined
-        : form.vehicleYear.trim() || undefined,
-      oemNote: isService ? undefined : form.oemNote.trim() || undefined,
+      vehicleMake:
+        isService || isRental
+          ? undefined
+          : form.vehicleMake.trim() || undefined,
+      vehicleModel:
+        isService || isRental
+          ? undefined
+          : form.vehicleModel.trim() || undefined,
+      vehicleYear:
+        isService || isRental
+          ? undefined
+          : form.vehicleYear.trim() || undefined,
+      oemNote:
+        isService || isRental
+          ? undefined
+          : form.oemNote.trim() || undefined,
       status: "pending",
       views: 0,
       sales: 0,
@@ -942,10 +976,33 @@ export default function SellerPage() {
             <Upload className="size-4" />
             Bulk upload
           </Button>
-          <Button onClick={openAdd} className="gap-1.5 flex-1 sm:flex-none">
-            <Plus className="size-4" />
-            Add product
-          </Button>
+          {hireFocused ? (
+            <>
+              <Button
+                onClick={() => openAdd("rental")}
+                className="gap-1.5 flex-1 sm:flex-none"
+              >
+                <Plus className="size-4" />
+                Add hire listing
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => openAdd("product")}
+                className="gap-1.5 flex-1 sm:flex-none"
+              >
+                <Plus className="size-4" />
+                Add product
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={() => openAdd("product")}
+              className="gap-1.5 flex-1 sm:flex-none"
+            >
+              <Plus className="size-4" />
+              Add product
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1006,13 +1063,18 @@ export default function SellerPage() {
                     <legend className="mb-2 text-xs font-medium text-muted-foreground">
                       Listing type
                     </legend>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       {(
                         [
                           {
                             value: "product" as const,
                             label: "Product",
                             hint: "Physical or digital goods",
+                          },
+                          {
+                            value: "rental" as const,
+                            label: "Hire / rent",
+                            hint: "Gear, kits, equipment…",
                           },
                           {
                             value: "service" as const,
@@ -1041,9 +1103,9 @@ export default function SellerPage() {
                                 category: defaultCategoryFor(opt.value),
                                 includeSizeChart: false,
                                 stock:
-                                  opt.value === "service"
-                                    ? "6"
-                                    : f.stock || "25",
+                                  opt.value === "product"
+                                    ? f.stock || "25"
+                                    : "1",
                               }))
                             }
                             className="sr-only"
@@ -1069,7 +1131,9 @@ export default function SellerPage() {
                       placeholder={
                         form.listingType === "service"
                           ? "e.g. Solo Founder Legal Hour"
-                          : "e.g. Bamboo Travel Cutlery Set"
+                          : form.listingType === "rental"
+                            ? "e.g. Family Tent Weekend Hire"
+                            : "e.g. Bamboo Travel Cutlery Set"
                       }
                       className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                     />
@@ -1086,7 +1150,9 @@ export default function SellerPage() {
                       placeholder={
                         form.listingType === "service"
                           ? "Who it’s for and what they leave with"
-                          : "Short line that highlights the eco benefit"
+                          : form.listingType === "rental"
+                            ? "Who it’s for and what’s included"
+                            : "Short line that highlights the eco benefit"
                       }
                       className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                     />
@@ -1125,7 +1191,9 @@ export default function SellerPage() {
                             ? "Add another…"
                             : form.listingType === "service"
                               ? "legal, remote, workshop…"
-                              : "bamboo, zero waste, organic…"
+                              : form.listingType === "rental"
+                                ? "camping, weekend, family…"
+                                : "bamboo, zero waste, organic…"
                         }
                         className="min-w-[10rem] flex-1 bg-transparent px-1 py-0.5 text-sm outline-none"
                       />
@@ -1212,7 +1280,9 @@ export default function SellerPage() {
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
                       {form.listingType === "service"
                         ? "Bookable slots"
-                        : "Stock"}
+                        : form.listingType === "rental"
+                          ? "Units available"
+                          : "Stock"}
                     </label>
                     <input
                       type="number"
@@ -1406,11 +1476,31 @@ export default function SellerPage() {
                       </div>
                     </>
                   )}
+                  {form.listingType === "rental" && (
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                        Hire period
+                      </label>
+                      <input
+                        value={form.duration}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            duration: e.target.value,
+                          }))
+                        }
+                        placeholder='e.g. "weekend" / "per day" / "Fri–Mon"'
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                      />
+                    </div>
+                  )}
                   <div className="sm:col-span-2">
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
                       {form.listingType === "service"
                         ? "What’s included"
-                        : "Materials"}
+                        : form.listingType === "rental"
+                          ? "What’s included"
+                          : "Materials"}
                     </label>
                     <input
                       value={form.materials}
@@ -1420,7 +1510,9 @@ export default function SellerPage() {
                       placeholder={
                         form.listingType === "service"
                           ? "e.g. Written summary + checklist PDF"
-                          : "e.g. 55% organic hemp / 45% organic cotton"
+                          : form.listingType === "rental"
+                            ? "e.g. Tent, pegs, groundsheet, carry bag"
+                            : "e.g. 55% organic hemp / 45% organic cotton"
                       }
                       className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                     />
@@ -1535,7 +1627,9 @@ export default function SellerPage() {
                         ? "Save changes"
                         : form.listingType === "service"
                           ? "List service"
-                          : "List product"}
+                          : form.listingType === "rental"
+                            ? "List hire item"
+                            : "List product"}
                     </Button>
                     <Button type="button" variant="outline" onClick={closePanel}>
                       Cancel
@@ -1738,7 +1832,7 @@ export default function SellerPage() {
                           </div>
                           <div>
                             <label className="mb-1 block text-xs text-muted-foreground">
-                              Price ($)
+                              Price (£)
                             </label>
                             <input
                               type="number"
@@ -1889,10 +1983,36 @@ export default function SellerPage() {
                       <Upload className="size-3.5" />
                       Bulk
                     </Button>
-                    <Button size="sm" onClick={openAdd} className="gap-1">
-                      <Plus className="size-3.5" />
-                      Add
-                    </Button>
+                    {hireFocused ? (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => openAdd("rental")}
+                          className="gap-1"
+                        >
+                          <Plus className="size-3.5" />
+                          Add hire listing
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openAdd("product")}
+                          className="gap-1"
+                        >
+                          <Plus className="size-3.5" />
+                          Add product
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => openAdd("product")}
+                        className="gap-1"
+                      >
+                        <Plus className="size-3.5" />
+                        Add
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1946,10 +2066,33 @@ export default function SellerPage() {
                     Add one listing or upload several from a CSV.
                   </p>
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
-                    <Button onClick={openAdd} className="gap-1.5">
-                      <Plus className="size-4" />
-                      Add product
-                    </Button>
+                    {hireFocused ? (
+                      <>
+                        <Button
+                          onClick={() => openAdd("rental")}
+                          className="gap-1.5"
+                        >
+                          <Plus className="size-4" />
+                          Add hire listing
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => openAdd("product")}
+                          className="gap-1.5"
+                        >
+                          <Plus className="size-4" />
+                          Add product
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={() => openAdd("product")}
+                        className="gap-1.5"
+                      >
+                        <Plus className="size-4" />
+                        Add product
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       onClick={openBulk}
@@ -2046,15 +2189,17 @@ export default function SellerPage() {
                     <div className="flex flex-wrap items-center gap-3">
                       <div className="text-right text-sm">
                         <div className="font-semibold tabular-nums">
-                          ${product.price.toFixed(2)}
+                          £{product.price.toFixed(2)}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {product.stock}{" "}
                           {product.listingType === "service"
                             ? "slots"
-                            : "stock"}{" "}
+                            : product.listingType === "rental"
+                              ? "units"
+                              : "stock"}{" "}
                           · {product.views ?? 0} views · {product.sales ?? 0}{" "}
-                          sales
+                          {product.listingType === "rental" ? "hires" : "sales"}
                         </div>
                       </div>
                       <Button
@@ -2308,7 +2453,7 @@ export default function SellerPage() {
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-3 text-sm text-emerald-950">
                     <p className="font-medium">Public shop</p>
                     <p className="mt-0.5 text-emerald-800/80">
-                      forestbuddies.app/shop/{seller.slug}
+                      forestbuddies.com/shop/{seller.slug}
                     </p>
                     <Button
                       type="button"
@@ -2393,8 +2538,7 @@ export default function SellerPage() {
             <CardHeader>
               <CardTitle className="font-heading">Impact you support</CardTitle>
               <CardDescription>
-                Demo impact metrics tied to your shop — grow them with every
-                sale.
+                Causes your shop helps grow — update as real sales come in.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-3">

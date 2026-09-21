@@ -105,7 +105,7 @@ export function SellerEarningsPanel({
             </Button>
             <p className="text-center text-xs text-muted-foreground">
               Minimum £10 · transfer to{" "}
-              {seller.payoutMethod ?? "Bank transfer ····4821"}
+              {seller.payoutMethod?.trim() || "Add a payout method in Profile"}
             </p>
           </div>
         </CardContent>
@@ -230,7 +230,7 @@ export function SellerEarningsPanel({
             <div className="flex justify-between rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
               <span>Method</span>
               <span className="font-medium">
-                {seller.payoutMethod ?? "Bank transfer ····4821"}
+                {seller.payoutMethod?.trim() || "Add a payout method in Profile"}
               </span>
             </div>
             <div className="flex justify-between rounded-xl border px-4 py-3">

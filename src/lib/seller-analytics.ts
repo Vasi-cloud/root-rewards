@@ -53,7 +53,8 @@ export function deriveSellerAnalytics(seller: SellerProfile): SellerAnalytics {
 }
 
 export function averageOrderValue(seller: SellerProfile): number {
-  const orders = Math.max(1, seller.earnings.orders || 0);
+  const orders = seller.earnings.orders || 0;
+  if (orders <= 0 || seller.earnings.total <= 0) return 0;
   return money(seller.earnings.total / orders);
 }
 
