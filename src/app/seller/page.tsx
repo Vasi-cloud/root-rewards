@@ -26,6 +26,11 @@ import {
   BecomeSellerHero,
 } from "@/components/seller/become-seller-application";
 import { SellerAccountControls } from "@/components/seller/seller-account-controls";
+import {
+  listingPhotosFromProduct,
+  SellerListingPhotoUpload,
+  type ListingPhoto,
+} from "@/components/seller/seller-listing-photo-upload";
 import { productStatusBadge } from "@/components/seller/seller-hub-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -294,6 +299,7 @@ export default function SellerPage() {
   const [panel, setPanel] = useState<ProductPanel>("none");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [listingPhotos, setListingPhotos] = useState<ListingPhoto[]>([]);
   const [bulkMode, setBulkMode] = useState<"csv" | "form">("csv");
   const [bulkDrafts, setBulkDrafts] = useState<ProductDraft[]>([
     emptyDraft(),
@@ -714,6 +720,7 @@ export default function SellerPage() {
 
   function openAdd(listingType: ListingType = "product") {
     setEditingId(null);
+    setListingPhotos([]);
     setForm({
       ...emptyForm,
       listingType,
@@ -738,12 +745,14 @@ export default function SellerPage() {
     setPanel("none");
     setEditingId(null);
     setForm(emptyForm);
+    setListingPhotos([]);
     setBulkMessage(null);
     setBulkError(null);
   }
 
   function openEdit(product: SellerProduct) {
     setEditingId(product.id);
+    setListingPhotos(listingPhotosFromProduct(product));
     const listingType: ListingType =
       product.listingType === "service"
         ? "service"
@@ -802,6 +811,13 @@ export default function SellerPage() {
       : undefined;
     const isService = form.listingType === "service";
     const isRental = form.listingType === "rental";
+    const uploadedUrls = listingPhotos.map((p) => p.previewUrl);
+    const heroImage =
+      uploadedUrls[0]?.trim() ||
+      form.imageUrl.trim() ||
+      existing?.imageUrl;
+    const galleryFromPhotos =
+      uploadedUrls.length > 0 ? uploadedUrls.slice(0, 4) : undefined;
     const payload: Omit<SellerProduct, "id" | "createdAt"> = {
       listingType: form.listingType,
       name: form.name.trim(),
@@ -836,7 +852,12 @@ export default function SellerPage() {
       availabilityNote: isService
         ? form.availabilityNote.trim() || undefined
         : undefined,
-      imageUrl: form.imageUrl.trim() || existing?.imageUrl,
+      imageUrl: isRental
+        ? heroImage
+        : form.imageUrl.trim() || existing?.imageUrl,
+      gallery: isRental
+        ? galleryFromPhotos ?? existing?.gallery
+        : galleryFromPhotos ?? existing?.gallery,
       vehicleMake:
         isService || isRental
           ? undefined
@@ -857,7 +878,6 @@ export default function SellerPage() {
       views: 0,
       sales: 0,
       // Preserve storytelling assets when editing
-      gallery: existing?.gallery,
       storySnippet: existing?.storySnippet,
       impactNote: existing?.impactNote,
     };
@@ -1315,6 +1335,16 @@ export default function SellerPage() {
                       className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                     />
                   </div>
+                  {form.listingType === "rental" && (
+                    <div className="sm:col-span-2">
+                      <SellerListingPhotoUpload
+                        photos={listingPhotos}
+                        onChange={setListingPhotos}
+                        label="Hire listing photos"
+                        hint="Add 1–4 images (same storage as product photos). The first image is the Marketplace card thumbnail."
+                      />
+                    </div>
+                  )}
                   {form.listingType === "product" && (
                     <>
                       <div className="sm:col-span-2">

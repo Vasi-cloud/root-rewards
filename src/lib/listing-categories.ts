@@ -34,6 +34,9 @@ export const SERVICE_CATEGORIES = [
 /** Borrowable gear categories for Admin rentals */
 export const RENTAL_CATEGORIES = [
   "Camping",
+  "Outdoor",
+  "Sports",
+  "Cycling",
   "Mobility",
   "Tools",
   "Events",

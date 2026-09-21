@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useSeller } from "@/contexts/seller-context";
+import { listingTypeLabel } from "@/lib/listing-categories";
 import { TRUST_CONFIG } from "@/lib/moderation";
 import type {
   ProductApprovalStatus,
@@ -59,6 +60,12 @@ function sellerAccountBadge(status: SellerStatus) {
     default:
       return { label: status, className: "bg-muted text-muted-foreground" };
   }
+}
+
+function listingTypeBadgeClass(listingType?: string) {
+  if (listingType === "service") return "bg-sky-100 text-sky-900";
+  if (listingType === "rental") return "bg-violet-100 text-violet-950";
+  return undefined;
 }
 
 function listingBadge(status: ProductApprovalStatus) {
@@ -433,7 +440,8 @@ export function AdminSellersPanel({
               Listings for this shop
             </CardTitle>
             <CardDescription>
-              Product and service listings belonging to {selectedShop.shopName}.
+              Product, hire, and service listings belonging to{" "}
+              {selectedShop.shopName}.
             </CardDescription>
           </CardHeader>
           <CardContent className="divide-y p-0">
@@ -458,11 +466,21 @@ export function AdminSellersPanel({
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">{product.name}</span>
                           <Badge className={lb.className}>{lb.label}</Badge>
+                          <Badge
+                            variant="secondary"
+                            className={listingTypeBadgeClass(product.listingType)}
+                          >
+                            {listingTypeLabel(product.listingType)}
+                          </Badge>
                           <Badge variant="outline">{product.category}</Badge>
                         </div>
                         <p className="mt-0.5 text-sm text-muted-foreground">
-                          ${product.price.toFixed(2)} · {product.stock}{" "}
-                          {product.listingType === "service" ? "slots" : "stock"}
+                          £{product.price.toFixed(2)} · {product.stock}{" "}
+                          {product.listingType === "service"
+                            ? "slots"
+                            : product.listingType === "rental"
+                              ? "units"
+                              : "stock"}
                         </p>
                       </div>
                       {!isRejecting && (
@@ -780,10 +798,11 @@ export function AdminSellersPanel({
                 Listing review
               </span>
             </div>
-            <CardTitle className="font-heading">Product listings</CardTitle>
+            <CardTitle className="font-heading">Seller listings</CardTitle>
             <CardDescription>
-              Check eco score and details, then approve or reject. Live count
-              above matches approved rows ({liveListings.length}).
+              Products, hire items, and services — approve or reject. Approved
+              hire listings go live under Marketplace Rentals ({liveListings.length}{" "}
+              live).
             </CardDescription>
             <div className="flex flex-wrap gap-2 pt-2">
               {(
@@ -848,15 +867,9 @@ export function AdminSellersPanel({
                           </Badge>
                           <Badge
                             variant="secondary"
-                            className={
-                              product.listingType === "service"
-                                ? "bg-sky-100 text-sky-900"
-                                : undefined
-                            }
+                            className={listingTypeBadgeClass(product.listingType)}
                           >
-                            {product.listingType === "service"
-                              ? "Service"
-                              : "Product"}
+                            {listingTypeLabel(product.listingType)}
                           </Badge>
                           <Badge variant="outline">{product.category}</Badge>
                           <Badge className="bg-emerald-100 text-emerald-800">
@@ -874,10 +887,12 @@ export function AdminSellersPanel({
                           >
                             {s.shopName}
                           </button>{" "}
-                          · ${product.price.toFixed(2)} · {product.stock}{" "}
+                          · £{product.price.toFixed(2)} · {product.stock}{" "}
                           {product.listingType === "service"
                             ? "slots"
-                            : "stock"}
+                            : product.listingType === "rental"
+                              ? "units"
+                              : "stock"}
                         </p>
                         {product.subtitle ? (
                           <p className="mt-1 text-sm text-primary/80">
