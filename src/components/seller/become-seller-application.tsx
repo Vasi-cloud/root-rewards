@@ -24,6 +24,7 @@ import type { SellerApplicationInput, SellerType } from "@/types";
 
 const OFFERING_OPTIONS = [
   ...SERVICE_CATEGORIES,
+  "Rentals / hire",
   "Products / goods",
 ] as const;
 
@@ -34,7 +35,7 @@ const APPROVAL_STEPS = [
   },
   {
     title: "We review",
-    text: "A quick eco-credentials check (demo: minutes). We look for clarity, care, and honesty.",
+    text: "Admin reviews in Admin → Sellers. Shop goes live only after Approved.",
   },
   {
     title: "You list & grow",
@@ -396,7 +397,7 @@ export function BecomeSellerApplicationForm({
                 <input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Austin, TX · Remote-friendly"
+                  placeholder="e.g. Lea Valley, East London · pickup or local delivery"
                   className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
                 />
               </div>
@@ -467,7 +468,7 @@ export function BecomeSellerApplicationForm({
               Submit seller application
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Free to apply · Demo review is instant after you submit
+              Free to apply. We&apos;ll email when your shop is approved.
             </p>
           </div>
         </form>
