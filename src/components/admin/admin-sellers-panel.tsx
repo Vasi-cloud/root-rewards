@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -24,8 +24,10 @@ import {
 import { useSeller } from "@/contexts/seller-context";
 import { listingTypeLabel } from "@/lib/listing-categories";
 import { TRUST_CONFIG } from "@/lib/moderation";
+import { loadAllSellers } from "@/lib/seller-storage";
 import type {
   ProductApprovalStatus,
+  SellerProduct,
   SellerProfile,
   SellerStatus,
   SellerTrustTier,
@@ -36,6 +38,9 @@ export type SellersSubView = "shops" | "listings";
 
 /** Keep Admin Sellers tables responsive — full counts stay in stat cards. */
 const ADMIN_SELLERS_TABLE_CAP = 100;
+/** Shop detail for one opened store — never a full-catalog merge. */
+const SHOP_DETAIL_CAP = 20;
+const DEMO_LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 
 function isAdminListingRow(product: { status?: string; listingType?: string }) {
   if (
@@ -45,6 +50,40 @@ function isAdminListingRow(product: { status?: string; listingType?: string }) {
     return false;
   }
   return true;
+}
+
+function isDemoLeaValleyShop(shop: {
+  uid: string;
+  email?: string;
+  products?: { id: string }[];
+}) {
+  if (shop.uid === DEMO_LEA_VALLEY_UID) return true;
+  if (shop.email?.toLowerCase() === "hire@leavalleycycles.demo") return true;
+  const products = shop.products ?? [];
+  return (
+    products.length > 0 &&
+    products.every((product) => product.id.startsWith("demo-lv-pending"))
+  );
+}
+
+function isLeaValleyName(shop: {
+  shopName?: string;
+  tradingName?: string;
+  slug?: string;
+}) {
+  const name = `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.slug ?? ""}`;
+  return /lea[\s-]*valley/i.test(name) && /cycle|hire/i.test(name);
+}
+
+function isLeaValleyApplication(shop: {
+  uid: string;
+  email?: string;
+  shopName?: string;
+  tradingName?: string;
+  slug?: string;
+  products?: { id: string }[];
+}) {
+  return isLeaValleyName(shop) && !isDemoLeaValleyShop(shop);
 }
 
 type AdminSellersPanelProps = {
@@ -239,29 +278,52 @@ export function AdminSellersPanel({
   >("pending");
   const [rejectingKey, setRejectingKey] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [leaListings, setLeaListings] = useState<{
+    uid: string;
+    products: SellerProduct[];
+    error: string | null;
+    sig: string;
+  } | null>(null);
+
+  const visibleSellers = useMemo(() => {
+    const hasApplication = allSellers.some((s) => isLeaValleyApplication(s));
+    return allSellers.filter((s) => {
+      if (!isDemoLeaValleyShop(s)) return true;
+      return !hasApplication;
+    });
+  }, [allSellers]);
 
   const shopCounts = useMemo(() => {
-    const total = allSellers.length;
-    const pending = allSellers.filter((s) => s.status === "pending").length;
-    const approved = allSellers.filter((s) => s.status === "approved").length;
-    const paused = allSellers.filter((s) => s.status === "paused").length;
+    const total = visibleSellers.length;
+    const pending = visibleSellers.filter((s) => s.status === "pending").length;
+    const approved = visibleSellers.filter((s) => s.status === "approved").length;
+    const paused = visibleSellers.filter((s) => s.status === "paused").length;
     return { total, pending, approved, paused };
-  }, [allSellers]);
+  }, [visibleSellers]);
 
   const allListings = useMemo(
     () =>
-      allSellers.flatMap((s) =>
+      visibleSellers.flatMap((s) =>
         s.products
           .filter(isAdminListingRow)
           .map((product) => ({ seller: s, product }))
       ),
-    [allSellers]
+    [visibleSellers]
   );
 
-  const pendingListings = useMemo(
-    () => allListings.filter((r) => r.product.status === "pending"),
-    [allListings]
-  );
+  const pendingFromOpened = useMemo(() => {
+    if (!leaListings || leaListings.error) return [];
+    const seller =
+      allSellers.find((s) => s.uid === leaListings.uid) ??
+      visibleSellers.find((s) => s.uid === leaListings.uid);
+    if (!seller) return [];
+    return leaListings.products
+      .filter((product) => (product.status ?? "pending") === "pending")
+      .slice(0, SHOP_DETAIL_CAP)
+      .map((product) => ({ seller, product }));
+  }, [leaListings, allSellers, visibleSellers]);
+
+  const pendingListings = pendingFromOpened;
 
   const liveListings = useMemo(
     () => allListings.filter((r) => r.product.status === "approved"),
@@ -282,10 +344,16 @@ export function AdminSellersPanel({
     [filteredListings]
   );
 
-  const selectedShop =
-    selectedShopUid != null
-      ? allSellers.find((s) => s.uid === selectedShopUid) ?? null
-      : null;
+  const listingRows =
+    listingFilter === "pending" ? pendingFromOpened : tableListings;
+
+  const selectedShop = useMemo(() => {
+    if (selectedShopUid == null) return null;
+    if (selectedShopUid === DEMO_LEA_VALLEY_UID) {
+      return visibleSellers.find((s) => isLeaValleyApplication(s)) ?? null;
+    }
+    return visibleSellers.find((s) => s.uid === selectedShopUid) ?? null;
+  }, [selectedShopUid, visibleSellers]);
 
   const sortedShops = useMemo(() => {
     const rank = (s: SellerStatus) => {
@@ -295,23 +363,79 @@ export function AdminSellersPanel({
       if (s === "rejected") return 3;
       return 4;
     };
-    return [...allSellers].sort((a, b) => {
+    return [...visibleSellers].sort((a, b) => {
       const d = rank(a.status) - rank(b.status);
       if (d !== 0) return d;
       return a.shopName.localeCompare(b.shopName);
     });
-  }, [allSellers]);
+  }, [visibleSellers]);
 
   const tableShops = useMemo(
     () => sortedShops.slice(0, ADMIN_SELLERS_TABLE_CAP),
     [sortedShops]
   );
 
+  useEffect(() => {
+    if (
+      !selectedShop ||
+      (!isLeaValleyName(selectedShop) && !isDemoLeaValleyShop(selectedShop))
+    ) {
+      return;
+    }
+    try {
+      const stored = loadAllSellers();
+      const application = Object.values(stored)
+        .filter((shop) => isLeaValleyApplication(shop))
+        .sort(
+          (a, b) => (b.products?.length ?? 0) - (a.products?.length ?? 0)
+        )[0];
+      const source =
+        application ??
+        (isDemoLeaValleyShop(selectedShop)
+          ? undefined
+          : stored[selectedShop.uid]);
+      const uid = source?.uid ?? selectedShop.uid;
+      const products = (source?.products ?? []).slice(0, SHOP_DETAIL_CAP);
+      const sig = products
+        .map((p) => `${p.id}:${p.status ?? "pending"}`)
+        .join("|");
+      setLeaListings((prev) =>
+        prev && prev.uid === uid && prev.sig === sig && !prev.error
+          ? prev
+          : { uid, products, error: null, sig }
+      );
+    } catch (err) {
+      console.warn("[admin] Lea Valley listings failed", err);
+      setLeaListings({
+        uid: selectedShop.uid,
+        products: [],
+        error: "Could not load listings for this shop.",
+        sig: "error",
+      });
+    }
+  }, [selectedShop]);
+
   if (selectedShop) {
     const badge = sellerAccountBadge(selectedShop.status);
-    const approvedCount = selectedShop.products.filter(
+    const openedLea =
+      isLeaValleyName(selectedShop) || isDemoLeaValleyShop(selectedShop);
+    const leaDetail = openedLea ? leaListings : null;
+    const listingOwnerUid = leaDetail?.uid ?? selectedShop.uid;
+    const detailProducts = leaDetail
+      ? leaDetail.products
+      : openedLea
+        ? selectedShop.products.slice(0, SHOP_DETAIL_CAP)
+        : selectedShop.products
+            .filter(isAdminListingRow)
+            .slice(0, ADMIN_SELLERS_TABLE_CAP);
+    const approvedCount = detailProducts.filter(
       (p) => p.status === "approved"
     ).length;
+    const listingTotal = leaDetail
+      ? leaDetail.products.length
+      : openedLea
+        ? Math.min(selectedShop.products.length, SHOP_DETAIL_CAP)
+        : selectedShop.products.length;
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -388,7 +512,7 @@ export function AdminSellersPanel({
                 Listings
               </p>
               <p className="mt-1 font-medium tabular-nums text-primary">
-                {approvedCount} approved / {selectedShop.products.length} total
+                {approvedCount} approved / {listingTotal} total
               </p>
             </CardContent>
           </Card>
@@ -470,20 +594,28 @@ export function AdminSellersPanel({
               Listings for this shop
             </CardTitle>
             <CardDescription>
-              Product, hire, and service listings belonging to{" "}
-              {selectedShop.shopName}.
+              {isLeaValleyApplication(selectedShop)
+                ? "Hire listings stored for this shop (same seller record as Seller Hub). Up to 20 rows."
+                : `Product, hire, and service listings belonging to ${selectedShop.shopName}.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="divide-y p-0">
-            {selectedShop.products.length === 0 ? (
+            {leaDetail?.error ? (
+              <p className="px-6 py-3 text-sm text-destructive">
+                {leaDetail.error}
+              </p>
+            ) : null}
+            {isLeaValleyApplication(selectedShop) ? (
+              <p className="px-6 py-2 text-xs text-muted-foreground">
+                Notes: hire@leavalleycycles.demo is not a separate shop.
+              </p>
+            ) : null}
+            {detailProducts.length === 0 ? (
               <div className="px-6 py-10 text-center text-sm text-muted-foreground">
                 No listings yet for this shop.
               </div>
             ) : (
-              selectedShop.products
-                .filter(isAdminListingRow)
-                .slice(0, ADMIN_SELLERS_TABLE_CAP)
-                .map((product) => {
+              detailProducts.map((product) => {
                 const lb = listingBadge(product.status ?? "pending");
                 const key = `${selectedShop.uid}-${product.id}`;
                 const isRejecting = rejectingKey === key;
@@ -525,7 +657,7 @@ export function AdminSellersPanel({
                               onClick={() => {
                                 setRejectingKey(null);
                                 setProductApproval(
-                                  selectedShop.uid,
+                                  listingOwnerUid,
                                   product.id,
                                   "approved"
                                 );
@@ -570,7 +702,7 @@ export function AdminSellersPanel({
                             className="gap-1"
                             onClick={() => {
                               setProductApproval(
-                                selectedShop.uid,
+                                listingOwnerUid,
                                 product.id,
                                 "rejected",
                                 rejectNote
@@ -860,10 +992,10 @@ export function AdminSellersPanel({
                   {value !== "All" && (
                     <span className="ml-1 opacity-70">
                       (
-                      {
-                        allListings.filter((r) => r.product.status === value)
-                          .length
-                      }
+                      {value === "pending"
+                        ? pendingFromOpened.length
+                        : allListings.filter((r) => r.product.status === value)
+                            .length}
                       )
                     </span>
                   )}
@@ -872,15 +1004,17 @@ export function AdminSellersPanel({
             </div>
           </CardHeader>
           <CardContent className="divide-y p-0">
-            {filteredListings.length === 0 ? (
+            {listingRows.length === 0 ? (
               <div className="px-6 py-10 text-center">
                 <Leaf className="mx-auto size-8 text-primary/40" />
                 <p className="mt-3 text-sm text-muted-foreground">
-                  No listings in this filter.
+                  {listingFilter === "pending"
+                    ? "No pending listings loaded. Open a shop to review its hires."
+                    : "No listings in this filter."}
                 </p>
               </div>
             ) : (
-              tableListings.map(({ seller: s, product }) => {
+              listingRows.map(({ seller: s, product }) => {
                 const badge = listingBadge(product.status ?? "pending");
                 const key = `${s.uid}-${product.id}`;
                 const isRejecting = rejectingKey === key;
