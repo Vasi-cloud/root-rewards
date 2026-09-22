@@ -95,6 +95,52 @@ function isLeaValleyApplication(shop: {
   return isLeaValleyName(shop) && !isDemoLeaValleyShop(shop);
 }
 
+type LeaListingRow = { ownerUid: string; product: SellerProduct };
+
+function collectLeaValleyListingRows(
+  selected: SellerProfile,
+  hub: SellerProfile | null
+): { rows: LeaListingRow[]; error: string | null } {
+  const byId = new Map<string, LeaListingRow>();
+  const addShop = (
+    shop:
+      | {
+          uid: string;
+          shopName?: string;
+          tradingName?: string;
+          products?: SellerProduct[];
+        }
+      | null
+      | undefined
+  ) => {
+    if (!shop?.uid || !isLeaValleyCycleHireShop(shop)) return;
+    for (const product of shop.products ?? []) {
+      if (!product?.id || byId.has(product.id)) continue;
+      byId.set(product.id, { ownerUid: shop.uid, product });
+    }
+  };
+
+  addShop(selected);
+  if (hub && hub.uid !== selected.uid) addShop(hub);
+  try {
+    const stored = loadAllSellers();
+    for (const shop of Object.values(stored)) {
+      if (shop.uid === selected.uid) continue;
+      addShop(shop);
+    }
+  } catch (err) {
+    console.warn("[admin] Lea Valley listings failed", err);
+    return {
+      rows: [...byId.values()].slice(0, SHOP_DETAIL_CAP),
+      error: "Could not load listings for this shop.",
+    };
+  }
+  return {
+    rows: [...byId.values()].slice(0, SHOP_DETAIL_CAP),
+    error: null,
+  };
+}
+
 type AdminSellersPanelProps = {
   /** When Overview jumps here, land on shops (default). */
   initialSubView?: SellersSubView;
@@ -289,8 +335,7 @@ export function AdminSellersPanel({
   const [rejectingKey, setRejectingKey] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [leaListings, setLeaListings] = useState<{
-    uid: string;
-    products: SellerProduct[];
+    rows: LeaListingRow[];
     error: string | null;
     sig: string;
   } | null>(null);
@@ -322,16 +367,23 @@ export function AdminSellersPanel({
   );
 
   const pendingFromOpened = useMemo(() => {
-    if (!leaListings || leaListings.error) return [];
-    const seller =
-      allSellers.find((s) => s.uid === leaListings.uid) ??
-      visibleSellers.find((s) => s.uid === leaListings.uid);
-    if (!seller) return [];
-    return leaListings.products
-      .filter((product) => (product.status ?? "pending") === "pending")
+    if (!leaListings) return [];
+    return leaListings.rows
+      .filter((row) => (row.product.status ?? "pending") === "pending")
       .slice(0, SHOP_DETAIL_CAP)
-      .map((product) => ({ seller, product }));
-  }, [leaListings, allSellers, visibleSellers]);
+      .map((row) => ({
+        seller:
+          allSellers.find((s) => s.uid === row.ownerUid) ??
+          ({
+            uid: row.ownerUid,
+            shopName: "Lea Valley Cycle Hire",
+            email: "",
+            products: [],
+            status: "approved",
+          } as unknown as SellerProfile),
+        product: row.product,
+      }));
+  }, [leaListings, allSellers]);
 
   const pendingListings = pendingFromOpened;
 
@@ -384,55 +436,42 @@ export function AdminSellersPanel({
 
   useEffect(() => {
     if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) return;
-    const uid = selectedShop.uid;
-    const hubProducts =
-      seller?.uid === uid ? (seller.products ?? []) : [];
-    const inMemory =
-      hubProducts.length >= (selectedShop.products?.length ?? 0)
-        ? hubProducts
-        : (selectedShop.products ?? []);
-    try {
-      const storedProducts = loadAllSellers()[uid]?.products ?? [];
-      const products = (
-        storedProducts.length >= inMemory.length ? storedProducts : inMemory
-      ).slice(0, SHOP_DETAIL_CAP);
-      const sig = products
-        .map((p) => `${p.id}:${p.status ?? "pending"}`)
-        .join("|");
-      setLeaListings((prev) =>
-        prev && prev.uid === uid && prev.sig === sig && !prev.error
-          ? prev
-          : { uid, products, error: null, sig }
-      );
-    } catch (err) {
-      console.warn("[admin] Lea Valley listings failed", err);
-      setLeaListings({
-        uid,
-        products: inMemory.slice(0, SHOP_DETAIL_CAP),
-        error: "Could not load listings for this shop.",
-        sig: "error",
-      });
-    }
+    const { rows, error } = collectLeaValleyListingRows(
+      selectedShop,
+      seller ?? null
+    );
+    const sig = rows
+      .map((row) => `${row.ownerUid}:${row.product.id}:${row.product.status ?? "pending"}`)
+      .join("|");
+    setLeaListings((prev) =>
+      prev && prev.sig === sig && prev.error === error
+        ? prev
+        : { rows, error, sig }
+    );
   }, [selectedShop, seller]);
 
   if (selectedShop) {
     const badge = sellerAccountBadge(selectedShop.status);
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
-    const leaDetail =
-      openedLea && leaListings?.uid === selectedShop.uid ? leaListings : null;
-    const listingOwnerUid = selectedShop.uid;
-    const detailProducts = openedLea
-      ? (leaDetail?.products.length
-          ? leaDetail.products
-          : selectedShop.products.slice(0, SHOP_DETAIL_CAP))
+    const leaDetail = openedLea ? leaListings : null;
+    const detailRows: LeaListingRow[] = openedLea
+      ? (leaDetail?.rows ??
+        selectedShop.products.slice(0, SHOP_DETAIL_CAP).map((product) => ({
+          ownerUid: selectedShop.uid,
+          product,
+        })))
       : selectedShop.products
           .filter(isAdminListingRow)
-          .slice(0, ADMIN_SELLERS_TABLE_CAP);
-    const approvedCount = detailProducts.filter(
-      (p) => p.status === "approved"
+          .slice(0, ADMIN_SELLERS_TABLE_CAP)
+          .map((product) => ({
+            ownerUid: selectedShop.uid,
+            product,
+          }));
+    const approvedCount = detailRows.filter(
+      (row) => row.product.status === "approved"
     ).length;
     const listingTotal = openedLea
-      ? detailProducts.length
+      ? detailRows.length
       : selectedShop.products.length;
     return (
       <div className="space-y-6">
@@ -608,18 +647,18 @@ export function AdminSellersPanel({
                 Notes: hire@leavalleycycles.demo is not a separate shop.
               </p>
             ) : null}
-            {detailProducts.length === 0 ? (
+            {detailRows.length === 0 ? (
               <div className="px-6 py-10 text-center text-sm text-muted-foreground">
                 No listings yet for this shop.
               </div>
             ) : (
-              detailProducts.map((product) => {
+              detailRows.map(({ product, ownerUid }) => {
                 const lb = listingBadge(product.status ?? "pending");
-                const key = `${selectedShop.uid}-${product.id}`;
+                const key = `${ownerUid}-${product.id}`;
                 const isRejecting = rejectingKey === key;
                 return (
                   <div
-                    key={product.id}
+                    key={key}
                     className={`space-y-3 px-5 py-4 ${
                       product.status === "pending" ? "bg-gold/10" : ""
                     }`}
@@ -655,7 +694,7 @@ export function AdminSellersPanel({
                               onClick={() => {
                                 setRejectingKey(null);
                                 setProductApproval(
-                                  listingOwnerUid,
+                                  ownerUid,
                                   product.id,
                                   "approved"
                                 );
@@ -700,7 +739,7 @@ export function AdminSellersPanel({
                             className="gap-1"
                             onClick={() => {
                               setProductApproval(
-                                listingOwnerUid,
+                                ownerUid,
                                 product.id,
                                 "rejected",
                                 rejectNote

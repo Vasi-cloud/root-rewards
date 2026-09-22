@@ -40,7 +40,6 @@ import {
 } from "@/lib/admin-causes-ledger";
 import {
   loadAllSellers,
-  normalizeSeller,
   SELLERS_STORAGE_KEY,
 } from "@/lib/seller-storage";
 
@@ -98,12 +97,18 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
     approved: 0,
     paused: 0,
   });
+  const [pendingHires, setPendingHires] = useState(0);
   const [exportNote, setExportNote] = useState<string | null>(null);
 
   const refresh = () => {
     setMemberCount(countActiveAdminMembers());
     setCausesMonth(sumAdminCausesThisMonth());
-    const sellers = Object.values(loadAllSellers()).map(normalizeSeller);
+    let sellers: { status?: string; email?: string; shopName?: string; tradingName?: string; uid?: string; products?: { listingType?: string; status?: string }[] }[] = [];
+    try {
+      sellers = Object.values(loadAllSellers());
+    } catch (err) {
+      console.warn("[admin] Overview seller read failed", err);
+    }
     const members = loadAdminMembers();
     const emails = new Set<string>();
     for (const s of sellers) {
@@ -119,6 +124,19 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
       approved: sellers.filter((s) => s.status === "approved").length,
       paused: sellers.filter((s) => s.status === "paused").length,
     });
+    let hires = 0;
+    for (const shop of sellers) {
+      const name = `${shop.shopName ?? ""} ${shop.tradingName ?? ""}`.toLowerCase();
+      if (!name.includes("lea valley cycle hire")) continue;
+      if (shop.uid === "demo-lea-valley-cycle-hire") continue;
+      if (shop.email?.toLowerCase() === "hire@leavalleycycles.demo") continue;
+      for (const product of shop.products ?? []) {
+        if (product.listingType !== "rental") continue;
+        if ((product.status ?? "pending") !== "pending") continue;
+        hires += 1;
+      }
+    }
+    setPendingHires(hires);
   };
 
   useEffect(() => {
@@ -247,6 +265,14 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
           value={String(storeStats.total)}
           hint={`${storeStats.pending} awaiting · ${storeStats.approved} approved · ${storeStats.paused} paused`}
         />
+        {pendingHires > 0 ? (
+          <StatTile
+            icon={Store}
+            label="Pending hires"
+            value={String(pendingHires)}
+            hint="Lea Valley Cycle Hire"
+          />
+        ) : null}
         <StatTile
           icon={Users}
           label="Known accounts"
