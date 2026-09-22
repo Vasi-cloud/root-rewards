@@ -24,7 +24,7 @@ import {
 import { useSeller } from "@/contexts/seller-context";
 import { listingTypeLabel } from "@/lib/listing-categories";
 import { TRUST_CONFIG } from "@/lib/moderation";
-import { loadAllSellers } from "@/lib/seller-storage";
+import { readLeaValleyShopForAdmin } from "@/lib/lea-valley-admin";
 import type {
   ProductApprovalStatus,
   SellerProduct,
@@ -97,53 +97,25 @@ function isLeaValleyApplication(shop: {
 
 type LeaListingRow = { ownerUid: string; product: SellerProduct };
 
-function collectLeaValleyListingRows(
-  selected: SellerProfile,
-  hub: SellerProfile | null
-): { rows: LeaListingRow[]; error: string | null } {
-  const byId = new Map<string, LeaListingRow>();
-  const addShop = (
-    shop:
-      | {
-          uid: string;
-          shopName?: string;
-          tradingName?: string;
-          products?: SellerProduct[];
-        }
-      | null
-      | undefined
-  ) => {
-    if (!shop?.uid || !isLeaValleyCycleHireShop(shop)) return;
-    for (const product of shop.products ?? []) {
-      if (!product?.id || byId.has(product.id)) continue;
-      byId.set(product.id, { ownerUid: shop.uid, product });
-    }
-  };
-
-  addShop(selected);
-  if (hub && hub.uid !== selected.uid) addShop(hub);
-  try {
-    const stored = loadAllSellers();
-    for (const shop of Object.values(stored)) {
-      if (shop.uid === selected.uid) continue;
-      addShop(shop);
-    }
-  } catch (err) {
-    console.warn("[admin] Lea Valley listings failed", err);
-    return {
-      rows: [...byId.values()].slice(0, SHOP_DETAIL_CAP),
-      error: "Could not load listings for this shop.",
-    };
-  }
+function collectLeaValleyListingRows(): {
+  rows: LeaListingRow[];
+  error: string | null;
+} {
+  const snapshot = readLeaValleyShopForAdmin();
   return {
-    rows: [...byId.values()].slice(0, SHOP_DETAIL_CAP),
-    error: null,
+    rows: snapshot.products.map((product) => ({
+      ownerUid: snapshot.uid ?? "",
+      product,
+    })),
+    error: snapshot.error,
   };
 }
 
 type AdminSellersPanelProps = {
   /** When Overview jumps here, land on shops (default). */
   initialSubView?: SellersSubView;
+  /** Open this shop's detail, same as the Shops table View action. */
+  initialShopUid?: string | null;
 };
 
 function legalTypeLabel(sellerType?: SellerType | null): string {
@@ -318,6 +290,7 @@ function ShopActions({
 
 export function AdminSellersPanel({
   initialSubView = "shops",
+  initialShopUid = null,
 }: AdminSellersPanelProps) {
   const {
     allSellers,
@@ -328,7 +301,9 @@ export function AdminSellersPanel({
   } = useSeller();
 
   const [subView, setSubView] = useState<SellersSubView>(initialSubView);
-  const [selectedShopUid, setSelectedShopUid] = useState<string | null>(null);
+  const [selectedShopUid, setSelectedShopUid] = useState<string | null>(
+    initialShopUid
+  );
   const [listingFilter, setListingFilter] = useState<
     "All" | ProductApprovalStatus
   >("pending");
@@ -436,10 +411,7 @@ export function AdminSellersPanel({
 
   useEffect(() => {
     if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) return;
-    const { rows, error } = collectLeaValleyListingRows(
-      selectedShop,
-      seller ?? null
-    );
+    const { rows, error } = collectLeaValleyListingRows();
     const sig = rows
       .map((row) => `${row.ownerUid}:${row.product.id}:${row.product.status ?? "pending"}`)
       .join("|");
@@ -685,9 +657,11 @@ export function AdminSellersPanel({
                               : "stock"}
                         </p>
                       </div>
-                      {!isRejecting && (
+                      {!isRejecting &&
+                        (!openedLea ||
+                          (product.status ?? "pending") === "pending") && (
                         <div className="flex shrink-0 flex-wrap gap-2">
-                          {product.status !== "approved" && (
+                          {(product.status ?? "pending") === "pending" && (
                             <Button
                               size="sm"
                               className="gap-1"
@@ -704,7 +678,7 @@ export function AdminSellersPanel({
                               Approve
                             </Button>
                           )}
-                          {product.status !== "rejected" && (
+                          {(product.status ?? "pending") === "pending" && (
                             <Button
                               size="sm"
                               variant="outline"

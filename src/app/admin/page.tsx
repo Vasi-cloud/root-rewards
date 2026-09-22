@@ -246,6 +246,7 @@ export default function AdminDashboard() {
 
   const [tab, setTab] = useState<AdminTab>("overview");
   const [sellersPanelKey, setSellersPanelKey] = useState(0);
+  const [sellersShopUid, setSellersShopUid] = useState<string | null>(null);
   const [products, setProducts] = useState<AdminCatalogProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productSaveError, setProductSaveError] = useState<string | null>(null);
@@ -722,8 +723,9 @@ export default function AdminDashboard() {
       <main className="mx-auto max-w-7xl px-3 py-6 sm:px-6 sm:py-8">
         {tab === "overview" && (
           <AdminOverviewPanel
-            onNavigate={(t) => {
+            onNavigate={(t, shopUid) => {
               if (t === "sellers") {
+                setSellersShopUid(shopUid ?? null);
                 setSellersPanelKey((k) => k + 1);
               }
               setTab(t);
@@ -1505,7 +1507,11 @@ export default function AdminDashboard() {
         )}
 
         {tab === "sellers" && (
-          <AdminSellersPanel key={sellersPanelKey} initialSubView="shops" />
+          <AdminSellersPanel
+            key={sellersPanelKey}
+            initialSubView="shops"
+            initialShopUid={sellersShopUid}
+          />
         )}
 
         {tab === "moderation" && (
