@@ -195,7 +195,10 @@ export function loadAllSellers(): Record<string, SellerProfile> {
 
 export function saveAllSellers(data: Record<string, SellerProfile>) {
   try {
-    localStorage.setItem(SELLERS_STORAGE_KEY, JSON.stringify(data));
+    const next = JSON.stringify(data);
+    const prev = localStorage.getItem(SELLERS_STORAGE_KEY);
+    if (prev === next) return;
+    localStorage.setItem(SELLERS_STORAGE_KEY, next);
     window.dispatchEvent(new Event("forest-buddies-sellers-updated"));
   } catch {
     // ignore quota errors
@@ -353,13 +356,25 @@ export function listPublicSoloShops(): SellerProfile[] {
  * Maps seller products into marketplace `Product` rows (goods + services).
  */
 export function listApprovedSellerMarketplaceProducts(): Product[] {
-  ensureDemoShops();
+  try {
+    ensureDemoShops();
+  } catch (err) {
+    console.warn("[sellers] ensureDemoShops failed", err);
+  }
   const out: Product[] = [];
-  for (const shop of listPublicShops()) {
-    for (const product of shop.products) {
-      if (product.status !== "approved") continue;
-      out.push(sellerProductToMarketplaceProduct(product, shop));
+  try {
+    for (const shop of listPublicShops()) {
+      for (const product of shop.products) {
+        if (product.status !== "approved") continue;
+        try {
+          out.push(sellerProductToMarketplaceProduct(product, shop));
+        } catch (err) {
+          console.warn("[sellers] Skipped marketplace row", product.id, err);
+        }
+      }
     }
+  } catch (err) {
+    console.warn("[sellers] listApprovedSellerMarketplaceProducts failed", err);
   }
   return out;
 }
@@ -490,9 +505,14 @@ export function ensureDemoShops() {
       !existing ||
       existing.status !== "approved" ||
       !existing.coverImageUrl ||
-      !existing.impactStory ||
+      (Boolean(demo.impactStory) && !existing.impactStory) ||
       (existing.products?.length ?? 0) < demo.products.length ||
-      existing.products.some((p) => !p.imageUrl || !p.storySnippet) ||
+      existing.products.some((p, i) => {
+        const d = demo.products[i];
+        if (!p.imageUrl) return true;
+        if (d?.storySnippet && !p.storySnippet) return true;
+        return false;
+      }) ||
       !existing.products.every((p, i) => {
         const d = demo.products[i];
         if (!d) return true;
@@ -1370,6 +1390,8 @@ function buildDemoShops(): SellerProfile[] {
       coverImageUrl: "/shop/tote.svg",
       story:
         "We started lending spare bikes to neighbors heading for the towpath.\n\nEvery hire is safety-checked, includes a lock, and supports tree planting through Forest Buddies.",
+      impactStory:
+        "Each hire helps fund verified tree planting through Forest Buddies — visible on your shop, not hidden in fine print.",
       impact: emptySellerImpact(),
       status: "approved",
       approvedAt: "2026-06-10T00:00:00.000Z",
@@ -1394,6 +1416,7 @@ function buildDemoShops(): SellerProfile[] {
           madeIn: "Lea Valley, UK",
           availabilityNote: "Daily · book by message",
           bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "Towpath-ready hybrid with lock and helmet.",
           status: "pending",
           views: 0,
           sales: 0,
@@ -1419,6 +1442,7 @@ function buildDemoShops(): SellerProfile[] {
           madeIn: "Lea Valley, UK",
           availabilityNote: "Weekends · weather dependent",
           bookingNote: "Rental — partner confirms dates.",
+          storySnippet: "Weekend e-bike with charger and pannier.",
           status: "pending",
           views: 0,
           sales: 0,

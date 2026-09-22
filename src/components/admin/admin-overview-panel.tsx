@@ -38,7 +38,11 @@ import {
   subscribeAdminCauses,
   sumAdminCausesThisMonth,
 } from "@/lib/admin-causes-ledger";
-import { listAllSellers, SELLERS_STORAGE_KEY } from "@/lib/seller-storage";
+import {
+  loadAllSellers,
+  normalizeSeller,
+  SELLERS_STORAGE_KEY,
+} from "@/lib/seller-storage";
 
 function StatTile({
   icon: Icon,
@@ -99,7 +103,7 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
   const refresh = () => {
     setMemberCount(countActiveAdminMembers());
     setCausesMonth(sumAdminCausesThisMonth());
-    const sellers = listAllSellers();
+    const sellers = Object.values(loadAllSellers()).map(normalizeSeller);
     const members = loadAdminMembers();
     const emails = new Set<string>();
     for (const s of sellers) {

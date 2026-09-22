@@ -593,8 +593,12 @@ export async function listAdminCatalogProducts(): Promise<AdminCatalogProduct[]>
  * Firestore is empty or slow.
  */
 export async function listLiveMarketplaceProducts(): Promise<Product[]> {
-  // Same approved shops/listings Admin Sellers uses — sync, local, guest-safe.
-  const sellerLive = listApprovedSellerMarketplaceProducts();
+  let sellerLive: Product[] = [];
+  try {
+    sellerLive = listApprovedSellerMarketplaceProducts();
+  } catch (err) {
+    console.warn("[products] Seller live list failed", err);
+  }
 
   let live: Product[] = [];
   try {
@@ -603,10 +607,21 @@ export async function listLiveMarketplaceProducts(): Promise<Product[]> {
   } catch (err) {
     // Marketplace stays usable from seller shops + local cache if Firestore is down.
     console.warn("[products] Live list falling back to local cache", err);
-    live = loadLocal().map(toMarketplaceProduct);
+    try {
+      live = loadLocal().map(toMarketplaceProduct);
+    } catch (cacheErr) {
+      console.warn("[products] Local cache read failed", cacheErr);
+      live = [];
+    }
   }
 
-  return mergeMarketplaceCatalog(live, sellerLive);
+  try {
+    const merged = mergeMarketplaceCatalog(live, sellerLive);
+    return merged.length > 0 ? merged : [...sellerLive, ...live];
+  } catch (err) {
+    console.warn("[products] Catalogue merge failed", err);
+    return sellerLive.length > 0 ? sellerLive : live;
+  }
 }
 
 /**

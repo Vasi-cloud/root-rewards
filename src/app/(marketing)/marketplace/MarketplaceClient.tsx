@@ -163,9 +163,14 @@ export default function MarketplaceClient() {
     let cancelled = false;
 
     function loadLive() {
-      ensureDemoShops();
-      // Show approved seller listings immediately (same source as Admin Sellers).
-      const sellerNow = listApprovedSellerMarketplaceProducts();
+      let sellerNow: Product[] = [];
+      try {
+        ensureDemoShops();
+        sellerNow = listApprovedSellerMarketplaceProducts();
+      } catch (err) {
+        console.warn("[marketplace] Seller catalogue load failed", err);
+      }
+
       if (!cancelled && sellerNow.length > 0) {
         setCatalog(sellerNow);
         setCatalogLoading(false);
@@ -174,13 +179,17 @@ export default function MarketplaceClient() {
       listLiveMarketplaceProducts()
         .then((live) => {
           if (cancelled) return;
-          setCatalog(live);
+          setCatalog(live.length > 0 ? live : sellerNow);
         })
-        .catch(() => {
+        .catch((err) => {
           if (cancelled) return;
-          // Never wipe a non-empty seller catalogue on Firestore failure.
-          const fallback = listApprovedSellerMarketplaceProducts();
-          setCatalog(fallback);
+          console.warn("[marketplace] Live catalogue failed", err);
+          try {
+            const fallback = listApprovedSellerMarketplaceProducts();
+            setCatalog(fallback.length > 0 ? fallback : sellerNow);
+          } catch {
+            setCatalog(sellerNow);
+          }
         })
         .finally(() => {
           if (!cancelled) setCatalogLoading(false);

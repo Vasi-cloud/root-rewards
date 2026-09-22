@@ -34,6 +34,19 @@ import type {
 
 export type SellersSubView = "shops" | "listings";
 
+/** Keep Admin Sellers tables responsive — full counts stay in stat cards. */
+const ADMIN_SELLERS_TABLE_CAP = 100;
+
+function isAdminListingRow(product: { status?: string; listingType?: string }) {
+  if (
+    product.status === "pending" &&
+    product.listingType === "rental"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 type AdminSellersPanelProps = {
   /** When Overview jumps here, land on shops (default). */
   initialSubView?: SellersSubView;
@@ -238,7 +251,9 @@ export function AdminSellersPanel({
   const allListings = useMemo(
     () =>
       allSellers.flatMap((s) =>
-        s.products.map((product) => ({ seller: s, product }))
+        s.products
+          .filter(isAdminListingRow)
+          .map((product) => ({ seller: s, product }))
       ),
     [allSellers]
   );
@@ -253,8 +268,18 @@ export function AdminSellersPanel({
     [allListings]
   );
 
-  const filteredListings = allListings.filter(
-    (row) => listingFilter === "All" || row.product.status === listingFilter
+  const filteredListings = useMemo(
+    () =>
+      allListings.filter(
+        (row) =>
+          listingFilter === "All" || row.product.status === listingFilter
+      ),
+    [allListings, listingFilter]
+  );
+
+  const tableListings = useMemo(
+    () => filteredListings.slice(0, ADMIN_SELLERS_TABLE_CAP),
+    [filteredListings]
   );
 
   const selectedShop =
@@ -276,6 +301,11 @@ export function AdminSellersPanel({
       return a.shopName.localeCompare(b.shopName);
     });
   }, [allSellers]);
+
+  const tableShops = useMemo(
+    () => sortedShops.slice(0, ADMIN_SELLERS_TABLE_CAP),
+    [sortedShops]
+  );
 
   if (selectedShop) {
     const badge = sellerAccountBadge(selectedShop.status);
@@ -450,7 +480,10 @@ export function AdminSellersPanel({
                 No listings yet for this shop.
               </div>
             ) : (
-              selectedShop.products.map((product) => {
+              selectedShop.products
+                .filter(isAdminListingRow)
+                .slice(0, ADMIN_SELLERS_TABLE_CAP)
+                .map((product) => {
                 const lb = listingBadge(product.status ?? "pending");
                 const key = `${selectedShop.uid}-${product.id}`;
                 const isRejecting = rejectingKey === key;
@@ -673,7 +706,7 @@ export function AdminSellersPanel({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {sortedShops.map((s) => {
+                    {tableShops.map((s) => {
                       const badge = sellerAccountBadge(s.status);
                       const approved = s.products.filter(
                         (p) => p.status === "approved"
@@ -847,7 +880,7 @@ export function AdminSellersPanel({
                 </p>
               </div>
             ) : (
-              filteredListings.map(({ seller: s, product }) => {
+              tableListings.map(({ seller: s, product }) => {
                 const badge = listingBadge(product.status ?? "pending");
                 const key = `${s.uid}-${product.id}`;
                 const isRejecting = rejectingKey === key;
