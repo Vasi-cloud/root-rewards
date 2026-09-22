@@ -66,13 +66,22 @@ function isDemoLeaValleyShop(shop: {
   );
 }
 
+function isLeaValleyCycleHireShop(shop: {
+  shopName?: string;
+  tradingName?: string;
+}) {
+  const folded = (value?: string) => value?.trim().toLowerCase() ?? "";
+  return [shop.shopName, shop.tradingName].some((value) =>
+    folded(value).includes("lea valley cycle hire")
+  );
+}
+
 function isLeaValleyName(shop: {
   shopName?: string;
   tradingName?: string;
   slug?: string;
 }) {
-  const name = `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.slug ?? ""}`;
-  return /lea[\s-]*valley/i.test(name) && /cycle|hire/i.test(name);
+  return isLeaValleyCycleHireShop(shop);
 }
 
 function isLeaValleyApplication(shop: {
@@ -266,6 +275,7 @@ export function AdminSellersPanel({
 }: AdminSellersPanelProps) {
   const {
     allSellers,
+    seller,
     setSellerAccountStatus,
     setSellerTrustOverride,
     setProductApproval,
@@ -349,11 +359,8 @@ export function AdminSellersPanel({
 
   const selectedShop = useMemo(() => {
     if (selectedShopUid == null) return null;
-    if (selectedShopUid === DEMO_LEA_VALLEY_UID) {
-      return visibleSellers.find((s) => isLeaValleyApplication(s)) ?? null;
-    }
-    return visibleSellers.find((s) => s.uid === selectedShopUid) ?? null;
-  }, [selectedShopUid, visibleSellers]);
+    return allSellers.find((s) => s.uid === selectedShopUid) ?? null;
+  }, [selectedShopUid, allSellers]);
 
   const sortedShops = useMemo(() => {
     const rank = (s: SellerStatus) => {
@@ -376,26 +383,19 @@ export function AdminSellersPanel({
   );
 
   useEffect(() => {
-    if (
-      !selectedShop ||
-      (!isLeaValleyName(selectedShop) && !isDemoLeaValleyShop(selectedShop))
-    ) {
-      return;
-    }
+    if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) return;
+    const uid = selectedShop.uid;
+    const hubProducts =
+      seller?.uid === uid ? (seller.products ?? []) : [];
+    const inMemory =
+      hubProducts.length >= (selectedShop.products?.length ?? 0)
+        ? hubProducts
+        : (selectedShop.products ?? []);
     try {
-      const stored = loadAllSellers();
-      const application = Object.values(stored)
-        .filter((shop) => isLeaValleyApplication(shop))
-        .sort(
-          (a, b) => (b.products?.length ?? 0) - (a.products?.length ?? 0)
-        )[0];
-      const source =
-        application ??
-        (isDemoLeaValleyShop(selectedShop)
-          ? undefined
-          : stored[selectedShop.uid]);
-      const uid = source?.uid ?? selectedShop.uid;
-      const products = (source?.products ?? []).slice(0, SHOP_DETAIL_CAP);
+      const storedProducts = loadAllSellers()[uid]?.products ?? [];
+      const products = (
+        storedProducts.length >= inMemory.length ? storedProducts : inMemory
+      ).slice(0, SHOP_DETAIL_CAP);
       const sig = products
         .map((p) => `${p.id}:${p.status ?? "pending"}`)
         .join("|");
@@ -407,35 +407,33 @@ export function AdminSellersPanel({
     } catch (err) {
       console.warn("[admin] Lea Valley listings failed", err);
       setLeaListings({
-        uid: selectedShop.uid,
-        products: [],
+        uid,
+        products: inMemory.slice(0, SHOP_DETAIL_CAP),
         error: "Could not load listings for this shop.",
         sig: "error",
       });
     }
-  }, [selectedShop]);
+  }, [selectedShop, seller]);
 
   if (selectedShop) {
     const badge = sellerAccountBadge(selectedShop.status);
-    const openedLea =
-      isLeaValleyName(selectedShop) || isDemoLeaValleyShop(selectedShop);
-    const leaDetail = openedLea ? leaListings : null;
-    const listingOwnerUid = leaDetail?.uid ?? selectedShop.uid;
-    const detailProducts = leaDetail
-      ? leaDetail.products
-      : openedLea
-        ? selectedShop.products.slice(0, SHOP_DETAIL_CAP)
-        : selectedShop.products
-            .filter(isAdminListingRow)
-            .slice(0, ADMIN_SELLERS_TABLE_CAP);
+    const openedLea = isLeaValleyCycleHireShop(selectedShop);
+    const leaDetail =
+      openedLea && leaListings?.uid === selectedShop.uid ? leaListings : null;
+    const listingOwnerUid = selectedShop.uid;
+    const detailProducts = openedLea
+      ? (leaDetail?.products.length
+          ? leaDetail.products
+          : selectedShop.products.slice(0, SHOP_DETAIL_CAP))
+      : selectedShop.products
+          .filter(isAdminListingRow)
+          .slice(0, ADMIN_SELLERS_TABLE_CAP);
     const approvedCount = detailProducts.filter(
       (p) => p.status === "approved"
     ).length;
-    const listingTotal = leaDetail
-      ? leaDetail.products.length
-      : openedLea
-        ? Math.min(selectedShop.products.length, SHOP_DETAIL_CAP)
-        : selectedShop.products.length;
+    const listingTotal = openedLea
+      ? detailProducts.length
+      : selectedShop.products.length;
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
