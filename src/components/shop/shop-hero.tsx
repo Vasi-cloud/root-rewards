@@ -80,8 +80,9 @@ export function ShopHero({
                   : "Independent maker"}
               </p>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                {listingCount} curated listing{listingCount === 1 ? "" : "s"} ·
-                story-led · impact-backed
+                {shop.slug === "lea-valley-cycle-hire"
+                  ? `${listingCount} bike hire${listingCount === 1 ? "" : "s"} · pickup at the lock`
+                  : `${listingCount} curated listing${listingCount === 1 ? "" : "s"} · story-led · impact-backed`}
               </p>
             </div>
           </div>
@@ -113,9 +114,11 @@ export function ShopHero({
             )}
             <span className="inline-flex items-center gap-1.5">
               <Leaf className="size-4 text-primary" />
-              {shop.sellerType === "individual"
-                ? "Products & services welcome"
-                : "Materials & origin on every listing"}
+              {shop.slug === "lea-valley-cycle-hire"
+                ? "Pickup at the lock"
+                : shop.sellerType === "individual"
+                  ? "Products & services welcome"
+                  : "Materials & origin on every listing"}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Heart className="size-4 text-primary" />

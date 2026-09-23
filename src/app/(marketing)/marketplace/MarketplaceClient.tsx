@@ -54,11 +54,28 @@ import {
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
+import { mergeLeaValleyHires } from "@/lib/lea-valley-guest";
 import {
   ensureDemoShops,
   listApprovedSellerMarketplaceProducts,
 } from "@/lib/seller-storage";
 import type { CartItem, Product } from "@/types";
+
+function withLeaValleyHires(catalog: Product[]): Promise<Product[]> {
+  return Promise.race([
+    new Promise<Product[]>((resolve) => {
+      try {
+        resolve(mergeLeaValleyHires(catalog));
+      } catch (err) {
+        console.warn("[marketplace] Lea Valley hire merge failed", err);
+        resolve(catalog);
+      }
+    }),
+    new Promise<Product[]>((resolve) => {
+      window.setTimeout(() => resolve(catalog), 3000);
+    }),
+  ]);
+}
 
 type MarketSection = "all" | "products" | "services" | "rentals";
 type ProviderFilter = "all" | "company" | "self_employed";
@@ -174,22 +191,32 @@ export default function MarketplaceClient() {
       if (!cancelled && sellerNow.length > 0) {
         setCatalog(sellerNow);
         setCatalogLoading(false);
+        void withLeaValleyHires(sellerNow).then((next) => {
+          if (!cancelled) setCatalog(next);
+        });
       }
 
       listLiveMarketplaceProducts()
-        .then((live) => {
+        .then(async (live) => {
           if (cancelled) return;
-          setCatalog(live.length > 0 ? live : sellerNow);
+          const base = live.length > 0 ? live : sellerNow;
+          setCatalog(base);
+          const next = await withLeaValleyHires(base);
+          if (!cancelled) setCatalog(next);
         })
-        .catch((err) => {
+        .catch(async (err) => {
           if (cancelled) return;
           console.warn("[marketplace] Live catalogue failed", err);
+          let fallback = sellerNow;
           try {
-            const fallback = listApprovedSellerMarketplaceProducts();
-            setCatalog(fallback.length > 0 ? fallback : sellerNow);
+            const recovered = listApprovedSellerMarketplaceProducts();
+            fallback = recovered.length > 0 ? recovered : sellerNow;
           } catch {
-            setCatalog(sellerNow);
+            fallback = sellerNow;
           }
+          setCatalog(fallback);
+          const next = await withLeaValleyHires(fallback);
+          if (!cancelled) setCatalog(next);
         })
         .finally(() => {
           if (!cancelled) setCatalogLoading(false);

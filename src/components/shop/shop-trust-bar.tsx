@@ -46,7 +46,10 @@ export function ShopTrustBar({
           {
             icon: MapPin,
             label: shop.location,
-            detail: "Ships from maker location",
+            detail:
+              shop.slug === "lea-valley-cycle-hire"
+                ? "Pickup at the lock"
+                : "Ships from maker location",
           },
         ]
       : []),

@@ -16,6 +16,10 @@ import { useCart } from "@/contexts/cart-context";
 import { defaultProductImage } from "@/lib/shop-presentation";
 import { recordShopView } from "@/lib/seller-analytics";
 import {
+  getLeaValleyGuestShop,
+  isLeaValleyShopSlug,
+} from "@/lib/lea-valley-guest";
+import {
   ensureDemoShops,
   getSellerBySlug,
   listPublicShops,
@@ -70,10 +74,40 @@ export default function SellerShopPage() {
   );
 
   useEffect(() => {
-    ensureDemoShops();
-    const next = getSellerBySlug(slug);
+    let next: SellerProfile | null = null;
+    if (isLeaValleyShopSlug(slug)) {
+      const guest = getLeaValleyGuestShop();
+      try {
+        const stored = getSellerBySlug(slug);
+        if (stored && stored.status === "approved") {
+          const byId = new Map(guest.products.map((p) => [p.id, p]));
+          for (const product of stored.products ?? []) {
+            if (product.status === "approved" && !byId.has(product.id)) {
+              byId.set(product.id, product);
+            }
+          }
+          next = {
+            ...stored,
+            ...guest,
+            products: [...byId.values()].slice(0, 20),
+            uid: stored.uid || guest.uid,
+          };
+        } else {
+          next = guest;
+        }
+      } catch {
+        next = guest;
+      }
+    } else {
+      ensureDemoShops();
+      next = getSellerBySlug(slug);
+    }
     setShop(next);
-    setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
+    try {
+      setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
+    } catch {
+      setOthers([]);
+    }
     setReady(true);
     setActiveProduct(null);
     if (next?.uid && next.status === "approved") {
@@ -148,11 +182,14 @@ export default function SellerShopPage() {
                 The collection
               </p>
               <h2 className="font-heading mt-2 text-3xl font-semibold text-primary sm:text-4xl">
-                Pieces with a past
+                {isLeaValleyShopSlug(shop.slug)
+                  ? "Bikes at the lock"
+                  : "Pieces with a past"}
               </h2>
               <p className="mt-2 max-w-xl text-muted-foreground">
-                Photo galleries, materials, and the impact story behind each
-                make — browse like a craft market, buy with confidence.
+                {isLeaValleyShopSlug(shop.slug)
+                  ? "Collect your hire at the lock — helmet and lock included. Return the same day or Monday after a weekend."
+                  : "Photo galleries, materials, and the impact story behind each make — browse like a craft market, buy with confidence."}
               </p>
             </div>
             <p className="text-sm text-muted-foreground">
