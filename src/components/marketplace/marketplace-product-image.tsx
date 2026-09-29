@@ -12,6 +12,7 @@ export function isRenderableProductImageUrl(
 ): boolean {
   const s = String(url ?? "").trim();
   if (!s) return false;
+  if (s.startsWith("data:image/")) return true;
   if (s.startsWith("/") && !s.startsWith("//")) return true;
   try {
     const u = new URL(s);
@@ -38,6 +39,7 @@ export function MarketplaceProductImage({
   service?: boolean;
 }) {
   const src = isRenderableProductImageUrl(imageUrl) ? imageUrl!.trim() : null;
+  const dataUrl = Boolean(src?.startsWith("data:"));
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -61,15 +63,20 @@ export function MarketplaceProductImage({
       )}
     >
       {showImage ? (
-        <Image
-          src={src!}
-          alt={name}
-          fill
-          className="object-cover"
-          sizes={size === "detail" ? "80px" : "64px"}
-          unoptimized={src!.startsWith("https://")}
-          onError={() => setFailed(true)}
-        />
+        dataUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={src!} alt={name} className="size-full object-cover" />
+        ) : (
+          <Image
+            src={src!}
+            alt={name}
+            fill
+            className="object-cover"
+            sizes={size === "detail" ? "80px" : "64px"}
+            unoptimized={src!.startsWith("https://")}
+            onError={() => setFailed(true)}
+          />
+        )
       ) : (
         <Leaf
           className={cn(

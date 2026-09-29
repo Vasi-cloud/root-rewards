@@ -18,6 +18,7 @@ import { recordShopView } from "@/lib/seller-analytics";
 import {
   getLeaValleyGuestShop,
   isLeaValleyShopSlug,
+  overlayLeaValleyHirePhotos,
 } from "@/lib/lea-valley-guest";
 import {
   ensureDemoShops,
@@ -89,14 +90,22 @@ export default function SellerShopPage() {
           next = {
             ...stored,
             ...guest,
-            products: [...byId.values()].slice(0, 20),
+            products: overlayLeaValleyHirePhotos(
+              [...byId.values()].slice(0, 20)
+            ),
             uid: stored.uid || guest.uid,
           };
         } else {
-          next = guest;
+          next = {
+            ...guest,
+            products: overlayLeaValleyHirePhotos(guest.products),
+          };
         }
       } catch {
-        next = guest;
+        next = {
+          ...guest,
+          products: overlayLeaValleyHirePhotos(guest.products),
+        };
       }
     } else {
       ensureDemoShops();

@@ -42,15 +42,24 @@ export function ProductPhoto({
       }}
     >
       {!failed ? (
-        <Image
-          src={src}
-          alt={product.name}
-          fill
-          priority={priority}
-          className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          sizes="(max-width: 768px) 100vw, 45vw"
-          onError={() => setFailed(true)}
-        />
+        src.startsWith("data:") ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={product.name}
+            className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          />
+        ) : (
+          <Image
+            src={src}
+            alt={product.name}
+            fill
+            priority={priority}
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            sizes="(max-width: 768px) 100vw, 45vw"
+            onError={() => setFailed(true)}
+          />
+        )
       ) : (
         <div className="absolute inset-0 flex items-center justify-center p-8">
           <div

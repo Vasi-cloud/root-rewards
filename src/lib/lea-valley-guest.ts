@@ -1,4 +1,13 @@
+import { loadAllSellers } from "@/lib/seller-storage";
 import type { Product, SellerProduct, SellerProfile } from "@/types";
+
+const GENERIC_HIRE_ICONS = new Set([
+  "/shop/tote.svg",
+  "/shop/bottle.svg",
+  "/shop/pouch.svg",
+  "/shop/cover-grove.svg",
+  "/shop/linen.svg",
+]);
 
 export const LEA_VALLEY_SLUG = "lea-valley-cycle-hire";
 export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
@@ -154,17 +163,113 @@ export function listLeaValleyApprovedHires(): Product[] {
 export function mergeLeaValleyHires(catalog: Product[]): Product[] {
   const extras = listLeaValleyApprovedHires();
   const seenIds = new Set(catalog.map((p) => p.id));
-  const seenNames = new Set(catalog.map((p) => p.name.trim().toLowerCase()));
+  const seenNames = new Set(catalog.map((p) => titleKey(p.name)));
   const add: Product[] = [];
   for (const hire of extras) {
     if (add.length >= HIRE_CAP) break;
-    const key = hire.name.trim().toLowerCase();
+    const key = titleKey(hire.name);
     if (seenIds.has(hire.id) || seenNames.has(key)) continue;
     seenIds.add(hire.id);
     seenNames.add(key);
     add.push(hire);
   }
-  return add.length === 0 ? catalog : [...catalog, ...add];
+  const merged = add.length === 0 ? catalog : [...catalog, ...add];
+  return overlayLeaValleyHirePhotos(merged);
+}
+
+function titleKey(name: string) {
+  return name.trim().toLowerCase().replace(/[—–]/g, " ").replace(/-/g, " ").replace(/\s+/g, " ");
+}
+
+function isLeaValleyShopName(shop: {
+  shopName?: string;
+  tradingName?: string;
+  providerName?: string;
+}) {
+  const name = `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.providerName ?? ""}`.toLowerCase();
+  return name.includes("lea valley cycle hire");
+}
+
+function isUploadedHirePhoto(url: string | undefined): url is string {
+  const s = url?.trim() ?? "";
+  if (!s) return false;
+  if (s.startsWith("data:image/")) return true;
+  if (GENERIC_HIRE_ICONS.has(s)) return false;
+  if (s.startsWith("https://")) return true;
+  if (s.startsWith("/") && !s.startsWith("//") && !s.endsWith(".svg")) return true;
+  return false;
+}
+
+function firstHirePhoto(product: {
+  imageUrl?: string;
+  gallery?: string[];
+}): string | null {
+  const urls = [
+    ...(Array.isArray(product.gallery) ? product.gallery : []),
+    product.imageUrl ?? "",
+  ];
+  return urls.find((url) => isUploadedHirePhoto(url)) ?? null;
+}
+
+/** This shop only — match hire title to the first Seller Hub photo. Cap 5. */
+export function overlayLeaValleyHirePhotos<
+  T extends {
+    name: string;
+    imageUrl?: string;
+    gallery?: string[];
+    providerName?: string;
+    sellerUid?: string;
+  },
+>(items: T[]): T[] {
+  try {
+    const all = loadAllSellers();
+    let shop: SellerProfile | null = null;
+    let named: SellerProfile | null = all[LEA_VALLEY_UID] ?? null;
+    for (const row of Object.values(all)) {
+      if (!isLeaValleyShopName(row)) continue;
+      if (!named) named = row;
+      if ((row.products ?? []).some((product) => firstHirePhoto(product))) {
+        shop = row;
+        break;
+      }
+    }
+    shop = shop ?? named;
+    if (!shop) return items;
+
+    const photos = new Map<string, string>();
+    for (const product of (shop.products ?? []).slice(0, 20)) {
+      const photo = firstHirePhoto(product);
+      if (!photo) continue;
+      photos.set(titleKey(product.name), photo);
+      if (photos.size >= HIRE_CAP) break;
+    }
+    if (photos.size === 0) return items;
+
+    let used = 0;
+    return items.map((item) => {
+      if (used >= HIRE_CAP) return item;
+      const tagged = Boolean(item.providerName || item.sellerUid);
+      if (
+        tagged &&
+        item.sellerUid !== shop.uid &&
+        item.sellerUid !== LEA_VALLEY_UID &&
+        !isLeaValleyShopName({ providerName: item.providerName })
+      ) {
+        return item;
+      }
+      const photo = photos.get(titleKey(item.name));
+      if (!photo) return item;
+      used += 1;
+      return {
+        ...item,
+        imageUrl: photo,
+        gallery: [photo],
+      };
+    });
+  } catch (err) {
+    console.warn("[marketplace] Lea Valley hire photos failed", err);
+    return items;
+  }
 }
 
 export function isLeaValleyShopSlug(slug?: string | null): boolean {
