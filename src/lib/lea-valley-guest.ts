@@ -4,8 +4,6 @@ export const LEA_VALLEY_SLUG = "lea-valley-cycle-hire";
 export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
 const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 const HIRE_CAP = 5;
-const FULL_DAY_TITLE_KEY = "hybrid bike full day hire";
-const FULL_DAY_IMAGE = "/hires/lea-valley-full-day.jpg";
 
 const HIRE_ROWS = [
   {
@@ -16,7 +14,8 @@ const HIRE_ROWS = [
       "Comfortable hybrid for towpath and city legs. Collect at the lock — helmet and D-lock included.",
     price: 22,
     hirePeriod: "1 day",
-    imageUrl: "/shop/tote.svg",
+    imageUrl: "/hires/lea-valley-city-day.jpg",
+    gallery: ["/hires/lea-valley-city-day.jpg"],
   },
   {
     id: "demo-lv-pending-2",
@@ -26,7 +25,8 @@ const HIRE_ROWS = [
       "Weekend hire of a step-through e-bike. Collect at the lock Friday, return Monday evening.",
     price: 68,
     hirePeriod: "Fri–Mon weekend",
-    imageUrl: "/shop/bottle.svg",
+    imageUrl: "/hires/lea-valley-ebike-weekend.jpg",
+    gallery: ["/hires/lea-valley-ebike-weekend.jpg"],
   },
   {
     id: "lv-hub-half-day",
@@ -36,7 +36,8 @@ const HIRE_ROWS = [
       "Half-day hybrid hire along the Lea Valley. Collect and return at the lock.",
     price: 18,
     hirePeriod: "half day",
-    imageUrl: "/shop/tote.svg",
+    imageUrl: "/hires/lea-valley-hybrid-half.jpg",
+    gallery: ["/hires/lea-valley-hybrid-half.jpg"],
   },
   {
     id: "lv-hub-full-day",
@@ -46,8 +47,8 @@ const HIRE_ROWS = [
       "Full-day hybrid hire. Collect at the lock in the morning, return the same evening.",
     price: 28,
     hirePeriod: "full day",
-    imageUrl: FULL_DAY_IMAGE,
-    gallery: [FULL_DAY_IMAGE],
+    imageUrl: "/hires/lea-valley-full-day.jpg",
+    gallery: ["/hires/lea-valley-full-day.jpg"],
   },
   {
     id: "lv-hub-weekend",
@@ -57,7 +58,8 @@ const HIRE_ROWS = [
       "Weekend gravel bike hire for longer Lea Valley loops. Collect at the lock.",
     price: 45,
     hirePeriod: "weekend",
-    imageUrl: "/shop/pouch.svg",
+    imageUrl: "/hires/lea-valley-gravel-weekend.jpg",
+    gallery: ["/hires/lea-valley-gravel-weekend.jpg"],
   },
 ] as const;
 
@@ -70,20 +72,17 @@ function titleKey(name: string) {
     .replace(/\s+/g, " ");
 }
 
-function isLeaValleyFullDay(item: {
-  name?: string;
-  providerName?: string;
-}) {
-  if (titleKey(item.name ?? "") !== FULL_DAY_TITLE_KEY) return false;
+function isLeaValleyHire(item: { name?: string; providerName?: string }) {
   const shop = (item.providerName ?? "").toLowerCase();
-  return !shop || shop.includes("lea valley cycle hire");
+  if (shop && !shop.includes("lea valley cycle hire")) return false;
+  return HIRE_IMAGE_BY_TITLE.has(titleKey(item.name ?? ""));
 }
 
+const HIRE_IMAGE_BY_TITLE = new Map(
+  HIRE_ROWS.map((row) => [titleKey(row.name), row.imageUrl])
+);
+
 function toSellerProduct(row: (typeof HIRE_ROWS)[number]): SellerProduct {
-  const gallery =
-    "gallery" in row && Array.isArray(row.gallery)
-      ? [...row.gallery]
-      : undefined;
   return {
     id: row.id,
     listingType: "rental",
@@ -96,7 +95,7 @@ function toSellerProduct(row: (typeof HIRE_ROWS)[number]): SellerProduct {
     ecoScore: 90,
     stock: 2,
     imageUrl: row.imageUrl,
-    gallery,
+    gallery: [...row.gallery],
     hirePeriod: row.hirePeriod,
     priceNote: row.hirePeriod,
     bookingNote: "Pickup at the lock — partner confirms dates.",
@@ -177,12 +176,13 @@ export function listLeaValleyApprovedHires(): Product[] {
   }));
 }
 
-/** Set imageUrl on the one full-day public row. Do not read Seller Hub. */
+/** Set imageUrl on the five Lea Valley public hire rows. Do not read Seller Hub. */
 export function mergeLeaValleyHires(catalog: Product[]): Product[] {
   const patched = catalog.map((item) => {
-    if (!isLeaValleyFullDay(item)) return item;
-    if (item.imageUrl === FULL_DAY_IMAGE) return item;
-    return { ...item, imageUrl: FULL_DAY_IMAGE };
+    if (!isLeaValleyHire(item)) return item;
+    const imageUrl = HIRE_IMAGE_BY_TITLE.get(titleKey(item.name));
+    if (!imageUrl || item.imageUrl === imageUrl) return item;
+    return { ...item, imageUrl };
   });
   const extras = listLeaValleyApprovedHires();
   const seenIds = new Set(patched.map((p) => p.id));
