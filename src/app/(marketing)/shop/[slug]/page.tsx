@@ -17,7 +17,6 @@ import { defaultProductImage } from "@/lib/shop-presentation";
 import { recordShopView } from "@/lib/seller-analytics";
 import {
   applyLeaValleyGuestShop,
-  fetchLeaValleyFullDayPhoto,
   isLeaValleyShopSlug,
 } from "@/lib/lea-valley-guest";
 import {
@@ -75,49 +74,26 @@ export default function SellerShopPage() {
   );
 
   useEffect(() => {
-    let cancelled = false;
     let next: SellerProfile | null = null;
     if (isLeaValleyShopSlug(slug)) {
-      try {
-        next = applyLeaValleyGuestShop();
-      } catch {
-        next = applyLeaValleyGuestShop(null);
-      }
+      next = applyLeaValleyGuestShop();
       setShop(next);
       setOthers([]);
-      setReady(true);
-      setActiveProduct(null);
-      if (next?.uid && next.status === "approved") {
-        recordShopView(next.uid);
+    } else {
+      ensureDemoShops();
+      next = getSellerBySlug(slug);
+      setShop(next);
+      try {
+        setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
+      } catch {
+        setOthers([]);
       }
-      void fetchLeaValleyFullDayPhoto()
-        .then((photo) => {
-          if (cancelled || !photo) return;
-          setShop(applyLeaValleyGuestShop(photo));
-        })
-        .catch(() => {
-          // keep bag icon
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    ensureDemoShops();
-    next = getSellerBySlug(slug);
-    setShop(next);
-    try {
-      setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
-    } catch {
-      setOthers([]);
     }
     setReady(true);
     setActiveProduct(null);
     if (next?.uid && next.status === "approved") {
       recordShopView(next.uid);
     }
-    return () => {
-      cancelled = true;
-    };
   }, [slug]);
 
   const approved = useMemo(

@@ -4,7 +4,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   setDoc,
 } from "firebase/firestore";
@@ -713,129 +712,6 @@ export async function deleteAdminCatalogProduct(
 
   saveLocal(loadLocal().filter((p) => p.id !== id));
   notifyCatalogUpdated();
-}
-
-const LV_FULL_DAY_ID = "lv-hub-full-day";
-const LV_FULL_DAY_TITLE_KEY = "hybrid bike full day hire";
-
-function isLeaValleyFullDayRow(product: {
-  id?: string;
-  name?: string;
-  providerName?: string;
-}) {
-  if (product.id === LV_FULL_DAY_ID) return true;
-  const title = (product.name ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[—–]/g, " ")
-    .replace(/-/g, " ")
-    .replace(/\s+/g, " ");
-  if (title !== LV_FULL_DAY_TITLE_KEY) return false;
-  const shop = (product.providerName ?? "").toLowerCase();
-  return !shop || shop.includes("lea valley cycle hire");
-}
-
-function isUploadedFullDayPhoto(url: string | undefined): url is string {
-  const s = url?.trim() ?? "";
-  if (!s) return false;
-  if (s.startsWith("data:image/")) return true;
-  if (s.startsWith("https://")) return true;
-  if (s.startsWith("/") && !s.startsWith("//") && !s.endsWith(".svg")) {
-    return true;
-  }
-  return false;
-}
-
-async function compressHireThumbnail(dataUrl: string): Promise<string> {
-  if (typeof window === "undefined") return dataUrl;
-  if (!dataUrl.startsWith("data:image/") || dataUrl.length <= 280_000) {
-    return dataUrl;
-  }
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const max = 960;
-      const scale = Math.min(1, max / Math.max(img.width, img.height, 1));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(img.width * scale));
-      canvas.height = Math.max(1, Math.round(img.height * scale));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve(dataUrl);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.72));
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-}
-
-/** Copy one listing's photo onto the public full-day catalogue row. */
-export async function copyLeaValleyFullDayPhoto(imageUrl: string): Promise<void> {
-  if (!isUploadedFullDayPhoto(imageUrl)) return;
-  const photo = await compressHireThumbnail(imageUrl);
-  const local = loadLocal();
-  const existing = local.find((product) => isLeaValleyFullDayRow(product));
-  if (
-    existing?.id === LV_FULL_DAY_ID &&
-    isUploadedFullDayPhoto(existing.imageUrl)
-  ) {
-    return;
-  }
-  const row = buildFromInput({
-    id: LV_FULL_DAY_ID,
-    name: "Hybrid bike full-day hire",
-    description:
-      "Full-day hybrid hire. Collect at the lock in the morning, return the same evening.",
-    category: "Cycling",
-    price: 28,
-    ecoScore: 90,
-    stock: 2,
-    listingType: "rental",
-    commerceType: "first_party",
-    imageUrl: photo,
-    hirePeriod: "full day",
-    priceNote: "full day",
-    bookingNote: "Pickup at the lock — partner confirms dates.",
-    providerType: "self_employed",
-    providerName: "Lea Valley Cycle Hire",
-    areaServed: "Lea Valley, East London",
-  });
-  const next = [
-    row,
-    ...local.filter(
-      (product) => product.id !== LV_FULL_DAY_ID && !isLeaValleyFullDayRow(product)
-    ),
-  ];
-  saveLocal(next);
-  notifyCatalogUpdated();
-  if (!isFirebaseClientConfigured()) return;
-  const db = getFirebaseFirestore();
-  if (!db) return;
-  try {
-    await setDoc(doc(db, "products", LV_FULL_DAY_ID), toFirestorePayload(row));
-  } catch (err) {
-    console.warn("[products] Full-day hire photo copy failed", err);
-  }
-}
-
-export async function readLeaValleyFullDayCatalogPhoto(): Promise<string | null> {
-  const local = loadLocal().find((product) => isLeaValleyFullDayRow(product));
-  if (isUploadedFullDayPhoto(local?.imageUrl)) return local.imageUrl;
-  if (!isFirebaseClientConfigured()) return null;
-  const db = getFirebaseFirestore();
-  if (!db) return null;
-  try {
-    const snap = await getDoc(doc(db, "products", LV_FULL_DAY_ID));
-    if (!snap.exists()) return null;
-    const imageUrl = String(snap.data()?.imageUrl ?? "").trim();
-    return isUploadedFullDayPhoto(imageUrl) ? imageUrl : null;
-  } catch (err) {
-    console.warn("[products] Full-day hire photo read failed", err);
-    return null;
-  }
 }
 
 /**

@@ -1,17 +1,11 @@
 import type { Product, SellerProduct, SellerProfile } from "@/types";
 
-const GENERIC_HIRE_ICONS = new Set([
-  "/shop/tote.svg",
-  "/shop/bottle.svg",
-  "/shop/pouch.svg",
-  "/shop/cover-grove.svg",
-  "/shop/linen.svg",
-]);
-
 export const LEA_VALLEY_SLUG = "lea-valley-cycle-hire";
 export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
 const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 const HIRE_CAP = 5;
+const FULL_DAY_TITLE_KEY = "hybrid bike full day hire";
+const FULL_DAY_IMAGE = "/hires/lea-valley-full-day.jpg";
 
 const HIRE_ROWS = [
   {
@@ -52,7 +46,8 @@ const HIRE_ROWS = [
       "Full-day hybrid hire. Collect at the lock in the morning, return the same evening.",
     price: 28,
     hirePeriod: "full day",
-    imageUrl: "/shop/tote.svg",
+    imageUrl: FULL_DAY_IMAGE,
+    gallery: [FULL_DAY_IMAGE],
   },
   {
     id: "lv-hub-weekend",
@@ -66,7 +61,29 @@ const HIRE_ROWS = [
   },
 ] as const;
 
+function titleKey(name: string) {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[—–]/g, " ")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function isLeaValleyFullDay(item: {
+  name?: string;
+  providerName?: string;
+}) {
+  if (titleKey(item.name ?? "") !== FULL_DAY_TITLE_KEY) return false;
+  const shop = (item.providerName ?? "").toLowerCase();
+  return !shop || shop.includes("lea valley cycle hire");
+}
+
 function toSellerProduct(row: (typeof HIRE_ROWS)[number]): SellerProduct {
+  const gallery =
+    "gallery" in row && Array.isArray(row.gallery)
+      ? [...row.gallery]
+      : undefined;
   return {
     id: row.id,
     listingType: "rental",
@@ -79,6 +96,7 @@ function toSellerProduct(row: (typeof HIRE_ROWS)[number]): SellerProduct {
     ecoScore: 90,
     stock: 2,
     imageUrl: row.imageUrl,
+    gallery,
     hirePeriod: row.hirePeriod,
     priceNote: row.hirePeriod,
     bookingNote: "Pickup at the lock — partner confirms dates.",
@@ -159,163 +177,16 @@ export function listLeaValleyApprovedHires(): Product[] {
   }));
 }
 
-const FULL_DAY_ID = "lv-hub-full-day";
-const FULL_DAY_TITLE_KEY = "hybrid bike full day hire";
-const FULL_DAY_PHOTO_KEY = "forest-buddies-lv-full-day-photo";
-const LIVE_PRODUCTS_KEY = "forest-buddies-live-products";
-
-function titleKey(name: string) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[—–]/g, " ")
-    .replace(/-/g, " ")
-    .replace(/\s+/g, " ");
-}
-
-function isLeaValleyShopName(shop: {
-  shopName?: string;
-  tradingName?: string;
-  providerName?: string;
-}) {
-  const name =
-    `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.providerName ?? ""}`.toLowerCase();
-  return name.includes("lea valley cycle hire");
-}
-
-function isFullDayHire(
-  item: { name?: string; providerName?: string; shopName?: string }
-) {
-  if (titleKey(item.name ?? "") !== FULL_DAY_TITLE_KEY) return false;
-  if (
-    item.providerName &&
-    !isLeaValleyShopName({ providerName: item.providerName })
-  ) {
-    return false;
-  }
-  if (item.shopName && !isLeaValleyShopName({ shopName: item.shopName })) {
-    return false;
-  }
-  return true;
-}
-
-function isUploadedHirePhoto(url: string | undefined): url is string {
-  const s = url?.trim() ?? "";
-  if (!s) return false;
-  if (s.startsWith("data:image/")) return true;
-  if (GENERIC_HIRE_ICONS.has(s)) return false;
-  if (s.startsWith("https://")) return true;
-  if (s.startsWith("/") && !s.startsWith("//") && !s.endsWith(".svg")) {
-    return true;
-  }
-  return false;
-}
-
-function firstHirePhoto(product: {
-  imageUrl?: string;
-  gallery?: string[];
-}): string | null {
-  const urls = [
-    ...(Array.isArray(product.gallery) ? product.gallery : []),
-    product.imageUrl ?? "",
-  ];
-  return urls.find((url) => isUploadedHirePhoto(url)) ?? null;
-}
-
-function cacheFullDayPhoto(photo: string) {
-  if (typeof window === "undefined") return;
-  try {
-    if (localStorage.getItem(FULL_DAY_PHOTO_KEY) === photo) return;
-    localStorage.setItem(FULL_DAY_PHOTO_KEY, photo);
-  } catch {
-    // ignore quota
-  }
-}
-
-function readCachedFullDayPhoto(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(FULL_DAY_PHOTO_KEY);
-    return isUploadedHirePhoto(raw ?? undefined) ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
-function readLiveLocalFullDayPhoto(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(LIVE_PRODUCTS_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
-    if (!Array.isArray(parsed)) return null;
-    const row = parsed.find((item) => {
-      if (item?.id === FULL_DAY_ID) return true;
-      return isFullDayHire({
-        name: String(item?.name ?? ""),
-        providerName:
-          typeof item?.providerName === "string" ? item.providerName : undefined,
-      });
-    });
-    const photo = firstHirePhoto({
-      imageUrl: typeof row?.imageUrl === "string" ? row.imageUrl : undefined,
-    });
-    return photo;
-  } catch {
-    return null;
-  }
-}
-
-function publishFullDayPhoto(photo: string) {
-  cacheFullDayPhoto(photo);
-  void import("@/lib/admin-catalog-products")
-    .then((mod) => mod.copyLeaValleyFullDayPhoto(photo))
-    .catch((err) => {
-      console.warn("[marketplace] Full-day hire photo copy failed", err);
-    });
-}
-
-function readFullDayPhotoSync(
-  items?: Array<{
-    name: string;
-    imageUrl?: string;
-    gallery?: string[];
-    providerName?: string;
-  }>
-): string | null {
-  const fromItems = items?.find(
-    (item) => isFullDayHire(item) && isUploadedHirePhoto(item.imageUrl)
-  );
-  if (fromItems?.imageUrl && isUploadedHirePhoto(fromItems.imageUrl)) {
-    return fromItems.imageUrl;
-  }
-  return readCachedFullDayPhoto() ?? readLiveLocalFullDayPhoto();
-}
-
-function applyFullDayPhoto<
-  T extends {
-    name: string;
-    imageUrl?: string;
-    gallery?: string[];
-    providerName?: string;
-  },
->(items: T[], photo: string | null): T[] {
-  if (!photo) return items;
-  return items.map((item) => {
-    if (!isFullDayHire(item)) return item;
-    if (item.imageUrl === photo && item.gallery?.[0] === photo) return item;
-    return {
-      ...item,
-      imageUrl: photo,
-      gallery: [photo],
-    };
-  });
-}
-
+/** Set imageUrl on the one full-day public row. Do not read Seller Hub. */
 export function mergeLeaValleyHires(catalog: Product[]): Product[] {
+  const patched = catalog.map((item) => {
+    if (!isLeaValleyFullDay(item)) return item;
+    if (item.imageUrl === FULL_DAY_IMAGE) return item;
+    return { ...item, imageUrl: FULL_DAY_IMAGE };
+  });
   const extras = listLeaValleyApprovedHires();
-  const seenIds = new Set(catalog.map((p) => p.id));
-  const seenNames = new Set(catalog.map((p) => titleKey(p.name)));
+  const seenIds = new Set(patched.map((p) => p.id));
+  const seenNames = new Set(patched.map((p) => titleKey(p.name)));
   const add: Product[] = [];
   for (const hire of extras) {
     if (add.length >= HIRE_CAP) break;
@@ -325,65 +196,11 @@ export function mergeLeaValleyHires(catalog: Product[]): Product[] {
     seenNames.add(key);
     add.push(hire);
   }
-  const merged = add.length === 0 ? catalog : [...catalog, ...add];
-  return overlayLeaValleyHirePhotos(merged);
+  return add.length === 0 ? patched : [...patched, ...add];
 }
 
-/** Guest shop — only the full-day row may receive the Seller Hub photo. */
-export function applyLeaValleyGuestShop(photo?: string | null): SellerProfile {
-  const guest = getLeaValleyGuestShop();
-  const resolved = photo ?? readFullDayPhotoSync(guest.products);
-  return {
-    ...guest,
-    products: applyFullDayPhoto(guest.products, resolved),
-  };
-}
-
-export function fetchLeaValleyFullDayPhoto(): Promise<string | null> {
-  const sync = readFullDayPhotoSync();
-  return Promise.race([
-    (async () => {
-      if (sync) return sync;
-      try {
-        const { readLeaValleyFullDayCatalogPhoto } = await import(
-          "@/lib/admin-catalog-products"
-        );
-        const live = await readLeaValleyFullDayCatalogPhoto();
-        if (live) cacheFullDayPhoto(live);
-        return live;
-      } catch (err) {
-        console.warn("[marketplace] Full-day hire live photo failed", err);
-        return sync;
-      }
-    })(),
-    new Promise<string | null>((resolve) => {
-      window.setTimeout(() => resolve(sync), 3000);
-    }),
-  ]);
-}
-
-/**
- * One listing only: Hybrid bike full-day hire at Lea Valley Cycle Hire.
- * Pending Seller Hub photos are used. Other hires are left unchanged.
- */
-export function overlayLeaValleyHirePhotos<
-  T extends {
-    name: string;
-    imageUrl?: string;
-    gallery?: string[];
-    providerName?: string;
-  },
->(items: T[]): T[] {
-  try {
-    const nextPhoto = readFullDayPhotoSync(items);
-    if (nextPhoto && readCachedFullDayPhoto() !== nextPhoto) {
-      publishFullDayPhoto(nextPhoto);
-    }
-    return applyFullDayPhoto(items, nextPhoto);
-  } catch (err) {
-    console.warn("[marketplace] Lea Valley full-day photo failed", err);
-    return items;
-  }
+export function applyLeaValleyGuestShop(): SellerProfile {
+  return getLeaValleyGuestShop();
 }
 
 export function isLeaValleyShopSlug(slug?: string | null): boolean {
