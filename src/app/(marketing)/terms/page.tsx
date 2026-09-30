@@ -105,9 +105,9 @@ export default function TermsPage() {
               href="/returns"
               className="font-medium text-primary underline-offset-2 hover:underline"
             >
-              Returns &amp; size guide
+              Returns &amp; refunds
             </Link>{" "}
-            for return windows and sizing help.
+            for goods, cause gifts, and hire.
           </p>
         </section>
 

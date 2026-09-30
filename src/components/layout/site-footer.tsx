@@ -40,7 +40,7 @@ const footerLinks = {
     { href: "/privacy", label: "Privacy Policy" },
     { href: "/terms", label: "Terms of Service" },
     { href: "/trademark", label: "Trademark Notice" },
-    { href: "/returns", label: "Returns & size guide" },
+    { href: "/returns", label: "Returns & refunds" },
   ],
 };
 
