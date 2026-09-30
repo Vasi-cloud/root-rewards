@@ -23,6 +23,7 @@ import {
   getMockReviews,
   type ProductReview,
 } from "@/lib/trust";
+import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 import type { ProductReviewRecord } from "@/types/reviews";
 
 function Stars({
@@ -125,13 +126,18 @@ export function ProductReviews({
   productId,
   productName,
   listingType = "product",
+  hideDemoReviews,
   className = "",
 }: {
   productId: string;
   productName?: string;
   listingType?: "product" | "service";
+  hideDemoReviews?: boolean;
   className?: string;
 }) {
+  const hideSeeds =
+    hideDemoReviews ??
+    isLeaValleyHireListing({ id: productId, name: productName });
   const { user, profile } = useAuth();
   const pathname = usePathname();
   const [stored, setStored] = useState<ProductReviewRecord[]>([]);
@@ -166,25 +172,31 @@ export function ProductReviews({
   }, [user, productId]);
 
   const community = useMemo(
-    () => getMockReviews(productId, 2).map(mockToDisplay),
-    [productId]
+    () =>
+      hideSeeds ? [] : getMockReviews(productId, 2).map(mockToDisplay),
+    [productId, hideSeeds]
   );
 
   const reviews: DisplayReview[] = useMemo(() => {
-    const userOnes = stored.map(toDisplay);
-    // Prefer real reviews; keep a couple of community notes when few exist
+    const userOnes = stored.map((r) => {
+      const d = toDisplay(r);
+      return hideSeeds ? { ...d, verified: false } : d;
+    });
+    if (hideSeeds) return userOnes;
     if (userOnes.length >= 3) return userOnes;
     const communityIds = new Set(userOnes.map((r) => r.title + r.author));
     const extras = community.filter(
       (c) => !communityIds.has(c.title + c.author)
     );
     return [...userOnes, ...extras];
-  }, [stored, community]);
+  }, [stored, community, hideSeeds]);
 
   const avg =
     stored.length > 0
       ? averageFromReviews(stored.filter((r) => r.status === "approved" || r.status === "pending"))
-      : averageRating(getMockReviews(productId, 3));
+      : hideSeeds
+        ? 0
+        : averageRating(getMockReviews(productId, 3));
 
   const approvedCount = stored.filter((r) => r.status === "approved").length;
   const totalShown = reviews.length;
@@ -252,22 +264,28 @@ export function ProductReviews({
             {productName ? ` · ${productName}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Stars rating={Math.round(avg)} />
-          <span className="text-sm font-semibold tabular-nums text-primary">
-            {avg.toFixed(1)}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            ({approvedCount > 0 ? approvedCount : totalShown})
-          </span>
-        </div>
+        {!(hideSeeds && totalShown === 0) && (
+          <div className="flex items-center gap-2">
+            <Stars rating={Math.round(avg)} />
+            <span className="text-sm font-semibold tabular-nums text-primary">
+              {avg.toFixed(1)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              ({approvedCount > 0 ? approvedCount : totalShown})
+            </span>
+          </div>
+        )}
       </div>
 
-      <ul className="mt-4 space-y-3">
-        {reviews.map((review) => (
-          <ReviewCard key={review.id} review={review} />
-        ))}
-      </ul>
+      {hideSeeds && reviews.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">No reviews yet.</p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {reviews.map((review) => (
+            <ReviewCard key={review.id} review={review} />
+          ))}
+        </ul>
+      )}
 
       <div className="mt-5 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-cream to-background p-4">
         <div className="mb-3 flex items-center gap-2 text-emerald-900">
@@ -405,11 +423,14 @@ function ReviewCard({ review }: { review: DisplayReview }) {
 /** Compact stars for marketplace / shop cards */
 export function ProductRatingBadge({
   productId,
+  hideDemoReviews,
   className = "",
 }: {
   productId: string;
+  hideDemoReviews?: boolean;
   className?: string;
 }) {
+  const hideSeeds = hideDemoReviews ?? isLeaValleyHireListing({ id: productId });
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
 
@@ -420,6 +441,9 @@ export function ProductRatingBadge({
       if (approved.length > 0) {
         setAvg(averageFromReviews(approved));
         setCount(approved.length);
+      } else if (hideSeeds) {
+        setAvg(null);
+        setCount(0);
       } else {
         const mocks = getMockReviews(productId, 3);
         setAvg(averageRating(mocks));
@@ -428,7 +452,7 @@ export function ProductRatingBadge({
     };
     compute();
     return subscribeReviews(compute);
-  }, [productId]);
+  }, [productId, hideSeeds]);
 
   if (avg == null) return null;
 

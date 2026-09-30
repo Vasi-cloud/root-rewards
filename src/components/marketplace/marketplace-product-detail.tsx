@@ -16,6 +16,7 @@ import { TrustBadges } from "@/components/trust/trust-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { isAffiliateProduct } from "@/lib/commerce-type";
+import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 import {
   canAddProductToCart,
   formatListingPrice,
@@ -203,6 +204,7 @@ export function MarketplaceProductDetail({
             productId={product.id}
             productName={product.name}
             listingType={isService ? "service" : "product"}
+            hideDemoReviews={isLeaValleyHireListing(product)}
           />
 
           {showAddToCart && (

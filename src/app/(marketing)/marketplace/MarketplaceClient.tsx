@@ -54,7 +54,7 @@ import {
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
-import { mergeLeaValleyHires } from "@/lib/lea-valley-guest";
+import { mergeLeaValleyHires, isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 import {
   ensureDemoShops,
   listApprovedSellerMarketplaceProducts,
@@ -1227,7 +1227,11 @@ function ListingGrid({
               <CardTitle className="font-heading text-lg leading-tight sm:text-xl">
                 {product.name}
               </CardTitle>
-              <ProductRatingBadge productId={product.id} className="mt-1" />
+              <ProductRatingBadge
+                productId={product.id}
+                hideDemoReviews={isLeaValleyHireListing(product)}
+                className="mt-1"
+              />
               <CardDescription className="line-clamp-2">
                 {product.description}
               </CardDescription>

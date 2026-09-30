@@ -15,6 +15,7 @@ import { ProductPartnerLinks } from "@/components/product/product-partner-links"
 import { ProductReviews } from "@/components/product/product-reviews";
 import { ProductGallery } from "@/components/shop/product-photo";
 import { TrustBadges } from "@/components/trust/trust-badges";
+import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 import type { Product } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -239,6 +240,7 @@ export function ShopProductDetail({
               listingType={
                 product.listingType === "service" ? "service" : "product"
               }
+              hideDemoReviews={isLeaValleyHireListing(product)}
             />
 
             <div className="flex flex-wrap gap-1.5">

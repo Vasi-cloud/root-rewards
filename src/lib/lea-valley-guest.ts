@@ -214,3 +214,24 @@ export function applyLeaValleyGuestShop(): SellerProfile {
 export function isLeaValleyShopSlug(slug?: string | null): boolean {
   return (slug ?? "").toLowerCase() === LEA_VALLEY_SLUG;
 }
+
+/** Known Lea Valley hire rows — id or shop + title. No catalogue walk. */
+export function isLeaValleyHireListing(item: {
+  id?: string;
+  name?: string;
+  listingType?: string;
+  providerName?: string;
+  sellerUid?: string;
+  sellerId?: string;
+}): boolean {
+  if (HIRE_ROWS.some((row) => row.id === item.id)) return true;
+  if (!HIRE_IMAGE_BY_TITLE.has(titleKey(item.name ?? ""))) return false;
+  if (item.listingType === "rental") return true;
+  const shop =
+    `${item.providerName ?? ""} ${item.sellerUid ?? ""} ${item.sellerId ?? ""}`.toLowerCase();
+  return (
+    shop.includes("lea valley cycle hire") ||
+    item.sellerUid === LEA_VALLEY_UID ||
+    item.sellerId === LEA_VALLEY_UID
+  );
+}
