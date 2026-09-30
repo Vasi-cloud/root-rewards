@@ -126,7 +126,15 @@ export function getLeaValleyGuestShop(): SellerProfile {
     coverImageUrl: "/shop/cover-grove.svg",
     story:
       "We lend serviced hybrids and gravel bikes from the towpath lock.\n\nCollect at the lock, ride the valley, and bring the bike back the same day or Monday after a weekend hire.",
-    impactStory: "Each hire helps fund verified tree planting through Forest Buddies.",
+    impactStory:
+      "Each hire can fund partner tree programmes — illustrative impact, not a GPS pin.",
+    impact: [
+      {
+        causeId: "trees",
+        unitsSupported: 0,
+        label: "Trees funded via confirmed sales",
+      },
+    ],
     status: "approved",
     approvedAt: "2026-06-10T00:00:00.000Z",
     products,
