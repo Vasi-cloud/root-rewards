@@ -1,4 +1,3 @@
-import { loadAllSellers } from "@/lib/seller-storage";
 import type { Product, SellerProduct, SellerProfile } from "@/types";
 
 const GENERIC_HIRE_ICONS = new Set([
@@ -160,7 +159,10 @@ export function listLeaValleyApprovedHires(): Product[] {
   }));
 }
 
-const HIRE_THUMBS_KEY = "forest-buddies-lea-valley-hire-thumbs";
+const FULL_DAY_ID = "lv-hub-full-day";
+const FULL_DAY_TITLE_KEY = "hybrid bike full day hire";
+const FULL_DAY_PHOTO_KEY = "forest-buddies-lv-full-day-photo";
+const LIVE_PRODUCTS_KEY = "forest-buddies-live-products";
 
 function titleKey(name: string) {
   return name
@@ -171,8 +173,6 @@ function titleKey(name: string) {
     .replace(/\s+/g, " ");
 }
 
-const KNOWN_HIRE_TITLES = new Set(HIRE_ROWS.map((row) => titleKey(row.name)));
-
 function isLeaValleyShopName(shop: {
   shopName?: string;
   tradingName?: string;
@@ -181,6 +181,22 @@ function isLeaValleyShopName(shop: {
   const name =
     `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.providerName ?? ""}`.toLowerCase();
   return name.includes("lea valley cycle hire");
+}
+
+function isFullDayHire(
+  item: { name?: string; providerName?: string; shopName?: string }
+) {
+  if (titleKey(item.name ?? "") !== FULL_DAY_TITLE_KEY) return false;
+  if (
+    item.providerName &&
+    !isLeaValleyShopName({ providerName: item.providerName })
+  ) {
+    return false;
+  }
+  if (item.shopName && !isLeaValleyShopName({ shopName: item.shopName })) {
+    return false;
+  }
+  return true;
 }
 
 function isUploadedHirePhoto(url: string | undefined): url is string {
@@ -206,178 +222,94 @@ function firstHirePhoto(product: {
   return urls.find((url) => isUploadedHirePhoto(url)) ?? null;
 }
 
-function photosFromShop(shop: SellerProfile): Map<string, string> {
-  const photos = new Map<string, string>();
-  for (const product of (shop.products ?? []).slice(0, 20)) {
-    const photo = firstHirePhoto(product);
-    if (!photo) continue;
-    photos.set(titleKey(product.name), photo);
-    if (photos.size >= HIRE_CAP) break;
-  }
-  return photos;
-}
-
-function photosFromItems(
-  items: Array<{
-    name: string;
-    imageUrl?: string;
-    gallery?: string[];
-    providerName?: string;
-  }>
-): Map<string, string> {
-  const photos = new Map<string, string>();
-  for (const item of items) {
-    if (photos.size >= HIRE_CAP) break;
-    if (
-      item.providerName &&
-      !isLeaValleyShopName({ providerName: item.providerName })
-    ) {
-      continue;
-    }
-    const key = titleKey(item.name);
-    if (!KNOWN_HIRE_TITLES.has(key) && photos.size >= HIRE_CAP) continue;
-    const photo = firstHirePhoto(item);
-    if (!photo) continue;
-    if (!photos.has(key)) photos.set(key, photo);
-  }
-  return photos;
-}
-
-/** Name match only — never walks other shops' listings. */
-function findLeaValleyShop(
-  all: Record<string, SellerProfile>
-): SellerProfile | null {
-  let named: SellerProfile | null = all[LEA_VALLEY_UID] ?? null;
-  for (const row of Object.values(all)) {
-    if (!isLeaValleyShopName(row)) continue;
-    if (!named) named = row;
-    if ((row.products ?? []).slice(0, 20).some((product) => firstHirePhoto(product))) {
-      return row;
-    }
-  }
-  return named;
-}
-
-function readCachedThumbs(): Map<string, string> {
-  if (typeof window === "undefined") return new Map();
+function cacheFullDayPhoto(photo: string) {
+  if (typeof window === "undefined") return;
   try {
-    const raw = localStorage.getItem(HIRE_THUMBS_KEY);
-    if (!raw) return new Map();
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const photos = new Map<string, string>();
-    for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value !== "string" || !isUploadedHirePhoto(value)) continue;
-      photos.set(titleKey(key), value);
-      if (photos.size >= HIRE_CAP) break;
-    }
-    return photos;
-  } catch {
-    return new Map();
-  }
-}
-
-function writeCachedThumbs(photos: Map<string, string>) {
-  if (typeof window === "undefined" || photos.size === 0) return;
-  try {
-    const payload: Record<string, string> = {};
-    let used = 0;
-    for (const [key, value] of photos) {
-      if (used >= HIRE_CAP) break;
-      payload[key] = value;
-      used += 1;
-    }
-    localStorage.setItem(HIRE_THUMBS_KEY, JSON.stringify(payload));
+    if (localStorage.getItem(FULL_DAY_PHOTO_KEY) === photo) return;
+    localStorage.setItem(FULL_DAY_PHOTO_KEY, photo);
   } catch {
     // ignore quota
   }
 }
 
-function mergePhotoMaps(
-  ...maps: Array<Map<string, string>>
-): Map<string, string> {
-  const photos = new Map<string, string>();
-  for (const map of maps) {
-    for (const [key, value] of map) {
-      if (!photos.has(key)) photos.set(key, value);
-      if (photos.size >= HIRE_CAP) return photos;
-    }
-  }
-  return photos;
-}
-
-/** Cache this shop's first hire photos (cap 5). Safe to call from seller save. */
-export function rememberLeaValleyHireThumbs(
-  all?: Record<string, SellerProfile>
-): void {
+function readCachedFullDayPhoto(): string | null {
+  if (typeof window === "undefined") return null;
   try {
-    const shops = all ?? loadAllSellers();
-    const shop = findLeaValleyShop(shops);
-    if (!shop) return;
-    const photos = photosFromShop(shop);
-    if (photos.size === 0) return;
-    writeCachedThumbs(mergePhotoMaps(photos, readCachedThumbs()));
-  } catch (err) {
-    console.warn("[marketplace] Lea Valley hire thumbs failed", err);
-  }
-}
-
-export function getLeaValleyStoredShop(): SellerProfile | null {
-  try {
-    return findLeaValleyShop(loadAllSellers());
+    const raw = localStorage.getItem(FULL_DAY_PHOTO_KEY);
+    return isUploadedHirePhoto(raw ?? undefined) ? raw : null;
   } catch {
     return null;
   }
 }
 
-function applyHirePhotos<
-  T extends { name: string; imageUrl?: string; gallery?: string[] },
->(items: T[], photos: Map<string, string>): T[] {
-  if (photos.size === 0) return items;
-  let used = 0;
+function readLiveLocalFullDayPhoto(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LIVE_PRODUCTS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    if (!Array.isArray(parsed)) return null;
+    const row = parsed.find((item) => {
+      if (item?.id === FULL_DAY_ID) return true;
+      return isFullDayHire({
+        name: String(item?.name ?? ""),
+        providerName:
+          typeof item?.providerName === "string" ? item.providerName : undefined,
+      });
+    });
+    const photo = firstHirePhoto({
+      imageUrl: typeof row?.imageUrl === "string" ? row.imageUrl : undefined,
+    });
+    return photo;
+  } catch {
+    return null;
+  }
+}
+
+function publishFullDayPhoto(photo: string) {
+  cacheFullDayPhoto(photo);
+  void import("@/lib/admin-catalog-products")
+    .then((mod) => mod.copyLeaValleyFullDayPhoto(photo))
+    .catch((err) => {
+      console.warn("[marketplace] Full-day hire photo copy failed", err);
+    });
+}
+
+function readFullDayPhotoSync(
+  items?: Array<{
+    name: string;
+    imageUrl?: string;
+    gallery?: string[];
+    providerName?: string;
+  }>
+): string | null {
+  const fromItems = items?.find(
+    (item) => isFullDayHire(item) && isUploadedHirePhoto(item.imageUrl)
+  );
+  if (fromItems?.imageUrl && isUploadedHirePhoto(fromItems.imageUrl)) {
+    return fromItems.imageUrl;
+  }
+  return readCachedFullDayPhoto() ?? readLiveLocalFullDayPhoto();
+}
+
+function applyFullDayPhoto<
+  T extends {
+    name: string;
+    imageUrl?: string;
+    gallery?: string[];
+    providerName?: string;
+  },
+>(items: T[], photo: string | null): T[] {
+  if (!photo) return items;
   return items.map((item) => {
-    if (used >= HIRE_CAP) return item;
-    const photo = photos.get(titleKey(item.name));
-    if (!photo || item.imageUrl === photo) {
-      if (photo && item.imageUrl === photo) used += 1;
-      return item;
-    }
-    used += 1;
+    if (!isFullDayHire(item)) return item;
+    if (item.imageUrl === photo && item.gallery?.[0] === photo) return item;
     return {
       ...item,
       imageUrl: photo,
       gallery: [photo],
     };
   });
-}
-
-function collectHirePhotos(
-  items: Array<{
-    name: string;
-    imageUrl?: string;
-    gallery?: string[];
-    providerName?: string;
-  }>,
-  allowSellerRead: boolean
-): Map<string, string> {
-  const photos = mergePhotoMaps(readCachedThumbs(), photosFromItems(items));
-  if (photos.size > 0) writeCachedThumbs(photos);
-  const missing = items.some((item) => {
-    const key = titleKey(item.name);
-    if (!KNOWN_HIRE_TITLES.has(key)) return false;
-    return !isUploadedHirePhoto(item.imageUrl) && !photos.has(key);
-  });
-  if (!allowSellerRead || !missing) return photos;
-  try {
-    const shop = findLeaValleyShop(loadAllSellers());
-    if (!shop) return photos;
-    const fromShop = photosFromShop(shop);
-    const merged = mergePhotoMaps(fromShop, photos);
-    if (fromShop.size > 0) writeCachedThumbs(merged);
-    return merged;
-  } catch (err) {
-    console.warn("[marketplace] Lea Valley hire photos failed", err);
-    return photos;
-  }
 }
 
 export function mergeLeaValleyHires(catalog: Product[]): Product[] {
@@ -394,156 +326,62 @@ export function mergeLeaValleyHires(catalog: Product[]): Product[] {
     add.push(hire);
   }
   const merged = add.length === 0 ? catalog : [...catalog, ...add];
-  const overlaid = overlayLeaValleyHirePhotos(merged);
-  scheduleHirePhotoCatalogSync(overlaid);
-  return overlaid;
+  return overlayLeaValleyHirePhotos(merged);
 }
 
-function scheduleHirePhotoCatalogSync(
-  items: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    category?: string;
-    price: number;
-    sustainabilityScore?: number;
-    ecoScore?: number;
-    stock?: number | null;
-    imageUrl?: string;
-    gallery?: string[];
-    listingType?: string;
-    hirePeriod?: string;
-    bookingNote?: string;
-    providerName?: string;
-    sellerUid?: string;
-    sellerId?: string;
-  }>
-) {
-  if (typeof window === "undefined") return;
-  try {
-    if (sessionStorage.getItem("fb-lv-hire-photo-sync") === "1") return;
-  } catch {
-    // continue
-  }
-  const rows = items.filter((item) => {
-    if (item.listingType !== "rental") return false;
-    if (!KNOWN_HIRE_TITLES.has(titleKey(item.name))) return false;
-    return isUploadedHirePhoto(item.imageUrl);
-  }).slice(0, HIRE_CAP);
-  if (rows.length === 0) return;
-  void import("@/lib/admin-catalog-products")
-    .then(async ({ saveSellerFirstPartyListing }) => {
-      let saved = false;
-      for (const item of rows) {
-        const result = await saveSellerFirstPartyListing(
-          item.sellerUid || item.sellerId || LEA_VALLEY_UID,
-          {
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            category: item.category || "Cycling",
-            price: item.price,
-            ecoScore: item.sustainabilityScore ?? item.ecoScore ?? 90,
-            stock: item.stock ?? 0,
-            imageUrl: item.imageUrl,
-            gallery: item.gallery,
-            listingType: "rental",
-            hirePeriod: item.hirePeriod,
-            bookingNote: item.bookingNote,
-            providerName: item.providerName || LEA_VALLEY_SHOP_NAME,
-          }
-        );
-        if (result) saved = true;
-      }
-      if (!saved) return;
+/** Guest shop — only the full-day row may receive the Seller Hub photo. */
+export function applyLeaValleyGuestShop(photo?: string | null): SellerProfile {
+  const guest = getLeaValleyGuestShop();
+  const resolved = photo ?? readFullDayPhotoSync(guest.products);
+  return {
+    ...guest,
+    products: applyFullDayPhoto(guest.products, resolved),
+  };
+}
+
+export function fetchLeaValleyFullDayPhoto(): Promise<string | null> {
+  const sync = readFullDayPhotoSync();
+  return Promise.race([
+    (async () => {
+      if (sync) return sync;
       try {
-        sessionStorage.setItem("fb-lv-hire-photo-sync", "1");
-      } catch {
-        // ignore
+        const { readLeaValleyFullDayCatalogPhoto } = await import(
+          "@/lib/admin-catalog-products"
+        );
+        const live = await readLeaValleyFullDayCatalogPhoto();
+        if (live) cacheFullDayPhoto(live);
+        return live;
+      } catch (err) {
+        console.warn("[marketplace] Full-day hire live photo failed", err);
+        return sync;
       }
-    })
-    .catch((err) => {
-      console.warn("[marketplace] Lea Valley hire photo sync failed", err);
-    });
+    })(),
+    new Promise<string | null>((resolve) => {
+      window.setTimeout(() => resolve(sync), 3000);
+    }),
+  ]);
 }
 
 /**
- * Guest shop rows + this shop's stored hires, matched by title.
- * First Seller Hub photo becomes the card thumbnail. Cap 5 overlays.
+ * One listing only: Hybrid bike full-day hire at Lea Valley Cycle Hire.
+ * Pending Seller Hub photos are used. Other hires are left unchanged.
  */
-export function applyLeaValleyGuestShop(
-  stored: SellerProfile | null
-): SellerProfile {
-  const guest = getLeaValleyGuestShop();
-  const byTitle = new Map(
-    guest.products.map((product) => [titleKey(product.name), { ...product }])
-  );
-  const extras: SellerProduct[] = [];
-  for (const product of stored?.products ?? []) {
-    const key = titleKey(product.name);
-    const photo = firstHirePhoto(product);
-    const guestRow = byTitle.get(key);
-    if (guestRow) {
-      byTitle.set(key, {
-        ...guestRow,
-        subtitle: product.subtitle || guestRow.subtitle,
-        description: product.description || guestRow.description,
-        price: product.price || guestRow.price,
-        hirePeriod: product.hirePeriod || guestRow.hirePeriod,
-        priceNote: product.priceNote || guestRow.priceNote,
-        imageUrl: photo ?? guestRow.imageUrl,
-        gallery: photo ? [photo] : guestRow.gallery,
-        status: "approved",
-      });
-    } else if (product.status === "approved") {
-      extras.push(
-        photo
-          ? { ...product, imageUrl: photo, gallery: [photo] }
-          : product
-      );
-    }
-  }
-  if (stored) {
-    rememberLeaValleyHireThumbs({ [stored.uid]: stored });
-  }
-  const products = overlayLeaValleyHirePhotos(
-    [...byTitle.values(), ...extras].slice(0, 20)
-  );
-  scheduleHirePhotoCatalogSync(
-    products.map((product) => ({
-      ...product,
-      listingType: product.listingType ?? "rental",
-      providerName: stored?.tradingName || stored?.shopName || LEA_VALLEY_SHOP_NAME,
-      sellerUid: stored?.uid || LEA_VALLEY_UID,
-    }))
-  );
-  if (stored?.status === "approved") {
-    return {
-      ...stored,
-      ...guest,
-      products,
-      uid: stored.uid || guest.uid,
-      slug: guest.slug,
-    };
-  }
-  return { ...guest, products };
-}
-
-/** This shop only — match hire title to the first Seller Hub photo. Cap 5. */
 export function overlayLeaValleyHirePhotos<
   T extends {
     name: string;
     imageUrl?: string;
     gallery?: string[];
     providerName?: string;
-    sellerUid?: string;
   },
 >(items: T[]): T[] {
   try {
-    const photos = collectHirePhotos(items, true);
-    return applyHirePhotos(items, photos);
+    const nextPhoto = readFullDayPhotoSync(items);
+    if (nextPhoto && readCachedFullDayPhoto() !== nextPhoto) {
+      publishFullDayPhoto(nextPhoto);
+    }
+    return applyFullDayPhoto(items, nextPhoto);
   } catch (err) {
-    console.warn("[marketplace] Lea Valley hire photos failed", err);
+    console.warn("[marketplace] Lea Valley full-day photo failed", err);
     return items;
   }
 }

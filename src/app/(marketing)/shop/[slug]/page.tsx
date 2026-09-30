@@ -17,7 +17,7 @@ import { defaultProductImage } from "@/lib/shop-presentation";
 import { recordShopView } from "@/lib/seller-analytics";
 import {
   applyLeaValleyGuestShop,
-  getLeaValleyStoredShop,
+  fetchLeaValleyFullDayPhoto,
   isLeaValleyShopSlug,
 } from "@/lib/lea-valley-guest";
 import {
@@ -75,24 +75,38 @@ export default function SellerShopPage() {
   );
 
   useEffect(() => {
+    let cancelled = false;
     let next: SellerProfile | null = null;
     if (isLeaValleyShopSlug(slug)) {
       try {
-        next = applyLeaValleyGuestShop(getLeaValleyStoredShop());
+        next = applyLeaValleyGuestShop();
       } catch {
         next = applyLeaValleyGuestShop(null);
       }
-    } else {
-      ensureDemoShops();
-      next = getSellerBySlug(slug);
+      setShop(next);
+      setOthers([]);
+      setReady(true);
+      setActiveProduct(null);
+      if (next?.uid && next.status === "approved") {
+        recordShopView(next.uid);
+      }
+      void fetchLeaValleyFullDayPhoto()
+        .then((photo) => {
+          if (cancelled || !photo) return;
+          setShop(applyLeaValleyGuestShop(photo));
+        })
+        .catch(() => {
+          // keep bag icon
+        });
+      return () => {
+        cancelled = true;
+      };
     }
+    ensureDemoShops();
+    next = getSellerBySlug(slug);
     setShop(next);
     try {
-      setOthers(
-        isLeaValleyShopSlug(slug)
-          ? []
-          : listPublicShops().filter((s) => s.slug !== slug).slice(0, 4)
-      );
+      setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
     } catch {
       setOthers([]);
     }
@@ -101,6 +115,9 @@ export default function SellerShopPage() {
     if (next?.uid && next.status === "approved") {
       recordShopView(next.uid);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   const approved = useMemo(

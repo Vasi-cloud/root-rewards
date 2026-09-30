@@ -4,6 +4,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   setDoc,
 } from "firebase/firestore";
@@ -20,7 +21,6 @@ import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import { DEFAULT_BOOKING_NOTE, isValidHttpUrl } from "@/lib/listing-categories";
 import {
   listApprovedSellerMarketplaceProducts,
-  loadAllSellers,
 } from "@/lib/seller-storage";
 import type {
   CommerceType,
@@ -715,23 +715,35 @@ export async function deleteAdminCatalogProduct(
   notifyCatalogUpdated();
 }
 
-function firstUploadedListingPhoto(product: {
-  imageUrl?: string;
-  gallery?: string[];
-}): string | undefined {
-  const urls = [
-    ...(Array.isArray(product.gallery) ? product.gallery : []),
-    product.imageUrl ?? "",
-  ];
-  return urls.find((url) => {
-    const s = url.trim();
-    if (s.startsWith("data:image/")) return true;
-    if (s.startsWith("https://")) return true;
-    if (s.startsWith("/") && !s.startsWith("//") && !s.endsWith(".svg")) {
-      return true;
-    }
-    return false;
-  });
+const LV_FULL_DAY_ID = "lv-hub-full-day";
+const LV_FULL_DAY_TITLE_KEY = "hybrid bike full day hire";
+
+function isLeaValleyFullDayRow(product: {
+  id?: string;
+  name?: string;
+  providerName?: string;
+}) {
+  if (product.id === LV_FULL_DAY_ID) return true;
+  const title = (product.name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[—–]/g, " ")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ");
+  if (title !== LV_FULL_DAY_TITLE_KEY) return false;
+  const shop = (product.providerName ?? "").toLowerCase();
+  return !shop || shop.includes("lea valley cycle hire");
+}
+
+function isUploadedFullDayPhoto(url: string | undefined): url is string {
+  const s = url?.trim() ?? "";
+  if (!s) return false;
+  if (s.startsWith("data:image/")) return true;
+  if (s.startsWith("https://")) return true;
+  if (s.startsWith("/") && !s.startsWith("//") && !s.endsWith(".svg")) {
+    return true;
+  }
+  return false;
 }
 
 async function compressHireThumbnail(dataUrl: string): Promise<string> {
@@ -760,10 +772,75 @@ async function compressHireThumbnail(dataUrl: string): Promise<string> {
   });
 }
 
+/** Copy one listing's photo onto the public full-day catalogue row. */
+export async function copyLeaValleyFullDayPhoto(imageUrl: string): Promise<void> {
+  if (!isUploadedFullDayPhoto(imageUrl)) return;
+  const photo = await compressHireThumbnail(imageUrl);
+  const local = loadLocal();
+  const existing = local.find((product) => isLeaValleyFullDayRow(product));
+  if (
+    existing?.id === LV_FULL_DAY_ID &&
+    isUploadedFullDayPhoto(existing.imageUrl)
+  ) {
+    return;
+  }
+  const row = buildFromInput({
+    id: LV_FULL_DAY_ID,
+    name: "Hybrid bike full-day hire",
+    description:
+      "Full-day hybrid hire. Collect at the lock in the morning, return the same evening.",
+    category: "Cycling",
+    price: 28,
+    ecoScore: 90,
+    stock: 2,
+    listingType: "rental",
+    commerceType: "first_party",
+    imageUrl: photo,
+    hirePeriod: "full day",
+    priceNote: "full day",
+    bookingNote: "Pickup at the lock — partner confirms dates.",
+    providerType: "self_employed",
+    providerName: "Lea Valley Cycle Hire",
+    areaServed: "Lea Valley, East London",
+  });
+  const next = [
+    row,
+    ...local.filter(
+      (product) => product.id !== LV_FULL_DAY_ID && !isLeaValleyFullDayRow(product)
+    ),
+  ];
+  saveLocal(next);
+  notifyCatalogUpdated();
+  if (!isFirebaseClientConfigured()) return;
+  const db = getFirebaseFirestore();
+  if (!db) return;
+  try {
+    await setDoc(doc(db, "products", LV_FULL_DAY_ID), toFirestorePayload(row));
+  } catch (err) {
+    console.warn("[products] Full-day hire photo copy failed", err);
+  }
+}
+
+export async function readLeaValleyFullDayCatalogPhoto(): Promise<string | null> {
+  const local = loadLocal().find((product) => isLeaValleyFullDayRow(product));
+  if (isUploadedFullDayPhoto(local?.imageUrl)) return local.imageUrl;
+  if (!isFirebaseClientConfigured()) return null;
+  const db = getFirebaseFirestore();
+  if (!db) return null;
+  try {
+    const snap = await getDoc(doc(db, "products", LV_FULL_DAY_ID));
+    if (!snap.exists()) return null;
+    const imageUrl = String(snap.data()?.imageUrl ?? "").trim();
+    return isUploadedFullDayPhoto(imageUrl) ? imageUrl : null;
+  } catch (err) {
+    console.warn("[products] Full-day hire photo read failed", err);
+    return null;
+  }
+}
+
 /**
  * Publish a seller first-party Product listing into the live Marketplace catalog.
- * Services are skipped (handled on shop pages). Hire photos are published so
- * guests / incognito can see the Seller Hub thumbnail. Does not touch Amazon
+ * Services and rentals are skipped (handled on shop pages). Does not touch Amazon
  * affiliate rows.
  */
 export async function saveSellerFirstPartyListing(
@@ -778,11 +855,7 @@ export async function saveSellerFirstPartyListing(
     ecoScore: number;
     stock: number;
     imageUrl?: string;
-    gallery?: string[];
     listingType?: ListingType;
-    hirePeriod?: string;
-    bookingNote?: string;
-    providerName?: string;
     vehicleMake?: string;
     vehicleModel?: string;
     vehicleYear?: string;
@@ -790,48 +863,8 @@ export async function saveSellerFirstPartyListing(
     createdAt?: string;
   }
 ): Promise<SaveAdminProductResult | null> {
-  if (product.listingType === "service") {
+  if (product.listingType === "service" || product.listingType === "rental") {
     return null;
-  }
-  if (product.listingType === "rental") {
-    const photo = firstUploadedListingPhoto(product);
-    if (!photo) return null;
-    const imageUrl = await compressHireThumbnail(photo);
-    const shop = product.providerName?.trim()
-      ? undefined
-      : loadAllSellers()[sellerId];
-    const providerName =
-      product.providerName?.trim() ||
-      shop?.tradingName ||
-      shop?.shopName ||
-      shop?.companyName ||
-      "";
-    if (!providerName.trim()) return null;
-    return saveAdminCatalogProduct(
-      {
-        id: product.id,
-        name: product.name,
-        description:
-          (product.description ?? "").trim() ||
-          (product.subtitle ?? "").trim() ||
-          product.name,
-        category: product.category,
-        price: product.price,
-        ecoScore: product.ecoScore,
-        stock: Math.max(0, product.stock || 0),
-        listingType: "rental",
-        commerceType: "first_party",
-        imageUrl,
-        sellerId,
-        hirePeriod: product.hirePeriod,
-        bookingNote: product.bookingNote,
-        providerType:
-          shop?.sellerType === "individual" ? "self_employed" : "company",
-        providerName,
-        areaServed: shop?.location,
-      },
-      { existingCreatedAt: product.createdAt }
-    );
   }
   return saveAdminCatalogProduct(
     {

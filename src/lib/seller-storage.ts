@@ -193,18 +193,82 @@ export function loadAllSellers(): Record<string, SellerProfile> {
   }
 }
 
+const LV_FULL_DAY_PHOTO_KEY = "forest-buddies-lv-full-day-photo";
+const LV_FULL_DAY_TITLE_KEY = "hybrid bike full day hire";
+
+function isLeaValleyCycleHireName(shop: {
+  shopName?: string;
+  tradingName?: string;
+}) {
+  const name = `${shop.shopName ?? ""} ${shop.tradingName ?? ""}`.toLowerCase();
+  return name.includes("lea valley cycle hire");
+}
+
+function isUploadedFullDayPhoto(url: string | undefined): url is string {
+  const s = url?.trim() ?? "";
+  if (!s) return false;
+  if (s.startsWith("data:image/")) return true;
+  if (s.startsWith("https://")) return true;
+  if (s.startsWith("/") && !s.startsWith("//") && !s.endsWith(".svg")) {
+    return true;
+  }
+  return false;
+}
+
+/** One listing, already in memory — does not walk other shops' catalogs. */
+function cacheLeaValleyFullDayPhoto(all: Record<string, SellerProfile>) {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = localStorage.getItem(LV_FULL_DAY_PHOTO_KEY);
+    let photo = isUploadedFullDayPhoto(existing ?? undefined) ? existing : null;
+    if (!photo) {
+      const titleKey = (name: string) =>
+        name
+          .trim()
+          .toLowerCase()
+          .replace(/[—–]/g, " ")
+          .replace(/-/g, " ")
+          .replace(/\s+/g, " ");
+      const shops: SellerProfile[] = [];
+      const demo = all["demo-lea-valley-cycle-hire"];
+      if (demo) shops.push(demo);
+      for (const shop of Object.values(all)) {
+        if (shop.uid === "demo-lea-valley-cycle-hire") continue;
+        if (!isLeaValleyCycleHireName(shop)) continue;
+        shops.push(shop);
+        break;
+      }
+      for (const shop of shops) {
+        const hit = (shop.products ?? []).find(
+          (product) => titleKey(product.name) === LV_FULL_DAY_TITLE_KEY
+        );
+        if (!hit) continue;
+        const urls = [
+          ...(Array.isArray(hit.gallery) ? hit.gallery : []),
+          hit.imageUrl ?? "",
+        ];
+        photo = urls.find((url) => isUploadedFullDayPhoto(url)) ?? null;
+        if (photo) break;
+      }
+    }
+    if (!photo) return;
+    if (existing !== photo) localStorage.setItem(LV_FULL_DAY_PHOTO_KEY, photo);
+    void import("@/lib/admin-catalog-products")
+      .then((mod) => mod.copyLeaValleyFullDayPhoto(photo!))
+      .catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
 export function saveAllSellers(data: Record<string, SellerProfile>) {
   try {
+    cacheLeaValleyFullDayPhoto(data);
     const next = JSON.stringify(data);
     const prev = localStorage.getItem(SELLERS_STORAGE_KEY);
     if (prev === next) return;
     localStorage.setItem(SELLERS_STORAGE_KEY, next);
     window.dispatchEvent(new Event("forest-buddies-sellers-updated"));
-    void import("@/lib/lea-valley-guest")
-      .then((mod) => mod.rememberLeaValleyHireThumbs(data))
-      .catch(() => {
-        // thumbs are best-effort
-      });
   } catch {
     // ignore quota errors
   }
@@ -496,6 +560,7 @@ export function cancelSellerAccount(uid: string): SellerProfile | null {
 export function ensureDemoShops() {
   if (typeof window === "undefined") return;
   const all = loadAllSellers();
+  cacheLeaValleyFullDayPhoto(all);
   const demos = buildDemoShops();
   let changed = false;
 
