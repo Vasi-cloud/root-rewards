@@ -71,12 +71,12 @@ export function defaultProductImage(
 export function productGallery(
   product: Pick<SellerProduct, "id" | "category" | "imageUrl" | "gallery">
 ): string[] {
+  if (product.imageUrl?.startsWith("data:image/")) return [product.imageUrl];
   if (product.gallery && product.gallery.length > 0) {
     const photos = product.gallery.filter((url) => url?.trim());
     if (photos.some((url) => url.startsWith("data:image/"))) return photos;
     if (photos.length > 0 && !photos[0].endsWith(".svg")) return photos;
   }
-  if (product.imageUrl?.startsWith("data:image/")) return [product.imageUrl];
   const hero = defaultProductImage(product);
   // Secondary “detail” frames reuse related shop art for demo depth
   const alts = ["/shop/linen.svg", "/shop/sponge.svg", "/shop/tote.svg"].filter(

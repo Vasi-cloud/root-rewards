@@ -200,6 +200,11 @@ export function saveAllSellers(data: Record<string, SellerProfile>) {
     if (prev === next) return;
     localStorage.setItem(SELLERS_STORAGE_KEY, next);
     window.dispatchEvent(new Event("forest-buddies-sellers-updated"));
+    void import("@/lib/lea-valley-guest")
+      .then((mod) => mod.rememberLeaValleyHireThumbs(data))
+      .catch(() => {
+        // thumbs are best-effort
+      });
   } catch {
     // ignore quota errors
   }

@@ -16,9 +16,9 @@ import { useCart } from "@/contexts/cart-context";
 import { defaultProductImage } from "@/lib/shop-presentation";
 import { recordShopView } from "@/lib/seller-analytics";
 import {
-  getLeaValleyGuestShop,
+  applyLeaValleyGuestShop,
+  getLeaValleyStoredShop,
   isLeaValleyShopSlug,
-  overlayLeaValleyHirePhotos,
 } from "@/lib/lea-valley-guest";
 import {
   ensureDemoShops,
@@ -77,35 +77,10 @@ export default function SellerShopPage() {
   useEffect(() => {
     let next: SellerProfile | null = null;
     if (isLeaValleyShopSlug(slug)) {
-      const guest = getLeaValleyGuestShop();
       try {
-        const stored = getSellerBySlug(slug);
-        if (stored && stored.status === "approved") {
-          const byId = new Map(guest.products.map((p) => [p.id, p]));
-          for (const product of stored.products ?? []) {
-            if (product.status === "approved" && !byId.has(product.id)) {
-              byId.set(product.id, product);
-            }
-          }
-          next = {
-            ...stored,
-            ...guest,
-            products: overlayLeaValleyHirePhotos(
-              [...byId.values()].slice(0, 20)
-            ),
-            uid: stored.uid || guest.uid,
-          };
-        } else {
-          next = {
-            ...guest,
-            products: overlayLeaValleyHirePhotos(guest.products),
-          };
-        }
+        next = applyLeaValleyGuestShop(getLeaValleyStoredShop());
       } catch {
-        next = {
-          ...guest,
-          products: overlayLeaValleyHirePhotos(guest.products),
-        };
+        next = applyLeaValleyGuestShop(null);
       }
     } else {
       ensureDemoShops();
@@ -113,7 +88,11 @@ export default function SellerShopPage() {
     }
     setShop(next);
     try {
-      setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
+      setOthers(
+        isLeaValleyShopSlug(slug)
+          ? []
+          : listPublicShops().filter((s) => s.slug !== slug).slice(0, 4)
+      );
     } catch {
       setOthers([]);
     }

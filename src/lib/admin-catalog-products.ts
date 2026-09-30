@@ -20,6 +20,7 @@ import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import { DEFAULT_BOOKING_NOTE, isValidHttpUrl } from "@/lib/listing-categories";
 import {
   listApprovedSellerMarketplaceProducts,
+  loadAllSellers,
 } from "@/lib/seller-storage";
 import type {
   CommerceType,
@@ -714,9 +715,56 @@ export async function deleteAdminCatalogProduct(
   notifyCatalogUpdated();
 }
 
+function firstUploadedListingPhoto(product: {
+  imageUrl?: string;
+  gallery?: string[];
+}): string | undefined {
+  const urls = [
+    ...(Array.isArray(product.gallery) ? product.gallery : []),
+    product.imageUrl ?? "",
+  ];
+  return urls.find((url) => {
+    const s = url.trim();
+    if (s.startsWith("data:image/")) return true;
+    if (s.startsWith("https://")) return true;
+    if (s.startsWith("/") && !s.startsWith("//") && !s.endsWith(".svg")) {
+      return true;
+    }
+    return false;
+  });
+}
+
+async function compressHireThumbnail(dataUrl: string): Promise<string> {
+  if (typeof window === "undefined") return dataUrl;
+  if (!dataUrl.startsWith("data:image/") || dataUrl.length <= 280_000) {
+    return dataUrl;
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 960;
+      const scale = Math.min(1, max / Math.max(img.width, img.height, 1));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.72));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 /**
  * Publish a seller first-party Product listing into the live Marketplace catalog.
- * Services are skipped (handled on shop pages). Does not touch Amazon affiliate rows.
+ * Services are skipped (handled on shop pages). Hire photos are published so
+ * guests / incognito can see the Seller Hub thumbnail. Does not touch Amazon
+ * affiliate rows.
  */
 export async function saveSellerFirstPartyListing(
   sellerId: string,
@@ -730,7 +778,11 @@ export async function saveSellerFirstPartyListing(
     ecoScore: number;
     stock: number;
     imageUrl?: string;
+    gallery?: string[];
     listingType?: ListingType;
+    hirePeriod?: string;
+    bookingNote?: string;
+    providerName?: string;
     vehicleMake?: string;
     vehicleModel?: string;
     vehicleYear?: string;
@@ -738,8 +790,48 @@ export async function saveSellerFirstPartyListing(
     createdAt?: string;
   }
 ): Promise<SaveAdminProductResult | null> {
-  if (product.listingType === "service" || product.listingType === "rental") {
+  if (product.listingType === "service") {
     return null;
+  }
+  if (product.listingType === "rental") {
+    const photo = firstUploadedListingPhoto(product);
+    if (!photo) return null;
+    const imageUrl = await compressHireThumbnail(photo);
+    const shop = product.providerName?.trim()
+      ? undefined
+      : loadAllSellers()[sellerId];
+    const providerName =
+      product.providerName?.trim() ||
+      shop?.tradingName ||
+      shop?.shopName ||
+      shop?.companyName ||
+      "";
+    if (!providerName.trim()) return null;
+    return saveAdminCatalogProduct(
+      {
+        id: product.id,
+        name: product.name,
+        description:
+          (product.description ?? "").trim() ||
+          (product.subtitle ?? "").trim() ||
+          product.name,
+        category: product.category,
+        price: product.price,
+        ecoScore: product.ecoScore,
+        stock: Math.max(0, product.stock || 0),
+        listingType: "rental",
+        commerceType: "first_party",
+        imageUrl,
+        sellerId,
+        hirePeriod: product.hirePeriod,
+        bookingNote: product.bookingNote,
+        providerType:
+          shop?.sellerType === "individual" ? "self_employed" : "company",
+        providerName,
+        areaServed: shop?.location,
+      },
+      { existingCreatedAt: product.createdAt }
+    );
   }
   return saveAdminCatalogProduct(
     {
