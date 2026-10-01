@@ -148,6 +148,7 @@ export function ProductReviews({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [canReviewHire, setCanReviewHire] = useState(false);
 
   const refresh = () => {
     setStored(listVisibleReviews(productId, user?.uid));
@@ -170,6 +171,46 @@ export function ProductReviews({
       setLocation(mine.location ?? "");
     }
   }, [user, productId]);
+
+  useEffect(() => {
+    if (!hideSeeds) {
+      setCanReviewHire(true);
+      return;
+    }
+    if (!user) {
+      setCanReviewHire(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 3000);
+    const params = new URLSearchParams({
+      userId: user.uid,
+      productId,
+    });
+    if (user.email) params.set("email", user.email);
+    if (productName) params.set("productName", productName);
+
+    void fetch(`/api/orders/hire-complete?${params.toString()}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : { completed: false }))
+      .then((data: { completed?: boolean }) => {
+        if (!cancelled) setCanReviewHire(Boolean(data.completed));
+      })
+      .catch(() => {
+        if (!cancelled) setCanReviewHire(false);
+      })
+      .finally(() => window.clearTimeout(timer));
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [hideSeeds, user, productId, productName]);
 
   const community = useMemo(
     () =>
@@ -208,6 +249,11 @@ export function ProductReviews({
 
     if (!user) {
       setError("Sign in to leave a review.");
+      return;
+    }
+
+    if (hideSeeds && !canReviewHire) {
+      setError("Only a completed hire for this listing can be reviewed.");
       return;
     }
 
@@ -287,6 +333,7 @@ export function ProductReviews({
         </ul>
       )}
 
+      {(!hideSeeds || canReviewHire) && (
       <div className="mt-5 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50/80 via-cream to-background p-4">
         <div className="mb-3 flex items-center gap-2 text-emerald-900">
           <Leaf className="size-4" />
@@ -375,6 +422,7 @@ export function ProductReviews({
           </form>
         )}
       </div>
+      )}
     </section>
   );
 }

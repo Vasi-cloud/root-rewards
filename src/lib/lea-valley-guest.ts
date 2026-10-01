@@ -227,3 +227,25 @@ export function isLeaValleyHireListing(item: {
   if (HIRE_ROWS.some((row) => row.id === item.id)) return true;
   return HIRE_IMAGE_BY_TITLE.has(titleKey(item.name ?? ""));
 }
+
+export function leaValleyHireTitle(id?: string, name?: string): string {
+  const trimmed = name?.trim() ?? "";
+  if (trimmed) return trimmed;
+  return HIRE_ROWS.find((row) => row.id === id)?.name ?? "";
+}
+
+/** Checkout may append " — Hire" when the listing title does not already say hire. */
+export function hireOrderLineMatchesListing(
+  lineName: string,
+  listing: { id?: string; name?: string }
+): boolean {
+  const listingName = leaValleyHireTitle(listing.id, listing.name);
+  const want = titleKey(listingName);
+  if (!want) return false;
+  const line = titleKey(lineName);
+  if (line === want) return true;
+  const strippedLine = titleKey(lineName.replace(/\s*[—–-]\s*hire\s*$/i, ""));
+  const strippedWant = titleKey(listingName.replace(/\s*[—–-]\s*hire\s*$/i, ""));
+  if (strippedLine && strippedLine === strippedWant) return true;
+  return Boolean(listing.id && lineName.includes(listing.id));
+}
