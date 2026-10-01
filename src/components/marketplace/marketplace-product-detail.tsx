@@ -44,6 +44,7 @@ export function MarketplaceProductDetail({
   const isAffiliate = isAffiliateProduct(product);
   const showAddToCart = canAddProductToCart(product);
   const isBookable = isService || isRental;
+  const isLeaValleyHire = isLeaValleyHireListing(product);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -71,6 +72,15 @@ export function MarketplaceProductDetail({
       : isService
         ? "Request a time with the provider. Availability is not live on Forest Buddies®."
         : "Clear materials, care, and sizing help you order once — and keep returns low for you and the planet.";
+
+  const ctaLabel = isLeaValleyHire
+    ? addLabel && !addLabel.includes("£")
+      ? addLabel
+      : "Request to rent"
+    : addLabel ??
+      (isRental
+        ? `Request to rent — ${formatListingPrice(product.price, product.priceNote)}`
+        : `Add to cart — ${formatListingPrice(product.price)}`);
 
   return (
     <div
@@ -152,7 +162,9 @@ export function MarketplaceProductDetail({
             </div>
           </div>
 
-          {isBookable ? <ServiceRentalMeta product={product} /> : null}
+          {isBookable ? (
+            <ServiceRentalMeta product={product} hidePrice={isLeaValleyHire} />
+          ) : null}
 
           <p className="text-base leading-relaxed text-foreground/90">
             {product.description}
@@ -178,7 +190,9 @@ export function MarketplaceProductDetail({
               </div>
             )}
 
-          {isBookable ? <ServiceRentalBookingBlock product={product} /> : null}
+          {isBookable && !isLeaValleyHire ? (
+            <ServiceRentalBookingBlock product={product} />
+          ) : null}
 
           {isRental || !isBookable ? (
             <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/60 px-3.5 py-2.5 text-xs leading-relaxed text-emerald-900/90 sm:text-sm">
@@ -215,12 +229,9 @@ export function MarketplaceProductDetail({
                 onClick={onAdd}
               >
                 <Leaf className="size-4" />
-                {addLabel ??
-                  (isRental
-                    ? `Request to rent — ${formatListingPrice(product.price, product.priceNote)}`
-                    : `Add to cart — ${formatListingPrice(product.price)}`)}
+                {ctaLabel}
               </Button>
-              {isRental ? (
+              {isRental && !isLeaValleyHire ? (
                 <p className="mt-2 text-center text-sm text-muted-foreground">
                   Rental — partner confirms dates.
                 </p>

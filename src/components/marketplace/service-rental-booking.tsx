@@ -17,9 +17,11 @@ import type { Product } from "@/types";
 export function ServiceRentalMeta({
   product,
   compact = false,
+  hidePrice = false,
 }: {
   product: Product;
   compact?: boolean;
+  hidePrice?: boolean;
 }) {
   const isService = isServiceListing(product);
   const isRental = isRentalListing(product);
@@ -90,9 +92,11 @@ export function ServiceRentalMeta({
           {period}
         </p>
       ) : null}
-      <p className="font-heading text-2xl font-semibold tabular-nums text-primary">
-        {priceLabel}
-      </p>
+      {!hidePrice ? (
+        <p className="font-heading text-2xl font-semibold tabular-nums text-primary">
+          {priceLabel}
+        </p>
+      ) : null}
       {isRental && product.depositAmount != null && product.depositAmount > 0 ? (
         <p className="text-muted-foreground">
           Deposit £{product.depositAmount} (confirm with provider)
