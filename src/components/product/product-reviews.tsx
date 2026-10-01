@@ -423,14 +423,18 @@ function ReviewCard({ review }: { review: DisplayReview }) {
 /** Compact stars for marketplace / shop cards */
 export function ProductRatingBadge({
   productId,
+  productName,
   hideDemoReviews,
   className = "",
 }: {
   productId: string;
+  productName?: string;
   hideDemoReviews?: boolean;
   className?: string;
 }) {
-  const hideSeeds = hideDemoReviews ?? isLeaValleyHireListing({ id: productId });
+  const hideSeeds =
+    hideDemoReviews === true ||
+    isLeaValleyHireListing({ id: productId, name: productName });
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
 
