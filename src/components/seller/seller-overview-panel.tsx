@@ -26,7 +26,10 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
-import { type HireRequest } from "@/lib/hire-requests";
+import {
+  listLeaValleyHireRequests,
+  type HireRequest,
+} from "@/lib/hire-requests";
 import {
   isLeaValleySeller,
   leaValleyPublicShopHasLiveHires,
@@ -68,14 +71,9 @@ export function SellerOverviewPanel({
 
     let cancelled = false;
     setHireRequestsReady(false);
-    void fetch("/api/hire-requests", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { requests: [] }))
-      .then((data: { requests?: HireRequest[] }) => {
-        if (cancelled) return;
-        const rows = Array.isArray(data.requests) ? data.requests : [];
-        setHireRequests(
-          [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        );
+    void listLeaValleyHireRequests()
+      .then((rows) => {
+        if (!cancelled) setHireRequests(rows);
       })
       .catch(() => {
         if (!cancelled) setHireRequests([]);
