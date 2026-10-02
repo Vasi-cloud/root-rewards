@@ -255,6 +255,19 @@ export interface SellerProfile {
   analytics: SellerAnalytics;
   payouts: SellerPayout[];
   payoutMethod?: string;
+  /** Lea Valley hire enquiries — persisted with this shop, not the shopper’s browser only */
+  hireRequests?: Array<{
+    id: string;
+    listingId: string;
+    listingTitle: string;
+    name: string;
+    email: string;
+    dates: string;
+    shopUid: string;
+    shopName: string;
+    createdAt: string;
+    status: "new";
+  }>;
 }
 
 export interface CompetitorPrice {

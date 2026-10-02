@@ -219,8 +219,14 @@ export function isLeaValleyShopSlug(slug?: string | null): boolean {
 export function isLeaValleySeller(seller: {
   uid?: string;
   slug?: string;
+  shopName?: string;
+  tradingName?: string;
 }): boolean {
-  return seller.uid === LEA_VALLEY_UID || isLeaValleyShopSlug(seller.slug);
+  if (seller.uid === LEA_VALLEY_UID || isLeaValleyShopSlug(seller.slug)) {
+    return true;
+  }
+  const name = `${seller.shopName ?? ""} ${seller.tradingName ?? ""}`.toLowerCase();
+  return name.includes("lea valley cycle hire");
 }
 
 /** Known Lea Valley hire rows — id or title. No catalogue walk. */

@@ -1,10 +1,12 @@
 import {
   isLeaValleyHireListing,
+  isLeaValleySeller,
   LEA_VALLEY_HIRE_EMAIL,
   LEA_VALLEY_SHOP_NAME,
   LEA_VALLEY_UID,
   leaValleyHireTitle,
 } from "@/lib/lea-valley-guest";
+import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
 
 export const HIRE_REQUESTS_STORAGE_KEY = "forest-buddies-hire-requests";
 const EVENT = "forest-buddies-hire-requests-updated";
@@ -63,6 +65,35 @@ function saveLocal(items: HireRequest[]) {
       JSON.stringify(items.slice(0, 200))
     );
     emit();
+  } catch {
+    // ignore
+  }
+}
+
+/** Write onto the Lea Valley shop record Seller Hub already loads. */
+export function appendHireRequestToLeaValleyShop(request: HireRequest) {
+  if (typeof window === "undefined") return;
+  try {
+    const all = loadAllSellers();
+    const uids = new Set<string>();
+    if (all[LEA_VALLEY_UID]) uids.add(LEA_VALLEY_UID);
+    for (const shop of Object.values(all)) {
+      if (isLeaValleySeller(shop)) uids.add(shop.uid);
+    }
+    if (uids.size === 0) return;
+    let changed = false;
+    for (const uid of uids) {
+      const shop = all[uid];
+      if (!shop) continue;
+      const existing = shop.hireRequests ?? [];
+      if (existing.some((row) => row.id === request.id)) continue;
+      all[uid] = {
+        ...shop,
+        hireRequests: [request, ...existing].slice(0, 200),
+      };
+      changed = true;
+    }
+    if (changed) saveAllSellers(all);
   } catch {
     // ignore
   }
@@ -129,6 +160,7 @@ export async function submitLeaValleyHireRequest(input: {
   };
 
   saveLocal([request, ...loadHireRequests()]);
+  appendHireRequestToLeaValleyShop(request);
 
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 3000);

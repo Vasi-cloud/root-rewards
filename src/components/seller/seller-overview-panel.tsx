@@ -57,10 +57,16 @@ export function SellerOverviewPanel({
   const top = topSellerProducts(seller.products, 3);
   const aov = averageOrderValue(seller);
   const leaValley = isLeaValleySeller(seller);
-  const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
+  const storedHireRequests = seller.hireRequests;
+  const [hireRequests, setHireRequests] = useState<HireRequest[]>(
+    () => storedHireRequests ?? []
+  );
 
   useEffect(() => {
-    if (!leaValley) return;
+    if (!leaValley) {
+      setHireRequests([]);
+      return;
+    }
 
     const merge = (rows: HireRequest[]) => {
       setHireRequests((prev) => {
@@ -72,12 +78,12 @@ export function SellerOverviewPanel({
       });
     };
 
+    merge(storedHireRequests ?? []);
     merge(loadHireRequests());
     const unsub = subscribeHireRequests(() => merge(loadHireRequests()));
 
     let cancelled = false;
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 3000);
     void fetch("/api/hire-requests", {
       cache: "no-store",
       signal: controller.signal,
@@ -86,16 +92,14 @@ export function SellerOverviewPanel({
       .then((data: { requests?: HireRequest[] }) => {
         if (!cancelled && Array.isArray(data.requests)) merge(data.requests);
       })
-      .catch(() => {})
-      .finally(() => window.clearTimeout(timer));
+      .catch(() => {});
 
     return () => {
       cancelled = true;
       controller.abort();
-      window.clearTimeout(timer);
       unsub();
     };
-  }, [leaValley]);
+  }, [leaValley, seller.uid, storedHireRequests]);
 
   const checklist = [
     {

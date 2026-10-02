@@ -51,10 +51,13 @@ function saveDisk(store: HireRequestStore) {
 
 function getStore(): HireRequestStore {
   const mem = memoryStore();
-  if (mem.requests.length > 0) return mem;
   const disk = loadDisk();
-  if (disk) {
-    mem.requests = disk.requests;
+  if (disk?.requests.length) {
+    const byId = new Map(mem.requests.map((row) => [row.id, row]));
+    for (const row of disk.requests) {
+      if (!byId.has(row.id)) byId.set(row.id, row);
+    }
+    mem.requests = [...byId.values()];
   }
   return mem;
 }

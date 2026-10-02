@@ -323,6 +323,9 @@ export function normalizeSeller(profile: SellerProfile): SellerProfile {
     payouts,
     payoutMethod,
     trustTier,
+    hireRequests: Array.isArray(profile.hireRequests)
+      ? profile.hireRequests
+      : undefined,
   };
 }
 
@@ -537,6 +540,7 @@ export function ensureDemoShops() {
         ...demo,
         // Preserve any admin trust overrides if present
         trustOverride: existing?.trustOverride ?? demo.trustOverride,
+        hireRequests: existing?.hireRequests,
       };
       changed = true;
     }
