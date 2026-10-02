@@ -59,6 +59,13 @@ import {
   listingTypeLabel,
 } from "@/lib/listing-categories";
 import { getCause } from "@/lib/causes";
+import {
+  listLeaValleyHireRequests,
+  markLeaValleyHireRequestsSeen,
+  unseenHireRequestCount,
+  type HireRequest,
+} from "@/lib/hire-requests";
+import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import { apparelSizeChart } from "@/lib/product-details";
 
 const SellerOverviewPanel = lazy(() =>
@@ -349,6 +356,49 @@ export default function SellerPage() {
       ),
     [seller?.products, catalogFilter]
   );
+
+  const leaValleyHub = Boolean(seller && isLeaValleySeller(seller));
+  const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
+  const [hireRequestsReady, setHireRequestsReady] = useState(false);
+  const [hireCardOpen, setHireCardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!leaValleyHub) {
+      setHireRequests([]);
+      setHireRequestsReady(true);
+      setHireCardOpen(false);
+      return;
+    }
+
+    let cancelled = false;
+    setHireRequestsReady(false);
+    void listLeaValleyHireRequests()
+      .then((rows) => {
+        if (!cancelled) setHireRequests(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setHireRequests([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHireRequestsReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [leaValleyHub, seller?.uid]);
+
+  const hireNewCount = unseenHireRequestCount(hireRequests);
+
+  function openHireRequests() {
+    setHireCardOpen(true);
+    const ids = hireRequests.filter((row) => !row.seen).map((row) => row.id);
+    if (ids.length === 0) return;
+    setHireRequests((rows) =>
+      rows.map((row) => (ids.includes(row.id) ? { ...row, seen: true } : row))
+    );
+    void markLeaValleyHireRequestsSeen(ids);
+  }
 
   if (authLoading || sellerLoading) {
     return (
@@ -963,7 +1013,7 @@ export default function SellerPage() {
   ];
 
   return (
-    <SellerShell shopName={seller.shopName}>
+    <SellerShell shopName={seller.shopName} hireNewCount={hireNewCount}>
       <div className="mb-5 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -1040,13 +1090,32 @@ export default function SellerPage() {
           >
             <item.icon className="size-4" />
             {item.label}
+            {item.id === "overview" && hireNewCount > 0 ? (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
+                  tab === item.id
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-amber-100 text-amber-900"
+                }`}
+              >
+                {hireNewCount} new
+              </span>
+            ) : null}
           </button>
         ))}
       </nav>
 
       {tab === "overview" && (
         <Suspense fallback={<SellerPanelFallback />}>
-          <SellerOverviewPanel seller={seller} onTab={setTab} />
+          <SellerOverviewPanel
+            seller={seller}
+            onTab={setTab}
+            hireRequests={hireRequests}
+            hireRequestsReady={hireRequestsReady}
+            hireNewCount={hireNewCount}
+            hireCardOpen={hireCardOpen}
+            onOpenHireRequests={openHireRequests}
+          />
         </Suspense>
       )}
 
@@ -2602,9 +2671,11 @@ export default function SellerPage() {
 function SellerShell({
   children,
   shopName,
+  hireNewCount = 0,
 }: {
   children: React.ReactNode;
   shopName?: string;
+  hireNewCount?: number;
 }) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-sage/20 via-cream to-cream">
@@ -2615,8 +2686,15 @@ function SellerShell({
               <Store className="size-4" />
             </div>
             <div className="min-w-0">
-              <div className="font-heading text-sm font-semibold text-primary sm:text-base">
-                Forest Buddies® Seller Hub
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="font-heading text-sm font-semibold text-primary sm:text-base">
+                  Forest Buddies® Seller Hub
+                </div>
+                {hireNewCount > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-900">
+                    {hireNewCount} new
+                  </span>
+                ) : null}
               </div>
               <div className="truncate text-xs text-muted-foreground">
                 {shopName ?? "Sales, analytics & earnings"}

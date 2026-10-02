@@ -9,7 +9,6 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import { SellerStat } from "@/components/seller/seller-stat";
 import { Button } from "@/components/ui/button";
@@ -26,10 +25,7 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
-import {
-  listLeaValleyHireRequests,
-  type HireRequest,
-} from "@/lib/hire-requests";
+import type { HireRequest } from "@/lib/hire-requests";
 import {
   isLeaValleySeller,
   leaValleyPublicShopHasLiveHires,
@@ -42,9 +38,19 @@ type Tab = "overview" | "products" | "analytics" | "earnings" | "profile";
 export function SellerOverviewPanel({
   seller,
   onTab,
+  hireRequests = [],
+  hireRequestsReady = true,
+  hireNewCount = 0,
+  hireCardOpen = false,
+  onOpenHireRequests,
 }: {
   seller: SellerProfile;
   onTab: (tab: Tab) => void;
+  hireRequests?: HireRequest[];
+  hireRequestsReady?: boolean;
+  hireNewCount?: number;
+  hireCardOpen?: boolean;
+  onOpenHireRequests?: () => void;
 }) {
   const analytics = deriveSellerAnalytics(seller);
   const pendingCount = seller.products.filter(
@@ -59,33 +65,6 @@ export function SellerOverviewPanel({
   const top = topSellerProducts(seller.products, 3);
   const aov = averageOrderValue(seller);
   const leaValley = isLeaValleySeller(seller);
-  const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
-  const [hireRequestsReady, setHireRequestsReady] = useState(false);
-
-  useEffect(() => {
-    if (!leaValley) {
-      setHireRequests([]);
-      setHireRequestsReady(true);
-      return;
-    }
-
-    let cancelled = false;
-    setHireRequestsReady(false);
-    void listLeaValleyHireRequests()
-      .then((rows) => {
-        if (!cancelled) setHireRequests(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setHireRequests([]);
-      })
-      .finally(() => {
-        if (!cancelled) setHireRequestsReady(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [leaValley, seller.uid]);
 
   const liveListingDone = leaValley
     ? leaValleyPublicShopHasLiveHires()
@@ -172,16 +151,38 @@ export function SellerOverviewPanel({
       {leaValley ? (
         <Card>
           <CardHeader>
-            <CardTitle className="font-heading">Hire requests</CardTitle>
-            <CardDescription>
-              Shoppers asked to rent — confirm dates. This is not a booking.
-            </CardDescription>
+            <button
+              type="button"
+              onClick={onOpenHireRequests}
+              className="w-full rounded-lg text-left"
+            >
+              <CardTitle className="flex flex-wrap items-center gap-2 font-heading">
+                Hire requests
+                {hireNewCount > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-900">
+                    {hireNewCount} new
+                  </span>
+                ) : null}
+              </CardTitle>
+              <CardDescription>
+                Shoppers asked to rent — confirm dates. This is not a booking.
+              </CardDescription>
+            </button>
           </CardHeader>
           <CardContent className="space-y-2">
             {hireRequestsReady && hireRequests.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No hire requests yet.
               </p>
+            ) : !hireCardOpen && hireNewCount > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onOpenHireRequests}
+              >
+                Open hire requests
+              </Button>
             ) : (
               hireRequests.slice(0, 8).map((row) => (
                 <div

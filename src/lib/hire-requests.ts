@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import {
@@ -22,6 +22,7 @@ export type HireRequest = {
   shopName: string;
   createdAt: string;
   status: "new";
+  seen?: boolean;
 };
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -77,6 +78,7 @@ function parseHireRequest(
         ? raw.createdAt
         : new Date().toISOString(),
     status: "new",
+    seen: raw.seen === true,
   };
 }
 
@@ -94,6 +96,28 @@ export async function listLeaValleyHireRequests(): Promise<HireRequest[]> {
     if (parsed) rows.push(parsed);
   }
   return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function unseenHireRequestCount(rows: HireRequest[]): number {
+  return rows.filter((row) => !row.seen).length;
+}
+
+/** Mark opened hire-request rows seen — this shop only. */
+export async function markLeaValleyHireRequestsSeen(
+  ids: string[]
+): Promise<void> {
+  const db = getFirebaseFirestore();
+  if (!db || ids.length === 0) return;
+  await withTimeout(
+    Promise.all(
+      ids.map((id) =>
+        updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), {
+          seen: true,
+        }).catch(() => undefined)
+      )
+    ),
+    5000
+  );
 }
 
 /** Write to Firestore keyed to Lea Valley Cycle Hire. */

@@ -132,7 +132,11 @@ service cloud.firestore {
         && request.resource.data.listingTitle is string
         && request.resource.data.listingTitle.size() > 0;
       allow read: if shopId == 'demo-lea-valley-cycle-hire';
-      allow update, delete: if false;
+      allow update: if isSignedIn()
+        && shopId == 'demo-lea-valley-cycle-hire'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen'])
+        && request.resource.data.seen == true;
+      allow delete: if false;
     }
 
     // Deny everything else by default
