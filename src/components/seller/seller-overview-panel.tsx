@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { SellerStat } from "@/components/seller/seller-stat";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,12 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
+import {
+  loadHireRequests,
+  subscribeHireRequests,
+  type HireRequest,
+} from "@/lib/hire-requests";
+import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import type { SellerProfile } from "@/types";
 
@@ -49,6 +56,46 @@ export function SellerOverviewPanel({
   ).length;
   const top = topSellerProducts(seller.products, 3);
   const aov = averageOrderValue(seller);
+  const leaValley = isLeaValleySeller(seller);
+  const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
+
+  useEffect(() => {
+    if (!leaValley) return;
+
+    const merge = (rows: HireRequest[]) => {
+      setHireRequests((prev) => {
+        const byId = new Map(prev.map((row) => [row.id, row]));
+        for (const row of rows) byId.set(row.id, row);
+        return [...byId.values()].sort((a, b) =>
+          b.createdAt.localeCompare(a.createdAt)
+        );
+      });
+    };
+
+    merge(loadHireRequests());
+    const unsub = subscribeHireRequests(() => merge(loadHireRequests()));
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 3000);
+    void fetch("/api/hire-requests", {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : { requests: [] }))
+      .then((data: { requests?: HireRequest[] }) => {
+        if (!cancelled && Array.isArray(data.requests)) merge(data.requests);
+      })
+      .catch(() => {})
+      .finally(() => window.clearTimeout(timer));
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+      unsub();
+    };
+  }, [leaValley]);
 
   const checklist = [
     {
@@ -127,6 +174,39 @@ export function SellerOverviewPanel({
           </Button>
         </CardContent>
       </Card>
+
+      {leaValley ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-heading">Hire requests</CardTitle>
+            <CardDescription>
+              Shoppers asked to rent — confirm dates. This is not a booking.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {hireRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hire requests yet.
+              </p>
+            ) : (
+              hireRequests.slice(0, 8).map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-xl border border-border/70 px-3 py-2.5 text-sm"
+                >
+                  <p className="font-medium text-primary">{row.listingTitle}</p>
+                  <p className="mt-0.5 text-muted-foreground">
+                    {row.name} · {row.email}
+                  </p>
+                  <p className="mt-0.5 text-muted-foreground">
+                    Dates · {row.dates}
+                  </p>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="overflow-hidden border-emerald-200 bg-gradient-to-br from-emerald-50/80 to-cream">

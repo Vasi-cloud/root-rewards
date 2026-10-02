@@ -2,7 +2,8 @@ import type { Product, SellerProduct, SellerProfile } from "@/types";
 
 export const LEA_VALLEY_SLUG = "lea-valley-cycle-hire";
 export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
-const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
+export const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
+export const LEA_VALLEY_HIRE_EMAIL = "hire@leavalleycycles.demo";
 const HIRE_CAP = 5;
 
 const HIRE_ROWS = [
@@ -116,7 +117,7 @@ export function getLeaValleyGuestShop(): SellerProfile {
   const products = leaValleyApprovedHireProducts();
   return {
     uid: LEA_VALLEY_UID,
-    email: "hire@leavalleycycles.demo",
+    email: LEA_VALLEY_HIRE_EMAIL,
     shopName: LEA_VALLEY_SHOP_NAME,
     slug: LEA_VALLEY_SLUG,
     sellerType: "individual",
@@ -213,6 +214,13 @@ export function applyLeaValleyGuestShop(): SellerProfile {
 
 export function isLeaValleyShopSlug(slug?: string | null): boolean {
   return (slug ?? "").toLowerCase() === LEA_VALLEY_SLUG;
+}
+
+export function isLeaValleySeller(seller: {
+  uid?: string;
+  slug?: string;
+}): boolean {
+  return seller.uid === LEA_VALLEY_UID || isLeaValleyShopSlug(seller.slug);
 }
 
 /** Known Lea Valley hire rows — id or title. No catalogue walk. */

@@ -9,6 +9,7 @@ import { MarketplaceBrandBadge } from "@/components/brand/brand-mark";
 import { ShopHero } from "@/components/shop/shop-hero";
 import { ShopProductCard } from "@/components/shop/shop-product-card";
 import { ShopProductDetail } from "@/components/shop/shop-product-detail";
+import { LeaValleyHireRequestForm } from "@/components/marketplace/lea-valley-hire-request-form";
 import { ShopStoryAndImpact } from "@/components/shop/shop-story";
 import { ShopTrustBar } from "@/components/shop/shop-trust-bar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { defaultProductImage } from "@/lib/shop-presentation";
 import { recordShopView } from "@/lib/seller-analytics";
 import {
   applyLeaValleyGuestShop,
+  isLeaValleyHireListing,
   isLeaValleyShopSlug,
 } from "@/lib/lea-valley-guest";
 import {
@@ -72,6 +74,8 @@ export default function SellerShopPage() {
   const [activeProduct, setActiveProduct] = useState<SellerProduct | null>(
     null
   );
+  const [hireRequestProduct, setHireRequestProduct] =
+    useState<SellerProduct | null>(null);
 
   useEffect(() => {
     let next: SellerProfile | null = null;
@@ -103,6 +107,11 @@ export default function SellerShopPage() {
 
   function addProduct(product: SellerProduct) {
     if (!shop) return;
+    if (isLeaValleyHireListing(product)) {
+      setActiveProduct(null);
+      setHireRequestProduct(product);
+      return;
+    }
     addToCart(sellerProductToCartItem(product, shop.shopName, shop.uid));
   }
 
@@ -234,6 +243,14 @@ export default function SellerShopPage() {
           </section>
         )}
       </div>
+
+      {hireRequestProduct && (
+        <LeaValleyHireRequestForm
+          listingId={hireRequestProduct.id}
+          listingName={hireRequestProduct.name}
+          onClose={() => setHireRequestProduct(null)}
+        />
+      )}
 
       {activeProduct && (
         <ShopProductDetail

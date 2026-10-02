@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ReportProductButton } from "@/components/marketplace/ReportProductButton";
 import { MarketplaceProductDetail } from "@/components/marketplace/marketplace-product-detail";
+import { LeaValleyHireRequestForm } from "@/components/marketplace/lea-valley-hire-request-form";
 import { MarketplaceProductImage } from "@/components/marketplace/marketplace-product-image";
 import {
   ServiceRentalMeta,
@@ -166,6 +167,9 @@ export default function MarketplaceClient() {
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [hireRequestProduct, setHireRequestProduct] = useState<Product | null>(
+    null
+  );
   const [isListening, setIsListening] = useState(false);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
@@ -358,6 +362,11 @@ export default function MarketplaceClient() {
   );
 
   const handleAddToCart = (product: Product) => {
+    if (isLeaValleyHireListing(product)) {
+      setDetailProduct(null);
+      setHireRequestProduct(product);
+      return;
+    }
     if (!canAddProductToCart(product)) return;
     addToCart(product);
     setJustAddedId(product.id);
@@ -851,6 +860,14 @@ export default function MarketplaceClient() {
       <div className="mt-12 rounded-2xl border border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">
         Your cart is saved on this device.
       </div>
+
+      {hireRequestProduct && (
+        <LeaValleyHireRequestForm
+          listingId={hireRequestProduct.id}
+          listingName={hireRequestProduct.name}
+          onClose={() => setHireRequestProduct(null)}
+        />
+      )}
 
       {detailProduct && (
         <MarketplaceProductDetail
