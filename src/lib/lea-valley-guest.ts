@@ -113,6 +113,13 @@ export function leaValleyApprovedHireProducts(): SellerProduct[] {
   return HIRE_ROWS.map(toSellerProduct).slice(0, HIRE_CAP);
 }
 
+/** Public /shop/lea-valley-cycle-hire hires — not a marketplace walk. */
+export function leaValleyPublicShopHasLiveHires(): boolean {
+  return leaValleyApprovedHireProducts().some(
+    (product) => product.status === "approved"
+  );
+}
+
 export function getLeaValleyGuestShop(): SellerProfile {
   const products = leaValleyApprovedHireProducts();
   return {

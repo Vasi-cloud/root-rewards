@@ -27,7 +27,10 @@ import {
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
 import { type HireRequest } from "@/lib/hire-requests";
-import { isLeaValleySeller } from "@/lib/lea-valley-guest";
+import {
+  isLeaValleySeller,
+  leaValleyPublicShopHasLiveHires,
+} from "@/lib/lea-valley-guest";
 import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import type { SellerProfile } from "@/types";
 
@@ -54,14 +57,17 @@ export function SellerOverviewPanel({
   const aov = averageOrderValue(seller);
   const leaValley = isLeaValleySeller(seller);
   const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
+  const [hireRequestsReady, setHireRequestsReady] = useState(false);
 
   useEffect(() => {
     if (!leaValley) {
       setHireRequests([]);
+      setHireRequestsReady(true);
       return;
     }
 
     let cancelled = false;
+    setHireRequestsReady(false);
     void fetch("/api/hire-requests", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : { requests: [] }))
       .then((data: { requests?: HireRequest[] }) => {
@@ -73,12 +79,19 @@ export function SellerOverviewPanel({
       })
       .catch(() => {
         if (!cancelled) setHireRequests([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHireRequestsReady(true);
       });
 
     return () => {
       cancelled = true;
     };
   }, [leaValley, seller.uid]);
+
+  const liveListingDone = leaValley
+    ? leaValleyPublicShopHasLiveHires()
+    : approvedCount > 0;
 
   const checklist = [
     {
@@ -87,7 +100,7 @@ export function SellerOverviewPanel({
       action: () => onTab("profile"),
     },
     {
-      done: approvedCount > 0,
+      done: liveListingDone,
       label: "Get at least one listing live",
       action: () => onTab("products"),
     },
@@ -167,7 +180,7 @@ export function SellerOverviewPanel({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {hireRequests.length === 0 ? (
+            {hireRequestsReady && hireRequests.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No hire requests yet.
               </p>
