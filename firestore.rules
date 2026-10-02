@@ -119,49 +119,19 @@ service cloud.firestore {
         && request.auth.token.email.lower() == 'cvasi.crisan@gmail.com';
     }
 
-    // Lea Valley Cycle Hire requests only — keyed to this shop, not other shops.
+    // Lea Valley Cycle Hire requests only — this shop’s hireRequests subcollection.
     match /shops/{shopId}/hireRequests/{requestId} {
-      function isLeaValleyShop() {
-        return shopId == 'demo-lea-valley-cycle-hire';
-      }
-
-      function hireRequestFieldsOk() {
-        return request.resource.data.keys().hasOnly([
-          'listingId',
-          'listingTitle',
-          'name',
-          'email',
-          'dates',
-          'shopUid',
-          'shopName',
-          'createdAt',
-          'status'
-        ])
+      allow create: if shopId == 'demo-lea-valley-cycle-hire'
         && request.resource.data.shopUid == shopId
-        && request.resource.data.status == 'new'
-        && request.resource.data.listingId is string
-        && request.resource.data.listingId.size() > 0
-        && request.resource.data.listingId.size() <= 80
-        && request.resource.data.listingTitle is string
-        && request.resource.data.listingTitle.size() > 0
-        && request.resource.data.listingTitle.size() <= 200
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 120
         && request.resource.data.email is string
         && request.resource.data.email.size() > 0
-        && request.resource.data.email.size() <= 160
         && request.resource.data.dates is string
         && request.resource.data.dates.size() > 0
-        && request.resource.data.dates.size() <= 200
-        && request.resource.data.shopName is string
-        && request.resource.data.shopName.size() <= 120
-        && request.resource.data.createdAt is string
-        && request.resource.data.createdAt.size() <= 40;
-      }
-
-      allow read: if isLeaValleyShop();
-      allow create: if isLeaValleyShop() && hireRequestFieldsOk();
+        && request.resource.data.listingTitle is string
+        && request.resource.data.listingTitle.size() > 0;
+      allow read: if shopId == 'demo-lea-valley-cycle-hire';
       allow update, delete: if false;
     }
 
