@@ -14,6 +14,9 @@ import {
 } from "@/lib/lea-valley-guest";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const noStore = { "Cache-Control": "no-store" };
 
 function parseRequest(body: unknown): HireRequest | null {
   if (!body || typeof body !== "object") return null;
@@ -51,9 +54,12 @@ function parseRequest(body: unknown): HireRequest | null {
   };
 }
 
-/** Lea Valley hire requests only — no other shops, no Stripe. */
+/** Lea Valley hire requests only — shared server file, no other shops, no Stripe. */
 export async function GET() {
-  return NextResponse.json({ requests: listHireRequests() });
+  return NextResponse.json(
+    { requests: listHireRequests() },
+    { headers: noStore }
+  );
 }
 
 export async function POST(request: Request) {
@@ -61,17 +67,20 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON body." },
+      { status: 400, headers: noStore }
+    );
   }
 
   const parsed = parseRequest(body);
   if (!parsed || !isValidLeaValleyHireRequest(parsed)) {
     return NextResponse.json(
       { error: "Could not save this hire request." },
-      { status: 400 }
+      { status: 400, headers: noStore }
     );
   }
 
   const saved = saveHireRequest(parsed);
-  return NextResponse.json({ request: saved });
+  return NextResponse.json({ request: saved }, { headers: noStore });
 }

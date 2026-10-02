@@ -26,11 +26,7 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
-import {
-  loadHireRequests,
-  subscribeHireRequests,
-  type HireRequest,
-} from "@/lib/hire-requests";
+import { type HireRequest } from "@/lib/hire-requests";
 import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import { formatMoney, formatMoneyCompact } from "@/lib/money";
 import type { SellerProfile } from "@/types";
@@ -57,10 +53,7 @@ export function SellerOverviewPanel({
   const top = topSellerProducts(seller.products, 3);
   const aov = averageOrderValue(seller);
   const leaValley = isLeaValleySeller(seller);
-  const storedHireRequests = seller.hireRequests;
-  const [hireRequests, setHireRequests] = useState<HireRequest[]>(
-    () => storedHireRequests ?? []
-  );
+  const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
 
   useEffect(() => {
     if (!leaValley) {
@@ -68,38 +61,24 @@ export function SellerOverviewPanel({
       return;
     }
 
-    const merge = (rows: HireRequest[]) => {
-      setHireRequests((prev) => {
-        const byId = new Map(prev.map((row) => [row.id, row]));
-        for (const row of rows) byId.set(row.id, row);
-        return [...byId.values()].sort((a, b) =>
-          b.createdAt.localeCompare(a.createdAt)
-        );
-      });
-    };
-
-    merge(storedHireRequests ?? []);
-    merge(loadHireRequests());
-    const unsub = subscribeHireRequests(() => merge(loadHireRequests()));
-
     let cancelled = false;
-    const controller = new AbortController();
-    void fetch("/api/hire-requests", {
-      cache: "no-store",
-      signal: controller.signal,
-    })
+    void fetch("/api/hire-requests", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : { requests: [] }))
       .then((data: { requests?: HireRequest[] }) => {
-        if (!cancelled && Array.isArray(data.requests)) merge(data.requests);
+        if (cancelled) return;
+        const rows = Array.isArray(data.requests) ? data.requests : [];
+        setHireRequests(
+          [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        );
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setHireRequests([]);
+      });
 
     return () => {
       cancelled = true;
-      controller.abort();
-      unsub();
     };
-  }, [leaValley, seller.uid, storedHireRequests]);
+  }, [leaValley, seller.uid]);
 
   const checklist = [
     {
