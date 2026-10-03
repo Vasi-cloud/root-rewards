@@ -38,6 +38,8 @@ export type ConfirmedOrder = {
   }>;
   /** From Checkout metadata — hire / rental basket */
   hasHire?: boolean;
+  /** Lea Valley hire request paid via Confirm email Pay */
+  hireRequestId?: string | null;
   fulfilledAt: string;
   fulfilledBy: "webhook" | "success_page" | "demo";
   status: "paid" | "fulfilled";

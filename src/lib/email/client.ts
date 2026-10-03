@@ -62,6 +62,8 @@ export async function requestHireDecisionEmail(opts: {
   listingTitle: string;
   dates: string;
   decision: "Confirmed" | "Declined";
+  requestId?: string;
+  listingId?: string;
 }): Promise<{ ok: boolean; mode?: "live" | "demo"; error?: string }> {
   try {
     const res = await fetch("/api/email/hire-request", {

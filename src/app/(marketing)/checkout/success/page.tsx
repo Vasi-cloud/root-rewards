@@ -27,6 +27,9 @@ import {
 } from "@/lib/causes";
 import { recordEcoPurchase, saveLastDonation } from "@/lib/impact-storage";
 import {
+  markLeaValleyHireRequestPaid,
+} from "@/lib/hire-requests";
+import {
   confirmPaidOrder,
   type ConfirmedOrderClient,
 } from "@/lib/stripe/client";
@@ -175,6 +178,12 @@ function CheckoutSuccessInner() {
         });
       }
 
+      if (result.order.hireRequestId) {
+        void markLeaValleyHireRequestPaid(result.order.hireRequestId).catch(
+          () => undefined
+        );
+      }
+
       clearCart();
       setOrder(result.order);
       setSource(result.source);
@@ -229,6 +238,7 @@ function CheckoutSuccessInner() {
         : emptyCauseGifts();
   const impactLines = giftLines(gifts);
   const total = (order.amountTotalCents / 100).toFixed(2);
+  const hirePaid = Boolean(order.hireRequestId);
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12 sm:py-16">
@@ -237,10 +247,12 @@ function CheckoutSuccessInner() {
           <CheckCircle2 className="size-8 text-emerald-800 sm:size-10" />
         </div>
         <h1 className="font-heading text-3xl font-semibold text-primary">
-          Payment successful
+          {hirePaid ? "Paid" : "Payment successful"}
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Thank you — your order is confirmed and being prepared with care.
+          {hirePaid
+            ? "This hire is paid. Collect at the lock."
+            : "Thank you — your order is confirmed and being prepared with care."}
         </p>
         <p className="mt-2 text-xs font-medium text-emerald-800">
           {order.fulfilledBy === "demo"

@@ -419,6 +419,8 @@ export default function SellerPage() {
         listingTitle: row.listingTitle,
         dates: row.dates,
         decision: status,
+        requestId: row.id,
+        listingId: row.listingId,
       });
       if (!mail.ok) {
         throw new Error(mail.error ?? "Could not send that email.");

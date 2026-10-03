@@ -370,6 +370,8 @@ export function hireRequestDecisionEmailHtml(opts: {
   listingTitle: string;
   dates: string;
   decision: "Confirmed" | "Declined";
+  payUrl?: string;
+  pricePounds?: number;
 }): { subject: string; html: string; text: string } {
   const listing = opts.listingTitle.trim();
   const dates = opts.dates.trim();
@@ -391,13 +393,22 @@ export function hireRequestDecisionEmailHtml(opts: {
 
   const confirmLine =
     "Confirmed by the seller. Collect at the lock. This is not a card charge.";
+  const price =
+    typeof opts.pricePounds === "number" && opts.pricePounds > 0
+      ? opts.pricePounds
+      : null;
+  const payUrl = opts.payUrl?.trim() ?? "";
+  const payLabel = price ? `Pay £${price}` : "Pay";
   const subject = `Hire request confirmed — ${listing}`;
   const bodyHtml = `
     <p style="margin:0 0 8px;font-weight:600;">${escapeHtml(listing)}</p>
     <p style="margin:0 0 16px;color:#5c7366;">Dates · ${escapeHtml(dates)}</p>
-    <p style="margin:0;">${escapeHtml(confirmLine)}</p>
+    <p style="margin:0 0 16px;">${escapeHtml(confirmLine)}</p>
+    ${payUrl ? ctaButton(payUrl, payLabel) : ""}
   `;
-  const text = `${listing}\nDates · ${dates}\n\n${confirmLine}`;
+  const text = `${listing}\nDates · ${dates}\n\n${confirmLine}${
+    payUrl ? `\n\n${payLabel}: ${payUrl}` : ""
+  }`;
   return {
     subject,
     html: emailLayout({

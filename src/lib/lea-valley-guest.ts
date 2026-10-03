@@ -255,6 +255,19 @@ export function leaValleyHireTitle(id?: string, name?: string): string {
   return HIRE_ROWS.find((row) => row.id === id)?.name ?? "";
 }
 
+/** Listing price in pounds — day hire is £22. No client-supplied amount. */
+export function leaValleyHirePricePounds(item: {
+  id?: string;
+  name?: string;
+}): number | null {
+  const byId = HIRE_ROWS.find((row) => row.id === item.id);
+  if (byId) return byId.price;
+  const byName = HIRE_ROWS.find(
+    (row) => titleKey(row.name) === titleKey(item.name ?? "")
+  );
+  return byName?.price ?? null;
+}
+
 /** Checkout may append " — Hire" when the listing title does not already say hire. */
 export function hireOrderLineMatchesListing(
   lineName: string,

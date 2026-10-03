@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import {
@@ -11,7 +11,7 @@ import {
 export const HIRE_REQUEST_CONFIRMATION =
   "Request sent — the seller confirms. This is not a booking.";
 
-export type HireRequestStatus = "new" | "Confirmed" | "Declined";
+export type HireRequestStatus = "new" | "Confirmed" | "Declined" | "Paid";
 
 export type HireRequest = {
   id: string;
@@ -28,7 +28,7 @@ export type HireRequest = {
 };
 
 function parseHireRequestStatus(raw: unknown): HireRequestStatus {
-  if (raw === "Confirmed" || raw === "Declined") return raw;
+  if (raw === "Confirmed" || raw === "Declined" || raw === "Paid") return raw;
   return "new";
 }
 
@@ -107,6 +107,30 @@ export async function listLeaValleyHireRequests(): Promise<HireRequest[]> {
 
 export function unseenHireRequestCount(rows: HireRequest[]): number {
   return rows.filter((row) => !row.seen).length;
+}
+
+export async function getLeaValleyHireRequest(
+  id: string
+): Promise<HireRequest | null> {
+  const db = getFirebaseFirestore();
+  if (!db || !id) return null;
+  const snap = await withTimeout(
+    getDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id)),
+    5000
+  );
+  if (!snap.exists()) return null;
+  return parseHireRequest(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function markLeaValleyHireRequestPaid(id: string): Promise<void> {
+  const db = getFirebaseFirestore();
+  if (!db || !id) throw new Error("Could not mark this request paid.");
+  await withTimeout(
+    updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), {
+      status: "Paid",
+    }),
+    5000
+  );
 }
 
 /** Persist Confirm or Decline — this shop only. */

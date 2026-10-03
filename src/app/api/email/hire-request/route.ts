@@ -20,6 +20,8 @@ export async function POST(request: Request) {
     listingTitle?: string;
     dates?: string;
     decision?: string;
+    requestId?: string;
+    listingId?: string;
   };
 
   const emailResult = validateEmail(String(raw.email ?? ""));
@@ -45,6 +47,8 @@ export async function POST(request: Request) {
     listingTitle,
     dates,
     decision,
+    requestId: String(raw.requestId ?? "").trim().slice(0, 80) || undefined,
+    listingId: String(raw.listingId ?? "").trim().slice(0, 80) || undefined,
   });
 
   if (!result.ok) {

@@ -9,6 +9,7 @@ import {
 } from "@/lib/causes";
 import { getAppUrlForEmail, type EmailSendResult } from "@/lib/email/config";
 import { sendTransactionalEmail } from "@/lib/email/send";
+import { leaValleyHirePricePounds } from "@/lib/lea-valley-guest";
 import {
   abandonedCartEmailHtml,
   causeGiftEmailHtml,
@@ -188,11 +189,26 @@ export async function sendHireRequestDecisionEmail(opts: {
   listingTitle: string;
   dates: string;
   decision: "Confirmed" | "Declined";
+  requestId?: string;
+  listingId?: string;
 }): Promise<EmailSendResult> {
+  const pricePounds =
+    opts.decision === "Confirmed"
+      ? leaValleyHirePricePounds({
+          id: opts.listingId,
+          name: opts.listingTitle,
+        }) ?? undefined
+      : undefined;
+  const payUrl =
+    opts.decision === "Confirmed" && opts.requestId
+      ? `${getAppUrlForEmail()}/hire/pay/${encodeURIComponent(opts.requestId)}`
+      : undefined;
   const content = hireRequestDecisionEmailHtml({
     listingTitle: opts.listingTitle,
     dates: opts.dates,
     decision: opts.decision,
+    payUrl,
+    pricePounds,
   });
   return sendTransactionalEmail({
     to: opts.to,

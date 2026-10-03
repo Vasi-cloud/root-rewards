@@ -115,6 +115,7 @@ export async function fulfillCheckoutSession(
     memberCreditCents,
     lineItems,
     hasHire: meta.hasHire === "1" || meta.hasHire === "true",
+    hireRequestId: meta.hireRequestId?.trim() || null,
     fulfilledAt: new Date().toISOString(),
     fulfilledBy,
     status: "fulfilled",
@@ -133,7 +134,7 @@ export async function fulfillCheckoutSession(
   }
 
   try {
-    if (saved.kind === "marketplace_order") {
+    if (saved.kind === "marketplace_order" && !saved.hireRequestId) {
       const mail = await sendOrderConfirmationEmail(saved);
       return (
         updateConfirmedOrder(saved.sessionId, {

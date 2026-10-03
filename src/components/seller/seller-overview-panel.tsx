@@ -215,12 +215,16 @@ export function SellerOverviewPanel({
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <p className="font-medium text-primary">{row.listingTitle}</p>
-                    {row.status === "Confirmed" || row.status === "Declined" ? (
+                    {row.status === "Confirmed" ||
+                    row.status === "Declined" ||
+                    row.status === "Paid" ? (
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                          row.status === "Confirmed"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-muted text-muted-foreground"
+                          row.status === "Paid"
+                            ? "bg-emerald-200 text-emerald-900"
+                            : row.status === "Confirmed"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-muted text-muted-foreground"
                         }`}
                       >
                         {row.status}
