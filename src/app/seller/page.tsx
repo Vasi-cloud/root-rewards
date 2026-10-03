@@ -62,8 +62,10 @@ import { getCause } from "@/lib/causes";
 import {
   listLeaValleyHireRequests,
   markLeaValleyHireRequestsSeen,
+  setLeaValleyHireRequestStatus,
   unseenHireRequestCount,
   type HireRequest,
+  type HireRequestStatus,
 } from "@/lib/hire-requests";
 import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import { apparelSizeChart } from "@/lib/product-details";
@@ -398,6 +400,24 @@ export default function SellerPage() {
       rows.map((row) => (ids.includes(row.id) ? { ...row, seen: true } : row))
     );
     void markLeaValleyHireRequestsSeen(ids);
+  }
+
+  async function decideHireRequest(
+    id: string,
+    status: Extract<HireRequestStatus, "Confirmed" | "Declined">
+  ) {
+    const previous = hireRequests.find((row) => row.id === id)?.status ?? "new";
+    setHireRequests((rows) =>
+      rows.map((row) => (row.id === id ? { ...row, status } : row))
+    );
+    try {
+      await setLeaValleyHireRequestStatus(id, status);
+    } catch (error) {
+      setHireRequests((rows) =>
+        rows.map((row) => (row.id === id ? { ...row, status: previous } : row))
+      );
+      throw error;
+    }
   }
 
   if (authLoading || sellerLoading) {
@@ -1115,6 +1135,7 @@ export default function SellerPage() {
             hireNewCount={hireNewCount}
             hireCardOpen={hireCardOpen}
             onOpenHireRequests={openHireRequests}
+            onHireRequestStatus={decideHireRequest}
           />
         </Suspense>
       )}

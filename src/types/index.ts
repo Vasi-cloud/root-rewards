@@ -266,7 +266,7 @@ export interface SellerProfile {
     shopUid: string;
     shopName: string;
     createdAt: string;
-    status: "new";
+    status: "new" | "Confirmed" | "Declined";
   }>;
 }
 

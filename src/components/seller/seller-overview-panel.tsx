@@ -9,6 +9,7 @@ import {
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { useState } from "react";
 
 import { SellerStat } from "@/components/seller/seller-stat";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
-import type { HireRequest } from "@/lib/hire-requests";
+import type { HireRequest, HireRequestStatus } from "@/lib/hire-requests";
 import {
   isLeaValleySeller,
   leaValleyPublicShopHasLiveHires,
@@ -43,6 +44,7 @@ export function SellerOverviewPanel({
   hireNewCount = 0,
   hireCardOpen = false,
   onOpenHireRequests,
+  onHireRequestStatus,
 }: {
   seller: SellerProfile;
   onTab: (tab: Tab) => void;
@@ -51,6 +53,10 @@ export function SellerOverviewPanel({
   hireNewCount?: number;
   hireCardOpen?: boolean;
   onOpenHireRequests?: () => void;
+  onHireRequestStatus?: (
+    id: string,
+    status: Extract<HireRequestStatus, "Confirmed" | "Declined">
+  ) => Promise<void>;
 }) {
   const analytics = deriveSellerAnalytics(seller);
   const pendingCount = seller.products.filter(
@@ -65,6 +71,24 @@ export function SellerOverviewPanel({
   const top = topSellerProducts(seller.products, 3);
   const aov = averageOrderValue(seller);
   const leaValley = isLeaValleySeller(seller);
+  const [savingHireId, setSavingHireId] = useState<string | null>(null);
+  const [hireStatusError, setHireStatusError] = useState<string | null>(null);
+
+  async function decideHireRow(
+    id: string,
+    status: Extract<HireRequestStatus, "Confirmed" | "Declined">
+  ) {
+    if (!onHireRequestStatus) return;
+    setSavingHireId(id);
+    setHireStatusError(null);
+    try {
+      await onHireRequestStatus(id, status);
+    } catch {
+      setHireStatusError("Could not save that decision.");
+    } finally {
+      setSavingHireId(null);
+    }
+  }
 
   const liveListingDone = leaValley
     ? leaValleyPublicShopHasLiveHires()
@@ -189,16 +213,53 @@ export function SellerOverviewPanel({
                   key={row.id}
                   className="rounded-xl border border-border/70 px-3 py-2.5 text-sm"
                 >
-                  <p className="font-medium text-primary">{row.listingTitle}</p>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="font-medium text-primary">{row.listingTitle}</p>
+                    {row.status === "Confirmed" || row.status === "Declined" ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          row.status === "Confirmed"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {row.status}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-0.5 text-muted-foreground">
                     {row.name} · {row.email}
                   </p>
                   <p className="mt-0.5 text-muted-foreground">
                     Dates · {row.dates}
                   </p>
+                  {row.status === "new" ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={savingHireId === row.id}
+                        onClick={() => void decideHireRow(row.id, "Confirmed")}
+                      >
+                        Confirm
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={savingHireId === row.id}
+                        onClick={() => void decideHireRow(row.id, "Declined")}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               ))
             )}
+            {hireStatusError ? (
+              <p className="text-xs text-destructive">{hireStatusError}</p>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

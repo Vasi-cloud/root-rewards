@@ -11,6 +11,8 @@ import {
 export const HIRE_REQUEST_CONFIRMATION =
   "Request sent — the seller confirms. This is not a booking.";
 
+export type HireRequestStatus = "new" | "Confirmed" | "Declined";
+
 export type HireRequest = {
   id: string;
   listingId: string;
@@ -21,9 +23,14 @@ export type HireRequest = {
   shopUid: string;
   shopName: string;
   createdAt: string;
-  status: "new";
+  status: HireRequestStatus;
   seen?: boolean;
 };
+
+function parseHireRequestStatus(raw: unknown): HireRequestStatus {
+  if (raw === "Confirmed" || raw === "Declined") return raw;
+  return "new";
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -77,7 +84,7 @@ function parseHireRequest(
       typeof raw.createdAt === "string" && raw.createdAt
         ? raw.createdAt
         : new Date().toISOString(),
-    status: "new",
+    status: parseHireRequestStatus(raw.status),
     seen: raw.seen === true,
   };
 }
@@ -100,6 +107,19 @@ export async function listLeaValleyHireRequests(): Promise<HireRequest[]> {
 
 export function unseenHireRequestCount(rows: HireRequest[]): number {
   return rows.filter((row) => !row.seen).length;
+}
+
+/** Persist Confirm or Decline — this shop only. */
+export async function setLeaValleyHireRequestStatus(
+  id: string,
+  status: Extract<HireRequestStatus, "Confirmed" | "Declined">
+): Promise<void> {
+  const db = getFirebaseFirestore();
+  if (!db) throw new Error("Could not update this request.");
+  await withTimeout(
+    updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), { status }),
+    5000
+  );
 }
 
 /** Mark opened hire-request rows seen — this shop only. */
