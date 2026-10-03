@@ -5,9 +5,9 @@ export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
 export const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 export const LEA_VALLEY_HIRE_EMAIL = "hire@leavalleycycles.demo";
 /** Pickup notes for Confirm email and Paid receipt — not a tree claim. */
-export const LEA_VALLEY_HIRE_TREE_ADDON_POUNDS = 5;
+export const LEA_VALLEY_HIRE_TREE_ADDON_DEFAULT_POUNDS = 1;
 export const LEA_VALLEY_HIRE_TREE_ADDON_LABEL =
-  "£5 toward a partner tree programme";
+  "Add toward a partner tree programme";
 export const LEA_VALLEY_HIRE_PICKUP_LINES = [
   "Collect at the Lea Valley lock, East London",
   "Morning of the requested date",
