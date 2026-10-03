@@ -33,6 +33,13 @@ function subscriptionIdOf(
   return session.subscription?.id ?? null;
 }
 
+function parseHirePounds(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
 function kindOf(session: Stripe.Checkout.Session): OrderKind {
   if (session.mode === "subscription" || session.metadata?.kind === "impact_member") {
     return "impact_member";
@@ -116,6 +123,9 @@ export async function fulfillCheckoutSession(
     lineItems,
     hasHire: meta.hasHire === "1" || meta.hasHire === "true",
     hireRequestId: meta.hireRequestId?.trim() || null,
+    hireSellerSharePounds: parseHirePounds(meta.sellerSharePounds),
+    hirePartnerPotPounds: parseHirePounds(meta.partnerPotPounds),
+    hirePaidTotalPounds: parseHirePounds(meta.paidTotalPounds),
     fulfilledAt: new Date().toISOString(),
     fulfilledBy,
     status: "fulfilled",

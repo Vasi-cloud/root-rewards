@@ -237,6 +237,14 @@ export function SellerOverviewPanel({
                   <p className="mt-0.5 text-muted-foreground">
                     Dates · {row.dates}
                   </p>
+                  {row.status === "Paid" && row.paidTotal != null ? (
+                    <p className="mt-1 text-sm font-medium text-emerald-900">
+                      £{row.paidTotal}
+                      {row.sellerShare != null && row.partnerPot != null
+                        ? ` · Seller share £${row.sellerShare} · Partner pot £${row.partnerPot}`
+                        : null}
+                    </p>
+                  ) : null}
                   {row.status === "new" ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Button

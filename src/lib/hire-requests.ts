@@ -25,6 +25,9 @@ export type HireRequest = {
   createdAt: string;
   status: HireRequestStatus;
   seen?: boolean;
+  paidTotal?: number;
+  sellerShare?: number;
+  partnerPot?: number;
 };
 
 function parseHireRequestStatus(raw: unknown): HireRequestStatus {
@@ -86,7 +89,16 @@ function parseHireRequest(
         : new Date().toISOString(),
     status: parseHireRequestStatus(raw.status),
     seen: raw.seen === true,
+    paidTotal: parseHirePounds(raw.paidTotal),
+    sellerShare: parseHirePounds(raw.sellerShare),
+    partnerPot: parseHirePounds(raw.partnerPot),
   };
+}
+
+function parseHirePounds(raw: unknown): number | undefined {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return Math.round(n * 100) / 100;
 }
 
 async function listHireRequestsFromApi(): Promise<HireRequest[]> {
@@ -168,26 +180,37 @@ export async function getLeaValleyHireRequest(
   return fromApi.find((row) => row.id === id) ?? null;
 }
 
-async function patchHireRequestStatus(
+export type HirePaySplit = {
+  paidTotal: number;
+  sellerShare: number;
+  partnerPot: number;
+};
+
+async function patchHireRequestPaid(
   id: string,
-  status: Extract<HireRequestStatus, "Confirmed" | "Declined" | "Paid">
+  status: Extract<HireRequestStatus, "Confirmed" | "Declined" | "Paid">,
+  split?: HirePaySplit
 ): Promise<void> {
   await fetch("/api/hire-requests", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id, status }),
+    body: JSON.stringify({ id, status, ...split }),
   }).catch(() => undefined);
 }
 
-export async function markLeaValleyHireRequestPaid(id: string): Promise<void> {
+export async function markLeaValleyHireRequestPaid(
+  id: string,
+  split?: HirePaySplit
+): Promise<void> {
   if (!id) throw new Error("Could not mark this request paid.");
   const db = getFirebaseFirestore();
   if (db) {
     await updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), {
       status: "Paid",
+      ...(split ?? {}),
     }).catch(() => undefined);
   }
-  await patchHireRequestStatus(id, "Paid");
+  await patchHireRequestPaid(id, "Paid", split);
 }
 
 /** Persist Confirm or Decline — this shop only. */
@@ -201,7 +224,7 @@ export async function setLeaValleyHireRequestStatus(
       status,
     }).catch(() => undefined);
   }
-  await patchHireRequestStatus(id, status);
+  await patchHireRequestPaid(id, status);
 }
 
 /** Mark opened hire-request rows seen — this shop only. */

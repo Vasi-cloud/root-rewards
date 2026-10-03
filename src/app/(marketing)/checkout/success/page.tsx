@@ -180,9 +180,16 @@ function CheckoutSuccessInner() {
       }
 
       if (result.order.hireRequestId) {
-        void markLeaValleyHireRequestPaid(result.order.hireRequestId).catch(
-          () => undefined
-        );
+        const paidTotal =
+          result.order.hirePaidTotalPounds ??
+          result.order.amountTotalCents / 100;
+        const sellerShare = result.order.hireSellerSharePounds ?? paidTotal;
+        const partnerPot = result.order.hirePartnerPotPounds ?? 0;
+        void markLeaValleyHireRequestPaid(result.order.hireRequestId, {
+          paidTotal,
+          sellerShare,
+          partnerPot,
+        }).catch(() => undefined);
       }
 
       clearCart();
@@ -275,6 +282,22 @@ function CheckoutSuccessInner() {
             £{total}
           </span>
         </div>
+        {hirePaid ? (
+          <>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-muted-foreground">Seller share</span>
+              <span className="tabular-nums">
+                £{(order.hireSellerSharePounds ?? Number(total)).toFixed(0)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-muted-foreground">Partner pot</span>
+              <span className="tabular-nums">
+                £{(order.hirePartnerPotPounds ?? 0).toFixed(0)}
+              </span>
+            </div>
+          </>
+        ) : null}
         {order.customerEmail && (
           <div className="flex items-center justify-between gap-3 text-base">
             <span className="text-muted-foreground">Receipt</span>

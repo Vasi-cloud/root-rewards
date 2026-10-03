@@ -8,6 +8,7 @@ import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 
 type HireRequestStore = {
   requests: HireRequest[];
+  partnerPot: number;
 };
 
 const globalKey = "__forest_buddies_hire_request_store__";
@@ -17,7 +18,10 @@ function memoryStore(): HireRequestStore {
     [globalKey]?: HireRequestStore;
   };
   if (!g[globalKey]) {
-    g[globalKey] = { requests: [] };
+    g[globalKey] = { requests: [], partnerPot: 0 };
+  }
+  if (typeof g[globalKey].partnerPot !== "number") {
+    g[globalKey].partnerPot = 0;
   }
   return g[globalKey]!;
 }
@@ -58,6 +62,9 @@ function getStore(): HireRequestStore {
       if (!byId.has(row.id)) byId.set(row.id, row);
     }
     mem.requests = [...byId.values()];
+    if (typeof disk.partnerPot === "number" && disk.partnerPot > mem.partnerPot) {
+      mem.partnerPot = disk.partnerPot;
+    }
   }
   return mem;
 }
@@ -82,12 +89,26 @@ export function saveHireRequest(request: HireRequest): HireRequest {
 
 export function updateHireRequestStatus(
   id: string,
-  status: HireRequest["status"]
+  status: HireRequest["status"],
+  split?: {
+    paidTotal?: number;
+    sellerShare?: number;
+    partnerPot?: number;
+  }
 ): HireRequest | null {
   const store = getStore();
   const index = store.requests.findIndex((row) => row.id === id);
   if (index < 0) return null;
-  store.requests[index] = { ...store.requests[index], status };
+  const previous = store.requests[index];
+  store.requests[index] = { ...previous, status, ...split };
+  if (
+    status === "Paid" &&
+    previous.status !== "Paid" &&
+    typeof split?.partnerPot === "number" &&
+    split.partnerPot > 0
+  ) {
+    store.partnerPot = (store.partnerPot ?? 0) + split.partnerPot;
+  }
   saveDisk(store);
   return store.requests[index];
 }

@@ -40,6 +40,9 @@ export type ConfirmedOrder = {
   hasHire?: boolean;
   /** Lea Valley hire request paid via Confirm email Pay */
   hireRequestId?: string | null;
+  hireSellerSharePounds?: number | null;
+  hirePartnerPotPounds?: number | null;
+  hirePaidTotalPounds?: number | null;
   fulfilledAt: string;
   fulfilledBy: "webhook" | "success_page" | "demo";
   status: "paid" | "fulfilled";

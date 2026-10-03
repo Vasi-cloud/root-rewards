@@ -287,6 +287,9 @@ export type ConfirmedOrderClient = {
   fulfilledBy: "webhook" | "success_page" | "demo";
   status: string;
   hireRequestId?: string | null;
+  hireSellerSharePounds?: number | null;
+  hirePartnerPotPounds?: number | null;
+  hirePaidTotalPounds?: number | null;
 };
 
 /** Confirm order via webhook store or Stripe retrieve (success-page fallback). */

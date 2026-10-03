@@ -267,6 +267,9 @@ export interface SellerProfile {
     shopName: string;
     createdAt: string;
     status: "new" | "Confirmed" | "Declined" | "Paid";
+    paidTotal?: number;
+    sellerShare?: number;
+    partnerPot?: number;
   }>;
 }
 

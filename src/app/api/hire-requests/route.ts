@@ -97,7 +97,13 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const raw = body as { id?: string; status?: string };
+  const raw = body as {
+    id?: string;
+    status?: string;
+    paidTotal?: unknown;
+    sellerShare?: unknown;
+    partnerPot?: unknown;
+  };
   const id = typeof raw.id === "string" ? raw.id.trim() : "";
   const status = raw.status;
   if (
@@ -110,7 +116,15 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const updated = updateHireRequestStatus(id, status);
+  const money = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : undefined;
+  };
+  const updated = updateHireRequestStatus(id, status, {
+    paidTotal: money(raw.paidTotal),
+    sellerShare: money(raw.sellerShare),
+    partnerPot: money(raw.partnerPot),
+  });
   if (!updated) {
     return NextResponse.json(
       { error: "That hire request was not found." },

@@ -133,7 +133,7 @@ service cloud.firestore {
         && request.resource.data.listingTitle.size() > 0;
       allow read: if shopId == 'demo-lea-valley-cycle-hire';
       allow update: if shopId == 'demo-lea-valley-cycle-hire'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen', 'status'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen', 'status', 'paidTotal', 'sellerShare', 'partnerPot'])
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['seen'])
           || request.resource.data.seen == true
