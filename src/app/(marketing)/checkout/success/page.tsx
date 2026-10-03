@@ -29,6 +29,7 @@ import { recordEcoPurchase, saveLastDonation } from "@/lib/impact-storage";
 import {
   markLeaValleyHireRequestPaid,
 } from "@/lib/hire-requests";
+import { LEA_VALLEY_HIRE_PICKUP_LINES } from "@/lib/lea-valley-guest";
 import {
   confirmPaidOrder,
   type ConfirmedOrderClient,
@@ -284,7 +285,7 @@ function CheckoutSuccessInner() {
         {order.lineItems.length > 0 && (
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Items
+              {hirePaid ? "Listing" : "Items"}
             </p>
             {order.lineItems.map((item, i) => (
               <div
@@ -300,10 +301,25 @@ function CheckoutSuccessInner() {
                 </span>
               </div>
             ))}
+            {hirePaid ? (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {LEA_VALLEY_HIRE_PICKUP_LINES.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         )}
 
-        {impactLines.length > 0 && (
+        {hirePaid && order.lineItems.length === 0 ? (
+          <ul className="list-disc space-y-1 border-t pt-3 pl-5 text-sm text-muted-foreground">
+            {LEA_VALLEY_HIRE_PICKUP_LINES.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
+
+        {!hirePaid && impactLines.length > 0 && (
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
               Your impact
@@ -337,24 +353,28 @@ function CheckoutSuccessInner() {
         >
           Continue shopping
         </Button>
-        <Button
-          nativeButton={false}
-          render={<Link href="/dashboard/impact" />}
-          variant="outline"
-          size="lg"
-          className="min-h-12 w-full"
-        >
-          View your impact
-        </Button>
-        <Button
-          nativeButton={false}
-          render={<Link href="/donate" />}
-          variant="ghost"
-          size="lg"
-          className="min-h-12 w-full"
-        >
-          Support a cause anytime
-        </Button>
+        {!hirePaid ? (
+          <>
+            <Button
+              nativeButton={false}
+              render={<Link href="/dashboard/impact" />}
+              variant="outline"
+              size="lg"
+              className="min-h-12 w-full"
+            >
+              View your impact
+            </Button>
+            <Button
+              nativeButton={false}
+              render={<Link href="/donate" />}
+              variant="ghost"
+              size="lg"
+              className="min-h-12 w-full"
+            >
+              Support a cause anytime
+            </Button>
+          </>
+        ) : null}
       </div>
     </div>
   );

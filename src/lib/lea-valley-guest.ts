@@ -4,6 +4,15 @@ export const LEA_VALLEY_SLUG = "lea-valley-cycle-hire";
 export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
 export const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 export const LEA_VALLEY_HIRE_EMAIL = "hire@leavalleycycles.demo";
+/** Pickup notes for Confirm email and Paid receipt — not a tree claim. */
+export const LEA_VALLEY_HIRE_PICKUP_LINES = [
+  "Collect at the Lea Valley lock, East London",
+  "Morning of the requested date",
+  "Return the same day",
+  "Bring ID",
+  "Helmet and lock included",
+  "Unpaid is not a pickup",
+] as const;
 const HIRE_CAP = 5;
 
 const HIRE_ROWS = [

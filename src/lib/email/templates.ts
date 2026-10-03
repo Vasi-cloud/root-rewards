@@ -1,5 +1,6 @@
 import { getAppUrlForEmail } from "@/lib/email/config";
 import { ctaButton, emailLayout, escapeHtml } from "@/lib/email/layout";
+import { LEA_VALLEY_HIRE_PICKUP_LINES } from "@/lib/lea-valley-guest";
 
 export function welcomeEmailHtml(opts: {
   name?: string | null;
@@ -400,13 +401,23 @@ export function hireRequestDecisionEmailHtml(opts: {
   const payUrl = opts.payUrl?.trim() ?? "";
   const payLabel = price ? `Pay £${price}` : "Pay";
   const subject = `Hire request confirmed — ${listing}`;
+  const pickupHtml = LEA_VALLEY_HIRE_PICKUP_LINES.map(
+    (line) =>
+      `<li style="margin:0 0 6px;">${escapeHtml(line)}</li>`
+  ).join("");
+  const pickupText = LEA_VALLEY_HIRE_PICKUP_LINES.map(
+    (line) => `· ${line}`
+  ).join("\n");
   const bodyHtml = `
     <p style="margin:0 0 8px;font-weight:600;">${escapeHtml(listing)}</p>
-    <p style="margin:0 0 16px;color:#5c7366;">Dates · ${escapeHtml(dates)}</p>
+    <p style="margin:0 0 10px;color:#5c7366;">Dates · ${escapeHtml(dates)}</p>
+    <ul style="margin:0 0 16px;padding-left:18px;">
+      ${pickupHtml}
+    </ul>
     <p style="margin:0 0 16px;">${escapeHtml(confirmLine)}</p>
     ${payUrl ? ctaButton(payUrl, payLabel) : ""}
   `;
-  const text = `${listing}\nDates · ${dates}\n\n${confirmLine}${
+  const text = `${listing}\nDates · ${dates}\n${pickupText}\n\n${confirmLine}${
     payUrl ? `\n\n${payLabel}: ${payUrl}` : ""
   }`;
   return {
