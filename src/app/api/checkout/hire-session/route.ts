@@ -27,7 +27,6 @@ export async function POST(request: Request) {
     listingTitle?: string;
     email?: string;
     dates?: string;
-    partnerPotPounds?: unknown;
   };
 
   const emailResult = validateEmail(String(raw.email ?? ""));
@@ -42,7 +41,6 @@ export async function POST(request: Request) {
       listingTitle: String(raw.listingTitle ?? ""),
       email: emailResult.value,
       dates: String(raw.dates ?? ""),
-      partnerPotPounds: Number(raw.partnerPotPounds) || 0,
     });
     return NextResponse.json({
       url: session.url,

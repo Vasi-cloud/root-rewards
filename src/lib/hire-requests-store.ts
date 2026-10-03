@@ -82,6 +82,11 @@ export function listHireRequests(): HireRequest[] {
   );
 }
 
+export function getHireRequest(id: string): HireRequest | null {
+  if (!id) return null;
+  return getStore().requests.find((row) => row.id === id) ?? null;
+}
+
 export function saveHireRequest(request: HireRequest): HireRequest {
   const store = getStore();
   const index = store.requests.findIndex((row) => row.id === request.id);

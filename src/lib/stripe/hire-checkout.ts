@@ -1,7 +1,10 @@
 import "server-only";
 
+import type Stripe from "stripe";
+
 import {
   isLeaValleyHireListing,
+  LEA_VALLEY_HIRE_TREE_ADDON_DEFAULT_POUNDS,
   LEA_VALLEY_HIRE_TREE_ADDON_LABEL,
   leaValleyHirePricePounds,
   leaValleyHireTitle,
@@ -15,7 +18,6 @@ export async function createLeaValleyHireCheckoutSession(opts: {
   listingTitle: string;
   email: string;
   dates: string;
-  partnerPotPounds?: number;
 }): Promise<{ url: string; sessionId: string }> {
   if (getStripeKeyMode() !== "test") {
     throw new Error("Hire payment stays on Stripe Test.");
@@ -43,70 +45,57 @@ export async function createLeaValleyHireCheckoutSession(opts: {
 
   const stripe = getStripe();
   const appUrl = getAppUrl();
-  const unitAmount = Math.round(pounds * 100);
   const dates = opts.dates.trim().slice(0, 200);
-  const partnerRaw = Number(opts.partnerPotPounds);
-  const partnerPot =
-    Number.isFinite(partnerRaw) && partnerRaw >= 1
-      ? Math.min(100, Math.round(partnerRaw * 100) / 100)
-      : 0;
-  const paidTotal = pounds + partnerPot;
+  const addonUnit = Math.round(LEA_VALLEY_HIRE_TREE_ADDON_DEFAULT_POUNDS * 100);
 
-  const lineItems: Array<{
-    quantity: number;
-    price_data: {
-      currency: typeof STRIPE_CHECKOUT_CURRENCY;
-      unit_amount: number;
-      product_data: {
-        name: string;
-        description: string;
-        metadata: { productId: string; hireRequestId: string };
-      };
-    };
-  }> = [
-    {
-      quantity: 1,
-      price_data: {
-        currency: STRIPE_CHECKOUT_CURRENCY,
-        unit_amount: unitAmount,
-        product_data: {
-          name: listingTitle,
-          description: dates
-            ? `Dates · ${dates}. Collect at the lock.`
-            : "Collect at the lock.",
-          metadata: {
-            productId: (opts.listingId ?? "").slice(0, 80),
-            hireRequestId: requestId,
-          },
-        },
+  const addonPrice = await stripe.prices.create({
+    currency: STRIPE_CHECKOUT_CURRENCY,
+    unit_amount: addonUnit,
+    product_data: {
+      name: LEA_VALLEY_HIRE_TREE_ADDON_LABEL,
+      metadata: {
+        hireRequestId: requestId,
+        kind: "partner-tree-programme",
       },
     },
-  ];
-  if (partnerPot >= 1) {
-    lineItems.push({
-      quantity: 1,
-      price_data: {
-        currency: STRIPE_CHECKOUT_CURRENCY,
-        unit_amount: Math.round(partnerPot * 100),
-        product_data: {
-          name: LEA_VALLEY_HIRE_TREE_ADDON_LABEL,
-          description: "Toward a partner programme — not a planted tree.",
-          metadata: {
-            productId: "partner-tree-programme",
-            hireRequestId: requestId,
-          },
-        },
-      },
-    });
-  }
+  });
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     adaptive_pricing: { enabled: false },
     customer_email: opts.email.trim().toLowerCase(),
-    line_items: lineItems,
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: STRIPE_CHECKOUT_CURRENCY,
+          unit_amount: Math.round(pounds * 100),
+          product_data: {
+            name: listingTitle,
+            description: dates
+              ? `Dates · ${dates}. Collect at the lock.`
+              : "Collect at the lock.",
+            metadata: {
+              productId: (opts.listingId ?? "").slice(0, 80),
+              hireRequestId: requestId,
+            },
+          },
+        },
+      },
+    ],
+    optional_items: [
+      {
+        price: addonPrice.id,
+        quantity: 1,
+        adjustable_quantity: {
+          enabled: true,
+          minimum: 1,
+          maximum: 100,
+        },
+      },
+    ],
     success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/hire/pay/${encodeURIComponent(requestId)}`,
+    cancel_url: `${appUrl}/checkout/cancel`,
     billing_address_collection: "auto",
     allow_promotion_codes: false,
     metadata: {
@@ -117,8 +106,8 @@ export async function createLeaValleyHireCheckoutSession(opts: {
       dates,
       hasHire: "1",
       sellerSharePounds: String(pounds),
-      partnerPotPounds: String(partnerPot),
-      paidTotalPounds: String(paidTotal),
+      partnerPotPounds: "0",
+      paidTotalPounds: String(pounds),
       currency: STRIPE_CHECKOUT_CURRENCY,
     },
     payment_intent_data: {

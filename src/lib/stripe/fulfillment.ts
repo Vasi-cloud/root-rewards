@@ -97,6 +97,15 @@ export async function fulfillCheckoutSession(
     0,
     Math.floor(Number(meta.memberCreditCents) || 0)
   );
+  const hirePaidTotal =
+    session.amount_total != null
+      ? Math.round(session.amount_total) / 100
+      : parseHirePounds(meta.paidTotalPounds);
+  const hireSellerShare = parseHirePounds(meta.sellerSharePounds);
+  const hirePartnerPot =
+    hirePaidTotal != null && hireSellerShare != null
+      ? Math.max(0, Math.round((hirePaidTotal - hireSellerShare) * 100) / 100)
+      : parseHirePounds(meta.partnerPotPounds);
 
   const order: ConfirmedOrder = {
     id: session.id,
@@ -123,9 +132,9 @@ export async function fulfillCheckoutSession(
     lineItems,
     hasHire: meta.hasHire === "1" || meta.hasHire === "true",
     hireRequestId: meta.hireRequestId?.trim() || null,
-    hireSellerSharePounds: parseHirePounds(meta.sellerSharePounds),
-    hirePartnerPotPounds: parseHirePounds(meta.partnerPotPounds),
-    hirePaidTotalPounds: parseHirePounds(meta.paidTotalPounds),
+    hireSellerSharePounds: hireSellerShare,
+    hirePartnerPotPounds: hirePartnerPot,
+    hirePaidTotalPounds: hirePaidTotal,
     fulfilledAt: new Date().toISOString(),
     fulfilledBy,
     status: "fulfilled",
