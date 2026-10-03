@@ -8,18 +8,13 @@ import {
   getLeaValleyHireRequest,
   type HireRequest,
 } from "@/lib/hire-requests";
-import {
-  LEA_VALLEY_HIRE_TREE_ADDON_LABEL,
-  LEA_VALLEY_HIRE_TREE_ADDON_POUNDS,
-  leaValleyHirePricePounds,
-} from "@/lib/lea-valley-guest";
+import { leaValleyHirePricePounds } from "@/lib/lea-valley-guest";
 
 export default function HirePayPage() {
   const params = useParams<{ requestId: string }>();
   const requestId = decodeURIComponent(params.requestId ?? "");
   const [row, setRow] = useState<HireRequest | null>(null);
   const [message, setMessage] = useState("Loading this hire…");
-  const [treeAddon, setTreeAddon] = useState(false);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
@@ -64,10 +59,6 @@ export default function HirePayPage() {
         name: row.listingTitle,
       })
     : null;
-  const totalPounds =
-    hirePounds != null
-      ? hirePounds + (treeAddon ? LEA_VALLEY_HIRE_TREE_ADDON_POUNDS : 0)
-      : null;
 
   async function startPay() {
     if (!row || starting) return;
@@ -83,7 +74,6 @@ export default function HirePayPage() {
           listingTitle: row.listingTitle,
           email: row.email,
           dates: row.dates,
-          treeAddon,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -117,28 +107,8 @@ export default function HirePayPage() {
       <p className="mt-2 font-medium text-primary">{row.listingTitle}</p>
       <p className="mt-1 text-sm text-muted-foreground">Dates · {row.dates}</p>
       {hirePounds != null ? (
-        <p className="mt-4 text-sm">
-          Hire · £{hirePounds}
-          {treeAddon
-            ? ` · ${LEA_VALLEY_HIRE_TREE_ADDON_LABEL} · Total £${totalPounds}`
-            : ` · Total £${hirePounds}`}
-        </p>
+        <p className="mt-4 text-sm">Hire · £{hirePounds}</p>
       ) : null}
-
-      <label className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-card px-3.5 py-3 text-left text-sm">
-        <input
-          type="checkbox"
-          className="mt-0.5 size-4 accent-primary"
-          checked={treeAddon}
-          onChange={(e) => setTreeAddon(e.target.checked)}
-        />
-        <span>
-          {LEA_VALLEY_HIRE_TREE_ADDON_LABEL}
-          <span className="mt-0.5 block text-xs text-muted-foreground">
-            Optional · off unless you tick this box. Not a planted tree.
-          </span>
-        </span>
-      </label>
 
       {message ? (
         <p className="mt-3 text-sm text-destructive">{message}</p>
@@ -152,8 +122,8 @@ export default function HirePayPage() {
       >
         {starting
           ? "Opening Stripe Checkout…"
-          : totalPounds != null
-            ? `Pay £${totalPounds}`
+          : hirePounds != null
+            ? `Pay £${hirePounds}`
             : "Pay"}
       </Button>
     </div>

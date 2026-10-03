@@ -27,7 +27,6 @@ export async function POST(request: Request) {
     listingTitle?: string;
     email?: string;
     dates?: string;
-    treeAddon?: unknown;
   };
 
   const emailResult = validateEmail(String(raw.email ?? ""));
@@ -42,7 +41,6 @@ export async function POST(request: Request) {
       listingTitle: String(raw.listingTitle ?? ""),
       email: emailResult.value,
       dates: String(raw.dates ?? ""),
-      treeAddon: raw.treeAddon === true,
     });
     return NextResponse.json({
       url: session.url,

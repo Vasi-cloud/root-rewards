@@ -8,7 +8,7 @@ import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 
 type HireRequestStore = {
   requests: HireRequest[];
-  partnerPot: number;
+  partnerPot?: number;
 };
 
 const globalKey = "__forest_buddies_hire_request_store__";
@@ -35,9 +35,13 @@ function loadDisk(): HireRequestStore | null {
     const file = dataFilePath();
     if (!existsSync(file)) return null;
     const raw = readFileSync(file, "utf8");
-    const parsed = JSON.parse(raw) as HireRequestStore;
+    const parsed = JSON.parse(raw) as Partial<HireRequestStore>;
     if (!parsed?.requests || !Array.isArray(parsed.requests)) return null;
-    return { requests: parsed.requests };
+    return {
+      requests: parsed.requests,
+      partnerPot:
+        typeof parsed.partnerPot === "number" ? parsed.partnerPot : 0,
+    };
   } catch {
     return null;
   }
@@ -62,7 +66,10 @@ function getStore(): HireRequestStore {
       if (!byId.has(row.id)) byId.set(row.id, row);
     }
     mem.requests = [...byId.values()];
-    if (typeof disk.partnerPot === "number" && disk.partnerPot > mem.partnerPot) {
+    if (
+      typeof disk.partnerPot === "number" &&
+      disk.partnerPot > (mem.partnerPot ?? 0)
+    ) {
       mem.partnerPot = disk.partnerPot;
     }
   }
