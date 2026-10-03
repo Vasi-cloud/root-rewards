@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export async function GET(
   _request: Request,
-  context: { params: Promise<{ requestId: string }> | { requestId: string } }
+  context: { params: Promise<{ requestId: string }> }
 ) {
   if (!isStripeConfigured() || getStripeKeyMode() !== "test") {
     return NextResponse.json(
@@ -17,7 +17,7 @@ export async function GET(
     );
   }
 
-  const params = await Promise.resolve(context.params);
+  const params = await context.params;
   const requestId = decodeURIComponent(params.requestId ?? "").trim();
   const row = getHireRequest(requestId);
   if (!row) {
