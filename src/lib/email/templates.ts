@@ -365,3 +365,48 @@ Donate: ${appUrl}/donate
     text,
   };
 }
+
+export function hireRequestDecisionEmailHtml(opts: {
+  listingTitle: string;
+  dates: string;
+  decision: "Confirmed" | "Declined";
+}): { subject: string; html: string; text: string } {
+  const listing = opts.listingTitle.trim();
+  const dates = opts.dates.trim();
+  if (opts.decision === "Declined") {
+    const subject = "Hire request declined";
+    const line = "This request was declined.";
+    return {
+      subject,
+      html: emailLayout({
+        preheader: line,
+        title: subject,
+        bodyHtml: `<p style="margin:0;">${escapeHtml(line)}</p>`,
+        footerBlurb: "Lea Valley Cycle Hire · Forest Buddies Seller Hub",
+        receivingReason: "You’re receiving this because you asked to rent a bike.",
+      }),
+      text: line,
+    };
+  }
+
+  const confirmLine =
+    "Confirmed by the seller. Collect at the lock. This is not a card charge.";
+  const subject = `Hire request confirmed — ${listing}`;
+  const bodyHtml = `
+    <p style="margin:0 0 8px;font-weight:600;">${escapeHtml(listing)}</p>
+    <p style="margin:0 0 16px;color:#5c7366;">Dates · ${escapeHtml(dates)}</p>
+    <p style="margin:0;">${escapeHtml(confirmLine)}</p>
+  `;
+  const text = `${listing}\nDates · ${dates}\n\n${confirmLine}`;
+  return {
+    subject,
+    html: emailLayout({
+      preheader: confirmLine,
+      title: "Hire request confirmed",
+      bodyHtml,
+      footerBlurb: "Lea Valley Cycle Hire · Forest Buddies Seller Hub",
+      receivingReason: "You’re receiving this because you asked to rent a bike.",
+    }),
+    text,
+  };
+}

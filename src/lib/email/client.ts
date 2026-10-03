@@ -56,3 +56,29 @@ export async function requestAbandonedCartEmail(opts: {
     return { ok: false, error: "Could not send reminder." };
   }
 }
+
+export async function requestHireDecisionEmail(opts: {
+  email: string;
+  listingTitle: string;
+  dates: string;
+  decision: "Confirmed" | "Declined";
+}): Promise<{ ok: boolean; mode?: "live" | "demo"; error?: string }> {
+  try {
+    const res = await fetch("/api/email/hire-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      mode?: "live" | "demo";
+      error?: string;
+    };
+    if (!res.ok) {
+      return { ok: false, error: data.error ?? "Could not send that email." };
+    }
+    return { ok: true, mode: data.mode };
+  } catch {
+    return { ok: false, error: "Could not send that email." };
+  }
+}

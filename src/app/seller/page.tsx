@@ -67,6 +67,7 @@ import {
   type HireRequest,
   type HireRequestStatus,
 } from "@/lib/hire-requests";
+import { requestHireDecisionEmail } from "@/lib/email/client";
 import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import { apparelSizeChart } from "@/lib/product-details";
 
@@ -406,15 +407,26 @@ export default function SellerPage() {
     id: string,
     status: Extract<HireRequestStatus, "Confirmed" | "Declined">
   ) {
-    const previous = hireRequests.find((row) => row.id === id)?.status ?? "new";
+    const row = hireRequests.find((item) => item.id === id);
+    const previous = row?.status ?? "new";
+    if (!row) throw new Error("That request is gone.");
     setHireRequests((rows) =>
-      rows.map((row) => (row.id === id ? { ...row, status } : row))
+      rows.map((item) => (item.id === id ? { ...item, status } : item))
     );
     try {
+      const mail = await requestHireDecisionEmail({
+        email: row.email,
+        listingTitle: row.listingTitle,
+        dates: row.dates,
+        decision: status,
+      });
+      if (!mail.ok) {
+        throw new Error(mail.error ?? "Could not send that email.");
+      }
       await setLeaValleyHireRequestStatus(id, status);
     } catch (error) {
       setHireRequests((rows) =>
-        rows.map((row) => (row.id === id ? { ...row, status: previous } : row))
+        rows.map((item) => (item.id === id ? { ...item, status: previous } : item))
       );
       throw error;
     }

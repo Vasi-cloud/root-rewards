@@ -12,6 +12,7 @@ import { sendTransactionalEmail } from "@/lib/email/send";
 import {
   abandonedCartEmailHtml,
   causeGiftEmailHtml,
+  hireRequestDecisionEmailHtml,
   membershipSuccessEmailHtml,
   orderConfirmationEmailHtml,
   welcomeEmailHtml,
@@ -178,5 +179,27 @@ export async function sendAbandonedCartEmail(opts: {
     html: content.html,
     text: content.text,
     kind: "abandoned_cart",
+  });
+}
+
+/** Seller Confirm / Decline — same Resend path as cause emails. */
+export async function sendHireRequestDecisionEmail(opts: {
+  to: string;
+  listingTitle: string;
+  dates: string;
+  decision: "Confirmed" | "Declined";
+}): Promise<EmailSendResult> {
+  const content = hireRequestDecisionEmailHtml({
+    listingTitle: opts.listingTitle,
+    dates: opts.dates,
+    decision: opts.decision,
+  });
+  return sendTransactionalEmail({
+    to: opts.to,
+    subject: content.subject,
+    html: content.html,
+    text: content.text,
+    kind:
+      opts.decision === "Confirmed" ? "hire_confirmed" : "hire_declined",
   });
 }
