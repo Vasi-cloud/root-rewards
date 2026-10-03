@@ -30,6 +30,7 @@ export async function POST(request: Request) {
   }
 
   const listingTitle = String(raw.listingTitle ?? "").trim().slice(0, 200);
+  const listingId = String(raw.listingId ?? "").trim().slice(0, 80);
   const dates = String(raw.dates ?? "").trim().slice(0, 200);
   const decision = raw.decision === "Declined" ? "Declined" : raw.decision;
   if (decision !== "Confirmed" && decision !== "Declined") {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   if (!listingTitle || !dates) {
     return NextResponse.json({ error: "Listing and dates are required." }, { status: 400 });
   }
-  if (!isLeaValleyHireListing({ name: listingTitle })) {
+  if (!isLeaValleyHireListing({ id: listingId, name: listingTitle })) {
     return NextResponse.json({ error: "This listing does not take hire mail here." }, { status: 400 });
   }
 
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     dates,
     decision,
     requestId: String(raw.requestId ?? "").trim().slice(0, 80) || undefined,
-    listingId: String(raw.listingId ?? "").trim().slice(0, 80) || undefined,
+    listingId: listingId || undefined,
   });
 
   if (!result.ok) {

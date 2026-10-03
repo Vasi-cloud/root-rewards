@@ -18,6 +18,7 @@ import {
   orderConfirmationEmailHtml,
   welcomeEmailHtml,
 } from "@/lib/email/templates";
+import { createLeaValleyHireCheckoutSession } from "@/lib/stripe/hire-checkout";
 import type { ConfirmedOrder } from "@/lib/stripe/orders";
 
 /** Stripe cause line items use Support:/Impact: names — not physical SKUs. */
@@ -199,10 +200,26 @@ export async function sendHireRequestDecisionEmail(opts: {
           name: opts.listingTitle,
         }) ?? undefined
       : undefined;
-  const payUrl =
-    opts.decision === "Confirmed" && opts.requestId
-      ? `${getAppUrlForEmail()}/hire/pay/${encodeURIComponent(opts.requestId)}`
-      : undefined;
+  let payUrl: string | undefined;
+  if (opts.decision === "Confirmed" && opts.requestId) {
+    try {
+      const session = await Promise.race([
+        createLeaValleyHireCheckoutSession({
+          requestId: opts.requestId,
+          listingId: opts.listingId,
+          listingTitle: opts.listingTitle,
+          email: opts.to,
+          dates: opts.dates,
+        }),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("Checkout session timed out.")), 8000);
+        }),
+      ]);
+      if (session.url) payUrl = session.url;
+    } catch {
+      // Confirm mail still goes out without Pay.
+    }
+  }
   const content = hireRequestDecisionEmailHtml({
     listingTitle: opts.listingTitle,
     dates: opts.dates,
