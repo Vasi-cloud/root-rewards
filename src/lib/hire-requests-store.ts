@@ -70,10 +70,26 @@ export function listHireRequests(): HireRequest[] {
 
 export function saveHireRequest(request: HireRequest): HireRequest {
   const store = getStore();
-  if (store.requests.some((row) => row.id === request.id)) return request;
-  store.requests = [request, ...store.requests].slice(0, 200);
+  const index = store.requests.findIndex((row) => row.id === request.id);
+  if (index >= 0) {
+    store.requests[index] = { ...store.requests[index], ...request };
+  } else {
+    store.requests = [request, ...store.requests].slice(0, 200);
+  }
   saveDisk(store);
-  return request;
+  return store.requests.find((row) => row.id === request.id) ?? request;
+}
+
+export function updateHireRequestStatus(
+  id: string,
+  status: HireRequest["status"]
+): HireRequest | null {
+  const store = getStore();
+  const index = store.requests.findIndex((row) => row.id === id);
+  if (index < 0) return null;
+  store.requests[index] = { ...store.requests[index], status };
+  saveDisk(store);
+  return store.requests[index];
 }
 
 export function isValidLeaValleyHireRequest(

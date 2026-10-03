@@ -5,6 +5,7 @@ import {
   isValidLeaValleyHireRequest,
   listHireRequests,
   saveHireRequest,
+  updateHireRequestStatus,
 } from "@/lib/hire-requests-store";
 import {
   isLeaValleyHireListing,
@@ -83,4 +84,38 @@ export async function POST(request: Request) {
 
   const saved = saveHireRequest(parsed);
   return NextResponse.json({ request: saved }, { headers: noStore });
+}
+
+export async function PATCH(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body." },
+      { status: 400, headers: noStore }
+    );
+  }
+
+  const raw = body as { id?: string; status?: string };
+  const id = typeof raw.id === "string" ? raw.id.trim() : "";
+  const status = raw.status;
+  if (
+    !id ||
+    (status !== "Confirmed" && status !== "Declined" && status !== "Paid")
+  ) {
+    return NextResponse.json(
+      { error: "Could not update this hire request." },
+      { status: 400, headers: noStore }
+    );
+  }
+
+  const updated = updateHireRequestStatus(id, status);
+  if (!updated) {
+    return NextResponse.json(
+      { error: "That hire request was not found." },
+      { status: 404, headers: noStore }
+    );
+  }
+  return NextResponse.json({ request: updated }, { headers: noStore });
 }

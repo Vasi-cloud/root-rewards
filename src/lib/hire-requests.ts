@@ -89,20 +89,53 @@ function parseHireRequest(
   };
 }
 
-/** Same Firestore list /seller reads — this shop only, not a catalogue walk. */
-export async function listLeaValleyHireRequests(): Promise<HireRequest[]> {
-  const col = hireRequestsCollection();
-  if (!col) return [];
-  const snap = await withTimeout(getDocs(col), 5000);
-  const rows: HireRequest[] = [];
-  for (const item of snap.docs) {
-    const parsed = parseHireRequest(
-      item.id,
-      item.data() as Record<string, unknown>
-    );
-    if (parsed) rows.push(parsed);
+async function listHireRequestsFromApi(): Promise<HireRequest[]> {
+  try {
+    const res = await fetch("/api/hire-requests", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { requests?: HireRequest[] };
+    return Array.isArray(data.requests)
+      ? data.requests
+          .map((row) =>
+            parseHireRequest(row.id, row as unknown as Record<string, unknown>)
+          )
+          .filter((row): row is HireRequest => row !== null)
+      : [];
+  } catch {
+    return [];
   }
-  return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+function mergeHireRequests(
+  primary: HireRequest[],
+  extra: HireRequest[]
+): HireRequest[] {
+  const byId = new Map<string, HireRequest>();
+  for (const row of extra) byId.set(row.id, row);
+  for (const row of primary) byId.set(row.id, row);
+  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Same list /seller reads — this shop only, not a catalogue walk. */
+export async function listLeaValleyHireRequests(): Promise<HireRequest[]> {
+  const fromApi = listHireRequestsFromApi();
+  const rows: HireRequest[] = [];
+  const col = hireRequestsCollection();
+  if (col) {
+    try {
+      const snap = await withTimeout(getDocs(col), 5000);
+      for (const item of snap.docs) {
+        const parsed = parseHireRequest(
+          item.id,
+          item.data() as Record<string, unknown>
+        );
+        if (parsed) rows.push(parsed);
+      }
+    } catch {
+      // API copy still shows on /seller
+    }
+  }
+  return mergeHireRequests(rows, await fromApi);
 }
 
 export function unseenHireRequestCount(rows: HireRequest[]): number {
@@ -112,25 +145,49 @@ export function unseenHireRequestCount(rows: HireRequest[]): number {
 export async function getLeaValleyHireRequest(
   id: string
 ): Promise<HireRequest | null> {
+  if (!id) return null;
   const db = getFirebaseFirestore();
-  if (!db || !id) return null;
-  const snap = await withTimeout(
-    getDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id)),
-    5000
-  );
-  if (!snap.exists()) return null;
-  return parseHireRequest(snap.id, snap.data() as Record<string, unknown>);
+  if (db) {
+    try {
+      const snap = await withTimeout(
+        getDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id)),
+        5000
+      );
+      if (snap.exists()) {
+        const parsed = parseHireRequest(
+          snap.id,
+          snap.data() as Record<string, unknown>
+        );
+        if (parsed) return parsed;
+      }
+    } catch {
+      // fall through to the saved request API
+    }
+  }
+  const fromApi = await listHireRequestsFromApi();
+  return fromApi.find((row) => row.id === id) ?? null;
+}
+
+async function patchHireRequestStatus(
+  id: string,
+  status: Extract<HireRequestStatus, "Confirmed" | "Declined" | "Paid">
+): Promise<void> {
+  await fetch("/api/hire-requests", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, status }),
+  }).catch(() => undefined);
 }
 
 export async function markLeaValleyHireRequestPaid(id: string): Promise<void> {
+  if (!id) throw new Error("Could not mark this request paid.");
   const db = getFirebaseFirestore();
-  if (!db || !id) throw new Error("Could not mark this request paid.");
-  await withTimeout(
-    updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), {
+  if (db) {
+    await updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), {
       status: "Paid",
-    }),
-    5000
-  );
+    }).catch(() => undefined);
+  }
+  await patchHireRequestStatus(id, "Paid");
 }
 
 /** Persist Confirm or Decline — this shop only. */
@@ -139,11 +196,12 @@ export async function setLeaValleyHireRequestStatus(
   status: Extract<HireRequestStatus, "Confirmed" | "Declined">
 ): Promise<void> {
   const db = getFirebaseFirestore();
-  if (!db) throw new Error("Could not update this request.");
-  await withTimeout(
-    updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), { status }),
-    5000
-  );
+  if (db) {
+    await updateDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), {
+      status,
+    }).catch(() => undefined);
+  }
+  await patchHireRequestStatus(id, status);
 }
 
 /** Mark opened hire-request rows seen — this shop only. */
@@ -182,12 +240,6 @@ export async function submitLeaValleyHireRequest(input: {
     throw new Error("This listing does not take hire requests here.");
   }
 
-  const db = getFirebaseFirestore();
-  const col = hireRequestsCollection();
-  if (!db || !col) {
-    throw new Error("Could not send this request.");
-  }
-
   const payload: HireRequest = {
     id: `hr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     listingId: input.listingId.slice(0, 80),
@@ -201,10 +253,23 @@ export async function submitLeaValleyHireRequest(input: {
     status: "new",
   };
 
-  const { id, ...fields } = payload;
-  await withTimeout(
-    setDoc(doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id), fields),
-    5000
-  );
+  const res = await fetch("/api/hire-requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error("Could not send this request.");
+  }
+
+  const db = getFirebaseFirestore();
+  if (db) {
+    const { id, ...fields } = payload;
+    void setDoc(
+      doc(db, "shops", LEA_VALLEY_UID, "hireRequests", id),
+      fields
+    ).catch(() => undefined);
+  }
+
   return payload;
 }
