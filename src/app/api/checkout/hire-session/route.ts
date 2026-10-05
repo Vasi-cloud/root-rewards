@@ -46,6 +46,7 @@ export async function POST(request: Request) {
   const raw = body as {
     requestId?: string;
     causes?: Record<string, unknown>;
+    cardDeposit?: unknown;
   };
   const requestId = String(raw.requestId ?? "").trim();
   const row = await getHireRequestForPay(requestId);
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
       email: row.email,
       dates: row.dates,
       causes,
+      cardDeposit: raw.cardDeposit === true,
     });
     return NextResponse.json({
       url: session.url,

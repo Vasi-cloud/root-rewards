@@ -29,7 +29,10 @@ import { recordEcoPurchase, saveLastDonation } from "@/lib/impact-storage";
 import {
   markLeaValleyHireRequestPaid,
 } from "@/lib/hire-requests";
-import { LEA_VALLEY_HIRE_PICKUP_LINES } from "@/lib/lea-valley-guest";
+import {
+  LEA_VALLEY_HIRE_CARD_DEPOSIT_RECEIPT,
+  LEA_VALLEY_HIRE_PICKUP_LINES,
+} from "@/lib/lea-valley-guest";
 import {
   confirmPaidOrder,
   type ConfirmedOrderClient,
@@ -247,6 +250,14 @@ function CheckoutSuccessInner() {
   const impactLines = giftLines(gifts);
   const total = (order.amountTotalCents / 100).toFixed(2);
   const hirePaid = Boolean(order.hireRequestId);
+  const cardDepositPaid = order.lineItems.some(
+    (item) => item.name.trim().toLowerCase() === "deposit"
+  );
+  const pickupLines = LEA_VALLEY_HIRE_PICKUP_LINES.map((line) =>
+    cardDepositPaid && line.startsWith("£50 deposit")
+      ? LEA_VALLEY_HIRE_CARD_DEPOSIT_RECEIPT
+      : line
+  );
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12 sm:py-16">
@@ -326,7 +337,7 @@ function CheckoutSuccessInner() {
             ))}
             {hirePaid ? (
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                {LEA_VALLEY_HIRE_PICKUP_LINES.map((line) => (
+                {pickupLines.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>
@@ -336,7 +347,7 @@ function CheckoutSuccessInner() {
 
         {hirePaid && order.lineItems.length === 0 ? (
           <ul className="list-disc space-y-1 border-t pt-3 pl-5 text-sm text-muted-foreground">
-            {LEA_VALLEY_HIRE_PICKUP_LINES.map((line) => (
+            {pickupLines.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>

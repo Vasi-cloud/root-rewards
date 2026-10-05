@@ -3,6 +3,8 @@ import "server-only";
 import { getCause } from "@/lib/causes";
 import {
   isLeaValleyHireListing,
+  LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS,
+  LEA_VALLEY_HIRE_CARD_DEPOSIT_RECEIPT,
   leaValleyHirePricePounds,
   leaValleyHireTitle,
 } from "@/lib/lea-valley-guest";
@@ -16,6 +18,7 @@ export async function createLeaValleyHireCheckoutSession(opts: {
   email: string;
   dates: string;
   causes?: { causeId: string; pounds: number }[];
+  cardDeposit?: boolean;
 }): Promise<{ url: string; sessionId: string }> {
   if (getStripeKeyMode() !== "test") {
     throw new Error("Hire payment stays on Stripe Test.");
@@ -60,10 +63,15 @@ export async function createLeaValleyHireCheckoutSession(opts: {
     Math.round(causeLines.reduce((sum, line) => sum + line.pounds, 0) * 100) /
     100;
 
+  const cardDepositPounds = opts.cardDeposit
+    ? LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS
+    : 0;
+
   const stripe = getStripe();
   const appUrl = getAppUrl();
   const dates = opts.dates.trim().slice(0, 200);
-  const paidTotal = Math.round((pounds + causePounds) * 100) / 100;
+  const paidTotal =
+    Math.round((pounds + causePounds + cardDepositPounds) * 100) / 100;
 
   const lineItems: {
     quantity: number;
@@ -112,6 +120,23 @@ export async function createLeaValleyHireCheckoutSession(opts: {
       },
     });
   }
+  if (cardDepositPounds > 0) {
+    lineItems.push({
+      quantity: 1,
+      price_data: {
+        currency: STRIPE_CHECKOUT_CURRENCY,
+        unit_amount: Math.round(cardDepositPounds * 100),
+        product_data: {
+          name: "Deposit",
+          description: LEA_VALLEY_HIRE_CARD_DEPOSIT_RECEIPT,
+          metadata: {
+            hireRequestId: requestId,
+            kind: "deposit",
+          },
+        },
+      },
+    });
+  }
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
@@ -131,6 +156,7 @@ export async function createLeaValleyHireCheckoutSession(opts: {
       hasHire: "1",
       sellerSharePounds: String(pounds),
       partnerPotPounds: String(causePounds),
+      cardDepositPounds: String(cardDepositPounds),
       paidTotalPounds: String(paidTotal),
       currency: STRIPE_CHECKOUT_CURRENCY,
     },

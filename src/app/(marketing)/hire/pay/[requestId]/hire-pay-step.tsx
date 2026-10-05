@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CAUSES, type CauseId } from "@/lib/causes";
+import { LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS } from "@/lib/lea-valley-guest";
 import { cn } from "@/lib/utils";
 
 const EMPTY_AMOUNTS: Record<CauseId, string> = {
@@ -38,13 +39,16 @@ export function HirePayStep({
   pricePounds: number;
 }) {
   const [amounts, setAmounts] = useState(EMPTY_AMOUNTS);
+  const [cardDeposit, setCardDeposit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const causeTotal = CAUSES.reduce(
     (sum, cause) => sum + typedPounds(amounts[cause.id]),
     0
   );
-  const total = Math.round((pricePounds + causeTotal) * 100) / 100;
+  const depositPounds = cardDeposit ? LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS : 0;
+  const total =
+    Math.round((pricePounds + causeTotal + depositPounds) * 100) / 100;
 
   async function continueToStripe(event: React.FormEvent) {
     event.preventDefault();
@@ -57,6 +61,7 @@ export function HirePayStep({
         body: JSON.stringify({
           requestId,
           causes: amounts,
+          cardDeposit,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -124,8 +129,19 @@ export function HirePayStep({
         Total £{formatPounds(total)}
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
-        £50 deposit is cash at the lock on pickup, not charged here.
+        {cardDeposit
+          ? "£50 deposit is on this card payment. Refunded if the bike comes back as issued."
+          : "£50 deposit is cash at the lock on pickup, not charged here."}
       </p>
+      <label className="mt-3 flex items-start gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={cardDeposit}
+          onChange={(event) => setCardDeposit(event.target.checked)}
+        />
+        Pay the £50 deposit on the card
+      </label>
       {error ? (
         <p className="mt-4 text-sm text-destructive">{error}</p>
       ) : null}

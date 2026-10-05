@@ -102,9 +102,13 @@ export async function fulfillCheckoutSession(
       ? Math.round(session.amount_total) / 100
       : parseHirePounds(meta.paidTotalPounds);
   const hireSellerShare = parseHirePounds(meta.sellerSharePounds);
+  const cardDeposit = parseHirePounds(meta.cardDepositPounds) ?? 0;
   const hirePartnerPot =
     hirePaidTotal != null && hireSellerShare != null
-      ? Math.max(0, Math.round((hirePaidTotal - hireSellerShare) * 100) / 100)
+      ? Math.max(
+          0,
+          Math.round((hirePaidTotal - hireSellerShare - cardDeposit) * 100) / 100
+        )
       : parseHirePounds(meta.partnerPotPounds);
 
   const order: ConfirmedOrder = {

@@ -4,6 +4,10 @@ export const LEA_VALLEY_SLUG = "lea-valley-cycle-hire";
 export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
 export const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 export const LEA_VALLEY_HIRE_EMAIL = "hire@leavalleycycles.demo";
+/** Card deposit on hire pay. Off unless the shopper ticks it. */
+export const LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS = 50;
+export const LEA_VALLEY_HIRE_CARD_DEPOSIT_RECEIPT =
+  "Refunded if the bike comes back as issued.";
 /** Pickup notes for Confirm email and Paid receipt — not a tree claim. */
 export const LEA_VALLEY_HIRE_PICKUP_LINES = [
   "Collect at the Lea Valley lock at 10:00",
