@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CAUSES, type CauseId } from "@/lib/causes";
+import { cn } from "@/lib/utils";
 
 const EMPTY_AMOUNTS: Record<CauseId, string> = {
   trees: "",
@@ -71,11 +72,14 @@ export function HirePayStep({
       <p className="mt-6 text-sm text-muted-foreground">
         Leave a box blank for £0. Each amount you type is added.
       </p>
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 space-y-3">
         {CAUSES.map((cause) => (
           <label
             key={cause.id}
-            className="block text-sm font-medium text-foreground"
+            className={cn(
+              "block rounded-2xl border px-3.5 py-3.5 text-sm font-medium sm:px-4",
+              cause.accentClass
+            )}
             htmlFor={`hire-cause-${cause.id}`}
           >
             {cause.name}
@@ -92,7 +96,7 @@ export function HirePayStep({
                   [cause.id]: event.target.value,
                 }))
               }
-              className="mt-1"
+              className="mt-1 bg-white/90"
             />
           </label>
         ))}
