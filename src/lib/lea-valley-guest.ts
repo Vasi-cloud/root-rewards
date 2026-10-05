@@ -11,7 +11,7 @@ export const LEA_VALLEY_HIRE_PICKUP_LINES = [
   "Bring ID",
   "Helmet and lock included",
   "Unpaid is not a pickup",
-  "£50 deposit held against damage or loss and returned if the bike comes back as issued",
+  "£50 deposit is collected in cash at the lock, not on the card. Held against damage or loss and returned if the bike comes back as issued",
 ] as const;
 const HIRE_CAP = 5;
 

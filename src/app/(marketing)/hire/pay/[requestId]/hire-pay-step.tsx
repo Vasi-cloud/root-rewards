@@ -95,7 +95,10 @@ export function HirePayStep({
                 name="causeId"
                 value={cause.id}
                 checked={causeId === cause.id}
-                onChange={() => setCauseId(cause.id)}
+                onChange={() => {
+                  setCauseId(cause.id);
+                  setAmount("");
+                }}
               />
               {cause.name}
             </label>
