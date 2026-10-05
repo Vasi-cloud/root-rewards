@@ -15,8 +15,7 @@ export async function createLeaValleyHireCheckoutSession(opts: {
   listingTitle: string;
   email: string;
   dates: string;
-  causeId?: string;
-  causePounds?: number;
+  causes?: { causeId: string; pounds: number }[];
 }): Promise<{ url: string; sessionId: string }> {
   if (getStripeKeyMode() !== "test") {
     throw new Error("Hire payment stays on Stripe Test.");
@@ -42,14 +41,24 @@ export async function createLeaValleyHireCheckoutSession(opts: {
     throw new Error("This listing has no hire price.");
   }
 
-  const causePounds =
-    typeof opts.causePounds === "number" && opts.causePounds > 0
-      ? Math.round(opts.causePounds * 100) / 100
-      : 0;
-  const cause = causePounds > 0 ? getCause(opts.causeId ?? "") : undefined;
-  if (causePounds > 0 && !cause) {
-    throw new Error("Choose a cause for that amount.");
+  const causeLines: { causeId: string; name: string; pounds: number }[] = [];
+  const seen = new Set<string>();
+  for (const item of opts.causes ?? []) {
+    const pounds =
+      typeof item.pounds === "number" && item.pounds > 0
+        ? Math.round(item.pounds * 100) / 100
+        : 0;
+    if (pounds <= 0) continue;
+    const cause = getCause(item.causeId);
+    if (!cause || seen.has(cause.id)) {
+      throw new Error("Choose a cause for that amount.");
+    }
+    seen.add(cause.id);
+    causeLines.push({ causeId: cause.id, name: cause.name, pounds });
   }
+  const causePounds =
+    Math.round(causeLines.reduce((sum, line) => sum + line.pounds, 0) * 100) /
+    100;
 
   const stripe = getStripe();
   const appUrl = getAppUrl();
@@ -86,18 +95,18 @@ export async function createLeaValleyHireCheckoutSession(opts: {
       },
     },
   ];
-  if (cause && causePounds > 0) {
+  for (const line of causeLines) {
     lineItems.push({
       quantity: 1,
       price_data: {
         currency: STRIPE_CHECKOUT_CURRENCY,
-        unit_amount: Math.round(causePounds * 100),
+        unit_amount: Math.round(line.pounds * 100),
         product_data: {
-          name: cause.name,
+          name: line.name,
           description: "Optional amount",
           metadata: {
             hireRequestId: requestId,
-            causeId: cause.id,
+            causeId: line.causeId,
           },
         },
       },

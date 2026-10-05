@@ -45,8 +45,7 @@ export async function POST(request: Request) {
 
   const raw = body as {
     requestId?: string;
-    causeId?: string;
-    causePounds?: unknown;
+    causes?: Record<string, unknown>;
   };
   const requestId = String(raw.requestId ?? "").trim();
   const row = await getHireRequestForPay(requestId);
@@ -69,22 +68,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const parsedPounds = parseOptionalPounds(raw.causePounds);
-  if (typeof parsedPounds !== "number") {
-    return NextResponse.json({ error: parsedPounds.error }, { status: 400 });
-  }
-  const causeId = String(raw.causeId ?? "").trim();
-  if (parsedPounds > 0 && !CAUSE_IDS.has(causeId as CauseId)) {
-    return NextResponse.json(
-      { error: "Choose a cause for that amount." },
-      { status: 400 }
-    );
-  }
-  if (parsedPounds > 0 && !getCause(causeId)) {
-    return NextResponse.json(
-      { error: "Choose a cause for that amount." },
-      { status: 400 }
-    );
+  const causes: { causeId: CauseId; pounds: number }[] = [];
+  const rawCauses =
+    raw.causes && typeof raw.causes === "object" ? raw.causes : {};
+  for (const causeId of CAUSE_IDS) {
+    const parsed = parseOptionalPounds(rawCauses[causeId]);
+    if (typeof parsed !== "number") {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    if (parsed > 0) {
+      if (!getCause(causeId)) {
+        return NextResponse.json(
+          { error: "Choose a cause for that amount." },
+          { status: 400 }
+        );
+      }
+      causes.push({ causeId, pounds: parsed });
+    }
   }
 
   try {
@@ -94,8 +94,7 @@ export async function POST(request: Request) {
       listingTitle: row.listingTitle,
       email: row.email,
       dates: row.dates,
-      causeId: parsedPounds > 0 ? causeId : undefined,
-      causePounds: parsedPounds,
+      causes,
     });
     return NextResponse.json({
       url: session.url,

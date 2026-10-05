@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CAUSES, type CauseId } from "@/lib/causes";
 
+const EMPTY_AMOUNTS: Record<CauseId, string> = {
+  trees: "",
+  ocean: "",
+  animals: "",
+  education: "",
+  climate: "",
+};
+
 export function HirePayStep({
   requestId,
   listingTitle,
@@ -15,8 +23,7 @@ export function HirePayStep({
   listingTitle: string;
   pricePounds: number;
 }) {
-  const [amount, setAmount] = useState("");
-  const [causeId, setCauseId] = useState<CauseId | "">("");
+  const [amounts, setAmounts] = useState(EMPTY_AMOUNTS);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -30,8 +37,7 @@ export function HirePayStep({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestId,
-          causeId,
-          causePounds: amount,
+          causes: amounts,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -62,49 +68,35 @@ export function HirePayStep({
         {listingTitle}
         {pricePounds > 0 ? ` · £${pricePounds}` : ""}
       </p>
-      <p className="mt-6 text-sm font-medium text-foreground">
-        Optional amount
+      <p className="mt-6 text-sm text-muted-foreground">
+        Leave a box blank for £0. Each amount you type is added.
       </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Leave blank for £0. Nothing is added until you type an amount and
-        choose a cause.
-      </p>
-      <label className="mt-3 block text-sm text-muted-foreground" htmlFor="hire-cause-amount">
-        Amount (£)
-        <Input
-          id="hire-cause-amount"
-          name="causePounds"
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder=""
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          className="mt-1"
-        />
-      </label>
-      <fieldset className="mt-6">
-        <legend className="text-sm font-medium text-foreground">Cause</legend>
-        <div className="mt-2 space-y-2">
-          {CAUSES.map((cause) => (
-            <label
-              key={cause.id}
-              className="flex items-center gap-2 text-sm text-foreground"
-            >
-              <input
-                type="radio"
-                name="causeId"
-                value={cause.id}
-                checked={causeId === cause.id}
-                onChange={() => {
-                  setCauseId(cause.id);
-                  setAmount("");
-                }}
-              />
-              {cause.name}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div className="mt-4 space-y-4">
+        {CAUSES.map((cause) => (
+          <label
+            key={cause.id}
+            className="block text-sm font-medium text-foreground"
+            htmlFor={`hire-cause-${cause.id}`}
+          >
+            {cause.name}
+            <Input
+              id={`hire-cause-${cause.id}`}
+              name={cause.id}
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder=""
+              value={amounts[cause.id]}
+              onChange={(event) =>
+                setAmounts((current) => ({
+                  ...current,
+                  [cause.id]: event.target.value,
+                }))
+              }
+              className="mt-1"
+            />
+          </label>
+        ))}
+      </div>
       {error ? (
         <p className="mt-4 text-sm text-destructive">{error}</p>
       ) : null}
