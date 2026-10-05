@@ -212,30 +212,32 @@ export function ProductReviews({
     };
   }, [hideSeeds, user, productId, productName]);
 
+  const hideMockStars = hideSeeds || listingType === "service";
+
   const community = useMemo(
     () =>
-      hideSeeds ? [] : getMockReviews(productId, 2).map(mockToDisplay),
-    [productId, hideSeeds]
+      hideMockStars ? [] : getMockReviews(productId, 2).map(mockToDisplay),
+    [productId, hideMockStars]
   );
 
   const reviews: DisplayReview[] = useMemo(() => {
     const userOnes = stored.map((r) => {
       const d = toDisplay(r);
-      return hideSeeds ? { ...d, verified: false } : d;
+      return hideMockStars ? { ...d, verified: false } : d;
     });
-    if (hideSeeds) return userOnes;
+    if (hideMockStars) return userOnes;
     if (userOnes.length >= 3) return userOnes;
     const communityIds = new Set(userOnes.map((r) => r.title + r.author));
     const extras = community.filter(
       (c) => !communityIds.has(c.title + c.author)
     );
     return [...userOnes, ...extras];
-  }, [stored, community, hideSeeds]);
+  }, [stored, community, hideMockStars]);
 
   const avg =
     stored.length > 0
       ? averageFromReviews(stored.filter((r) => r.status === "approved" || r.status === "pending"))
-      : hideSeeds
+      : hideMockStars
         ? 0
         : averageRating(getMockReviews(productId, 3));
 
@@ -310,7 +312,7 @@ export function ProductReviews({
             {productName ? ` · ${productName}` : ""}
           </p>
         </div>
-        {!(hideSeeds && totalShown === 0) && (
+        {!(hideMockStars && totalShown === 0) && (
           <div className="flex items-center gap-2">
             <Stars rating={Math.round(avg)} />
             <span className="text-sm font-semibold tabular-nums text-primary">
@@ -323,7 +325,7 @@ export function ProductReviews({
         )}
       </div>
 
-      {hideSeeds && reviews.length === 0 ? (
+      {hideMockStars && reviews.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">No reviews yet.</p>
       ) : (
         <ul className="mt-4 space-y-3">

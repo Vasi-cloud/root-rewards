@@ -2,6 +2,7 @@
 
 import { CalendarClock, ExternalLink, Mail } from "lucide-react";
 
+import { ServiceTimeRequestButton } from "@/components/marketplace/service-time-request-form";
 import { Button } from "@/components/ui/button";
 import {
   BOOKING_AVAILABILITY_DISCLAIMER,
@@ -13,6 +14,18 @@ import {
   isValidHttpUrl,
 } from "@/lib/listing-categories";
 import type { Product } from "@/types";
+
+function visibleServiceArea(product: Product): string | null {
+  const area = product.areaServed?.trim() ?? "";
+  if (!area) return null;
+  if (/demo/i.test(area)) return area;
+  const uid = `${product.sellerUid ?? ""} ${product.sellerId ?? ""}`;
+  const usDemoCity =
+    /\b(san diego|portland|austin|seattle|california|oregon)\b/i.test(area) ||
+    /,\s*(CA|OR|TX|WA|NY)\b/.test(area);
+  if (/\bdemo-/.test(uid) && usDemoCity) return null;
+  return area;
+}
 
 export function ServiceRentalMeta({
   product,
@@ -28,7 +41,9 @@ export function ServiceRentalMeta({
   if (!isService && !isRental) return null;
 
   const provider = formatProviderLine(product);
-  const area = product.areaServed?.trim() || product.availabilityNote?.trim();
+  const area = isService
+    ? visibleServiceArea(product)
+    : product.areaServed?.trim() || product.availabilityNote?.trim();
   const period = isService
     ? product.duration?.trim()
     : product.hirePeriod?.trim();
@@ -53,19 +68,25 @@ export function ServiceRentalMeta({
           <p>Deposit · £{product.depositAmount}</p>
         ) : null}
         <p className="font-semibold tabular-nums text-primary">{priceLabel}</p>
-        {safeBookingUrl ? (
-          <a
-            href={safeBookingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-9 items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {isRental ? "Request to rent" : "Request a time"}
-            <ExternalLink className="size-3 opacity-80" />
-          </a>
-        ) : null}
-        <p className="leading-relaxed">{bookingNote}</p>
+        {isService ? (
+          <ServiceTimeRequestButton serviceName={product.name} />
+        ) : (
+          <>
+            {safeBookingUrl ? (
+              <a
+                href={safeBookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-9 items-center gap-1.5 font-medium text-primary underline-offset-2 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Request to rent
+                <ExternalLink className="size-3 opacity-80" />
+              </a>
+            ) : null}
+            <p className="leading-relaxed">{bookingNote}</p>
+          </>
+        )}
       </div>
     );
   }
@@ -130,28 +151,33 @@ export function ServiceRentalBookingBlock({ product }: { product: Product }) {
         </h3>
       </div>
 
-      {safeBookingUrl ? (
-        <Button
-          className="min-h-11 w-full gap-2"
-          nativeButton={false}
-          render={
-            <a
-              href={safeBookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
-          }
-        >
-          {isRental ? "Request to rent" : "Request a time"}
-          <ExternalLink className="size-3.5 opacity-80" />
-        </Button>
-      ) : null}
+      {isService ? (
+        <ServiceTimeRequestButton serviceName={product.name} />
+      ) : (
+        <>
+          {safeBookingUrl ? (
+            <Button
+              className="min-h-11 w-full gap-2"
+              nativeButton={false}
+              render={
+                <a
+                  href={safeBookingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              Request to rent
+              <ExternalLink className="size-3.5 opacity-80" />
+            </Button>
+          ) : null}
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {bookingNote}
+          </p>
+        </>
+      )}
 
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        {bookingNote}
-      </p>
-
-      {contactEmail ? (
+      {!isService && contactEmail ? (
         <a
           href={`mailto:${encodeURIComponent(contactEmail)}?subject=${encodeURIComponent(
             `Book: ${product.name}`

@@ -1247,7 +1247,9 @@ function ListingGrid({
               <ProductRatingBadge
                 productId={product.id}
                 productName={product.name}
-                hideDemoReviews={isLeaValleyHireListing(product)}
+                hideDemoReviews={
+                  isService || isLeaValleyHireListing(product)
+                }
                 className="mt-1"
               />
               <CardDescription className="line-clamp-2">
