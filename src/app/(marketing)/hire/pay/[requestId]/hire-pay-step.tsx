@@ -15,6 +15,19 @@ const EMPTY_AMOUNTS: Record<CauseId, string> = {
   climate: "",
 };
 
+function typedPounds(value: string): number {
+  const text = value.trim();
+  if (!text) return 0;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+function formatPounds(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
+}
+
 export function HirePayStep({
   requestId,
   listingTitle,
@@ -27,6 +40,11 @@ export function HirePayStep({
   const [amounts, setAmounts] = useState(EMPTY_AMOUNTS);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const causeTotal = CAUSES.reduce(
+    (sum, cause) => sum + typedPounds(amounts[cause.id]),
+    0
+  );
+  const total = Math.round((pricePounds + causeTotal) * 100) / 100;
 
   async function continueToStripe(event: React.FormEvent) {
     event.preventDefault();
@@ -65,12 +83,13 @@ export function HirePayStep({
       <h1 className="font-heading text-3xl font-semibold text-primary">
         Pay for this hire
       </h1>
-      <p className="mt-3 text-base text-muted-foreground">
-        {listingTitle}
-        {pricePounds > 0 ? ` · £${pricePounds}` : ""}
+      <p className="mt-3 text-base text-muted-foreground">{listingTitle}</p>
+      <p className="mt-6 text-base font-medium text-foreground">
+        Hire £{formatPounds(pricePounds)}
       </p>
-      <p className="mt-6 text-sm text-muted-foreground">
-        Leave a box blank for £0. Each amount you type is added.
+      <p className="mt-6 text-sm font-medium text-foreground">Optional causes</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Leave a box blank for £0.
       </p>
       <div className="mt-4 space-y-3">
         {CAUSES.map((cause) => (
@@ -101,6 +120,12 @@ export function HirePayStep({
           </label>
         ))}
       </div>
+      <p className="mt-6 text-base font-semibold text-foreground">
+        Total £{formatPounds(total)}
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        £50 deposit is cash at the lock on pickup, not charged here.
+      </p>
       {error ? (
         <p className="mt-4 text-sm text-destructive">{error}</p>
       ) : null}
