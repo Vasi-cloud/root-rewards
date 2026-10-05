@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
+import { HirePayStep } from "@/app/(marketing)/hire/pay/[requestId]/hire-pay-step";
 import { getHireRequestForPay } from "@/lib/hire-pay-lookup";
-import { createLeaValleyHireCheckoutSession } from "@/lib/stripe/hire-checkout";
+import { leaValleyHirePricePounds } from "@/lib/lea-valley-guest";
 import { getStripeKeyMode, isStripeConfigured } from "@/lib/stripe/config";
 
 export const runtime = "nodejs";
@@ -78,26 +78,17 @@ export default async function HirePayPage({
     );
   }
 
-  let checkoutUrl = "";
-  try {
-    const session = await createLeaValleyHireCheckoutSession({
-      requestId: row.id,
-      listingId: row.listingId,
-      listingTitle: row.listingTitle,
-      email: row.email,
-      dates: row.dates,
-    });
-    checkoutUrl = session.url;
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not open Stripe Checkout.";
-    return (
-      <HirePayNotice
-        title="Could not open payment"
-        body={message}
-      />
-    );
-  }
+  const pricePounds =
+    leaValleyHirePricePounds({
+      id: row.listingId,
+      name: row.listingTitle,
+    }) ?? 0;
 
-  redirect(checkoutUrl);
+  return (
+    <HirePayStep
+      requestId={row.id}
+      listingTitle={row.listingTitle}
+      pricePounds={pricePounds}
+    />
+  );
 }

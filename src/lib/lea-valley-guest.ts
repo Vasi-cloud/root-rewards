@@ -5,16 +5,13 @@ export const LEA_VALLEY_SHOP_NAME = "Lea Valley Cycle Hire";
 export const LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 export const LEA_VALLEY_HIRE_EMAIL = "hire@leavalleycycles.demo";
 /** Pickup notes for Confirm email and Paid receipt — not a tree claim. */
-export const LEA_VALLEY_HIRE_TREE_ADDON_DEFAULT_POUNDS = 1;
-export const LEA_VALLEY_HIRE_TREE_ADDON_LABEL =
-  "Add toward a partner tree programme";
 export const LEA_VALLEY_HIRE_PICKUP_LINES = [
-  "Collect at the Lea Valley lock, East London",
-  "Morning of the requested date",
-  "Return the same day",
+  "Collect at the Lea Valley lock at 10:00",
+  "Return by 18:00 the same day",
   "Bring ID",
   "Helmet and lock included",
   "Unpaid is not a pickup",
+  "£50 deposit held against damage or loss and returned if the bike comes back as issued",
 ] as const;
 const HIRE_CAP = 5;
 
