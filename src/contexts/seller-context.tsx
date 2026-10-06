@@ -115,11 +115,19 @@ function publishHireListingTerms(product: {
 function prepareProduct(
   seller: SellerProfile,
   product: Omit<SellerProduct, "id" | "createdAt">,
-  id: string
+  id: string,
+  options?: { keepApprovedHire?: boolean }
 ): SellerProduct {
   const hits = evaluateListing(product);
   const openReports = countOpenReportsForSeller(seller.uid);
   const decision = resolveListingDecision(seller, product, hits, openReports);
+  const isHire = product.listingType === "rental";
+  const status = isHire
+    ? options?.keepApprovedHire
+      ? "approved"
+      : "pending"
+    : decision.status;
+  const autoApproved = isHire ? false : decision.autoApproved;
 
   recordFlagHits({
     hits,
@@ -134,10 +142,10 @@ function prepareProduct(
     ...product,
     subtitle: product.subtitle ?? "",
     tags: product.tags ?? [],
-    status: decision.status,
-    autoApproved: decision.autoApproved,
-    reviewNote: decision.reviewNote,
-    reviewedAt: decision.autoApproved ? new Date().toISOString() : undefined,
+    status,
+    autoApproved,
+    reviewNote: isHire ? undefined : decision.reviewNote,
+    reviewedAt: autoApproved ? new Date().toISOString() : undefined,
     flagHits: hits,
     views: product.views ?? 0,
     sales: product.sales ?? 0,
@@ -433,7 +441,11 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const updateProduct = useCallback(
     (id: string, product: Omit<SellerProduct, "id" | "createdAt">) => {
       if (!seller) return;
-      const prepared = prepareProduct(seller, product, id);
+      const existing = seller.products.find((p) => p.id === id);
+      const prepared = prepareProduct(seller, product, id, {
+        keepApprovedHire:
+          existing?.listingType === "rental" && existing.status === "approved",
+      });
       const nextProduct = {
         ...prepared,
         id,

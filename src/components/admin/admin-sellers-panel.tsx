@@ -103,10 +103,7 @@ function collectLeaValleyListingRows(): {
 } {
   const snapshot = readLeaValleyShopForAdmin();
   return {
-    rows: snapshot.products.map((product) => ({
-      ownerUid: snapshot.uid ?? "",
-      product,
-    })),
+    rows: snapshot.rows,
     error: snapshot.error,
   };
 }
@@ -426,19 +423,29 @@ export function AdminSellersPanel({
     const badge = sellerAccountBadge(selectedShop.status);
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
     const leaDetail = openedLea ? leaListings : null;
+    const ownHireRows = selectedShop.products
+      .slice()
+      .sort((a, b) => {
+        const ap = a.listingType === "rental" && (a.status ?? "pending") === "pending" ? 0 : 1;
+        const bp = b.listingType === "rental" && (b.status ?? "pending") === "pending" ? 0 : 1;
+        return ap - bp;
+      })
+      .slice(0, openedLea ? SHOP_DETAIL_CAP : ADMIN_SELLERS_TABLE_CAP)
+      .map((product) => ({
+        ownerUid: selectedShop.uid,
+        product,
+      }));
+    const leaRows =
+      leaDetail?.rows.filter((row) => row.ownerUid === selectedShop.uid) ?? [];
     const detailRows: LeaListingRow[] = openedLea
-      ? (leaDetail?.rows ??
-        selectedShop.products.slice(0, SHOP_DETAIL_CAP).map((product) => ({
-          ownerUid: selectedShop.uid,
-          product,
-        })))
-      : selectedShop.products
-          .filter(isAdminListingRow)
-          .slice(0, ADMIN_SELLERS_TABLE_CAP)
-          .map((product) => ({
-            ownerUid: selectedShop.uid,
-            product,
-          }));
+      ? leaRows.length > 0
+        ? leaRows
+        : ownHireRows
+      : ownHireRows.filter((row) =>
+          row.product.listingType === "rental"
+            ? true
+            : isAdminListingRow(row.product)
+        );
     const approvedCount = detailRows.filter(
       (row) => row.product.status === "approved"
     ).length;

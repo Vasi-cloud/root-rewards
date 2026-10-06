@@ -62,6 +62,29 @@ function findLeaValleyShop(
   );
 }
 
+function demoteAutoApprovedHires(shop: SellerProfile): {
+  shop: SellerProfile;
+  changed: boolean;
+} {
+  let changed = false;
+  const products = (shop.products ?? []).map((product) => {
+    if (
+      product.listingType === "rental" &&
+      product.autoApproved &&
+      product.status === "approved"
+    ) {
+      changed = true;
+      return {
+        ...product,
+        status: "pending" as const,
+        autoApproved: false,
+      };
+    }
+    return product;
+  });
+  return { shop: changed ? { ...shop, products } : shop, changed };
+}
+
 function upsertHubHires(shop: SellerProfile): {
   shop: SellerProfile;
   changed: boolean;
@@ -96,36 +119,98 @@ function upsertHubHires(shop: SellerProfile): {
   return { shop: changed ? { ...shop, products } : shop, changed };
 }
 
+export type LeaValleyAdminRow = {
+  ownerUid: string;
+  product: SellerProduct;
+};
+
+function isPendingHire(product: SellerProduct): boolean {
+  return (
+    product.listingType === "rental" &&
+    (product.status ?? "pending") === "pending"
+  );
+}
+
+/** Pending hires first so a new hire stays inside the 20-row cap. */
+function rowsForShop(shop: SellerProfile): LeaValleyAdminRow[] {
+  const pending: LeaValleyAdminRow[] = [];
+  const rest: LeaValleyAdminRow[] = [];
+  for (const product of shop.products ?? []) {
+    const row = { ownerUid: shop.uid, product };
+    if (isPendingHire(product)) pending.push(row);
+    else rest.push(row);
+  }
+  return [...pending, ...rest].slice(0, 20);
+}
+
 export function readLeaValleyShopForAdmin(): {
   uid: string | null;
   pendingHires: number;
   products: SellerProduct[];
+  rows: LeaValleyAdminRow[];
   error: string | null;
 } {
   try {
     const all = loadAllSellers();
+    const matches = Object.values(all).filter((shop) =>
+      isLeaValleyCycleHireName(shop)
+    );
     const found = findLeaValleyShop(all);
-    if (!found) {
-      return { uid: null, pendingHires: 0, products: [], error: null };
+    if (!found && matches.length === 0) {
+      return {
+        uid: null,
+        pendingHires: 0,
+        products: [],
+        rows: [],
+        error: null,
+      };
     }
-    const { shop, changed } = upsertHubHires(found);
-    if (changed) {
-      all[shop.uid] = shop;
-      saveAllSellers(all);
+
+    const primary = found ?? matches[0];
+    let changed = false;
+    for (const shop of matches.length > 0 ? matches : [primary]) {
+      const demoted = demoteAutoApprovedHires(shop);
+      const next =
+        demoted.shop.uid === primary.uid
+          ? upsertHubHires(demoted.shop)
+          : { shop: demoted.shop, changed: false };
+      if (demoted.changed || next.changed) {
+        all[next.shop.uid] = next.shop;
+        changed = true;
+      }
     }
-    const products = (shop.products ?? []).slice(0, 20);
-    const pendingHires = products.filter(
-      (product) =>
-        product.listingType === "rental" &&
-        (product.status ?? "pending") === "pending"
-    ).length;
-    return { uid: shop.uid, pendingHires, products, error: null };
+    if (changed) saveAllSellers(all);
+
+    const shops = Object.values(all).filter((shop) =>
+      isLeaValleyCycleHireName(shop)
+    );
+    const rows = shops.flatMap((shop) => rowsForShop(shop));
+    const pendingRows = rows.filter((row) => isPendingHire(row.product));
+    const hubNames = new Set(HUB_HIRES.map((hire) => hireNameKey(hire.name)));
+    const namedHire = pendingRows.find(
+      (row) => hireNameKey(row.product.name) === "test hire terms"
+    );
+    const sellerAdded = pendingRows.find(
+      (row) => !hubNames.has(hireNameKey(row.product.name))
+    );
+    const uid = namedHire?.ownerUid ?? sellerAdded?.ownerUid ?? primary.uid;
+    const products = rows
+      .filter((row) => row.ownerUid === uid)
+      .map((row) => row.product);
+    return {
+      uid,
+      pendingHires: pendingRows.length,
+      products,
+      rows,
+      error: null,
+    };
   } catch (err) {
     console.warn("[admin] Lea Valley shop read failed", err);
     return {
       uid: null,
       pendingHires: 0,
       products: [],
+      rows: [],
       error: "Could not load Lea Valley Cycle Hire.",
     };
   }
