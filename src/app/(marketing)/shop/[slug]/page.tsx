@@ -21,6 +21,7 @@ import {
   applyLeaValleyGuestShop,
   isLeaValleyHireListing,
   isLeaValleyShopSlug,
+  publicLeaValleyShopProducts,
 } from "@/lib/lea-valley-guest";
 import {
   ensureDemoShops,
@@ -107,10 +108,13 @@ export default function SellerShopPage() {
     }
   }, [slug]);
 
-  const approved = useMemo(
-    () => (shop?.products ?? []).filter((p) => p.status === "approved"),
-    [shop]
-  );
+  const approved = useMemo(() => {
+    const products = shop?.products ?? [];
+    if (!isLeaValleyShopSlug(slug) && !isLeaValleyShopSlug(shop?.slug)) {
+      return products.filter((p) => p.status === "approved");
+    }
+    return publicLeaValleyShopProducts(products);
+  }, [shop, slug]);
 
   function addProduct(product: SellerProduct) {
     if (!shop) return;
