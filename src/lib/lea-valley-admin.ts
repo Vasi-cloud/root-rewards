@@ -1,33 +1,8 @@
+import { isLeaValleyLiveBike } from "@/lib/lea-valley-guest";
 import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
 import type { SellerProduct, SellerProfile } from "@/types";
 
 export const LEA_VALLEY_SHOP_NAME = "lea valley cycle hire";
-
-const HUB_HIRES: {
-  id: string;
-  name: string;
-  price: number;
-  hirePeriod: string;
-}[] = [
-  {
-    id: "lv-hub-half-day",
-    name: "Hybrid bike half-day hire",
-    price: 18,
-    hirePeriod: "half day",
-  },
-  {
-    id: "lv-hub-full-day",
-    name: "Hybrid bike full-day hire",
-    price: 28,
-    hirePeriod: "full day",
-  },
-  {
-    id: "lv-hub-weekend",
-    name: "Gravel bike weekend hire",
-    price: 45,
-    hirePeriod: "weekend",
-  },
-];
 
 export function isLeaValleyCycleHireName(shop: {
   shopName?: string;
@@ -41,171 +16,83 @@ function hireNameKey(name: string) {
   return name.trim().toLowerCase();
 }
 
-/** Lea Valley shops only — does not read other shops' listings. */
-function findLeaValleyShop(
-  all: Record<string, SellerProfile>
-): SellerProfile | null {
-  const matches: SellerProfile[] = [];
-  for (const shop of Object.values(all)) {
-    if (isLeaValleyCycleHireName(shop)) matches.push(shop);
-  }
-  if (matches.length === 0) return null;
-  const withDemoHires = matches.find((shop) =>
-    (shop.products ?? []).some((product) =>
-      /city bike|e-bike/i.test(product.name)
-    )
-  );
-  return (
-    withDemoHires ??
-    matches.find((shop) => shop.uid === "demo-lea-valley-cycle-hire") ??
-    matches[0]
-  );
-}
-
-function demoteAutoApprovedHires(shop: SellerProfile): {
-  shop: SellerProfile;
-  changed: boolean;
-} {
-  let changed = false;
-  const products = (shop.products ?? []).map((product) => {
-    if (
-      product.listingType === "rental" &&
-      product.autoApproved &&
-      product.status === "approved"
-    ) {
-      changed = true;
-      return {
-        ...product,
-        status: "pending" as const,
-        autoApproved: false,
-      };
-    }
-    return product;
-  });
-  return { shop: changed ? { ...shop, products } : shop, changed };
-}
-
-function upsertHubHires(shop: SellerProfile): {
-  shop: SellerProfile;
-  changed: boolean;
-} {
-  const products = [...(shop.products ?? [])];
-  let changed = false;
-  const now = new Date().toISOString();
-  for (const hire of HUB_HIRES) {
-    const key = hireNameKey(hire.name);
-    if (products.some((product) => hireNameKey(product.name) === key)) continue;
-    const row: SellerProduct = {
-      id: hire.id,
-      listingType: "rental",
-      name: hire.name,
-      subtitle: hire.hirePeriod,
-      description: `${hire.name} from Lea Valley Cycle Hire.`,
-      category: "Cycling",
-      tags: ["hire", "cycling"],
-      price: hire.price,
-      ecoScore: 90,
-      stock: 1,
-      hirePeriod: hire.hirePeriod,
-      priceNote: hire.hirePeriod,
-      status: "pending",
-      views: 0,
-      sales: 0,
-      createdAt: now,
-    };
-    products.push(row);
-    changed = true;
-  }
-  return { shop: changed ? { ...shop, products } : shop, changed };
-}
-
 export type LeaValleyAdminRow = {
+  /** localStorage key for this shop — Approve writes here. */
   ownerUid: string;
   product: SellerProduct;
 };
 
 function isPendingHire(product: SellerProduct): boolean {
-  return (
-    product.listingType === "rental" &&
-    (product.status ?? "pending") === "pending"
-  );
+  if (isLeaValleyLiveBike(product)) return false;
+  if ((product.status ?? "pending") !== "pending") return false;
+  if (product.listingType === "rental") return true;
+  return hireNameKey(product.name) === "test hire terms";
 }
 
-/** Pending hires first so a new hire stays inside the 20-row cap. */
-function rowsForShop(shop: SellerProfile): LeaValleyAdminRow[] {
-  const pending: LeaValleyAdminRow[] = [];
-  const rest: LeaValleyAdminRow[] = [];
-  for (const product of shop.products ?? []) {
-    const row = { ownerUid: shop.uid, product };
-    if (isPendingHire(product)) pending.push(row);
-    else rest.push(row);
+type StoredShop = { key: string; shop: SellerProfile };
+
+function leaValleyShops(all: Record<string, SellerProfile>): StoredShop[] {
+  const shops: StoredShop[] = [];
+  for (const [key, shop] of Object.entries(all)) {
+    if (isLeaValleyCycleHireName(shop)) shops.push({ key, shop });
   }
-  return [...pending, ...rest].slice(0, 20);
+  return shops;
 }
 
+/** Read-only. Does not rewrite listings or the five live bikes. */
 export function readLeaValleyShopForAdmin(): {
   uid: string | null;
   pendingHires: number;
   products: SellerProduct[];
   rows: LeaValleyAdminRow[];
+  pendingRows: LeaValleyAdminRow[];
   error: string | null;
 } {
   try {
-    const all = loadAllSellers();
-    const matches = Object.values(all).filter((shop) =>
-      isLeaValleyCycleHireName(shop)
-    );
-    const found = findLeaValleyShop(all);
-    if (!found && matches.length === 0) {
+    const shops = leaValleyShops(loadAllSellers());
+    if (shops.length === 0) {
       return {
         uid: null,
         pendingHires: 0,
         products: [],
         rows: [],
+        pendingRows: [],
         error: null,
       };
     }
 
-    const primary = found ?? matches[0];
-    let changed = false;
-    for (const shop of matches.length > 0 ? matches : [primary]) {
-      const demoted = demoteAutoApprovedHires(shop);
-      const next =
-        demoted.shop.uid === primary.uid
-          ? upsertHubHires(demoted.shop)
-          : { shop: demoted.shop, changed: false };
-      if (demoted.changed || next.changed) {
-        all[next.shop.uid] = next.shop;
-        changed = true;
+    const rows: LeaValleyAdminRow[] = [];
+    const pendingRows: LeaValleyAdminRow[] = [];
+    for (const { key, shop } of shops) {
+      for (const product of shop.products ?? []) {
+        const row = { ownerUid: key, product };
+        rows.push(row);
+        if (isPendingHire(product)) pendingRows.push(row);
       }
     }
-    if (changed) saveAllSellers(all);
 
-    const shops = Object.values(all).filter((shop) =>
-      isLeaValleyCycleHireName(shop)
-    );
-    const rows = shops.flatMap((shop) => rowsForShop(shop));
-    const pendingRows = shops.flatMap((shop) =>
-      (shop.products ?? [])
-        .filter(isPendingHire)
-        .map((product) => ({ ownerUid: shop.uid, product }))
-    );
-    const hubNames = new Set(HUB_HIRES.map((hire) => hireNameKey(hire.name)));
-    const namedHire = pendingRows.find(
+    const named = pendingRows.find(
       (row) => hireNameKey(row.product.name) === "test hire terms"
     );
-    const sellerAdded = pendingRows.find(
-      (row) => !hubNames.has(hireNameKey(row.product.name))
-    );
-    const uid = namedHire?.ownerUid ?? sellerAdded?.ownerUid ?? primary.uid;
+    const withLiveBikes =
+      shops.find((entry) =>
+        (entry.shop.products ?? []).some((product) =>
+          isLeaValleyLiveBike(product)
+        )
+      ) ??
+      shops.find((entry) => entry.shop.uid === "demo-lea-valley-cycle-hire") ??
+      shops[0];
+    const uid = named?.ownerUid ?? pendingRows[0]?.ownerUid ?? withLiveBikes.key;
     const products = rows
       .filter((row) => row.ownerUid === uid)
       .map((row) => row.product);
+
     return {
       uid,
       pendingHires: pendingRows.length,
       products,
       rows,
+      pendingRows,
       error: null,
     };
   } catch (err) {
@@ -215,7 +102,36 @@ export function readLeaValleyShopForAdmin(): {
       pendingHires: 0,
       products: [],
       rows: [],
+      pendingRows: [],
       error: "Could not load Lea Valley Cycle Hire.",
     };
   }
+}
+
+/**
+ * Pending hires stay pending. Clears the trusted-seller flag on those rows
+ * only. Approved bikes, including the five live ones, are left as stored.
+ * Returns true when storage was written.
+ */
+export function turnOffPendingHireAutoApprove(): boolean {
+  const all = loadAllSellers();
+  let changed = false;
+  for (const { key, shop } of leaValleyShops(all)) {
+    let shopChanged = false;
+    const products = (shop.products ?? []).map((product) => {
+      if (!isPendingHire(product) || !product.autoApproved) return product;
+      shopChanged = true;
+      return {
+        ...product,
+        status: "pending" as const,
+        autoApproved: false,
+        reviewedAt: undefined,
+      };
+    });
+    if (!shopChanged) continue;
+    all[key] = { ...shop, products };
+    changed = true;
+  }
+  if (changed) saveAllSellers(all);
+  return changed;
 }

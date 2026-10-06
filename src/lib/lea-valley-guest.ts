@@ -144,6 +144,11 @@ export function leaValleyApprovedHireProducts(): SellerProduct[] {
   return HIRE_ROWS.map(toSellerProduct).slice(0, HIRE_CAP);
 }
 
+/** The five live Lea Valley bikes. Admin must not rewrite these rows. */
+export function isLeaValleyLiveBike(product: { id?: string }): boolean {
+  return HIRE_ROWS.some((row) => row.id === product.id);
+}
+
 /** Public /shop/lea-valley-cycle-hire hires — not a marketplace walk. */
 export function leaValleyPublicShopHasLiveHires(): boolean {
   return leaValleyApprovedHireProducts().some(
