@@ -505,40 +505,38 @@ export function ensureDemoShops() {
       continue;
     }
 
-    const needsRefresh =
+    const byId = new Map((existing?.products ?? []).map((p) => [p.id, p]));
+    const demoCatalogStale =
       !existing ||
       existing.status !== "approved" ||
       !existing.coverImageUrl ||
       (Boolean(demo.impactStory) && !existing.impactStory) ||
-      (existing.products?.length ?? 0) < demo.products.length ||
-      existing.products.some((p, i) => {
-        const d = demo.products[i];
+      demo.products.some((d) => {
+        const p = byId.get(d.id);
+        if (!p) return true;
         if (!p.imageUrl) return true;
-        if (d?.storySnippet && !p.storySnippet) return true;
+        if (d.storySnippet && !p.storySnippet) return true;
+        if (d.sizeChart && !p.sizeChart) return true;
+        if (d.fitGuide && p.fitGuide == null) return true;
+        if (d.dimensions && p.dimensions == null) return true;
+        if (d.careNotes && p.careNotes == null) return true;
+        if (d.listingType && p.listingType !== d.listingType) return true;
+        if (d.duration && p.duration == null) return true;
+        if (d.hirePeriod && p.hirePeriod == null) return true;
+        if (d.priceNote && p.priceNote == null) return true;
         return false;
-      }) ||
-      !existing.products.every((p, i) => {
-        const d = demo.products[i];
-        if (!d) return true;
-        return (
-          (!d.sizeChart || !!p.sizeChart) &&
-          (!d.fitGuide || p.fitGuide != null) &&
-          (!d.dimensions || p.dimensions != null) &&
-          (!d.careNotes || p.careNotes != null) &&
-          (!d.listingType || p.listingType === d.listingType) &&
-          (!d.duration || p.duration != null) &&
-          (!d.hirePeriod || p.hirePeriod != null) &&
-          (!d.priceNote || p.priceNote != null)
-        );
       }) ||
       (demo.sellerType === "individual" &&
         (existing.sellerType !== "individual" ||
           !existing.tradingName ||
           !existing.servicesOffered));
-    // Always refresh demo catalog so storytelling upgrades ship to returning visitors
-    if (needsRefresh) {
+    // Refresh the demo rows only. Seller-added hires stay, so this does not rewrite every visit.
+    if (demoCatalogStale) {
+      const demoIds = new Set(demo.products.map((p) => p.id));
+      const extras = (existing?.products ?? []).filter((p) => !demoIds.has(p.id));
       all[demo.uid] = {
         ...demo,
+        products: [...extras, ...demo.products],
         // Preserve any admin trust overrides if present
         trustOverride: existing?.trustOverride ?? demo.trustOverride,
         hireRequests: existing?.hireRequests,

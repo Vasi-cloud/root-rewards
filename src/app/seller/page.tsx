@@ -60,6 +60,7 @@ import {
 } from "@/lib/listing-categories";
 import { getCause } from "@/lib/causes";
 import {
+  hireRequestOverlapsConfirmed,
   listLeaValleyHireRequests,
   markLeaValleyHireRequestsSeen,
   setLeaValleyHireRequestStatus,
@@ -411,6 +412,12 @@ export default function SellerPage() {
     const row = hireRequests.find((item) => item.id === id);
     const previous = row?.status ?? "new";
     if (!row) throw new Error("That request is gone.");
+    if (
+      status === "Confirmed" &&
+      hireRequestOverlapsConfirmed(row, hireRequests)
+    ) {
+      throw new Error("Overlaps a confirmed hire for that bike.");
+    }
     setHireRequests((rows) =>
       rows.map((item) => (item.id === id ? { ...item, status } : item))
     );

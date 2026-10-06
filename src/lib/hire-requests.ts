@@ -125,7 +125,7 @@ function mergeHireRequests(
   const byId = new Map<string, HireRequest>();
   for (const row of extra) byId.set(row.id, row);
   for (const row of primary) byId.set(row.id, row);
-  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 /** Same list /seller reads — this shop only, not a catalogue walk. */
@@ -152,6 +152,88 @@ export async function listLeaValleyHireRequests(): Promise<HireRequest[]> {
 
 export function unseenHireRequestCount(rows: HireRequest[]): number {
   return rows.filter((row) => !row.seen).length;
+}
+
+const HIRE_MONTHS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+] as const;
+
+function hireUtcDay(year: number, month: number, day: number): number {
+  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
+}
+
+/** Inclusive day range from the dates text, or null when no calendar day is written. */
+function hireDayRange(text: string): [number, number] | null {
+  const yearMatch = text.match(/\b(20\d{2})\b/);
+  const year = yearMatch ? Number(yearMatch[1]) : 2026;
+  const found: number[] = [];
+  const re =
+    /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b|\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text))) {
+    const day = Number(match[1] || match[4]);
+    const monthName = (match[2] || match[3] || "").slice(0, 3).toLowerCase();
+    const month = HIRE_MONTHS.indexOf(monthName as (typeof HIRE_MONTHS)[number]) + 1;
+    if (month > 0 && day >= 1 && day <= 31) {
+      found.push(hireUtcDay(year, month, day));
+    }
+  }
+  if (found.length === 0) return null;
+  found.sort((a, b) => a - b);
+  return [found[0], found[found.length - 1]];
+}
+
+export function hireDatesOverlap(a: string, b: string): boolean {
+  const left = hireDayRange(a);
+  const right = hireDayRange(b);
+  if (left && right) return left[0] <= right[1] && right[0] <= left[1];
+  const na = a.trim().toLowerCase().replace(/\s+/g, " ");
+  const nb = b.trim().toLowerCase().replace(/\s+/g, " ");
+  return Boolean(na) && na === nb;
+}
+
+function sameHireBike(a: HireRequest, b: HireRequest): boolean {
+  if (a.listingId && b.listingId) return a.listingId === b.listingId;
+  return (
+    a.listingTitle.trim().toLowerCase() === b.listingTitle.trim().toLowerCase()
+  );
+}
+
+/** A new request for a bike that already has a confirmed hire on those dates. */
+export function hireRequestOverlapsConfirmed(
+  row: HireRequest,
+  rows: HireRequest[]
+): boolean {
+  if (row.status !== "new") return false;
+  return rows.some((other) => {
+    if (other.id === row.id) return false;
+    if (other.status !== "Confirmed" && other.status !== "Paid") return false;
+    if (!sameHireBike(row, other)) return false;
+    return hireDatesOverlap(row.dates, other.dates);
+  });
+}
+
+export function formatHireRequestReceived(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 export async function getLeaValleyHireRequest(

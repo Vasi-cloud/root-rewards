@@ -78,7 +78,7 @@ function getStore(): HireRequestStore {
 
 export function listHireRequests(): HireRequest[] {
   return [...getStore().requests].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt)
+    a.createdAt.localeCompare(b.createdAt)
   );
 }
 

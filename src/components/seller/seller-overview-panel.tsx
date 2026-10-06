@@ -26,7 +26,12 @@ import {
   topSellerProducts,
 } from "@/lib/seller-analytics";
 import { formatCauseUnits, getCause } from "@/lib/causes";
-import type { HireRequest, HireRequestStatus } from "@/lib/hire-requests";
+import {
+  formatHireRequestReceived,
+  hireRequestOverlapsConfirmed,
+  type HireRequest,
+  type HireRequestStatus,
+} from "@/lib/hire-requests";
 import {
   isLeaValleySeller,
   leaValleyPublicShopHasLiveHires,
@@ -89,6 +94,10 @@ export function SellerOverviewPanel({
       setSavingHireId(null);
     }
   }
+
+  const hireQueue = [...hireRequests].sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt)
+  );
 
   const liveListingDone = leaValley
     ? leaValleyPublicShopHasLiveHires()
@@ -194,7 +203,7 @@ export function SellerOverviewPanel({
             </button>
           </CardHeader>
           <CardContent className="space-y-2">
-            {hireRequestsReady && hireRequests.length === 0 ? (
+            {hireRequestsReady && hireQueue.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No hire requests yet.
               </p>
@@ -208,29 +217,44 @@ export function SellerOverviewPanel({
                 Open hire requests
               </Button>
             ) : (
-              hireRequests.slice(0, 8).map((row) => (
+              hireQueue.map((row) => {
+                const overlaps = hireRequestOverlapsConfirmed(row, hireQueue);
+                const received = formatHireRequestReceived(row.createdAt);
+                return (
                 <div
                   key={row.id}
                   className="rounded-xl border border-border/70 px-3 py-2.5 text-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <p className="font-medium text-primary">{row.listingTitle}</p>
-                    {row.status === "Confirmed" ||
-                    row.status === "Declined" ||
-                    row.status === "Paid" ? (
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                          row.status === "Paid"
-                            ? "bg-emerald-200 text-emerald-900"
-                            : row.status === "Confirmed"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {row.status}
-                      </span>
-                    ) : null}
+                    <span className="flex flex-wrap gap-1">
+                      {overlaps ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-950">
+                          Overlaps
+                        </span>
+                      ) : null}
+                      {row.status === "Confirmed" ||
+                      row.status === "Declined" ||
+                      row.status === "Paid" ? (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            row.status === "Paid"
+                              ? "bg-emerald-200 text-emerald-900"
+                              : row.status === "Confirmed"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      ) : null}
+                    </span>
                   </div>
+                  {received ? (
+                    <p className="mt-0.5 text-muted-foreground">
+                      Received {received}
+                    </p>
+                  ) : null}
                   <p className="mt-0.5 text-muted-foreground">
                     {row.name} · {row.email}
                   </p>
@@ -245,7 +269,7 @@ export function SellerOverviewPanel({
                         : null}
                     </p>
                   ) : null}
-                  {row.status === "new" ? (
+                  {row.status === "new" && !overlaps ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       <Button
                         type="button"
@@ -265,9 +289,22 @@ export function SellerOverviewPanel({
                         Decline
                       </Button>
                     </div>
+                  ) : row.status === "new" && overlaps ? (
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={savingHireId === row.id}
+                        onClick={() => void decideHireRow(row.id, "Declined")}
+                      >
+                        Decline
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
-              ))
+                );
+              })
             )}
             {hireStatusError ? (
               <p className="text-xs text-destructive">{hireStatusError}</p>

@@ -423,35 +423,26 @@ export function AdminSellersPanel({
     const badge = sellerAccountBadge(selectedShop.status);
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
     const leaDetail = openedLea ? leaListings : null;
-    const ownHireRows = selectedShop.products
-      .slice()
+    const detailRows: LeaListingRow[] = [...selectedShop.products]
       .sort((a, b) => {
-        const ap = a.listingType === "rental" && (a.status ?? "pending") === "pending" ? 0 : 1;
-        const bp = b.listingType === "rental" && (b.status ?? "pending") === "pending" ? 0 : 1;
+        const ap =
+          a.listingType === "rental" && (a.status ?? "pending") === "pending"
+            ? 0
+            : 1;
+        const bp =
+          b.listingType === "rental" && (b.status ?? "pending") === "pending"
+            ? 0
+            : 1;
         return ap - bp;
       })
-      .slice(0, openedLea ? SHOP_DETAIL_CAP : ADMIN_SELLERS_TABLE_CAP)
       .map((product) => ({
         ownerUid: selectedShop.uid,
         product,
       }));
-    const leaRows =
-      leaDetail?.rows.filter((row) => row.ownerUid === selectedShop.uid) ?? [];
-    const detailRows: LeaListingRow[] = openedLea
-      ? leaRows.length > 0
-        ? leaRows
-        : ownHireRows
-      : ownHireRows.filter((row) =>
-          row.product.listingType === "rental"
-            ? true
-            : isAdminListingRow(row.product)
-        );
     const approvedCount = detailRows.filter(
       (row) => row.product.status === "approved"
     ).length;
-    const listingTotal = openedLea
-      ? detailRows.length
-      : selectedShop.products.length;
+    const listingTotal = detailRows.length;
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -611,8 +602,8 @@ export function AdminSellersPanel({
             </CardTitle>
             <CardDescription>
               {isLeaValleyApplication(selectedShop)
-                ? "Hire listings stored for this shop (same seller record as Seller Hub). Up to 20 rows."
-                : `Product, hire, and service listings belonging to ${selectedShop.shopName}.`}
+                ? `Hire listings stored for this shop (same seller record as Seller Hub). ${listingTotal} listed.`
+                : `${listingTotal} listing${listingTotal === 1 ? "" : "s"} on ${selectedShop.shopName}.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="divide-y p-0">

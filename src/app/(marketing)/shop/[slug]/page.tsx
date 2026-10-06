@@ -84,7 +84,10 @@ export default function SellerShopPage() {
   useEffect(() => {
     let next: SellerProfile | null = null;
     if (isLeaValleyShopSlug(slug)) {
-      next = applyLeaValleyGuestShop();
+      ensureDemoShops();
+      const stored = getSellerBySlug(slug);
+      next =
+        stored?.status === "approved" ? stored : applyLeaValleyGuestShop();
       setShop(next);
       setOthers([]);
     } else {
