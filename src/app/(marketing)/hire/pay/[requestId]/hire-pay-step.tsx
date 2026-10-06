@@ -40,6 +40,7 @@ export function HirePayStep({
 }) {
   const [amounts, setAmounts] = useState(EMPTY_AMOUNTS);
   const [cardDeposit, setCardDeposit] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const causeTotal = CAUSES.reduce(
@@ -52,6 +53,10 @@ export function HirePayStep({
 
   async function continueToStripe(event: React.FormEvent) {
     event.preventDefault();
+    if (!acceptedTerms) {
+      setError("Accept the terms to continue.");
+      return;
+    }
     setError(null);
     setPending(true);
     try {
@@ -62,6 +67,7 @@ export function HirePayStep({
           requestId,
           causes: amounts,
           cardDeposit,
+          acceptedTerms: true,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -142,10 +148,37 @@ export function HirePayStep({
         />
         Pay the £50 deposit on the card
       </label>
+      <div className="mt-6 rounded-2xl border border-border/70 bg-white/70 px-3.5 py-3.5 text-sm text-foreground">
+        <p className="font-medium">Listing terms</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+          <li>Collect at 10:00 at the Lea Valley lock</li>
+          <li>Return by 18:00</li>
+          <li>Bring ID</li>
+          <li>Helmet and lock included</li>
+          <li>Riding at the rider’s risk</li>
+          <li>
+            £50 deposit is cash at the lock unless you tick the card deposit
+          </li>
+        </ul>
+      </div>
+      <label className="mt-3 flex items-start gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={acceptedTerms}
+          onChange={(event) => setAcceptedTerms(event.target.checked)}
+        />
+        I accept these terms.
+      </label>
       {error ? (
         <p className="mt-4 text-sm text-destructive">{error}</p>
       ) : null}
-      <Button type="submit" size="lg" className="mt-8 min-h-12" disabled={pending}>
+      <Button
+        type="submit"
+        size="lg"
+        className="mt-8 min-h-12"
+        disabled={!acceptedTerms || pending}
+      >
         {pending ? "Opening Stripe…" : "Continue to Stripe"}
       </Button>
     </form>

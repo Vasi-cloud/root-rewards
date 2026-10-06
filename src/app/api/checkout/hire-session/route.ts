@@ -47,6 +47,7 @@ export async function POST(request: Request) {
     requestId?: string;
     causes?: Record<string, unknown>;
     cardDeposit?: unknown;
+    acceptedTerms?: unknown;
   };
   const requestId = String(raw.requestId ?? "").trim();
   const row = await getHireRequestForPay(requestId);
@@ -65,6 +66,12 @@ export async function POST(request: Request) {
   if (row.status !== "Confirmed") {
     return NextResponse.json(
       { error: "The seller has not confirmed this request yet." },
+      { status: 400 }
+    );
+  }
+  if (raw.acceptedTerms !== true) {
+    return NextResponse.json(
+      { error: "Accept the terms to continue." },
       { status: 400 }
     );
   }
