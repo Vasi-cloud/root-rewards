@@ -1,4 +1,8 @@
-import { isLeaValleyLiveBike } from "@/lib/lea-valley-guest";
+import {
+  isLeaValleyHireListing,
+  isLeaValleyLiveBike,
+  isLeaValleySeller,
+} from "@/lib/lea-valley-guest";
 import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
 import type { SellerProduct, SellerProfile } from "@/types";
 
@@ -22,9 +26,21 @@ export type LeaValleyAdminRow = {
   product: SellerProduct;
 };
 
+/** Same badge rule as Seller Hub “Pending review”: not approved and not rejected. */
+function isHubPending(product: SellerProduct): boolean {
+  const status = product.status ?? "pending";
+  return status !== "approved" && status !== "rejected";
+}
+
+function isLeaValleyRecord(shop: SellerProfile): boolean {
+  if (isLeaValleySeller(shop)) return true;
+  const label = `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.slug ?? ""}`.toLowerCase();
+  return label.includes("lea valley");
+}
+
 function isPendingHire(product: SellerProduct): boolean {
-  if (isLeaValleyLiveBike(product)) return false;
-  if ((product.status ?? "pending") !== "pending") return false;
+  if (isLeaValleyLiveBike(product) || isLeaValleyHireListing(product)) return false;
+  if (!isHubPending(product)) return false;
   if (product.listingType === "rental") return true;
   return hireNameKey(product.name) === "test hire terms";
 }
@@ -34,7 +50,7 @@ type StoredShop = { key: string; shop: SellerProfile };
 function leaValleyShops(all: Record<string, SellerProfile>): StoredShop[] {
   const shops: StoredShop[] = [];
   for (const [key, shop] of Object.entries(all)) {
-    if (isLeaValleyCycleHireName(shop)) shops.push({ key, shop });
+    if (isLeaValleyRecord(shop)) shops.push({ key, shop });
   }
   return shops;
 }
@@ -82,7 +98,14 @@ export function readLeaValleyShopForAdmin(): {
       ) ??
       shops.find((entry) => entry.shop.uid === "demo-lea-valley-cycle-hire") ??
       shops[0];
-    const uid = named?.ownerUid ?? pendingRows[0]?.ownerUid ?? withLiveBikes.key;
+    const namedShop = named
+      ? shops.find((entry) => entry.key === named.ownerUid)
+      : undefined;
+    const uid =
+      namedShop?.shop.uid ||
+      named?.ownerUid ||
+      withLiveBikes.shop.uid ||
+      withLiveBikes.key;
     const products = rows
       .filter((row) => row.ownerUid === uid)
       .map((row) => row.product);

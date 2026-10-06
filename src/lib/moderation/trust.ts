@@ -81,7 +81,7 @@ export function resolveListingDecision(
   product: Pick<
     SellerProduct,
     "name" | "subtitle" | "description" | "category" | "tags" | "price" | "ecoScore"
-  >,
+  > & { listingType?: SellerProduct["listingType"] },
   hits: FlagHit[],
   openReportCount = 0
 ): {
@@ -92,6 +92,9 @@ export function resolveListingDecision(
 } {
   const metrics = computeTrustMetrics(seller, openReportCount);
   const tier = deriveTrustTier(metrics, seller.trustOverride ?? null);
+  if (product.listingType === "rental") {
+    return { status: "pending", tier, autoApproved: false };
+  }
   const auto = shouldAutoApprove(tier, hits);
 
   if (auto) {

@@ -24,7 +24,11 @@ import {
 import { useSeller } from "@/contexts/seller-context";
 import { listingTypeLabel } from "@/lib/listing-categories";
 import { TRUST_CONFIG } from "@/lib/moderation";
-import { isLeaValleyLiveBike } from "@/lib/lea-valley-guest";
+import {
+  isLeaValleyHireListing,
+  isLeaValleyLiveBike,
+  isLeaValleySeller,
+} from "@/lib/lea-valley-guest";
 import {
   readLeaValleyShopForAdmin,
   turnOffPendingHireAutoApprove,
@@ -71,13 +75,14 @@ function isDemoLeaValleyShop(shop: {
 }
 
 function isLeaValleyCycleHireShop(shop: {
+  uid?: string;
+  slug?: string;
   shopName?: string;
   tradingName?: string;
 }) {
-  const folded = (value?: string) => value?.trim().toLowerCase() ?? "";
-  return [shop.shopName, shop.tradingName].some((value) =>
-    folded(value).includes("lea valley cycle hire")
-  );
+  if (isLeaValleySeller(shop)) return true;
+  const label = `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.slug ?? ""}`.toLowerCase();
+  return label.includes("lea valley");
 }
 
 function isLeaValleyName(shop: {
@@ -434,57 +439,43 @@ export function AdminSellersPanel({
     const badge = sellerAccountBadge(selectedShop.status);
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
     const leaDetail = openedLea ? leaListings : null;
-    const storagePending = openedLea
-      ? readLeaValleyShopForAdmin().pendingRows
-      : [];
-    const ownProducts = selectedShop.products ?? [];
-    const seen = new Set(ownProducts.map((product) => product.id));
-    const extraPending: LeaListingRow[] = [];
-    const pushPending = (ownerUid: string, product: SellerProduct) => {
-      if (seen.has(product.id) || isLeaValleyLiveBike(product)) return;
-      if ((product.status ?? "pending") !== "pending") return;
-      const namedTest = product.name.trim().toLowerCase() === "test hire terms";
-      if (product.listingType !== "rental" && !namedTest) return;
-      seen.add(product.id);
-      extraPending.push({
-        ownerUid,
-        product: { ...product, status: "pending", autoApproved: false },
+    const hubPending = openedLea ? readLeaValleyShopForAdmin().pendingRows : [];
+    const sellerPending: LeaListingRow[] =
+      seller && isLeaValleyCycleHireShop(seller)
+        ? (seller.products ?? [])
+            .filter(
+              (product) =>
+                !isLeaValleyLiveBike(product) &&
+                !isLeaValleyHireListing(product) &&
+                (product.status ?? "pending") !== "approved" &&
+                (product.status ?? "pending") !== "rejected" &&
+                (product.listingType === "rental" ||
+                  product.name.trim().toLowerCase() === "test hire terms")
+            )
+            .map((product) => ({ ownerUid: seller.uid, product }))
+        : [];
+    const pendingById = new Map<string, LeaListingRow>();
+    for (const row of [...sellerPending, ...hubPending]) {
+      if (isLeaValleyLiveBike(row.product)) continue;
+      pendingById.set(row.product.id, {
+        ownerUid: row.ownerUid,
+        product: {
+          ...row.product,
+          status: "pending",
+          autoApproved: false,
+        },
       });
-    };
-    for (const row of storagePending) pushPending(row.ownerUid, row.product);
-    if (seller && isLeaValleyCycleHireShop(seller)) {
-      for (const product of seller.products ?? []) {
-        pushPending(seller.uid, product);
-      }
     }
-    for (const shop of allSellers) {
-      if (!isLeaValleyCycleHireShop(shop)) continue;
-      for (const product of shop.products ?? []) {
-        pushPending(shop.uid, product);
-      }
-    }
+    const ownProducts = selectedShop.products ?? [];
     const detailRows: LeaListingRow[] = [
-      ...extraPending,
-      ...ownProducts.map((product) => ({
-        ownerUid:
-          storagePending.find((row) => row.product.id === product.id)
-            ?.ownerUid ??
-          leaDetail?.rows.find((row) => row.product.id === product.id)
-            ?.ownerUid ??
-          selectedShop.uid,
-        product:
-          (product.status ?? "pending") === "pending" &&
-          !isLeaValleyLiveBike(product) &&
-          (product.listingType === "rental" ||
-            product.name.trim().toLowerCase() === "test hire terms")
-            ? { ...product, status: "pending" as const, autoApproved: false }
-            : product,
-      })),
-    ].sort((a, b) => {
-      const rank = (product: SellerProduct) =>
-        (product.status ?? "pending") === "pending" ? 0 : 1;
-      return rank(a.product) - rank(b.product);
-    });
+      ...pendingById.values(),
+      ...ownProducts
+        .filter((product) => !pendingById.has(product.id))
+        .map((product) => ({
+          ownerUid: selectedShop.uid,
+          product,
+        })),
+    ];
     const approvedCount = detailRows.filter(
       (row) => row.product.status === "approved"
     ).length;
@@ -693,7 +684,7 @@ export function AdminSellersPanel({
                           <Badge variant="outline">{product.category}</Badge>
                         </div>
                         <p className="mt-0.5 text-sm text-muted-foreground">
-                          £{product.price.toFixed(2)} · {product.stock}{" "}
+                          £{Number(product.price || 0).toFixed(2)} · {product.stock ?? 0}{" "}
                           {product.listingType === "service"
                             ? "slots"
                             : product.listingType === "rental"
