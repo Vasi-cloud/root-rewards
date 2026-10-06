@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { HirePayStep } from "@/app/(marketing)/hire/pay/[requestId]/hire-pay-step";
+import { getHireListingTerms } from "@/lib/hire-listing-terms-store";
 import { getHireRequestForPay } from "@/lib/hire-pay-lookup";
 import { leaValleyHirePricePounds } from "@/lib/lea-valley-guest";
 import { getStripeKeyMode, isStripeConfigured } from "@/lib/stripe/config";
@@ -89,6 +90,7 @@ export default async function HirePayPage({
       requestId={row.id}
       listingTitle={row.listingTitle}
       pricePounds={pricePounds}
+      listingTerms={getHireListingTerms(row.listingId)}
     />
   );
 }

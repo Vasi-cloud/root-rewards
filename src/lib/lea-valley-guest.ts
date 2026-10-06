@@ -8,6 +8,24 @@ export const LEA_VALLEY_HIRE_EMAIL = "hire@leavalleycycles.demo";
 export const LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS = 50;
 export const LEA_VALLEY_HIRE_CARD_DEPOSIT_RECEIPT =
   "Refunded if the bike comes back as issued.";
+/** Shown on Pay when the seller leaves the hire Terms box empty. */
+export const LEA_VALLEY_HIRE_LISTING_TERMS = [
+  "Collect at 10:00 at the Lea Valley lock",
+  "Return by 18:00",
+  "Bring ID",
+  "Helmet and lock included",
+  "Riding at the rider’s risk",
+  "£50 deposit is cash at the lock unless you tick the card deposit",
+] as const;
+
+/** Seller-written hire terms, or the Lea Valley lines when that box is empty. */
+export function hireListingTermLines(custom?: string | null): string[] {
+  const lines = (custom ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length > 0 ? lines : [...LEA_VALLEY_HIRE_LISTING_TERMS];
+}
 /** Pickup notes for Confirm email and Paid receipt — not a tree claim. */
 export const LEA_VALLEY_HIRE_PICKUP_LINES = [
   "Collect at the Lea Valley lock at 10:00",

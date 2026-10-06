@@ -15,6 +15,7 @@ import { ProductPartnerLinks } from "@/components/product/product-partner-links"
 import { ProductReviews } from "@/components/product/product-reviews";
 import { ProductGallery } from "@/components/shop/product-photo";
 import { TrustBadges } from "@/components/trust/trust-badges";
+import { PublicHireTerms } from "@/components/hire/hire-listing-terms";
 import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 import type { Product } from "@/types";
 import { Badge } from "@/components/ui/badge";
@@ -213,6 +214,14 @@ export function ShopProductDetail({
               <p className="rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-950">
                 Rental — partner confirms dates.
               </p>
+            ) : null}
+
+            {isRental ? (
+              <PublicHireTerms
+                listingId={product.id}
+                hireTerms={product.hireTerms}
+                showFallback={isLeaValleyHireListing(product)}
+              />
             ) : null}
 
             {product.impactNote && (

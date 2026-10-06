@@ -424,6 +424,7 @@ function sellerProductToMarketplaceProduct(
     hirePeriod:
       product.hirePeriod?.trim() ||
       (isRental ? product.duration?.trim() : undefined),
+    hireTerms: isRental ? product.hireTerms?.trim() || undefined : undefined,
     priceNote: product.priceNote?.trim() || undefined,
     bookingNote:
       product.bookingNote?.trim() ||

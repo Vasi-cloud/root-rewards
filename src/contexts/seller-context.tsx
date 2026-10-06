@@ -96,6 +96,22 @@ interface SellerContextValue {
 
 const SellerContext = createContext<SellerContextValue | undefined>(undefined);
 
+function publishHireListingTerms(product: {
+  id: string;
+  listingType?: string;
+  hireTerms?: string;
+}) {
+  if (product.listingType !== "rental") return;
+  void fetch("/api/hire-listing-terms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      listingId: product.id,
+      terms: product.hireTerms?.trim() ?? "",
+    }),
+  }).catch(() => {});
+}
+
 function prepareProduct(
   seller: SellerProfile,
   product: Omit<SellerProduct, "id" | "createdAt">,
@@ -383,6 +399,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         ...seller,
         products: [next, ...seller.products],
       });
+      publishHireListingTerms(next);
       void saveSellerFirstPartyListing(seller.uid, next).catch((err) => {
         console.warn("[seller] Marketplace sync failed", err);
       });
@@ -432,6 +449,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
           p.id === id ? nextProduct : p
         ),
       });
+      publishHireListingTerms(nextProduct);
       void saveSellerFirstPartyListing(seller.uid, nextProduct).catch((err) => {
         console.warn("[seller] Marketplace sync failed", err);
       });
@@ -446,6 +464,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         ...seller,
         products: seller.products.filter((p) => p.id !== id),
       });
+      publishHireListingTerms({ id, listingType: "rental", hireTerms: "" });
       void deleteAdminCatalogProduct(id, {}).catch((err) => {
         console.warn("[seller] Marketplace delete sync failed", err);
       });

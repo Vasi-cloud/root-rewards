@@ -128,6 +128,8 @@ export interface SellerProduct {
   duration?: string;
   /** Rental hire window e.g. "per day", "per weekend" */
   hirePeriod?: string;
+  /** Seller-written hire terms. Empty keeps the Lea Valley lines on Pay. */
+  hireTerms?: string;
   /** Price unit note e.g. "per day" — shown with £ amount */
   priceNote?: string;
   /** Booking / hire guidance (no live calendar) */
@@ -336,6 +338,8 @@ export interface Product {
   areaServed?: string;
   /** Rental hire window e.g. "weekend" / "per day" */
   hirePeriod?: string;
+  /** Seller-written hire terms shown on the listing and on Pay. */
+  hireTerms?: string;
   /** Unit label shown after price e.g. "per visit" */
   priceNote?: string;
   /** External booking link (Calendly / Google Calendar) */

@@ -16,6 +16,7 @@ import { TrustBadges } from "@/components/trust/trust-badges";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { isAffiliateProduct } from "@/lib/commerce-type";
+import { PublicHireTerms } from "@/components/hire/hire-listing-terms";
 import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
 import {
   canAddProductToCart,
@@ -192,6 +193,14 @@ export function MarketplaceProductDetail({
 
           {isBookable && !isLeaValleyHire ? (
             <ServiceRentalBookingBlock product={product} />
+          ) : null}
+
+          {isRental ? (
+            <PublicHireTerms
+              listingId={product.id}
+              hireTerms={product.hireTerms}
+              showFallback={isLeaValleyHire}
+            />
           ) : null}
 
           {isRental || !isBookable ? (

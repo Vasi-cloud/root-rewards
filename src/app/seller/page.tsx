@@ -131,6 +131,7 @@ const emptyForm = {
   includeSizeChart: false,
   sizeChartNote: "",
   duration: "",
+  hireTerms: "",
   deliveryMode: "remote" as ServiceDeliveryMode,
   availabilityNote: "",
   imageUrl: "",
@@ -862,6 +863,7 @@ export default function SellerPage() {
       includeSizeChart: Boolean(product.sizeChart?.rows?.length),
       sizeChartNote: product.sizeChart?.note ?? "",
       duration: product.duration ?? product.hirePeriod ?? "",
+      hireTerms: product.hireTerms ?? "",
       deliveryMode: product.deliveryMode ?? "remote",
       availabilityNote: product.availabilityNote ?? "",
       imageUrl: product.imageUrl ?? "",
@@ -932,6 +934,7 @@ export default function SellerPage() {
           : undefined,
       duration: isService ? form.duration.trim() || undefined : undefined,
       hirePeriod: isRental ? form.duration.trim() || undefined : undefined,
+      hireTerms: isRental ? form.hireTerms.trim() || undefined : undefined,
       deliveryMode: isService ? form.deliveryMode : undefined,
       availabilityNote: isService
         ? form.availabilityNote.trim() || undefined
@@ -1611,22 +1614,42 @@ export default function SellerPage() {
                     </>
                   )}
                   {form.listingType === "rental" && (
-                    <div className="sm:col-span-2">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                        Hire period
-                      </label>
-                      <input
-                        value={form.duration}
-                        onChange={(e) =>
-                          setForm((f) => ({
-                            ...f,
-                            duration: e.target.value,
-                          }))
-                        }
-                        placeholder='e.g. "weekend" / "per day" / "Fri–Mon"'
-                        className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
-                      />
-                    </div>
+                    <>
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Hire period
+                        </label>
+                        <input
+                          value={form.duration}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              duration: e.target.value,
+                            }))
+                          }
+                          placeholder='e.g. "weekend" / "per day" / "Fri–Mon"'
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                          Terms
+                        </label>
+                        <textarea
+                          rows={5}
+                          maxLength={4000}
+                          value={form.hireTerms}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              hireTerms: e.target.value,
+                            }))
+                          }
+                          placeholder="Collect, return, and deposit terms for this hire. Leave blank to use the Lea Valley lines."
+                          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm"
+                        />
+                      </div>
+                    </>
                   )}
                   <div className="sm:col-span-2">
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">

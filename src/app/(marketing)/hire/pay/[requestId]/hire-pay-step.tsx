@@ -5,7 +5,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CAUSES, type CauseId } from "@/lib/causes";
-import { LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS } from "@/lib/lea-valley-guest";
+import {
+  hireListingTermLines,
+  LEA_VALLEY_HIRE_CARD_DEPOSIT_POUNDS,
+} from "@/lib/lea-valley-guest";
 import { cn } from "@/lib/utils";
 
 const EMPTY_AMOUNTS: Record<CauseId, string> = {
@@ -29,17 +32,8 @@ function formatPounds(amount: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
 }
 
-const HIRE_PAY_TERMS = [
-  "Collect at 10:00 at the Lea Valley lock",
-  "Return by 18:00",
-  "Bring ID",
-  "Helmet and lock included",
-  "Riding at the rider’s risk",
-  "£50 deposit is cash at the lock unless you tick the card deposit",
-] as const;
-
-function downloadHireTerms() {
-  const text = ["Listing terms", "", ...HIRE_PAY_TERMS].join("\n");
+function downloadHireTerms(lines: readonly string[]) {
+  const text = ["Listing terms", "", ...lines].join("\n");
   const file = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(file);
   const link = document.createElement("a");
@@ -53,11 +47,14 @@ export function HirePayStep({
   requestId,
   listingTitle,
   pricePounds,
+  listingTerms,
 }: {
   requestId: string;
   listingTitle: string;
   pricePounds: number;
+  listingTerms?: string;
 }) {
+  const termsLines = hireListingTermLines(listingTerms);
   const [amounts, setAmounts] = useState(EMPTY_AMOUNTS);
   const [cardDeposit, setCardDeposit] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -174,13 +171,13 @@ export function HirePayStep({
           <button
             type="button"
             className="text-sm font-medium text-primary underline-offset-2 hover:underline"
-            onClick={downloadHireTerms}
+            onClick={() => downloadHireTerms(termsLines)}
           >
             Download terms
           </button>
         </div>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-          {HIRE_PAY_TERMS.map((line) => (
+          {termsLines.map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>
