@@ -21,7 +21,7 @@ import {
   applyLeaValleyGuestShop,
   isLeaValleyHireListing,
   isLeaValleyShopSlug,
-  publicLeaValleyShopProducts,
+  leaValleyApprovedHireProducts,
 } from "@/lib/lea-valley-guest";
 import {
   ensureDemoShops,
@@ -85,21 +85,20 @@ export default function SellerShopPage() {
   useEffect(() => {
     let next: SellerProfile | null = null;
     if (isLeaValleyShopSlug(slug)) {
-      ensureDemoShops();
-      const stored = getSellerBySlug(slug);
-      next =
-        stored?.status === "approved" ? stored : applyLeaValleyGuestShop();
+      next = applyLeaValleyGuestShop();
       setShop(next);
       setOthers([]);
-    } else {
-      ensureDemoShops();
-      next = getSellerBySlug(slug);
-      setShop(next);
-      try {
-        setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
-      } catch {
-        setOthers([]);
-      }
+      setReady(true);
+      setActiveProduct(null);
+      return;
+    }
+    ensureDemoShops();
+    next = getSellerBySlug(slug);
+    setShop(next);
+    try {
+      setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
+    } catch {
+      setOthers([]);
     }
     setReady(true);
     setActiveProduct(null);
@@ -109,11 +108,10 @@ export default function SellerShopPage() {
   }, [slug]);
 
   const approved = useMemo(() => {
-    const products = shop?.products ?? [];
-    if (!isLeaValleyShopSlug(slug) && !isLeaValleyShopSlug(shop?.slug)) {
-      return products.filter((p) => p.status === "approved");
+    if (isLeaValleyShopSlug(slug) || isLeaValleyShopSlug(shop?.slug)) {
+      return leaValleyApprovedHireProducts();
     }
-    return publicLeaValleyShopProducts(products);
+    return (shop?.products ?? []).filter((p) => p.status === "approved");
   }, [shop, slug]);
 
   function addProduct(product: SellerProduct) {

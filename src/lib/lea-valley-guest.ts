@@ -145,41 +145,12 @@ export function leaValleyApprovedHireProducts(): SellerProduct[] {
 }
 
 /**
- * The five public bikes for /shop/lea-valley-cycle-hire.
- * A pending local copy is still shown. Rejected copies stay hidden.
- * Does not read Seller Hub and does not write storage.
+ * The five approved bikes for /shop/lea-valley-cycle-hire.
+ * Ignores Seller Hub rows, including a local copy marked pending.
+ * Does not write storage.
  */
-export function publicLeaValleyShopProducts(
-  stored?: SellerProduct[] | null
-): SellerProduct[] {
-  const guest = leaValleyApprovedHireProducts();
-  const locals = stored ?? [];
-  const used = new Set<string>();
-  const bikes: SellerProduct[] = [];
-
-  for (const bike of guest) {
-    const local =
-      locals.find((product) => product.id === bike.id) ??
-      locals.find(
-        (product) =>
-          !used.has(product.id) &&
-          titleKey(product.name) === titleKey(bike.name)
-      );
-    if (local) used.add(local.id);
-    if (local?.status === "rejected") continue;
-    const row = local ?? bike;
-    bikes.push(
-      row.status === "approved" ? row : { ...row, status: "approved" }
-    );
-  }
-
-  const extras = locals.filter(
-    (product) =>
-      product.status === "approved" &&
-      !used.has(product.id) &&
-      !isLeaValleyLiveBike(product)
-  );
-  return [...bikes, ...extras];
+export function publicLeaValleyShopProducts(): SellerProduct[] {
+  return leaValleyApprovedHireProducts();
 }
 
 /** The five live Lea Valley bikes. Admin must not rewrite these rows. */
