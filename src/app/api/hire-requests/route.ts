@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import type { HireRequest } from "@/lib/hire-requests";
+import {
+  hireRequestOverlapsConfirmed,
+  type HireRequest,
+} from "@/lib/hire-requests";
 import {
   isValidLeaValleyHireRequest,
   listHireRequests,
@@ -114,6 +117,20 @@ export async function PATCH(request: Request) {
       { error: "Could not update this hire request." },
       { status: 400, headers: noStore }
     );
+  }
+
+  if (status === "Confirmed") {
+    const existing = listHireRequests();
+    const current = existing.find((row) => row.id === id);
+    if (
+      current &&
+      hireRequestOverlapsConfirmed({ ...current, status: "new" }, existing)
+    ) {
+      return NextResponse.json(
+        { error: "Overlaps a confirmed hire for that bike." },
+        { status: 409, headers: noStore }
+      );
+    }
   }
 
   const money = (value: unknown) => {

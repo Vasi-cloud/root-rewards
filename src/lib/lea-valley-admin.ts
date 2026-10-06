@@ -185,7 +185,11 @@ export function readLeaValleyShopForAdmin(): {
       isLeaValleyCycleHireName(shop)
     );
     const rows = shops.flatMap((shop) => rowsForShop(shop));
-    const pendingRows = rows.filter((row) => isPendingHire(row.product));
+    const pendingRows = shops.flatMap((shop) =>
+      (shop.products ?? [])
+        .filter(isPendingHire)
+        .map((product) => ({ ownerUid: shop.uid, product }))
+    );
     const hubNames = new Set(HUB_HIRES.map((hire) => hireNameKey(hire.name)));
     const namedHire = pendingRows.find(
       (row) => hireNameKey(row.product.name) === "test hire terms"

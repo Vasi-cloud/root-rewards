@@ -402,7 +402,17 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const addProduct = useCallback(
     (product: Omit<SellerProduct, "id" | "createdAt">) => {
       if (!seller || seller.status !== "approved") return;
-      const next = prepareProduct(seller, product, `sp-${Date.now()}`);
+      const prepared = prepareProduct(seller, product, `sp-${Date.now()}`);
+      const next =
+        prepared.listingType === "rental"
+          ? {
+              ...prepared,
+              listingType: "rental" as const,
+              status: "pending" as const,
+              autoApproved: false,
+              reviewedAt: undefined,
+            }
+          : prepared;
       persistCurrent({
         ...seller,
         products: [next, ...seller.products],

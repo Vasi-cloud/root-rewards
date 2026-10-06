@@ -194,20 +194,45 @@ function hireDayRange(text: string): [number, number] | null {
   return [found[0], found[found.length - 1]];
 }
 
+function hireDateKey(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[—–]/g, " ")
+    .replace(
+      /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\b/g,
+      " "
+    )
+    .replace(/\b(full day|half day|weekend|the|of)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function hireDatesOverlap(a: string, b: string): boolean {
   const left = hireDayRange(a);
   const right = hireDayRange(b);
-  if (left && right) return left[0] <= right[1] && right[0] <= left[1];
-  const na = a.trim().toLowerCase().replace(/\s+/g, " ");
-  const nb = b.trim().toLowerCase().replace(/\s+/g, " ");
+  if (left && right) {
+    const shareDay = left[0] <= right[1] && right[0] <= left[1];
+    if (shareDay) return true;
+  }
+  const na = hireDateKey(a);
+  const nb = hireDateKey(b);
   return Boolean(na) && na === nb;
 }
 
+function hireTitleKey(title: string): string {
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/[—–-]/g, " ")
+    .replace(/\s+/g, " ");
+}
+
 function sameHireBike(a: HireRequest, b: HireRequest): boolean {
-  if (a.listingId && b.listingId) return a.listingId === b.listingId;
-  return (
-    a.listingTitle.trim().toLowerCase() === b.listingTitle.trim().toLowerCase()
-  );
+  const titleA = hireTitleKey(a.listingTitle);
+  const titleB = hireTitleKey(b.listingTitle);
+  if (titleA && titleA === titleB) return true;
+  return Boolean(a.listingId && b.listingId && a.listingId === b.listingId);
 }
 
 /** A new request for a bike that already has a confirmed hire on those dates. */

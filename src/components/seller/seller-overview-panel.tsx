@@ -207,15 +207,6 @@ export function SellerOverviewPanel({
               <p className="text-sm text-muted-foreground">
                 No hire requests yet.
               </p>
-            ) : !hireCardOpen && hireNewCount > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onOpenHireRequests}
-              >
-                Open hire requests
-              </Button>
             ) : (
               hireQueue.map((row) => {
                 const overlaps = hireRequestOverlapsConfirmed(row, hireQueue);

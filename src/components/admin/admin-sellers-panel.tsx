@@ -423,7 +423,18 @@ export function AdminSellersPanel({
     const badge = sellerAccountBadge(selectedShop.status);
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
     const leaDetail = openedLea ? leaListings : null;
-    const detailRows: LeaListingRow[] = [...selectedShop.products]
+    const queued = (product: SellerProduct): SellerProduct =>
+      product.listingType === "rental" &&
+      product.autoApproved &&
+      product.status === "approved"
+        ? { ...product, status: "pending", autoApproved: false }
+        : product;
+    const ownProducts = selectedShop.products.map(queued);
+    const storedPending = (leaDetail?.rows ?? [])
+      .filter((row) => row.ownerUid === selectedShop.uid)
+      .map((row) => queued(row.product))
+      .filter((product) => !ownProducts.some((item) => item.id === product.id));
+    const detailRows: LeaListingRow[] = [...ownProducts, ...storedPending]
       .sort((a, b) => {
         const ap =
           a.listingType === "rental" && (a.status ?? "pending") === "pending"
