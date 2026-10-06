@@ -29,6 +29,26 @@ function formatPounds(amount: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
 }
 
+const HIRE_PAY_TERMS = [
+  "Collect at 10:00 at the Lea Valley lock",
+  "Return by 18:00",
+  "Bring ID",
+  "Helmet and lock included",
+  "Riding at the rider’s risk",
+  "£50 deposit is cash at the lock unless you tick the card deposit",
+] as const;
+
+function downloadHireTerms() {
+  const text = ["Listing terms", "", ...HIRE_PAY_TERMS].join("\n");
+  const file = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "lea-valley-hire-terms.txt";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function HirePayStep({
   requestId,
   listingTitle,
@@ -149,16 +169,20 @@ export function HirePayStep({
         Pay the £50 deposit on the card
       </label>
       <div className="mt-6 rounded-2xl border border-border/70 bg-white/70 px-3.5 py-3.5 text-sm text-foreground">
-        <p className="font-medium">Listing terms</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="font-medium">Listing terms</p>
+          <button
+            type="button"
+            className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+            onClick={downloadHireTerms}
+          >
+            Download terms
+          </button>
+        </div>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-          <li>Collect at 10:00 at the Lea Valley lock</li>
-          <li>Return by 18:00</li>
-          <li>Bring ID</li>
-          <li>Helmet and lock included</li>
-          <li>Riding at the rider’s risk</li>
-          <li>
-            £50 deposit is cash at the lock unless you tick the card deposit
-          </li>
+          {HIRE_PAY_TERMS.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
         </ul>
       </div>
       <label className="mt-3 flex items-start gap-2 text-sm text-foreground">
