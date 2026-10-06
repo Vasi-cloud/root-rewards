@@ -12,9 +12,15 @@ export const SERVICE_TIME_REQUEST_CONFIRMATION =
   "Request sent — the seller confirms. This is not a booking.";
 
 export function ServiceTimeRequestButton({
-  serviceName,
+  serviceTitle,
+  listingId,
+  shopUid,
+  shopName,
 }: {
-  serviceName: string;
+  serviceTitle: string;
+  listingId: string;
+  shopUid: string;
+  shopName: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -32,7 +38,10 @@ export function ServiceTimeRequestButton({
       </button>
       {open ? (
         <ServiceTimeRequestForm
-          serviceName={serviceName}
+          serviceTitle={serviceTitle}
+          listingId={listingId}
+          shopUid={shopUid}
+          shopName={shopName}
           onClose={() => setOpen(false)}
         />
       ) : null}
@@ -40,11 +49,17 @@ export function ServiceTimeRequestButton({
   );
 }
 
-function ServiceTimeRequestForm({
-  serviceName,
+export function ServiceTimeRequestForm({
+  serviceTitle,
+  listingId,
+  shopUid,
+  shopName,
   onClose,
 }: {
-  serviceName: string;
+  serviceTitle: string;
+  listingId: string;
+  shopUid: string;
+  shopName: string;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -52,6 +67,7 @@ function ServiceTimeRequestForm({
   const [preferredTime, setPreferredTime] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -66,7 +82,7 @@ function ServiceTimeRequestForm({
     };
   }, [onClose]);
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     const emailResult = validateEmail(email);
@@ -78,7 +94,33 @@ function ServiceTimeRequestForm({
       );
       return;
     }
-    setSent(true);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/service-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingId,
+          serviceTitle,
+          name,
+          email: emailResult.value,
+          preferredTime,
+          shopUid,
+          shopName,
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Could not send this request.");
+      }
+      setSent(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not send this request."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -113,7 +155,7 @@ function ServiceTimeRequestForm({
             {SERVICE_TIME_REQUEST_CONFIRMATION}
           </p>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
             <div>
               <Label htmlFor="service-time-name">Name</Label>
               <Input
@@ -139,7 +181,7 @@ function ServiceTimeRequestForm({
               <Label htmlFor="service-time-service">Service</Label>
               <Input
                 id="service-time-service"
-                value={serviceName}
+                value={serviceTitle}
                 readOnly
                 className="mt-1 bg-muted/40"
               />
@@ -157,8 +199,8 @@ function ServiceTimeRequestForm({
             {error ? (
               <p className="text-sm text-destructive">{error}</p>
             ) : null}
-            <Button type="submit" className="min-h-11 w-full">
-              Send request
+            <Button type="submit" className="min-h-11 w-full" disabled={submitting}>
+              {submitting ? "Sending…" : "Send"}
             </Button>
           </form>
         )}

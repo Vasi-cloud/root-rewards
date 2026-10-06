@@ -10,6 +10,7 @@ import { ShopHero } from "@/components/shop/shop-hero";
 import { ShopProductCard } from "@/components/shop/shop-product-card";
 import { ShopProductDetail } from "@/components/shop/shop-product-detail";
 import { LeaValleyHireRequestForm } from "@/components/marketplace/lea-valley-hire-request-form";
+import { ServiceTimeRequestForm } from "@/components/marketplace/service-time-request-form";
 import { ShopStoryAndImpact } from "@/components/shop/shop-story";
 import { ShopTrustBar } from "@/components/shop/shop-trust-bar";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,9 @@ export default function SellerShopPage() {
   );
   const [hireRequestProduct, setHireRequestProduct] =
     useState<SellerProduct | null>(null);
+  const [serviceRequest, setServiceRequest] = useState<SellerProduct | null>(
+    null
+  );
 
   useEffect(() => {
     let next: SellerProfile | null = null;
@@ -110,6 +114,11 @@ export default function SellerShopPage() {
     if (isLeaValleyHireListing(product)) {
       setActiveProduct(null);
       setHireRequestProduct(product);
+      return;
+    }
+    if (product.listingType === "service") {
+      setActiveProduct(null);
+      setServiceRequest(product);
       return;
     }
     addToCart(sellerProductToCartItem(product, shop.shopName, shop.uid));
@@ -243,6 +252,16 @@ export default function SellerShopPage() {
           </section>
         )}
       </div>
+
+      {serviceRequest && (
+        <ServiceTimeRequestForm
+          serviceTitle={serviceRequest.name}
+          listingId={serviceRequest.id}
+          shopUid={shop.uid}
+          shopName={shop.shopName}
+          onClose={() => setServiceRequest(null)}
+        />
+      )}
 
       {hireRequestProduct && (
         <LeaValleyHireRequestForm

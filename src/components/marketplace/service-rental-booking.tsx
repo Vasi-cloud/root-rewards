@@ -69,7 +69,12 @@ export function ServiceRentalMeta({
         ) : null}
         <p className="font-semibold tabular-nums text-primary">{priceLabel}</p>
         {isService ? (
-          <ServiceTimeRequestButton serviceName={product.name} />
+          <ServiceTimeRequestButton
+            serviceTitle={product.name}
+            listingId={product.id}
+            shopUid={product.sellerUid || product.sellerId || ""}
+            shopName={product.providerName || ""}
+          />
         ) : (
           <>
             {safeBookingUrl ? (
@@ -152,7 +157,12 @@ export function ServiceRentalBookingBlock({ product }: { product: Product }) {
       </div>
 
       {isService ? (
-        <ServiceTimeRequestButton serviceName={product.name} />
+        <ServiceTimeRequestButton
+          serviceTitle={product.name}
+          listingId={product.id}
+          shopUid={product.sellerUid || product.sellerId || ""}
+          shopName={product.providerName || ""}
+        />
       ) : (
         <>
           {safeBookingUrl ? (
