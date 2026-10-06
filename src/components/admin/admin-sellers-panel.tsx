@@ -30,8 +30,10 @@ import {
   isLeaValleySeller,
 } from "@/lib/lea-valley-guest";
 import {
+  findPendingTestHire,
+  keepLiveBikesApproved,
+  leaValleyStorageKeyFor,
   readLeaValleyShopForAdmin,
-  turnOffPendingHireAutoApprove,
 } from "@/lib/lea-valley-admin";
 import type {
   ProductApprovalStatus,
@@ -423,7 +425,7 @@ export function AdminSellersPanel({
 
   useEffect(() => {
     if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) return;
-    turnOffPendingHireAutoApprove();
+    keepLiveBikesApproved();
     const { rows, error } = collectLeaValleyListingRows();
     const sig = rows
       .map((row) => `${row.ownerUid}:${row.product.id}:${row.product.status ?? "pending"}:${row.product.autoApproved ? "auto" : "review"}`)
@@ -439,43 +441,60 @@ export function AdminSellersPanel({
     const badge = sellerAccountBadge(selectedShop.status);
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
     const leaDetail = openedLea ? leaListings : null;
-    const hubPending = openedLea ? readLeaValleyShopForAdmin().pendingRows : [];
-    const sellerPending: LeaListingRow[] =
-      seller && isLeaValleyCycleHireShop(seller)
-        ? (seller.products ?? [])
-            .filter(
-              (product) =>
-                !isLeaValleyLiveBike(product) &&
-                !isLeaValleyHireListing(product) &&
-                (product.status ?? "pending") !== "approved" &&
-                (product.status ?? "pending") !== "rejected" &&
-                (product.listingType === "rental" ||
-                  product.name.trim().toLowerCase() === "test hire terms")
-            )
-            .map((product) => ({ ownerUid: seller.uid, product }))
-        : [];
-    const pendingById = new Map<string, LeaListingRow>();
-    for (const row of [...sellerPending, ...hubPending]) {
-      if (isLeaValleyLiveBike(row.product)) continue;
-      pendingById.set(row.product.id, {
-        ownerUid: row.ownerUid,
-        product: {
-          ...row.product,
-          status: "pending",
-          autoApproved: false,
-        },
+    const ownProducts = selectedShop.products ?? [];
+    const storedPending = openedLea ? findPendingTestHire() : null;
+    const sellerPendingProduct =
+      openedLea && seller
+        ? (seller.products ?? []).find(
+            (product) =>
+              product.name.trim().toLowerCase() === "test hire terms" &&
+              !isLeaValleyLiveBike(product) &&
+              !isLeaValleyHireListing(product) &&
+              (product.status ?? "pending") !== "approved" &&
+              (product.status ?? "pending") !== "rejected"
+          )
+        : undefined;
+    const pendingJoin: LeaListingRow | null = storedPending
+      ? storedPending
+      : sellerPendingProduct
+        ? {
+            ownerUid: seller?.uid ?? selectedShop.uid,
+            product: {
+              ...sellerPendingProduct,
+              status: "pending",
+              autoApproved: false,
+            },
+          }
+        : null;
+    const seen = new Set<string>();
+    const detailRows: LeaListingRow[] = [];
+    for (const product of ownProducts) {
+      if (seen.has(product.id)) continue;
+      seen.add(product.id);
+      const live =
+        isLeaValleyLiveBike(product) || isLeaValleyHireListing(product);
+      detailRows.push({
+        ownerUid: selectedShop.uid,
+        product:
+          live && product.status !== "rejected"
+            ? { ...product, status: "approved" }
+            : product,
       });
     }
-    const ownProducts = selectedShop.products ?? [];
-    const detailRows: LeaListingRow[] = [
-      ...pendingById.values(),
-      ...ownProducts
-        .filter((product) => !pendingById.has(product.id))
-        .map((product) => ({
-          ownerUid: selectedShop.uid,
-          product,
-        })),
-    ];
+    if (pendingJoin && !seen.has(pendingJoin.product.id)) {
+      detailRows.push(pendingJoin);
+    }
+    detailRows.sort((a, b) => {
+      const rank = (row: LeaListingRow) => {
+        const live =
+          isLeaValleyLiveBike(row.product) ||
+          isLeaValleyHireListing(row.product);
+        if (live && row.product.status !== "rejected") return 0;
+        if (row.product.status === "approved") return 1;
+        return 2;
+      };
+      return rank(a) - rank(b);
+    });
     const approvedCount = detailRows.filter(
       (row) => row.product.status === "approved"
     ).length;
@@ -701,9 +720,15 @@ export function AdminSellersPanel({
                               size="sm"
                               className="gap-1"
                               onClick={() => {
+                                if (
+                                  isLeaValleyLiveBike(product) ||
+                                  isLeaValleyHireListing(product)
+                                ) {
+                                  return;
+                                }
                                 setRejectingKey(null);
                                 setProductApproval(
-                                  ownerUid,
+                                  leaValleyStorageKeyFor(product.id, ownerUid),
                                   product.id,
                                   "approved"
                                 );

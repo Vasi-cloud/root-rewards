@@ -131,25 +131,56 @@ export function readLeaValleyShopForAdmin(): {
   }
 }
 
+function isLiveBike(product: SellerProduct): boolean {
+  return isLeaValleyLiveBike(product) || isLeaValleyHireListing(product);
+}
+
+/** The Seller Hub row "Test hire terms", still pending. Not one of the five bikes. */
+export function findPendingTestHire(): LeaValleyAdminRow | null {
+  for (const { key, shop } of leaValleyShops(loadAllSellers())) {
+    for (const product of shop.products ?? []) {
+      if (hireNameKey(product.name) !== "test hire terms") continue;
+      if (isLiveBike(product) || !isHubPending(product)) continue;
+      return {
+        ownerUid: key,
+        product: { ...product, status: "pending", autoApproved: false },
+      };
+    }
+  }
+  return null;
+}
+
+/** Storage key that already holds this product. Does not create a listing. */
+export function leaValleyStorageKeyFor(productId: string, fallback: string): string {
+  const all = loadAllSellers();
+  if (all[fallback]?.products?.some((product) => product.id === productId)) {
+    return fallback;
+  }
+  for (const { key, shop } of leaValleyShops(all)) {
+    if ((shop.products ?? []).some((product) => product.id === productId)) {
+      return key;
+    }
+  }
+  return fallback;
+}
+
 /**
- * Pending hires stay pending. Clears the trusted-seller flag on those rows
- * only. Approved bikes, including the five live ones, are left as stored.
- * Returns true when storage was written.
+ * Hybrid, Gravel, and half-day stay approved. Only a live bike that was
+ * stored as pending is set back to approved. Other fields stay as stored.
+ * No write when they are already approved.
  */
-export function turnOffPendingHireAutoApprove(): boolean {
+export function keepLiveBikesApproved(): boolean {
   const all = loadAllSellers();
   let changed = false;
   for (const { key, shop } of leaValleyShops(all)) {
     let shopChanged = false;
     const products = (shop.products ?? []).map((product) => {
-      if (!isPendingHire(product) || !product.autoApproved) return product;
+      if (!isLiveBike(product)) return product;
+      if (product.status === "rejected" || product.status === "approved") {
+        return product;
+      }
       shopChanged = true;
-      return {
-        ...product,
-        status: "pending" as const,
-        autoApproved: false,
-        reviewedAt: undefined,
-      };
+      return { ...product, status: "approved" as const };
     });
     if (!shopChanged) continue;
     all[key] = { ...shop, products };
