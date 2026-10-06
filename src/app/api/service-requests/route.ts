@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { sendTransactionalEmail } from "@/lib/email/send";
 import {
   listServiceTimeRequests,
   saveServiceTimeRequest,
 } from "@/lib/service-requests-store";
 import { validateEmail } from "@/lib/validation";
+
+const NOT_A_BOOKING = "This is not a booking — the seller confirms.";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,5 +85,23 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
   });
 
-  return NextResponse.json({ request: saved }, { headers: noStore });
+  const text = `${serviceTitle}\nPreferred time: ${preferredTime}\n\n${NOT_A_BOOKING}`;
+  const mailed = await sendTransactionalEmail({
+    to: emailResult.value,
+    subject: "Request received",
+    text,
+    html: `<p>${escapeHtml(serviceTitle)}</p><p>Preferred time: ${escapeHtml(preferredTime)}</p><p>${escapeHtml(NOT_A_BOOKING)}</p>`,
+    kind: "service_time_request",
+  });
+  if (!mailed.ok) {
+    return NextResponse.json(
+      { error: mailed.error, request: saved },
+      { status: 502, headers: noStore }
+    );
+  }
+
+  return NextResponse.json(
+    { request: saved, email: { mode: mailed.mode, id: mailed.id } },
+    { headers: noStore }
+  );
 }
