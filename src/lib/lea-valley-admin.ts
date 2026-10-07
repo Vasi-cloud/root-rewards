@@ -150,56 +150,53 @@ function leaValleyAdminCatalog(shops: StoredShop[]): StoredShop | undefined {
 }
 
 /**
- * Seller Hub Approve writes this one hire onto the shop Admin and
- * /shop/lea-valley-cycle-hire already use. Approved, not auto-approved.
- * Does not change the five live bikes. No write when that row is already approved.
+ * List hire item puts this pending row on the Lea Valley shop Admin already
+ * lists. Does not approve it and does not change the five live bikes.
+ * No write when that hire is already on the shop.
  */
-export function approveHireOnAdminCatalog(product: SellerProduct): boolean {
-  if (isLiveBike(product)) return false;
-  if (product.listingType !== "rental") return false;
+export function savePendingHireOnAdminCatalog(hires: SellerProduct[]): boolean {
+  const pending = hires.filter(
+    (product) =>
+      product.listingType === "rental" &&
+      !isLiveBike(product) &&
+      (product.status ?? "pending") !== "approved" &&
+      (product.status ?? "pending") !== "rejected"
+  );
+  if (pending.length === 0) return false;
   const all = loadAllSellers();
   const catalog = leaValleyAdminCatalog(leaValleyShops(all));
   if (!catalog) return false;
 
   const products = catalog.shop.products ?? [];
-  const name = hireNameKey(product.name);
-  const index = products.findIndex(
-    (item) =>
-      !isLiveBike(item) &&
-      (item.id === product.id ||
-        (name.length > 0 && hireNameKey(item.name) === name))
-  );
-  const row: SellerProduct = {
-    ...(index >= 0 ? products[index] : product),
-    ...product,
-    id:
-      index >= 0
-        ? products[index].id
-        : products.some((item) => item.id === product.id)
-          ? `sp-${product.id}`
-          : product.id,
-    listingType: "rental",
-    status: "approved",
-    autoApproved: false,
-    reviewedAt: product.reviewedAt ?? new Date().toISOString(),
-    tags: product.tags ?? [],
-  };
-  if (index >= 0) {
-    const existing = products[index];
-    if (existing.status === "approved" && !existing.autoApproved) return false;
-    const next = products.map((item, itemIndex) =>
-      itemIndex === index ? row : item
+  const additions: SellerProduct[] = [];
+  for (const source of pending) {
+    const name = hireNameKey(source.name);
+    const already = products.some(
+      (item) =>
+        !isLiveBike(item) &&
+        (item.id === source.id ||
+          (name.length > 0 && hireNameKey(item.name) === name))
     );
-    all[catalog.key] = { ...catalog.shop, products: next };
-    saveAllSellers(all);
-    return true;
+    if (already) continue;
+    additions.push({
+      ...source,
+      listingType: "rental",
+      status: "pending",
+      autoApproved: false,
+      reviewedAt: undefined,
+      tags: source.tags ?? [],
+    });
   }
-  all[catalog.key] = { ...catalog.shop, products: [...products, row] };
+  if (additions.length === 0) return false;
+  all[catalog.key] = {
+    ...catalog.shop,
+    products: [...products, ...additions],
+  };
   saveAllSellers(all);
   return true;
 }
 
-/** Five approved bikes, plus hires Seller Hub has approved. Does not write. */
+/** Five approved bikes, plus hires Admin has approved. Does not write. */
 export function leaValleyShopPageProducts(): SellerProduct[] {
   const base = leaValleyApprovedHireProducts();
   let extras: SellerProduct[] = [];
