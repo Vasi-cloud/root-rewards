@@ -21,8 +21,8 @@ import {
   applyLeaValleyGuestShop,
   isLeaValleyHireListing,
   isLeaValleyShopSlug,
-  leaValleyApprovedHireProducts,
 } from "@/lib/lea-valley-guest";
+import { leaValleyShopPageProducts } from "@/lib/lea-valley-admin";
 import {
   ensureDemoShops,
   getSellerBySlug,
@@ -109,14 +109,17 @@ export default function SellerShopPage() {
 
   const approved = useMemo(() => {
     if (isLeaValleyShopSlug(slug) || isLeaValleyShopSlug(shop?.slug)) {
-      return leaValleyApprovedHireProducts();
+      return leaValleyShopPageProducts();
     }
     return (shop?.products ?? []).filter((p) => p.status === "approved");
   }, [shop, slug]);
 
   function addProduct(product: SellerProduct) {
     if (!shop) return;
-    if (isLeaValleyHireListing(product)) {
+    if (
+      product.listingType === "rental" &&
+      (isLeaValleyShopSlug(slug) || isLeaValleyHireListing(product))
+    ) {
       setActiveProduct(null);
       setHireRequestProduct(product);
       return;

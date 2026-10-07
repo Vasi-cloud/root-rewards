@@ -2,6 +2,7 @@ import {
   isLeaValleyHireListing,
   isLeaValleyLiveBike,
   isLeaValleySeller,
+  leaValleyApprovedHireProducts,
 } from "@/lib/lea-valley-guest";
 import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
 import type { SellerProduct, SellerProfile } from "@/types";
@@ -148,60 +149,89 @@ function leaValleyAdminCatalog(shops: StoredShop[]): StoredShop | undefined {
   );
 }
 
-function isNewPendingHire(product: SellerProduct): boolean {
+/**
+ * Seller Hub Approve writes this one hire onto the shop Admin and
+ * /shop/lea-valley-cycle-hire already use. Approved, not auto-approved.
+ * Does not change the five live bikes. No write when that row is already approved.
+ */
+export function approveHireOnAdminCatalog(product: SellerProduct): boolean {
   if (isLiveBike(product)) return false;
   if (product.listingType !== "rental") return false;
-  return isHubPending(product);
-}
-
-/**
- * Add hire listing writes the new row onto the Lea Valley shop Admin already
- * lists (the five approved bikes). Status stays pending. Live bikes are not
- * copied or marked pending. No write when that hire is already on the shop.
- */
-export function savePendingHiresForAdmin(hires: SellerProduct[]): boolean {
-  const pending = hires.filter(isNewPendingHire);
-  if (pending.length === 0) return false;
   const all = loadAllSellers();
   const catalog = leaValleyAdminCatalog(leaValleyShops(all));
   if (!catalog) return false;
 
   const products = catalog.shop.products ?? [];
-  const additions: SellerProduct[] = [];
-  for (const source of pending) {
-    const name = hireNameKey(source.name);
-    const already =
-      products.some(
-        (product) =>
-          !isLiveBike(product) &&
-          (product.id === source.id ||
-            (name.length > 0 && hireNameKey(product.name) === name))
-      ) ||
-      additions.some(
-        (product) =>
-          product.id === source.id ||
-          (name.length > 0 && hireNameKey(product.name) === name)
-      );
-    if (already) continue;
-    const idTakenByLiveBike = products.some(
-      (product) => product.id === source.id && isLiveBike(product)
-    );
-    additions.push({
-      ...source,
-      id: idTakenByLiveBike ? `sp-${source.id}` : source.id,
-      listingType: "rental",
-      status: "pending",
-      autoApproved: false,
-      reviewedAt: undefined,
-    });
-  }
-  if (additions.length === 0) return false;
-  all[catalog.key] = {
-    ...catalog.shop,
-    products: [...products, ...additions],
+  const name = hireNameKey(product.name);
+  const index = products.findIndex(
+    (item) =>
+      !isLiveBike(item) &&
+      (item.id === product.id ||
+        (name.length > 0 && hireNameKey(item.name) === name))
+  );
+  const row: SellerProduct = {
+    ...(index >= 0 ? products[index] : product),
+    ...product,
+    id:
+      index >= 0
+        ? products[index].id
+        : products.some((item) => item.id === product.id)
+          ? `sp-${product.id}`
+          : product.id,
+    listingType: "rental",
+    status: "approved",
+    autoApproved: false,
+    reviewedAt: product.reviewedAt ?? new Date().toISOString(),
+    tags: product.tags ?? [],
   };
+  if (index >= 0) {
+    const existing = products[index];
+    if (existing.status === "approved" && !existing.autoApproved) return false;
+    const next = products.map((item, itemIndex) =>
+      itemIndex === index ? row : item
+    );
+    all[catalog.key] = { ...catalog.shop, products: next };
+    saveAllSellers(all);
+    return true;
+  }
+  all[catalog.key] = { ...catalog.shop, products: [...products, row] };
   saveAllSellers(all);
   return true;
+}
+
+/** Five approved bikes, plus hires Seller Hub has approved. Does not write. */
+export function leaValleyShopPageProducts(): SellerProduct[] {
+  const base = leaValleyApprovedHireProducts();
+  let extras: SellerProduct[] = [];
+  try {
+    const catalog = leaValleyAdminCatalog(leaValleyShops(loadAllSellers()));
+    extras = (catalog?.shop.products ?? []).filter(
+      (product) =>
+        product.status === "approved" &&
+        !product.autoApproved &&
+        product.listingType === "rental" &&
+        !isLiveBike(product)
+    );
+  } catch {
+    extras = [];
+  }
+  const seen = new Set(base.map((product) => product.id));
+  const names = new Set(base.map((product) => hireNameKey(product.name)));
+  const add = extras
+    .filter((product) => {
+      if (seen.has(product.id)) return false;
+      const name = hireNameKey(product.name);
+      if (name.length > 0 && names.has(name)) return false;
+      return true;
+    })
+    .map((product) => ({
+      ...product,
+      tags: product.tags ?? [],
+      sales: product.sales ?? 0,
+      views: product.views ?? 0,
+      status: "approved" as const,
+    }));
+  return [...base, ...add];
 }
 
 /** Storage key that already holds this product. Does not create a listing. */

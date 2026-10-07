@@ -8,6 +8,7 @@ import {
   Download,
   FileSpreadsheet,
   Leaf,
+  Check,
   Pencil,
   Plus,
   ShoppingBag,
@@ -69,8 +70,11 @@ import {
   type HireRequestStatus,
 } from "@/lib/hire-requests";
 import { requestHireDecisionEmail } from "@/lib/email/client";
-import { savePendingHiresForAdmin } from "@/lib/lea-valley-admin";
-import { isLeaValleySeller } from "@/lib/lea-valley-guest";
+import {
+  isLeaValleyHireListing,
+  isLeaValleyLiveBike,
+  isLeaValleySeller,
+} from "@/lib/lea-valley-guest";
 import { apparelSizeChart } from "@/lib/product-details";
 
 const SellerOverviewPanel = lazy(() =>
@@ -289,6 +293,7 @@ export default function SellerPage() {
     applyAsSeller,
     resumeSeller,
     addProduct,
+    approveOwnListing,
     addProducts,
     updateProduct,
     deleteProduct,
@@ -364,11 +369,6 @@ export default function SellerPage() {
   );
 
   const leaValleyHub = Boolean(seller && isLeaValleySeller(seller));
-
-  useEffect(() => {
-    if (!seller || !leaValleyHub) return;
-    savePendingHiresForAdmin(seller.products ?? []);
-  }, [seller, leaValleyHub]);
   const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
   const [hireRequestsReady, setHireRequestsReady] = useState(false);
   const [hireCardOpen, setHireCardOpen] = useState(false);
@@ -2372,6 +2372,19 @@ export default function SellerPage() {
                           {product.listingType === "rental" ? "hires" : "sales"}
                         </div>
                       </div>
+                      {(product.status ?? "pending") !== "approved" &&
+                        (product.status ?? "pending") !== "rejected" &&
+                        !isLeaValleyLiveBike(product) &&
+                        !isLeaValleyHireListing(product) && (
+                          <Button
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => approveOwnListing(product.id)}
+                          >
+                            <Check className="size-3.5" />
+                            Approve
+                          </Button>
+                        )}
                       <Button
                         size="sm"
                         variant="outline"

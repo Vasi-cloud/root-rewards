@@ -14,8 +14,12 @@ import {
   deleteAdminCatalogProduct,
   saveSellerFirstPartyListing,
 } from "@/lib/admin-catalog-products";
-import { savePendingHiresForAdmin } from "@/lib/lea-valley-admin";
-import { isLeaValleySeller } from "@/lib/lea-valley-guest";
+import { approveHireOnAdminCatalog } from "@/lib/lea-valley-admin";
+import {
+  isLeaValleyHireListing,
+  isLeaValleyLiveBike,
+  isLeaValleySeller,
+} from "@/lib/lea-valley-guest";
 import {
   countOpenReportsForSeller,
   evaluateListing,
@@ -90,6 +94,7 @@ interface SellerContextValue {
     reviewNote?: string
   ) => void;
   addProduct: (product: Omit<SellerProduct, "id" | "createdAt">) => void;
+  approveOwnListing: (id: string) => void;
   addProducts: (products: Omit<SellerProduct, "id" | "createdAt">[]) => number;
   updateProduct: (id: string, product: Omit<SellerProduct, "id" | "createdAt">) => void;
   deleteProduct: (id: string) => void;
@@ -419,13 +424,41 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         ...seller,
         products: [next, ...seller.products],
       });
-      if (next.listingType === "rental" && isLeaValleySeller(seller)) {
-        savePendingHiresForAdmin([next]);
-      }
       publishHireListingTerms(next);
       void saveSellerFirstPartyListing(seller.uid, next).catch((err) => {
         console.warn("[seller] Marketplace sync failed", err);
       });
+    },
+    [seller, persistCurrent]
+  );
+
+  const approveOwnListing = useCallback(
+    (id: string) => {
+      if (!seller) return;
+      const existing = seller.products.find((product) => product.id === id);
+      if (!existing) return;
+      if (isLeaValleyLiveBike(existing) || isLeaValleyHireListing(existing)) {
+        return;
+      }
+      if ((existing.status ?? "pending") === "approved") return;
+      const nextProduct: SellerProduct = {
+        ...existing,
+        status: "approved",
+        autoApproved: false,
+        reviewedAt: new Date().toISOString(),
+      };
+      persistCurrent({
+        ...seller,
+        products: seller.products.map((product) =>
+          product.id === id ? nextProduct : product
+        ),
+      });
+      if (
+        isLeaValleySeller(seller) &&
+        nextProduct.listingType === "rental"
+      ) {
+        approveHireOnAdminCatalog(nextProduct);
+      }
     },
     [seller, persistCurrent]
   );
@@ -551,6 +584,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       setSellerTrustOverride,
       setProductApproval,
       addProduct,
+      approveOwnListing,
       addProducts,
       updateProduct,
       deleteProduct,
@@ -570,6 +604,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       setSellerTrustOverride,
       setProductApproval,
       addProduct,
+      approveOwnListing,
       addProducts,
       updateProduct,
       deleteProduct,
