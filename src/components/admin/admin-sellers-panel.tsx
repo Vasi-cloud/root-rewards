@@ -440,27 +440,24 @@ export function AdminSellersPanel({
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
     const leaDetail = openedLea ? leaListings : null;
     const ownProducts = selectedShop.products ?? [];
-    const seen = new Set<string>();
-    const detailRows: LeaListingRow[] = [];
-    for (const product of ownProducts) {
-      if (seen.has(product.id)) continue;
-      seen.add(product.id);
-      const live =
-        isLeaValleyLiveBike(product) || isLeaValleyHireListing(product);
-      detailRows.push({
+    const detailRows: LeaListingRow[] = ownProducts.map((product) => {
+      const fiveBike =
+        openedLea &&
+        isLeaValleyLiveBike(product) &&
+        product.status !== "rejected";
+      return {
         ownerUid: selectedShop.uid,
-        product:
-          live && product.status !== "rejected"
-            ? { ...product, status: "approved" }
-            : product,
-      });
-    }
+        product: fiveBike ? { ...product, status: "approved" } : product,
+      };
+    });
     detailRows.sort((a, b) => {
       const rank = (row: LeaListingRow) => {
-        const live =
-          isLeaValleyLiveBike(row.product) ||
-          isLeaValleyHireListing(row.product);
-        if (live && row.product.status !== "rejected") return 0;
+        if (
+          isLeaValleyLiveBike(row.product) &&
+          row.product.status !== "rejected"
+        ) {
+          return 0;
+        }
         if (row.product.status === "approved") return 1;
         return 2;
       };
