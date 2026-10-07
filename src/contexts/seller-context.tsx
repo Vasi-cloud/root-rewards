@@ -14,6 +14,8 @@ import {
   deleteAdminCatalogProduct,
   saveSellerFirstPartyListing,
 } from "@/lib/admin-catalog-products";
+import { savePendingHiresForAdmin } from "@/lib/lea-valley-admin";
+import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import {
   countOpenReportsForSeller,
   evaluateListing,
@@ -417,6 +419,9 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         ...seller,
         products: [next, ...seller.products],
       });
+      if (next.listingType === "rental" && isLeaValleySeller(seller)) {
+        savePendingHiresForAdmin([next]);
+      }
       publishHireListingTerms(next);
       void saveSellerFirstPartyListing(seller.uid, next).catch((err) => {
         console.warn("[seller] Marketplace sync failed", err);

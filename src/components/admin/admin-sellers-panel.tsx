@@ -30,11 +30,9 @@ import {
   isLeaValleySeller,
 } from "@/lib/lea-valley-guest";
 import {
-  findPendingTestHire,
   keepLiveBikesApproved,
   leaValleyStorageKeyFor,
   readLeaValleyShopForAdmin,
-  savePendingTestHireIntoAdminShop,
 } from "@/lib/lea-valley-admin";
 import type {
   ProductApprovalStatus,
@@ -309,7 +307,6 @@ export function AdminSellersPanel({
 }: AdminSellersPanelProps) {
   const {
     allSellers,
-    seller,
     setSellerAccountStatus,
     setSellerTrustOverride,
     setProductApproval,
@@ -426,15 +423,6 @@ export function AdminSellersPanel({
 
   useEffect(() => {
     if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) return;
-    const fromSeller = (seller?.products ?? []).find(
-      (product) =>
-        product.name.trim().toLowerCase() === "test hire terms" &&
-        !isLeaValleyLiveBike(product) &&
-        !isLeaValleyHireListing(product) &&
-        (product.status ?? "pending") !== "approved" &&
-        (product.status ?? "pending") !== "rejected"
-    );
-    savePendingTestHireIntoAdminShop(selectedShop.uid, fromSeller);
     keepLiveBikesApproved();
     const { rows, error } = collectLeaValleyListingRows();
     const sig = rows
@@ -445,37 +433,13 @@ export function AdminSellersPanel({
         ? prev
         : { rows, error, sig }
     );
-  }, [selectedShop, seller]);
+  }, [selectedShop]);
 
   if (selectedShop) {
     const badge = sellerAccountBadge(selectedShop.status);
     const openedLea = isLeaValleyCycleHireShop(selectedShop);
     const leaDetail = openedLea ? leaListings : null;
     const ownProducts = selectedShop.products ?? [];
-    const storedPending = openedLea ? findPendingTestHire() : null;
-    const sellerPendingProduct =
-      openedLea && seller
-        ? (seller.products ?? []).find(
-            (product) =>
-              product.name.trim().toLowerCase() === "test hire terms" &&
-              !isLeaValleyLiveBike(product) &&
-              !isLeaValleyHireListing(product) &&
-              (product.status ?? "pending") !== "approved" &&
-              (product.status ?? "pending") !== "rejected"
-          )
-        : undefined;
-    const pendingJoin: LeaListingRow | null = storedPending
-      ? storedPending
-      : sellerPendingProduct
-        ? {
-            ownerUid: seller?.uid ?? selectedShop.uid,
-            product: {
-              ...sellerPendingProduct,
-              status: "pending",
-              autoApproved: false,
-            },
-          }
-        : null;
     const seen = new Set<string>();
     const detailRows: LeaListingRow[] = [];
     for (const product of ownProducts) {
@@ -490,9 +454,6 @@ export function AdminSellersPanel({
             ? { ...product, status: "approved" }
             : product,
       });
-    }
-    if (pendingJoin && !seen.has(pendingJoin.product.id)) {
-      detailRows.push(pendingJoin);
     }
     detailRows.sort((a, b) => {
       const rank = (row: LeaListingRow) => {

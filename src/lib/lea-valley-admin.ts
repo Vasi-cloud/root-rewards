@@ -77,41 +77,26 @@ export function readLeaValleyShopForAdmin(): {
       };
     }
 
-    const rows: LeaValleyAdminRow[] = [];
-    const pendingRows: LeaValleyAdminRow[] = [];
-    for (const { key, shop } of shops) {
-      for (const product of shop.products ?? []) {
-        const row = { ownerUid: key, product };
-        rows.push(row);
-        if (isPendingHire(product)) pendingRows.push(row);
-      }
+    const catalog = leaValleyAdminCatalog(shops);
+    if (!catalog) {
+      return {
+        uid: null,
+        pendingHires: 0,
+        products: [],
+        rows: [],
+        pendingRows: [],
+        error: null,
+      };
     }
-
-    const named = pendingRows.find(
-      (row) => hireNameKey(row.product.name) === "test hire terms"
-    );
-    const withLiveBikes =
-      shops.find((entry) =>
-        (entry.shop.products ?? []).some((product) =>
-          isLeaValleyLiveBike(product)
-        )
-      ) ??
-      shops.find((entry) => entry.shop.uid === "demo-lea-valley-cycle-hire") ??
-      shops[0];
-    const namedShop = named
-      ? shops.find((entry) => entry.key === named.ownerUid)
-      : undefined;
-    const uid =
-      namedShop?.shop.uid ||
-      named?.ownerUid ||
-      withLiveBikes.shop.uid ||
-      withLiveBikes.key;
-    const products = rows
-      .filter((row) => row.ownerUid === uid)
-      .map((row) => row.product);
+    const products = catalog.shop.products ?? [];
+    const rows = products.map((product) => ({
+      ownerUid: catalog.key,
+      product,
+    }));
+    const pendingRows = rows.filter((row) => isPendingHire(row.product));
 
     return {
-      uid,
+      uid: catalog.shop.uid || catalog.key,
       pendingHires: pendingRows.length,
       products,
       rows,
@@ -135,111 +120,88 @@ function isLiveBike(product: SellerProduct): boolean {
   return isLeaValleyLiveBike(product) || isLeaValleyHireListing(product);
 }
 
-function isTestHireTerms(product: SellerProduct): boolean {
+function isDemoLeaValleyRecord(shop: SellerProfile, key: string): boolean {
+  if (key === "demo-lea-valley-cycle-hire" || shop.uid === "demo-lea-valley-cycle-hire") {
+    return true;
+  }
+  if (shop.email?.toLowerCase() === "hire@leavalleycycles.demo") return true;
+  const products = shop.products ?? [];
+  return (
+    products.length > 0 &&
+    products.every((product) => product.id.startsWith("demo-lv-pending"))
+  );
+}
+
+/** The Lea Valley shop Admin lists — the one that already has the five bikes. */
+function leaValleyAdminCatalog(shops: StoredShop[]): StoredShop | undefined {
+  const withBikes = shops.filter((entry) =>
+    (entry.shop.products ?? []).some((product) => isLeaValleyLiveBike(product))
+  );
+  const listed =
+    withBikes.find((entry) => !isDemoLeaValleyRecord(entry.shop, entry.key)) ??
+    withBikes[0];
+  if (listed) return listed;
+  return (
+    shops.find((entry) => !isDemoLeaValleyRecord(entry.shop, entry.key)) ??
+    shops.find((entry) => entry.shop.uid === "demo-lea-valley-cycle-hire") ??
+    shops[0]
+  );
+}
+
+function isNewPendingHire(product: SellerProduct): boolean {
   if (isLiveBike(product)) return false;
-  if (hireNameKey(product.name) !== "test hire terms") return false;
+  if (product.listingType !== "rental") return false;
   return isHubPending(product);
 }
 
 /**
- * Puts the Seller Hub "Test hire terms" row onto the Lea Valley shop Admin
- * already lists. One pending row, not auto-approved. Does not copy Hybrid,
- * Gravel, or half-day. No write when that row is already in the catalog.
+ * Add hire listing writes the new row onto the Lea Valley shop Admin already
+ * lists (the five approved bikes). Status stays pending. Live bikes are not
+ * copied or marked pending. No write when that hire is already on the shop.
  */
-export function savePendingTestHireIntoAdminShop(
-  targetUid: string,
-  fromSeller?: SellerProduct | null
-): boolean {
+export function savePendingHiresForAdmin(hires: SellerProduct[]): boolean {
+  const pending = hires.filter(isNewPendingHire);
+  if (pending.length === 0) return false;
   const all = loadAllSellers();
-  const shops = leaValleyShops(all);
-  let source: SellerProduct | null = null;
-  const records = [
-    ...shops.map((entry) => entry.shop),
-    ...Object.values(all),
-  ];
-  for (const shop of records) {
-    for (const product of shop.products ?? []) {
-      if (!isTestHireTerms(product)) continue;
-      source = product;
-      break;
-    }
-    if (source) break;
-  }
-  if (!source && fromSeller && isTestHireTerms(fromSeller)) {
-    source = fromSeller;
-  }
-  if (!source) return false;
-
-  const catalog =
-    shops.find(
-      (entry) => entry.key === targetUid || entry.shop.uid === targetUid
-    ) ??
-    shops.find((entry) =>
-      (entry.shop.products ?? []).some((product) => isLiveBike(product))
-    );
+  const catalog = leaValleyAdminCatalog(leaValleyShops(all));
   if (!catalog) return false;
 
   const products = catalog.shop.products ?? [];
-  const sourceId = source.id;
-  const existing = products.find(
-    (product) =>
-      !isLiveBike(product) &&
-      (product.id === sourceId || hireNameKey(product.name) === "test hire terms")
-  );
-  if (existing) {
-    if ((existing.status ?? "pending") === "pending" && !existing.autoApproved) {
-      return false;
-    }
-    if ((existing.status ?? "pending") !== "pending" || existing.autoApproved) {
-      const nextProducts = products.map((product) =>
-        product.id === existing.id
-          ? {
-              ...product,
-              status: "pending" as const,
-              autoApproved: false,
-              reviewedAt: undefined,
-            }
-          : product
+  const additions: SellerProduct[] = [];
+  for (const source of pending) {
+    const name = hireNameKey(source.name);
+    const already =
+      products.some(
+        (product) =>
+          !isLiveBike(product) &&
+          (product.id === source.id ||
+            (name.length > 0 && hireNameKey(product.name) === name))
+      ) ||
+      additions.some(
+        (product) =>
+          product.id === source.id ||
+          (name.length > 0 && hireNameKey(product.name) === name)
       );
-      all[catalog.key] = { ...catalog.shop, products: nextProducts };
-      saveAllSellers(all);
-      return true;
-    }
-    return false;
+    if (already) continue;
+    const idTakenByLiveBike = products.some(
+      (product) => product.id === source.id && isLiveBike(product)
+    );
+    additions.push({
+      ...source,
+      id: idTakenByLiveBike ? `sp-${source.id}` : source.id,
+      listingType: "rental",
+      status: "pending",
+      autoApproved: false,
+      reviewedAt: undefined,
+    });
   }
-
-  const idTakenByLiveBike = products.some(
-    (product) => product.id === sourceId && isLiveBike(product)
-  );
-  const row: SellerProduct = {
-    ...source,
-    id: idTakenByLiveBike ? "sp-test-hire-terms" : sourceId,
-    listingType: "rental",
-    status: "pending",
-    autoApproved: false,
-    reviewedAt: undefined,
-  };
+  if (additions.length === 0) return false;
   all[catalog.key] = {
     ...catalog.shop,
-    products: [...products, row],
+    products: [...products, ...additions],
   };
   saveAllSellers(all);
   return true;
-}
-
-/** The Seller Hub row "Test hire terms", still pending. Not one of the five bikes. */
-export function findPendingTestHire(): LeaValleyAdminRow | null {
-  for (const { key, shop } of leaValleyShops(loadAllSellers())) {
-    for (const product of shop.products ?? []) {
-      if (hireNameKey(product.name) !== "test hire terms") continue;
-      if (isLiveBike(product) || !isHubPending(product)) continue;
-      return {
-        ownerUid: key,
-        product: { ...product, status: "pending", autoApproved: false },
-      };
-    }
-  }
-  return null;
 }
 
 /** Storage key that already holds this product. Does not create a listing. */
