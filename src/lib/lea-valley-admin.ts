@@ -135,6 +135,98 @@ function isLiveBike(product: SellerProduct): boolean {
   return isLeaValleyLiveBike(product) || isLeaValleyHireListing(product);
 }
 
+function isTestHireTerms(product: SellerProduct): boolean {
+  if (isLiveBike(product)) return false;
+  if (hireNameKey(product.name) !== "test hire terms") return false;
+  return isHubPending(product);
+}
+
+/**
+ * Puts the Seller Hub "Test hire terms" row onto the Lea Valley shop Admin
+ * already lists. One pending row, not auto-approved. Does not copy Hybrid,
+ * Gravel, or half-day. No write when that row is already in the catalog.
+ */
+export function savePendingTestHireIntoAdminShop(
+  targetUid: string,
+  fromSeller?: SellerProduct | null
+): boolean {
+  const all = loadAllSellers();
+  const shops = leaValleyShops(all);
+  let source: SellerProduct | null = null;
+  const records = [
+    ...shops.map((entry) => entry.shop),
+    ...Object.values(all),
+  ];
+  for (const shop of records) {
+    for (const product of shop.products ?? []) {
+      if (!isTestHireTerms(product)) continue;
+      source = product;
+      break;
+    }
+    if (source) break;
+  }
+  if (!source && fromSeller && isTestHireTerms(fromSeller)) {
+    source = fromSeller;
+  }
+  if (!source) return false;
+
+  const catalog =
+    shops.find(
+      (entry) => entry.key === targetUid || entry.shop.uid === targetUid
+    ) ??
+    shops.find((entry) =>
+      (entry.shop.products ?? []).some((product) => isLiveBike(product))
+    );
+  if (!catalog) return false;
+
+  const products = catalog.shop.products ?? [];
+  const sourceId = source.id;
+  const existing = products.find(
+    (product) =>
+      !isLiveBike(product) &&
+      (product.id === sourceId || hireNameKey(product.name) === "test hire terms")
+  );
+  if (existing) {
+    if ((existing.status ?? "pending") === "pending" && !existing.autoApproved) {
+      return false;
+    }
+    if ((existing.status ?? "pending") !== "pending" || existing.autoApproved) {
+      const nextProducts = products.map((product) =>
+        product.id === existing.id
+          ? {
+              ...product,
+              status: "pending" as const,
+              autoApproved: false,
+              reviewedAt: undefined,
+            }
+          : product
+      );
+      all[catalog.key] = { ...catalog.shop, products: nextProducts };
+      saveAllSellers(all);
+      return true;
+    }
+    return false;
+  }
+
+  const idTakenByLiveBike = products.some(
+    (product) => product.id === sourceId && isLiveBike(product)
+  );
+  const row: SellerProduct = {
+    ...source,
+    id: idTakenByLiveBike ? "sp-test-hire-terms" : sourceId,
+    listingType: "rental",
+    status: "pending",
+    autoApproved: false,
+    reviewedAt: undefined,
+  };
+  all[catalog.key] = {
+    ...catalog.shop,
+    products: [...products, row],
+  };
+  saveAllSellers(all);
+  return true;
+}
+
 /** The Seller Hub row "Test hire terms", still pending. Not one of the five bikes. */
 export function findPendingTestHire(): LeaValleyAdminRow | null {
   for (const { key, shop } of leaValleyShops(loadAllSellers())) {

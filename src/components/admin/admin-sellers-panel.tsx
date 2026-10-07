@@ -34,6 +34,7 @@ import {
   keepLiveBikesApproved,
   leaValleyStorageKeyFor,
   readLeaValleyShopForAdmin,
+  savePendingTestHireIntoAdminShop,
 } from "@/lib/lea-valley-admin";
 import type {
   ProductApprovalStatus,
@@ -425,6 +426,15 @@ export function AdminSellersPanel({
 
   useEffect(() => {
     if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) return;
+    const fromSeller = (seller?.products ?? []).find(
+      (product) =>
+        product.name.trim().toLowerCase() === "test hire terms" &&
+        !isLeaValleyLiveBike(product) &&
+        !isLeaValleyHireListing(product) &&
+        (product.status ?? "pending") !== "approved" &&
+        (product.status ?? "pending") !== "rejected"
+    );
+    savePendingTestHireIntoAdminShop(selectedShop.uid, fromSeller);
     keepLiveBikesApproved();
     const { rows, error } = collectLeaValleyListingRows();
     const sig = rows
