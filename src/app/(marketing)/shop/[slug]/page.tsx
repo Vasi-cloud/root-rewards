@@ -22,7 +22,10 @@ import {
   isLeaValleyHireListing,
   isLeaValleyShopSlug,
 } from "@/lib/lea-valley-guest";
-import { leaValleyShopPageProducts } from "@/lib/lea-valley-admin";
+import {
+  listApprovedLeaValleyHireListings,
+  withApprovedServerHires,
+} from "@/lib/lea-valley-hire-listings";
 import {
   ensureDemoShops,
   getSellerBySlug,
@@ -81,6 +84,7 @@ export default function SellerShopPage() {
   const [serviceRequest, setServiceRequest] = useState<SellerProduct | null>(
     null
   );
+  const [serverHires, setServerHires] = useState<SellerProduct[]>([]);
 
   useEffect(() => {
     let next: SellerProfile | null = null;
@@ -107,12 +111,30 @@ export default function SellerShopPage() {
     }
   }, [slug]);
 
+  useEffect(() => {
+    if (!isLeaValleyShopSlug(slug)) {
+      setServerHires([]);
+      return;
+    }
+    let cancelled = false;
+    listApprovedLeaValleyHireListings()
+      .then((rows) => {
+        if (!cancelled) setServerHires(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setServerHires([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
   const approved = useMemo(() => {
     if (isLeaValleyShopSlug(slug) || isLeaValleyShopSlug(shop?.slug)) {
-      return leaValleyShopPageProducts();
+      return withApprovedServerHires(serverHires);
     }
     return (shop?.products ?? []).filter((p) => p.status === "approved");
-  }, [shop, slug]);
+  }, [shop, slug, serverHires]);
 
   function addProduct(product: SellerProduct) {
     if (!shop) return;

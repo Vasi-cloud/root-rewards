@@ -69,7 +69,6 @@ import {
   type HireRequestStatus,
 } from "@/lib/hire-requests";
 import { requestHireDecisionEmail } from "@/lib/email/client";
-import { savePendingHireOnAdminCatalog } from "@/lib/lea-valley-admin";
 import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import { apparelSizeChart } from "@/lib/product-details";
 
@@ -364,11 +363,6 @@ export default function SellerPage() {
   );
 
   const leaValleyHub = Boolean(seller && isLeaValleySeller(seller));
-
-  useEffect(() => {
-    if (!seller || !leaValleyHub) return;
-    savePendingHireOnAdminCatalog(seller.products ?? []);
-  }, [seller, leaValleyHub]);
   const [hireRequests, setHireRequests] = useState<HireRequest[]>([]);
   const [hireRequestsReady, setHireRequestsReady] = useState(false);
   const [hireCardOpen, setHireCardOpen] = useState(false);

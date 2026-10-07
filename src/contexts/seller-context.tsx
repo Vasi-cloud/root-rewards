@@ -14,7 +14,7 @@ import {
   deleteAdminCatalogProduct,
   saveSellerFirstPartyListing,
 } from "@/lib/admin-catalog-products";
-import { savePendingHireOnAdminCatalog } from "@/lib/lea-valley-admin";
+import { saveNewLeaValleyHireListing } from "@/lib/lea-valley-hire-listings";
 import { isLeaValleySeller } from "@/lib/lea-valley-guest";
 import {
   countOpenReportsForSeller,
@@ -420,7 +420,9 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         products: [next, ...seller.products],
       });
       if (next.listingType === "rental" && isLeaValleySeller(seller)) {
-        savePendingHireOnAdminCatalog([next]);
+        void saveNewLeaValleyHireListing(next).catch((err) => {
+          console.warn("[seller] Hire listing was not saved", err);
+        });
       }
       publishHireListingTerms(next);
       void saveSellerFirstPartyListing(seller.uid, next).catch((err) => {

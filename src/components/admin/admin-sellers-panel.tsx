@@ -34,6 +34,10 @@ import {
   leaValleyStorageKeyFor,
   readLeaValleyShopForAdmin,
 } from "@/lib/lea-valley-admin";
+import {
+  approveLeaValleyHireListing,
+  listLeaValleyHireListings,
+} from "@/lib/lea-valley-hire-listings";
 import type {
   ProductApprovalStatus,
   SellerProduct,
@@ -326,6 +330,7 @@ export function AdminSellersPanel({
     error: string | null;
     sig: string;
   } | null>(null);
+  const [serverHires, setServerHires] = useState<SellerProduct[]>([]);
 
   const visibleSellers = useMemo(() => {
     const hasApplication = allSellers.some((s) => isLeaValleyApplication(s));
@@ -422,7 +427,10 @@ export function AdminSellersPanel({
   );
 
   useEffect(() => {
-    if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) return;
+    if (!selectedShop || !isLeaValleyCycleHireShop(selectedShop)) {
+      setServerHires([]);
+      return;
+    }
     keepLiveBikesApproved();
     const { rows, error } = collectLeaValleyListingRows();
     const sig = rows
@@ -433,6 +441,18 @@ export function AdminSellersPanel({
         ? prev
         : { rows, error, sig }
     );
+    let cancelled = false;
+    listLeaValleyHireListings()
+      .then((hires) => {
+        if (!cancelled) setServerHires(hires);
+      })
+      .catch((err) => {
+        console.warn("[admin] Lea Valley hire listings were not loaded", err);
+        if (!cancelled) setServerHires([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedShop]);
 
   if (selectedShop) {
@@ -450,6 +470,22 @@ export function AdminSellersPanel({
         product: fiveBike ? { ...product, status: "approved" } : product,
       };
     });
+    if (openedLea) {
+      const seen = new Set(detailRows.map((row) => row.product.id));
+      const names = new Set(
+        detailRows.map((row) => row.product.name.trim().toLowerCase())
+      );
+      for (const product of serverHires) {
+        if (seen.has(product.id)) continue;
+        if (isLeaValleyLiveBike(product) || isLeaValleyHireListing(product)) {
+          continue;
+        }
+        const name = product.name.trim().toLowerCase();
+        if (name && names.has(name)) continue;
+        seen.add(product.id);
+        detailRows.push({ ownerUid: selectedShop.uid, product });
+      }
+    }
     detailRows.sort((a, b) => {
       const rank = (row: LeaListingRow) => {
         if (
@@ -695,6 +731,28 @@ export function AdminSellersPanel({
                                   return;
                                 }
                                 setRejectingKey(null);
+                                if (
+                                  serverHires.some((row) => row.id === product.id)
+                                ) {
+                                  void approveLeaValleyHireListing(product.id)
+                                    .then((ok) => {
+                                      if (!ok) return;
+                                      setServerHires((prev) =>
+                                        prev.map((row) =>
+                                          row.id === product.id
+                                            ? { ...row, status: "approved" }
+                                            : row
+                                        )
+                                      );
+                                    })
+                                    .catch((err) => {
+                                      console.warn(
+                                        "[admin] Hire listing was not approved",
+                                        err
+                                      );
+                                    });
+                                  return;
+                                }
                                 setProductApproval(
                                   leaValleyStorageKeyFor(product.id, ownerUid),
                                   product.id,

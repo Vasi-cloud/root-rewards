@@ -152,6 +152,63 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // One new Lea Valley hire listing. Not the five live bikes, not the marketplace.
+    match /shops/{shopId}/hireListings/{listingId} {
+      function isLiveHireId() {
+        return listingId == 'demo-lv-pending-1'
+          || listingId == 'demo-lv-pending-2'
+          || listingId == 'lv-hub-half-day'
+          || listingId == 'lv-hub-full-day'
+          || listingId == 'lv-hub-weekend';
+      }
+
+      function isCatalogAdmin() {
+        return isSignedIn()
+          && request.auth.token.email != null
+          && request.auth.token.email.lower() == 'cvasi.crisan@gmail.com';
+      }
+
+      allow read: if shopId == 'demo-lea-valley-cycle-hire'
+        && !isLiveHireId()
+        && (
+          resource.data.status == 'approved'
+          || isCatalogAdmin()
+        );
+
+      allow create: if shopId == 'demo-lea-valley-cycle-hire'
+        && isSignedIn()
+        && !isLiveHireId()
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'subtitle',
+          'description',
+          'price',
+          'hirePeriod',
+          'category',
+          'status',
+          'autoApproved',
+          'listingType',
+          'createdAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200
+        && request.resource.data.price is number
+        && request.resource.data.status == 'pending'
+        && request.resource.data.autoApproved == false
+        && request.resource.data.listingType == 'rental';
+
+      allow update: if shopId == 'demo-lea-valley-cycle-hire'
+        && isCatalogAdmin()
+        && !isLiveHireId()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'approved'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'reviewedAt']);
+
+      allow delete: if false;
+    }
+
     // Deny everything else by default
     match /{document=**} {
       allow read, write: if false;
