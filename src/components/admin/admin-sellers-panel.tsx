@@ -37,6 +37,7 @@ import {
 import {
   approveLeaValleyHireListing,
   listLeaValleyHireListings,
+  rejectLeaValleyHireListing,
 } from "@/lib/lea-valley-hire-listings";
 import type {
   ProductApprovalStatus,
@@ -778,6 +779,46 @@ export function AdminSellersPanel({
                           )}
                         </div>
                       )}
+                      {openedLea &&
+                        product.status === "approved" &&
+                        !isLeaValleyLiveBike(product) &&
+                        serverHires.some((row) => row.id === product.id) && (
+                          <div className="flex shrink-0 flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1 text-destructive"
+                              onClick={() => {
+                                if (
+                                  isLeaValleyLiveBike(product) ||
+                                  isLeaValleyHireListing(product)
+                                ) {
+                                  return;
+                                }
+                                void rejectLeaValleyHireListing(product.id)
+                                  .then((ok) => {
+                                    if (!ok) return;
+                                    setServerHires((prev) =>
+                                      prev.map((row) =>
+                                        row.id === product.id
+                                          ? { ...row, status: "rejected" }
+                                          : row
+                                      )
+                                    );
+                                  })
+                                  .catch((err) => {
+                                    console.warn(
+                                      "[admin] Hire listing was not rejected",
+                                      err
+                                    );
+                                  });
+                              }}
+                            >
+                              <XCircle className="size-3.5" />
+                              Reject
+                            </Button>
+                          </div>
+                        )}
                     </div>
                     {isRejecting && (
                       <div className="rounded-xl border border-destructive/20 bg-background p-3">

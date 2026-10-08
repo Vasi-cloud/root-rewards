@@ -11,7 +11,9 @@ import type { SellerProduct } from "@/types";
 
 const COLLECTION = "hireListings";
 
-export type LeaValleyServerHire = SellerProduct & { status: "pending" | "approved" };
+export type LeaValleyServerHire = SellerProduct & {
+  status: "pending" | "approved" | "rejected";
+};
 
 function hireNameKey(name: string) {
   return name.trim().toLowerCase();
@@ -79,6 +81,20 @@ export async function approveLeaValleyHireListing(id: string): Promise<boolean> 
   if (!db) return false;
   await updateDoc(doc(db, "shops", LEA_VALLEY_UID, COLLECTION, id), {
     status: "approved",
+    reviewedAt: new Date().toISOString(),
+  });
+  return true;
+}
+
+/** Take one approved hire off the public shop. Does not touch the five bikes. */
+export async function rejectLeaValleyHireListing(id: string): Promise<boolean> {
+  if (!id || isLeaValleyLiveBike({ id }) || isLeaValleyHireListing({ id })) {
+    return false;
+  }
+  const db = getFirebaseFirestore();
+  if (!db) return false;
+  await updateDoc(doc(db, "shops", LEA_VALLEY_UID, COLLECTION, id), {
+    status: "rejected",
     reviewedAt: new Date().toISOString(),
   });
   return true;

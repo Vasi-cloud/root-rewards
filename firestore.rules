@@ -195,10 +195,14 @@ service cloud.firestore {
       allow update: if shopId == 'demo-lea-valley-cycle-hire'
         && isCatalogAdmin()
         && !isLiveHireId()
-        && resource.data.status == 'pending'
-        && request.resource.data.status == 'approved'
         && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'reviewedAt']);
+            .hasOnly(['status', 'reviewedAt'])
+        && (
+          (resource.data.status == 'pending'
+            && request.resource.data.status == 'approved')
+          || (resource.data.status == 'approved'
+            && request.resource.data.status == 'rejected')
+        );
 
       allow delete: if false;
     }

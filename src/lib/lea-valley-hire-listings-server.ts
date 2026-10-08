@@ -15,7 +15,7 @@ export type StoredHireListing = {
   price: number;
   hirePeriod: string;
   category: string;
-  status: "pending" | "approved";
+  status: "pending" | "approved" | "rejected";
   autoApproved: false;
   listingType: "rental";
   createdAt: string;
@@ -71,7 +71,13 @@ function toStored(
   if (!id || isLiveBikeId(id)) return null;
   const name = restString(fields, "name").trim();
   if (!name) return null;
-  const status = restString(fields, "status") === "approved" ? "approved" : "pending";
+  const rawStatus = restString(fields, "status");
+  const status =
+    rawStatus === "approved"
+      ? "approved"
+      : rawStatus === "rejected"
+        ? "rejected"
+        : "pending";
   return {
     id,
     name,
