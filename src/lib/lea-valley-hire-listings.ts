@@ -1,12 +1,4 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  updateDoc,
-  where,
-} from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import {
@@ -29,37 +21,6 @@ function isLiveHire(product: { id?: string; name?: string }): boolean {
   return isLeaValleyLiveBike(product) || isLeaValleyHireListing(product);
 }
 
-function toHireProduct(
-  id: string,
-  data: Record<string, unknown>
-): LeaValleyServerHire | null {
-  const name = typeof data.name === "string" ? data.name.trim() : "";
-  if (!name || isLiveHire({ id, name })) return null;
-  const status = data.status === "approved" ? "approved" : "pending";
-  const price = Number(data.price);
-  return {
-    id,
-    listingType: "rental",
-    name,
-    subtitle: typeof data.subtitle === "string" ? data.subtitle : "",
-    description: typeof data.description === "string" ? data.description : "",
-    category: typeof data.category === "string" && data.category ? data.category : "Cycling",
-    tags: [],
-    price: Number.isFinite(price) ? price : 0,
-    ecoScore: 90,
-    stock: 1,
-    status,
-    autoApproved: false,
-    views: 0,
-    sales: 0,
-    hirePeriod: typeof data.hirePeriod === "string" ? data.hirePeriod : undefined,
-    createdAt:
-      typeof data.createdAt === "string"
-        ? data.createdAt
-        : new Date().toISOString(),
-  };
-}
-
 /** One new hire. Pending. Does not write the five live bikes. */
 export async function saveNewLeaValleyHireListing(
   product: SellerProduct
@@ -68,57 +29,48 @@ export async function saveNewLeaValleyHireListing(
   if (isLiveHire(product)) return false;
   const name = product.name.trim();
   if (!name) return false;
-  const db = getFirebaseFirestore();
-  if (!db) return false;
-  const id = product.id.slice(0, 80);
-  await setDoc(doc(db, "shops", LEA_VALLEY_UID, COLLECTION, id), {
-    name: name.slice(0, 200),
-    subtitle: (product.subtitle ?? "").slice(0, 200),
-    description: (product.description ?? "").slice(0, 2000),
-    price: Number(product.price) || 0,
-    hirePeriod: (product.hirePeriod ?? "").slice(0, 80),
-    category: (product.category || "Cycling").slice(0, 80),
-    status: "pending",
-    autoApproved: false,
-    listingType: "rental",
-    createdAt: product.createdAt || new Date().toISOString(),
+  const res = await fetch("/api/lea-valley-hire-listings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: product.id,
+      name,
+      subtitle: product.subtitle ?? "",
+      description: product.description ?? "",
+      price: Number(product.price) || 0,
+      hirePeriod: product.hirePeriod ?? "",
+      category: product.category || "Cycling",
+      createdAt: product.createdAt || new Date().toISOString(),
+    }),
   });
-  return true;
+  return res.ok;
 }
 
 /** Lea Valley hire listings only. Not the marketplace catalog. */
 export async function listLeaValleyHireListings(): Promise<LeaValleyServerHire[]> {
-  const db = getFirebaseFirestore();
-  if (!db) return [];
-  const snap = await getDocs(
-    collection(db, "shops", LEA_VALLEY_UID, COLLECTION)
-  );
-  const rows: LeaValleyServerHire[] = [];
-  for (const item of snap.docs) {
-    const product = toHireProduct(item.id, item.data() as Record<string, unknown>);
-    if (product) rows.push(product);
-  }
-  return rows;
+  const res = await fetch("/api/lea-valley-hire-listings", { cache: "no-store" });
+  if (!res.ok) return [];
+  const body = (await res.json()) as { listings?: LeaValleyServerHire[] };
+  return (body.listings ?? [])
+    .filter((product) => product?.name && !isLeaValleyLiveBike(product))
+    .map((product) => ({
+      ...product,
+      tags: product.tags ?? [],
+      stock: product.stock ?? 1,
+      sales: product.sales ?? 0,
+      views: product.views ?? 0,
+      ecoScore: product.ecoScore ?? 90,
+      subtitle: product.subtitle ?? "",
+      description: product.description ?? "",
+    }));
 }
 
-/** Approved hires for the public shop. Anonymous read. */
+/** Approved hires for the public shop. */
 export async function listApprovedLeaValleyHireListings(): Promise<
   LeaValleyServerHire[]
 > {
-  const db = getFirebaseFirestore();
-  if (!db) return [];
-  const snap = await getDocs(
-    query(
-      collection(db, "shops", LEA_VALLEY_UID, COLLECTION),
-      where("status", "==", "approved")
-    )
-  );
-  const rows: LeaValleyServerHire[] = [];
-  for (const item of snap.docs) {
-    const product = toHireProduct(item.id, item.data() as Record<string, unknown>);
-    if (product?.status === "approved") rows.push(product);
-  }
-  return rows;
+  const rows = await listLeaValleyHireListings();
+  return rows.filter((product) => product.status === "approved");
 }
 
 export async function approveLeaValleyHireListing(id: string): Promise<boolean> {

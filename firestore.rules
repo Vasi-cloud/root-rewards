@@ -168,15 +168,9 @@ service cloud.firestore {
           && request.auth.token.email.lower() == 'cvasi.crisan@gmail.com';
       }
 
-      allow read: if shopId == 'demo-lea-valley-cycle-hire'
-        && !isLiveHireId()
-        && (
-          resource.data.status == 'approved'
-          || isCatalogAdmin()
-        );
+      allow read: if shopId == 'demo-lea-valley-cycle-hire';
 
       allow create: if shopId == 'demo-lea-valley-cycle-hire'
-        && isSignedIn()
         && !isLiveHireId()
         && request.resource.data.keys().hasOnly([
           'name',

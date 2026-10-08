@@ -477,9 +477,7 @@ export function AdminSellersPanel({
       );
       for (const product of serverHires) {
         if (seen.has(product.id)) continue;
-        if (isLeaValleyLiveBike(product) || isLeaValleyHireListing(product)) {
-          continue;
-        }
+        if (isLeaValleyLiveBike(product)) continue;
         const name = product.name.trim().toLowerCase();
         if (name && names.has(name)) continue;
         seen.add(product.id);
