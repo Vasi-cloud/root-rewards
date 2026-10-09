@@ -21,7 +21,7 @@ const BLOCKS = [
   },
   {
     title: "Hire",
-    text: "Hire is pickup, not posted. A request waits for the seller — it is not live availability. Deposit and damage terms are those on that listing. We do not add insurance cover here.",
+    text: "A hire is not a goods return. The hire fee follows the listing. A deposit is held as the listing says. Damage sits with the rider or the seller.",
   },
 ];
 

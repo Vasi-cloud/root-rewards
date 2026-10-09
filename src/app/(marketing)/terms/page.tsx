@@ -46,10 +46,9 @@ export default function TermsPage() {
             2. Payments &amp; membership
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Card payments are taken by Stripe. Marketplace checkout and Impact
-            Member (£5/mo) use Stripe Checkout.
-            Charges are real in Stripe Test or Live mode, depending on which
-            secret key is configured. Impact Member · £5/mo supports partner
+            Card payments are taken by Stripe. Charges are real. Marketplace
+            checkout and Impact Member (£5/mo) use Stripe Checkout. Impact
+            Member · £5/mo supports partner
             programmes and the Forest Buddies platform — not product cashback or
             a shopping balance.
           </p>
