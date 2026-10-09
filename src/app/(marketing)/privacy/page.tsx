@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Last updated: July 17, 2026 · Demo / MVP wording — not legal advice.
+        Last updated: July 17, 2026
       </p>
 
       <Separator className="my-8" />
@@ -39,9 +39,9 @@ export default function PrivacyPage() {
           </h2>
           <ul className="mt-2 list-disc space-y-2 pl-5 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Account data</strong> — if
-              Firebase Auth is configured: email, display name, photo URL, and a
-              customer role profile in Firestore.
+              <strong className="text-foreground">Account data</strong> — email,
+              display name, and photo URL use Firebase Auth. The account profile
+              is stored in Firestore.
             </li>
             <li>
               <strong className="text-foreground">Local device data</strong> —
@@ -72,8 +72,8 @@ export default function PrivacyPage() {
             4. Payments
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Checkout is simulated. No real card numbers are processed or stored.
-            Live payments would use a PCI-compliant provider and updated notices.
+            Card payments are taken by Stripe. Forest Buddies does not store
+            the card number.
           </p>
         </section>
 
