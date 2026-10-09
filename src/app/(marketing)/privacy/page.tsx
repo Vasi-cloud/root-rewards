@@ -17,7 +17,7 @@ export default function PrivacyPage() {
         Privacy Policy
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Last updated: July 17, 2026
+        Last updated: 9 October 2026
       </p>
 
       <Separator className="my-8" />
@@ -109,8 +109,7 @@ export default function PrivacyPage() {
               Dashboard → Settings
             </Link>{" "}
             (account marked inactive; records retained for legal reasons).
-            Request full deletion by contacting the project owner when a
-            production support channel exists. For questions, use{" "}
+            Request full deletion at cvasi.crisan@gmail.com. For questions, use{" "}
             <Link
               href="/feedback"
               className="font-medium text-primary underline-offset-2 hover:underline"

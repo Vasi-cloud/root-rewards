@@ -18,7 +18,7 @@ export default function TermsPage() {
         Terms of Service
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Last updated: September 15, 2026 · Soft-launch wording — not legal advice.
+        Last updated: 9 October 2026
       </p>
 
       <Separator className="my-8" />
@@ -29,7 +29,8 @@ export default function TermsPage() {
             1. Acceptance
           </h2>
           <p className="mt-2 text-muted-foreground">
-            By using Forest Buddies you agree to these Terms and our{" "}
+            Forest Buddies is the marketplace at forestbuddies.com. By using
+            Forest Buddies you agree to these Terms and our{" "}
             <Link
               href="/privacy"
               className="font-medium text-primary underline-offset-2 hover:underline"
@@ -45,7 +46,8 @@ export default function TermsPage() {
             2. Payments &amp; membership
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Marketplace checkout and Impact Member (£5/mo) use Stripe Checkout.
+            Card payments are taken by Stripe. Marketplace checkout and Impact
+            Member (£5/mo) use Stripe Checkout.
             Charges are real in Stripe Test or Live mode, depending on which
             secret key is configured. Impact Member · £5/mo supports partner
             programmes and the Forest Buddies platform — not product cashback or
@@ -70,8 +72,11 @@ export default function TermsPage() {
           </h2>
           <p className="mt-2 text-muted-foreground">
             Listings must be accurate and lawful. Misleading eco claims may be
-            flagged or removed. Soft-launch seller tools may store some data on
-            this device until a full production backend is connected.
+            flagged or removed. A hire request is not a booking until the seller
+            confirms. The hire fee is paid on the site. A deposit, if the listing
+            has one, is held as the listing says and is not a purchase of the
+            bike. Damage, theft, and insurance sit with the rider or the seller,
+            not with Forest Buddies.
           </p>
         </section>
 
@@ -80,9 +85,9 @@ export default function TermsPage() {
             5. Affiliates, partners &amp; impact
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Affiliate stats and partner outbound links are illustrative where
-            marked. Third-party stores have their own terms. Commission figures
-            are not guarantees.
+            Affiliate links open a partner site. Affiliate stats and partner
+            outbound links are illustrative where marked. Third-party stores have
+            their own terms. Commission figures are not guarantees.
           </p>
           <p className="mt-3 text-muted-foreground">
             Cause gifts and tree funding support partner programmes.
