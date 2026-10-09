@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 
 export const metadata = {
   title: "Privacy Policy",
-  description: "How Forest Buddies handles personal data in this demo.",
+  description: "How Forest Buddies handles personal data.",
 };
 
 export default function PrivacyPage() {
@@ -28,8 +28,8 @@ export default function PrivacyPage() {
             1. Who we are
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Forest Buddies is a sustainable marketplace demo. This policy
-            explains what this app may collect while you explore the product.
+            Forest Buddies is the marketplace at forestbuddies.com. This policy
+            explains what we collect.
           </p>
         </section>
 
@@ -39,19 +39,17 @@ export default function PrivacyPage() {
           </h2>
           <ul className="mt-2 list-disc space-y-2 pl-5 text-muted-foreground">
             <li>
-              <strong className="text-foreground">Account data</strong> — email,
-              display name, and photo URL use Firebase Auth. The account profile
-              is stored in Firestore.
+              <strong className="text-foreground">Account data</strong> uses
+              Firebase Auth and Firestore — email, display name, photo URL, and
+              the account profile.
             </li>
             <li>
-              <strong className="text-foreground">Local device data</strong> —
-              cart, membership demo state, feedback, seller drafts, and rate-limit
-              counters stored in your browser (localStorage).
+              <strong className="text-foreground">This browser</strong> — some
+              cart and draft data stays in this browser.
             </li>
             <li>
               <strong className="text-foreground">Optional messages</strong> —
-              feedback, support chat, and product reports you choose to send
-              (demo storage unless a backend is connected).
+              feedback, support chat, and product reports you choose to send.
             </li>
           </ul>
         </section>
@@ -61,9 +59,9 @@ export default function PrivacyPage() {
             3. How we use data
           </h2>
           <p className="mt-2 text-muted-foreground">
-            To sign you in, remember your cart, show affiliate and impact demos,
-            moderate listings, and improve the product. We do not sell personal
-            data in this demo.
+            To sign you in, remember your cart, moderate listings, and improve
+            the marketplace. Impact figures are illustrative. We do not sell
+            personal data.
           </p>
         </section>
 
@@ -82,8 +80,8 @@ export default function PrivacyPage() {
             5. Sharing
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Partner “Via Amazon / Target / REI” links open third-party sites with
-            their own policies. Affiliate tags in this demo are illustrative.
+            Affiliate links open Amazon or another partner site. Those sites
+            have their own policies. Impact figures are illustrative.
           </p>
         </section>
 
@@ -92,10 +90,9 @@ export default function PrivacyPage() {
             6. Security
           </h2>
           <p className="mt-2 text-muted-foreground">
-            We use Firebase Auth when configured, hardened Firestore rules (owner
-            profiles, no client role escalation), input validation, and
-            browser-side rate-limit simulation. Clear browser data to remove
-            localStorage demos.
+            Firestore rules limit each account profile to its owner and block
+            client role changes. We validate input on the server. Some cart and
+            draft data stays in this browser until you clear site data.
           </p>
         </section>
 
@@ -129,7 +126,14 @@ export default function PrivacyPage() {
             8. Contact
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Demo project — see the repository README for setup contacts. Related:{" "}
+            Contact{" "}
+            <a
+              href="mailto:cvasi.crisan@gmail.com"
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              cvasi.crisan@gmail.com
+            </a>
+            . Related:{" "}
             <Link
               href="/terms"
               className="font-medium text-primary underline-offset-2 hover:underline"
