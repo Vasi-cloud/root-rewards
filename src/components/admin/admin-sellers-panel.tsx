@@ -99,6 +99,27 @@ function isLeaValleyName(shop: {
   return isLeaValleyCycleHireShop(shop);
 }
 
+/** Pending services already on a loaded seller. Not a marketplace read. Flags do not hide them. */
+function pendingServiceRows(sellers: SellerProfile[]): LeaListingRow[] {
+  const rows: LeaListingRow[] = [];
+  const seen = new Set<string>();
+  for (const shop of sellers) {
+    const lea = isLeaValleyCycleHireShop(shop);
+    for (const product of shop.products ?? []) {
+      if (seen.has(product.id)) continue;
+      if (product.listingType !== "service") continue;
+      if ((product.status ?? "pending") !== "pending") continue;
+      if (isLeaValleyLiveBike(product)) continue;
+      const setupCall =
+        product.name.trim().toLowerCase() === "seller setup call";
+      if (!lea && !setupCall) continue;
+      seen.add(product.id);
+      rows.push({ ownerUid: shop.uid, product });
+    }
+  }
+  return rows;
+}
+
 function isLeaValleyApplication(shop: {
   uid: string;
   email?: string;
@@ -483,6 +504,11 @@ export function AdminSellersPanel({
         if (name && names.has(name)) continue;
         seen.add(product.id);
         detailRows.push({ ownerUid: selectedShop.uid, product });
+      }
+      for (const row of pendingServiceRows(allSellers)) {
+        if (seen.has(row.product.id)) continue;
+        seen.add(row.product.id);
+        detailRows.push(row);
       }
     }
     detailRows.sort((a, b) => {
@@ -979,6 +1005,12 @@ export function AdminSellersPanel({
                       const approved = s.products.filter(
                         (p) => p.status === "approved"
                       ).length;
+                      const extraServices = isLeaValleyCycleHireShop(s)
+                        ? pendingServiceRows(allSellers).filter(
+                            (row) =>
+                              !s.products.some((p) => p.id === row.product.id)
+                          ).length
+                        : 0;
                       return (
                         <tr
                           key={s.uid}
@@ -1013,7 +1045,7 @@ export function AdminSellersPanel({
                             </Badge>
                           </td>
                           <td className="px-4 py-3 tabular-nums text-muted-foreground">
-                            {approved} / {s.products.length}
+                            {approved} / {s.products.length + extraServices}
                           </td>
                           <td
                             className="px-4 py-3"
