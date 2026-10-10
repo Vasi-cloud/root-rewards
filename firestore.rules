@@ -239,7 +239,13 @@ service cloud.firestore {
         && request.resource.data.status == 'pending'
         && request.resource.data.autoApproved == false;
 
-      allow update, delete: if false;
+      allow update: if !isExistingShopId()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'approved'
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'reviewedAt']);
+
+      allow delete: if false;
     }
 
     // Deny everything else by default

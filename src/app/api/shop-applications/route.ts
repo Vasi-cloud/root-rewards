@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  approveStoredShopApplication,
   createStoredShopApplication,
   listStoredShopApplications,
 } from "@/lib/shop-applications-server";
@@ -61,4 +62,34 @@ export async function POST(request: Request) {
     );
   }
   return NextResponse.json({ application: saved }, { headers: noStore });
+}
+
+export async function PATCH(request: Request) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body." },
+      { status: 400, headers: noStore }
+    );
+  }
+  const id =
+    body && typeof body === "object" && typeof (body as { id?: unknown }).id === "string"
+      ? (body as { id: string }).id.trim()
+      : "";
+  if (!id) {
+    return NextResponse.json(
+      { error: "Missing application." },
+      { status: 400, headers: noStore }
+    );
+  }
+  const ok = await approveStoredShopApplication(id);
+  if (!ok) {
+    return NextResponse.json(
+      { error: "Could not approve the shop." },
+      { status: 502, headers: noStore }
+    );
+  }
+  return NextResponse.json({ id, status: "approved" }, { headers: noStore });
 }

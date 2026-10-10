@@ -34,6 +34,7 @@ import {
   leaValleyStorageKeyFor,
   readLeaValleyShopForAdmin,
 } from "@/lib/lea-valley-admin";
+import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
 import {
   approveLeaValleyHireListing,
   listLeaValleyHireListings,
@@ -361,7 +362,7 @@ export function AdminSellersPanel({
       companyName: string;
       servicesOffered: string;
       email: string;
-      status: "pending";
+      status: "pending" | "approved";
       appliedAt: string;
     }[]
   >([]);
@@ -414,7 +415,7 @@ export function AdminSellersPanel({
     return submitted
       .filter(
         (application) =>
-          application.status === "pending" &&
+          (application.status === "pending" || application.status === "approved") &&
           application.shopName.trim() &&
           !names.has(application.shopName.trim().toLowerCase())
       )
@@ -428,7 +429,7 @@ export function AdminSellersPanel({
           bio: "",
           companyName: application.companyName,
           servicesOffered: application.servicesOffered,
-          status: "pending",
+          status: application.status,
           appliedAt: application.appliedAt,
           products: [],
           earnings: {
@@ -454,6 +455,53 @@ export function AdminSellersPanel({
     () => [...visibleSellers, ...applicationShops],
     [visibleSellers, applicationShops]
   );
+
+  function approveListedShop(uid: string) {
+    const existing = allSellers.find((shop) => shop.uid === uid);
+    const applicationShop = applicationShops.find((shop) => shop.uid === uid);
+    if (existing || !applicationShop) {
+      setSellerAccountStatus(uid, "approved");
+      return;
+    }
+    const all = loadAllSellers();
+    all[uid] = {
+      ...applicationShop,
+      status: "approved",
+      approvedAt: new Date().toISOString(),
+    };
+    saveAllSellers(all);
+    setShopApplications((prev) => {
+      const current = prev.find((row) => row.id === uid);
+      if (!current) {
+        return [
+          ...prev,
+          {
+            id: uid,
+            shopName: applicationShop.shopName,
+            sellerType:
+              applicationShop.sellerType === "individual"
+                ? "individual"
+                : "business",
+            companyName: applicationShop.companyName ?? applicationShop.shopName,
+            servicesOffered: applicationShop.servicesOffered ?? "",
+            email: applicationShop.email,
+            status: "approved",
+            appliedAt: applicationShop.appliedAt ?? "2026-10-10T00:00:00.000Z",
+          },
+        ];
+      }
+      return prev.map((row) =>
+        row.id === uid ? { ...row, status: "approved" } : row
+      );
+    });
+    void fetch("/api/shop-applications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: uid }),
+    }).catch((err) => {
+      console.warn("[admin] Shop application was not approved", err);
+    });
+  }
 
   const shopCounts = useMemo(() => {
     const total = shopsForAdmin.length;
@@ -647,9 +695,7 @@ export function AdminSellersPanel({
           </div>
           <ShopActions
             shop={selectedShop}
-            onApprove={() =>
-              setSellerAccountStatus(selectedShop.uid, "approved")
-            }
+            onApprove={() => approveListedShop(selectedShop.uid)}
             onPause={() => setSellerAccountStatus(selectedShop.uid, "paused")}
             onReject={() =>
               setSellerAccountStatus(selectedShop.uid, "rejected")
@@ -1163,9 +1209,7 @@ export function AdminSellersPanel({
                                   <Button
                                     size="sm"
                                     className="gap-1"
-                                    onClick={() =>
-                                      setSellerAccountStatus(s.uid, "approved")
-                                    }
+                                    onClick={() => approveListedShop(s.uid)}
                                   >
                                     <Check className="size-3.5" />
                                     Approve

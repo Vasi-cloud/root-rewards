@@ -9,7 +9,7 @@ export type StoredShopApplication = {
   companyName: string;
   servicesOffered: string;
   email: string;
-  status: "pending";
+  status: "pending" | "approved";
   autoApproved: false;
   appliedAt: string;
 };
@@ -53,7 +53,8 @@ function toStored(
   if (!id || DEMO_SHOP_IDS.has(id)) return null;
   const shopName = restString(fields, "shopName").trim();
   if (!shopName) return null;
-  if (restString(fields, "status") !== "pending") return null;
+  const status = restString(fields, "status") === "approved" ? "approved" : "pending";
+  if (restString(fields, "status") !== "pending" && status !== "approved") return null;
   const sellerType = restString(fields, "sellerType");
   return {
     id,
@@ -62,13 +63,13 @@ function toStored(
     companyName: restString(fields, "companyName"),
     servicesOffered: restString(fields, "servicesOffered"),
     email: restString(fields, "email"),
-    status: "pending",
+    status,
     autoApproved: false,
     appliedAt: restString(fields, "appliedAt") || new Date().toISOString(),
   };
 }
 
-/** Pending shop applications only. Does not read the marketplace. */
+/** Shop applications only. Does not read the marketplace. */
 export async function listStoredShopApplications(): Promise<StoredShopApplication[]> {
   const base = firestoreBase();
   if (!base) return [];
@@ -144,4 +145,37 @@ export async function createStoredShopApplication(input: {
     return null;
   }
   return created;
+}
+
+/** Set one application to approved. Does not touch the existing shops. */
+export async function approveStoredShopApplication(id: string): Promise<boolean> {
+  const clean = id
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  if (!clean || DEMO_SHOP_IDS.has(clean)) return false;
+  const base = firestoreBase();
+  if (!base) return false;
+  const url = base.replace(
+    "/shopApplications?key=",
+    `/shopApplications/${encodeURIComponent(clean)}?updateMask.fieldPaths=status&updateMask.fieldPaths=reviewedAt&key=`
+  );
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fields: {
+        status: { stringValue: "approved" },
+        reviewedAt: { stringValue: new Date().toISOString() },
+      },
+    }),
+  });
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 300);
+    console.error("[shop-applications] approve failed", res.status, detail);
+    return false;
+  }
+  return true;
 }
