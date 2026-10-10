@@ -457,43 +457,40 @@ export function AdminSellersPanel({
   );
 
   function approveListedShop(uid: string) {
-    const existing = allSellers.find((shop) => shop.uid === uid);
     const applicationShop = applicationShops.find((shop) => shop.uid === uid);
-    if (existing || !applicationShop) {
-      setSellerAccountStatus(uid, "approved");
-      return;
-    }
     const all = loadAllSellers();
-    all[uid] = {
-      ...applicationShop,
-      status: "approved",
-      approvedAt: new Date().toISOString(),
-    };
-    saveAllSellers(all);
-    setShopApplications((prev) => {
-      const current = prev.find((row) => row.id === uid);
-      if (!current) {
-        return [
-          ...prev,
-          {
-            id: uid,
-            shopName: applicationShop.shopName,
-            sellerType:
-              applicationShop.sellerType === "individual"
-                ? "individual"
-                : "business",
-            companyName: applicationShop.companyName ?? applicationShop.shopName,
-            servicesOffered: applicationShop.servicesOffered ?? "",
-            email: applicationShop.email,
-            status: "approved",
-            appliedAt: applicationShop.appliedAt ?? "2026-10-10T00:00:00.000Z",
-          },
-        ];
-      }
-      return prev.map((row) =>
-        row.id === uid ? { ...row, status: "approved" } : row
+    const name = (applicationShop?.shopName || all[uid]?.shopName || "")
+      .trim()
+      .toLowerCase();
+    const ownerKey = Object.keys(all).find((key) => {
+      if (key.startsWith("demo-") || key === "forest-buddies-studio") return false;
+      const shop = all[key];
+      if (!shop || shop.status === "approved") return false;
+      const slug = shop.slug || "";
+      return (
+        key === uid ||
+        (Boolean(name) && shop.shopName.trim().toLowerCase() === name) ||
+        slug === uid ||
+        (uid === "forest-buddies-studio" &&
+          slug.startsWith("forest-buddies-studio"))
       );
     });
+    if (ownerKey) {
+      all[ownerKey] = {
+        ...all[ownerKey],
+        status: "approved",
+        approvedAt: new Date().toISOString(),
+      };
+      if (ownerKey !== "forest-buddies-studio") delete all["forest-buddies-studio"];
+      saveAllSellers(all);
+    } else if (all[uid] && !uid.startsWith("demo-") && uid !== "forest-buddies-studio") {
+      setSellerAccountStatus(uid, "approved");
+    } else {
+      return;
+    }
+    setShopApplications((prev) =>
+      prev.map((row) => (row.id === uid ? { ...row, status: "approved" } : row))
+    );
     void fetch("/api/shop-applications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

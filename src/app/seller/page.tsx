@@ -42,7 +42,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
-import { useSeller } from "@/contexts/seller-context";
+import {
+  sellerReadingApprovedShop,
+  useSeller,
+} from "@/contexts/seller-context";
 import { buildLoginHref, buildRegisterHref } from "@/lib/auth-redirect";
 import type {
   ListingType,
@@ -283,7 +286,8 @@ function downloadCsvTemplate() {
 export default function SellerPage() {
   const { user, loading: authLoading } = useAuth();
   const {
-    seller,
+    seller: storedSeller,
+    allSellers,
     loading: sellerLoading,
     applyAsSeller,
     resumeSeller,
@@ -294,6 +298,10 @@ export default function SellerPage() {
     requestPayout,
     updateSellerProfile,
   } = useSeller();
+  const seller = useMemo(
+    () => sellerReadingApprovedShop(storedSeller, allSellers),
+    [storedSeller, allSellers]
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tab, setTab] = useState<SellerTab>("overview");

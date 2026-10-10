@@ -33,6 +33,7 @@ import {
   loadAllSellers,
   normalizeSeller,
   saveAllSellers,
+  slugifyShopName,
   setProductApproval as storageSetProductApproval,
   setSellerAccountStatus as storageSetSellerAccountStatus,
   setSellerTrustOverride as storageSetSellerTrustOverride,
@@ -156,6 +157,74 @@ function prepareProduct(
   };
 }
 
+function shopNameKey(name?: string) {
+  return (name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isApprovedTwin(mine: SellerProfile, shop: SellerProfile): boolean {
+  const shopUid = shop.uid ?? "";
+  if (!shopUid || shopUid === mine.uid || shopUid.startsWith("demo-")) return false;
+  if (shop.status !== "approved") return false;
+  const name = shopNameKey(mine.shopName);
+  const company = shopNameKey(mine.companyName);
+  const otherName = shopNameKey(shop.shopName);
+  const otherCompany = shopNameKey(shop.companyName);
+  if (name && (otherName === name || otherCompany === name)) return true;
+  if (company && (otherName === company || otherCompany === company)) return true;
+  const slug = mine.slug || slugifyShopName(mine.shopName);
+  if (shop.slug === slug || shopUid === slug) return true;
+  return (
+    shopUid === "forest-buddies-studio" &&
+    (slugifyShopName(mine.shopName) === "forest-buddies-studio" ||
+      slug.startsWith("forest-buddies-studio") ||
+      slugifyShopName(mine.companyName ?? "") === "forest-buddies-studio")
+  );
+}
+
+/** Pending profile plus the Approved row Admin already stored for this shop. */
+export function sellerReadingApprovedShop(
+  mine: SellerProfile | null,
+  shops: SellerProfile[]
+): SellerProfile | null {
+  if (!mine || mine.status !== "pending") return mine;
+  const approved = shops.find((shop) => isApprovedTwin(mine, shop));
+  if (!approved) return mine;
+  return {
+    ...mine,
+    status: "approved",
+    approvedAt: approved.approvedAt,
+  };
+}
+
+/**
+ * The seller page reads only the signed-in profile. Admin approval of this
+ * application was stored on a separate row. Copy that approval onto the
+ * existing profile and drop the extra row. Other shops stay as stored.
+ */
+function adoptApprovedShop(
+  all: Record<string, SellerProfile>,
+  uid: string
+): boolean {
+  const mine = all[uid];
+  if (!mine || mine.status !== "pending") return false;
+  const extraKey = Object.keys(all).find(
+    (key) => key !== uid && isApprovedTwin(mine, { ...all[key], uid: all[key].uid || key })
+  );
+  if (!extraKey) return false;
+  all[uid] = {
+    ...mine,
+    status: "approved",
+    approvedAt: all[extraKey].approvedAt || new Date().toISOString(),
+  };
+  if (extraKey === "forest-buddies-studio") delete all[extraKey];
+  return true;
+}
+
 export function SellerProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [seller, setSeller] = useState<SellerProfile | null>(null);
@@ -165,23 +234,8 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const refreshSellers = useCallback(() => {
     ensureDemoShops();
     const all = loadAllSellers();
-    if (user && all[user.uid]?.status === "pending") {
-      const mine = all[user.uid];
-      const name = mine.shopName.trim().toLowerCase();
-      const approved = Object.entries(all).find(
-        ([key, shop]) =>
-          key !== user.uid &&
-          shop.status === "approved" &&
-          shop.shopName.trim().toLowerCase() === name
-      );
-      if (approved && name) {
-        all[user.uid] = {
-          ...mine,
-          status: "approved",
-          approvedAt: approved[1].approvedAt || new Date().toISOString(),
-        };
-        saveAllSellers(all);
-      }
+    if (user && adoptApprovedShop(all, user.uid)) {
+      saveAllSellers(all);
     }
     const list = Object.values(all).map(normalizeSeller);
     setAllSellers(list);
@@ -436,8 +490,16 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
 
   const addProduct = useCallback(
     (product: Omit<SellerProduct, "id" | "createdAt">) => {
-      if (!seller || seller.status !== "approved") return;
-      const prepared = prepareProduct(seller, product, `sp-${Date.now()}`);
+      let current = sellerReadingApprovedShop(seller, allSellers);
+      if (user && seller?.status === "pending" && current?.status === "approved") {
+        const all = loadAllSellers();
+        if (adoptApprovedShop(all, user.uid)) saveAllSellers(all);
+        if (all[user.uid]?.status === "approved") {
+          current = normalizeSeller(all[user.uid]);
+        }
+      }
+      if (!current || current.status !== "approved") return;
+      const prepared = prepareProduct(current, product, `sp-${Date.now()}`);
       const next =
         prepared.listingType === "rental"
           ? {
@@ -449,20 +511,20 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
             }
           : prepared;
       persistCurrent({
-        ...seller,
-        products: [next, ...seller.products],
+        ...current,
+        products: [next, ...current.products],
       });
-      if (next.listingType === "rental" && isLeaValleySeller(seller)) {
+      if (next.listingType === "rental" && isLeaValleySeller(current)) {
         void saveNewLeaValleyHireListing(next).catch((err) => {
           console.warn("[seller] Hire listing was not saved", err);
         });
       }
       publishHireListingTerms(next);
-      void saveSellerFirstPartyListing(seller.uid, next).catch((err) => {
+      void saveSellerFirstPartyListing(current.uid, next).catch((err) => {
         console.warn("[seller] Marketplace sync failed", err);
       });
     },
-    [seller, persistCurrent]
+    [seller, allSellers, user, persistCurrent]
   );
 
   const addProducts = useCallback(
