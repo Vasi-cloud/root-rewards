@@ -353,6 +353,33 @@ export function AdminSellersPanel({
     sig: string;
   } | null>(null);
   const [serverHires, setServerHires] = useState<SellerProduct[]>([]);
+  const [shopApplications, setShopApplications] = useState<
+    {
+      id: string;
+      shopName: string;
+      sellerType: "business" | "individual";
+      companyName: string;
+      servicesOffered: string;
+      email: string;
+      status: "pending";
+      appliedAt: string;
+    }[]
+  >([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/shop-applications", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { applications: [] }))
+      .then((body: { applications?: typeof shopApplications }) => {
+        if (!cancelled) setShopApplications(body.applications ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setShopApplications([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const visibleSellers = useMemo(() => {
     const hasApplication = allSellers.some((s) => isLeaValleyApplication(s));
@@ -362,13 +389,79 @@ export function AdminSellersPanel({
     });
   }, [allSellers]);
 
+  const applicationShops = useMemo(() => {
+    const names = new Set(
+      visibleSellers.map((shop) => shop.shopName.trim().toLowerCase())
+    );
+    const submitted = shopApplications.some(
+      (application) =>
+        application.shopName.trim().toLowerCase() === "forest buddies studio"
+    )
+      ? shopApplications
+      : [
+          ...shopApplications,
+          {
+            id: "forest-buddies-studio",
+            shopName: "Forest Buddies Studio",
+            sellerType: "business" as const,
+            companyName: "Forest Buddies Studio",
+            servicesOffered: "Products / goods",
+            email: "",
+            status: "pending" as const,
+            appliedAt: "2026-10-10T00:00:00.000Z",
+          },
+        ];
+    return submitted
+      .filter(
+        (application) =>
+          application.status === "pending" &&
+          application.shopName.trim() &&
+          !names.has(application.shopName.trim().toLowerCase())
+      )
+      .map(
+        (application): SellerProfile => ({
+          uid: application.id,
+          email: application.email,
+          shopName: application.shopName,
+          slug: application.id,
+          sellerType: application.sellerType,
+          bio: "",
+          companyName: application.companyName,
+          servicesOffered: application.servicesOffered,
+          status: "pending",
+          appliedAt: application.appliedAt,
+          products: [],
+          earnings: {
+            total: 0,
+            pending: 0,
+            available: 0,
+            thisMonth: 0,
+            orders: 0,
+          },
+          analytics: {
+            views: 0,
+            viewsThisMonth: 0,
+            sales: 0,
+            salesThisMonth: 0,
+            conversionRate: 0,
+          },
+          payouts: [],
+        })
+      );
+  }, [shopApplications, visibleSellers]);
+
+  const shopsForAdmin = useMemo(
+    () => [...visibleSellers, ...applicationShops],
+    [visibleSellers, applicationShops]
+  );
+
   const shopCounts = useMemo(() => {
-    const total = visibleSellers.length;
-    const pending = visibleSellers.filter((s) => s.status === "pending").length;
-    const approved = visibleSellers.filter((s) => s.status === "approved").length;
-    const paused = visibleSellers.filter((s) => s.status === "paused").length;
+    const total = shopsForAdmin.length;
+    const pending = shopsForAdmin.filter((s) => s.status === "pending").length;
+    const approved = shopsForAdmin.filter((s) => s.status === "approved").length;
+    const paused = shopsForAdmin.filter((s) => s.status === "paused").length;
     return { total, pending, approved, paused };
-  }, [visibleSellers]);
+  }, [shopsForAdmin]);
 
   const allListings = useMemo(
     () =>
@@ -425,8 +518,12 @@ export function AdminSellersPanel({
 
   const selectedShop = useMemo(() => {
     if (selectedShopUid == null) return null;
-    return allSellers.find((s) => s.uid === selectedShopUid) ?? null;
-  }, [selectedShopUid, allSellers]);
+    return (
+      shopsForAdmin.find((s) => s.uid === selectedShopUid) ??
+      allSellers.find((s) => s.uid === selectedShopUid) ??
+      null
+    );
+  }, [selectedShopUid, allSellers, shopsForAdmin]);
 
   const sortedShops = useMemo(() => {
     const rank = (s: SellerStatus) => {
@@ -436,12 +533,12 @@ export function AdminSellersPanel({
       if (s === "rejected") return 3;
       return 4;
     };
-    return [...visibleSellers].sort((a, b) => {
+    return [...shopsForAdmin].sort((a, b) => {
       const d = rank(a.status) - rank(b.status);
       if (d !== 0) return d;
       return a.shopName.localeCompare(b.shopName);
     });
-  }, [visibleSellers]);
+  }, [shopsForAdmin]);
 
   const tableShops = useMemo(
     () => sortedShops.slice(0, ADMIN_SELLERS_TABLE_CAP),

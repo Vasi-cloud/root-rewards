@@ -275,6 +275,21 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         impactStory: existing?.impactStory,
       };
       persistCurrent(profile);
+      void fetch("/api/shop-applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: profile.slug,
+          shopName: profile.shopName,
+          sellerType: profile.sellerType ?? "business",
+          companyName: profile.companyName ?? profile.shopName,
+          servicesOffered: profile.servicesOffered ?? "",
+          email: profile.email,
+          appliedAt: profile.appliedAt,
+        }),
+      }).catch((err) => {
+        console.warn("[seller] Shop application was not saved", err);
+      });
     },
     [user, persistCurrent]
   );
