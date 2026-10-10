@@ -165,6 +165,24 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const refreshSellers = useCallback(() => {
     ensureDemoShops();
     const all = loadAllSellers();
+    if (user && all[user.uid]?.status === "pending") {
+      const mine = all[user.uid];
+      const name = mine.shopName.trim().toLowerCase();
+      const approved = Object.entries(all).find(
+        ([key, shop]) =>
+          key !== user.uid &&
+          shop.status === "approved" &&
+          shop.shopName.trim().toLowerCase() === name
+      );
+      if (approved && name) {
+        all[user.uid] = {
+          ...mine,
+          status: "approved",
+          approvedAt: approved[1].approvedAt || new Date().toISOString(),
+        };
+        saveAllSellers(all);
+      }
+    }
     const list = Object.values(all).map(normalizeSeller);
     setAllSellers(list);
     if (user) {
