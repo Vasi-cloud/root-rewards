@@ -27,11 +27,72 @@ import {
   withApprovedServerHires,
 } from "@/lib/lea-valley-hire-listings";
 import {
+  emptyAnalytics,
+  emptyEarnings,
+  emptyPayouts,
   ensureDemoShops,
   getSellerBySlug,
   listPublicShops,
 } from "@/lib/seller-storage";
+import {
+  isStudioTeeName,
+  studioProductFromApplication,
+  type StudioApplicationRow,
+} from "@/lib/studio-listing";
 import type { Product, SellerProfile, SellerProduct } from "@/types";
+
+function shopNameKey(name?: string) {
+  return (name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isStudioShop(shop: { shopName?: string; companyName?: string; slug?: string } | null) {
+  if (!shop) return false;
+  return (
+    shop.slug === "forest-buddies-studio" ||
+    shopNameKey(shop.shopName) === "forest buddies studio" ||
+    shopNameKey(shop.companyName) === "forest buddies studio"
+  );
+}
+
+function studioShopProfile(): SellerProfile {
+  return {
+    uid: "forest-buddies-studio",
+    email: "",
+    shopName: "Forest Buddies Studio",
+    slug: "forest-buddies-studio",
+    sellerType: "business",
+    bio: "",
+    companyName: "Forest Buddies Studio",
+    status: "approved",
+    appliedAt: "2026-10-10T00:00:00.000Z",
+    products: [],
+    earnings: emptyEarnings(),
+    analytics: emptyAnalytics(),
+    payouts: emptyPayouts(),
+  };
+}
+
+function withApprovedStudioTee(
+  shop: SellerProfile,
+  applications: StudioApplicationRow[]
+): SellerProfile {
+  const tee = applications
+    .map((row) => studioProductFromApplication(row))
+    .find((product) => product && isStudioTeeName(product.name) && product.status === "approved");
+  if (!tee) return shop;
+  const products = [...(shop.products ?? [])];
+  const index = products.findIndex(
+    (product) => isStudioTeeName(product.name) || product.id === tee.id
+  );
+  if (index >= 0) products[index] = { ...products[index], ...tee, status: "approved" };
+  else products.push(tee);
+  return { ...shop, status: "approved", products };
+}
 
 function sellerProductToCartItem(
   product: SellerProduct,
@@ -87,6 +148,7 @@ export default function SellerShopPage() {
   const [serverHires, setServerHires] = useState<SellerProduct[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     let next: SellerProfile | null = null;
     if (isLeaValleyShopSlug(slug)) {
       next = applyLeaValleyGuestShop();
@@ -98,17 +160,48 @@ export default function SellerShopPage() {
     }
     ensureDemoShops();
     next = getSellerBySlug(slug);
-    setShop(next);
+    const studioPage = slug === "forest-buddies-studio" || isStudioShop(next);
     try {
       setOthers(listPublicShops().filter((s) => s.slug !== slug).slice(0, 4));
     } catch {
       setOthers([]);
     }
-    setReady(true);
     setActiveProduct(null);
-    if (next?.uid && next.status === "approved") {
-      recordShopView(next.uid);
+    if (!studioPage) {
+      setShop(next);
+      setReady(true);
+      if (next?.uid && next.status === "approved") {
+        recordShopView(next.uid);
+      }
+      return;
     }
+    const base =
+      next && next.status === "approved"
+        ? next
+        : next
+          ? { ...next, status: "approved" as const }
+          : studioShopProfile();
+    setShop(base);
+    if (!next || next.status !== "approved") setReady(false);
+    else setReady(true);
+    fetch("/api/shop-applications", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { applications: [] }))
+      .then((body: { applications?: StudioApplicationRow[] }) => {
+        if (cancelled) return;
+        setShop(withApprovedStudioTee(base, body.applications ?? []));
+      })
+      .catch(() => {
+        if (!cancelled) setShop(base);
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
+    if (base.uid && base.status === "approved" && next?.status === "approved") {
+      recordShopView(base.uid);
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   useEffect(() => {

@@ -36,6 +36,11 @@ import {
 } from "@/lib/lea-valley-admin";
 import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
 import {
+  STUDIO_TEE_ID,
+  isStudioTeeName,
+  studioProductFromApplication,
+} from "@/lib/studio-listing";
+import {
   approveLeaValleyHireListing,
   listLeaValleyHireListings,
   rejectLeaValleyHireListing,
@@ -64,48 +69,6 @@ function shopNameKey(name?: string) {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function studioProductFromApplication(application: {
-  id: string;
-  servicesOffered?: string;
-  appliedAt?: string;
-}): SellerProduct | null {
-  if (!application.id.startsWith("studio-product-")) return null;
-  let parsed: {
-    name?: string;
-    price?: number;
-    category?: string;
-    listingType?: string;
-    stock?: number;
-  };
-  try {
-    parsed = JSON.parse(application.servicesOffered ?? "") as typeof parsed;
-  } catch {
-    return null;
-  }
-  const name = (parsed?.name ?? "").trim();
-  if (!name) return null;
-  const listingType =
-    parsed.listingType === "service" || parsed.listingType === "rental"
-      ? parsed.listingType
-      : "product";
-  return {
-    id: application.id.slice("studio-product-".length) || application.id,
-    name,
-    subtitle: "",
-    description: "",
-    category: (parsed.category ?? "").trim() || "Apparel",
-    tags: [],
-    price: Number(parsed.price) || 0,
-    ecoScore: 0,
-    stock: Math.max(0, Math.round(Number(parsed.stock) || 0)),
-    listingType,
-    status: "pending",
-    views: 0,
-    sales: 0,
-    createdAt: application.appliedAt || new Date(0).toISOString(),
-  };
 }
 
 function listingIdentity(product: { id: string; name: string }) {
@@ -557,9 +520,18 @@ export function AdminSellersPanel({
     const seen = new Set<string>();
     const products: SellerProduct[] = [];
     let owner: SellerProfile | undefined;
-    const addProductRow = (product: SellerProduct, shop?: SellerProfile) => {
+    const addProductRow = (
+      product: SellerProduct,
+      shop?: SellerProfile,
+      shared = false
+    ) => {
       const key = listingIdentity(product);
-      if (seen.has(key)) return;
+      if (seen.has(key)) {
+        if (!shared) return;
+        const index = products.findIndex((row) => listingIdentity(row) === key);
+        if (index >= 0) products[index] = product;
+        return;
+      }
       seen.add(key);
       products.push(product);
       if (!owner && shop && isForestBuddiesStudio(shop)) owner = shop;
@@ -582,7 +554,7 @@ export function AdminSellersPanel({
     }
     for (const application of shopApplications) {
       const product = studioProductFromApplication(application);
-      if (product) addProductRow(product);
+      if (product) addProductRow(product, undefined, true);
     }
     const keeper =
       studioRows.find((shop) => shop.appliedAt?.startsWith("2026-10-10")) ??
@@ -642,6 +614,54 @@ export function AdminSellersPanel({
     }).catch((err) => {
       console.warn("[admin] Shop application was not approved", err);
     });
+  }
+
+  function approveStudioTee() {
+    void fetch("/api/shop-applications", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: STUDIO_TEE_ID }),
+    })
+      .then((res) => {
+        if (!res.ok) return;
+        setShopApplications((prev) =>
+          prev.map((row) =>
+            row.id === STUDIO_TEE_ID ? { ...row, status: "approved" } : row
+          )
+        );
+        const all = loadAllSellers();
+        let changed = false;
+        for (const key of Object.keys(all)) {
+          if (key.startsWith("demo-")) continue;
+          const shop = all[key];
+          if (
+            !shop?.products?.some(
+              (product) =>
+                isStudioTeeName(product.name) && product.status !== "approved"
+            )
+          ) {
+            continue;
+          }
+          all[key] = {
+            ...shop,
+            products: shop.products.map((product) =>
+              isStudioTeeName(product.name)
+                ? {
+                    ...product,
+                    status: "approved" as const,
+                    autoApproved: false,
+                    reviewedAt: new Date().toISOString(),
+                  }
+                : product
+            ),
+          };
+          changed = true;
+        }
+        if (changed) saveAllSellers(all);
+      })
+      .catch((err) => {
+        console.warn("[admin] Studio tee was not approved", err);
+      });
   }
 
   const shopCounts = useMemo(() => {
@@ -1054,6 +1074,10 @@ export function AdminSellersPanel({
                                   return;
                                 }
                                 setRejectingKey(null);
+                                if (isStudioTeeName(product.name)) {
+                                  approveStudioTee();
+                                  return;
+                                }
                                 if (
                                   serverHires.some((row) => row.id === product.id)
                                 ) {
@@ -1559,6 +1583,10 @@ export function AdminSellersPanel({
                               className="gap-1"
                               onClick={() => {
                                 setRejectingKey(null);
+                                if (isStudioTeeName(product.name)) {
+                                  approveStudioTee();
+                                  return;
+                                }
                                 setProductApproval(
                                   s.uid,
                                   product.id,
