@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -255,93 +256,49 @@ export function sellerForSignedInAccount(
   };
 }
 
-/** Write the company email on the existing Approved studio row. */
-function stampStudioEmail(all: Record<string, SellerProfile>): boolean {
-  let changed = false;
-  const studioKeys = Object.keys(all).filter(
-    (key) => all[key].status === "approved" && isStudioRecord(all[key], key)
-  );
-  if (studioKeys.length > 1 && all["forest-buddies-studio"]) {
-    const keeper = studioKeys.find((key) => key !== "forest-buddies-studio");
-    if (keeper) {
-      delete all["forest-buddies-studio"];
-      changed = true;
-    }
-  }
-  for (const key of Object.keys(all)) {
-    const shop = all[key];
-    if (shop.status !== "approved" || !isStudioRecord(shop, key)) continue;
-    if ((shop.email ?? "").trim().toLowerCase() === STUDIO_ACCOUNT) continue;
-    all[key] = { ...shop, email: STUDIO_ACCOUNT };
-    changed = true;
-  }
-  return changed;
-}
+type StudioApplication = {
+  id?: string;
+  shopName?: string;
+  sellerType?: string;
+  companyName?: string;
+  servicesOffered?: string;
+  email?: string;
+  status?: string;
+  appliedAt?: string;
+};
 
-/** The admin account must not keep this shop. Park the same row off that uid. */
-function releaseStudioFromAdmin(
-  all: Record<string, SellerProfile>,
-  uid: string,
-  email: string
-): boolean {
-  if (email.trim().toLowerCase() !== "cvasi.crisan@gmail.com") return false;
-  const mine = all[uid];
-  if (!mine || !isStudioRecord(mine, uid)) return false;
-  const parked = all["forest-buddies-studio"];
-  all["forest-buddies-studio"] = {
-    ...(parked ?? mine),
-    ...mine,
-    uid: "forest-buddies-studio",
-    email: STUDIO_ACCOUNT,
-    status: "approved",
-    sellerType: mine.sellerType ?? parked?.sellerType ?? "business",
-    companyName: mine.companyName || parked?.companyName || mine.shopName,
-    products: mine.products?.length ? mine.products : parked?.products ?? [],
-  };
-  delete all[uid];
-  return true;
-}
-
-/** Move the existing Approved studio onto this account. Does not add a shop. */
-function linkStudioShop(
-  all: Record<string, SellerProfile>,
-  uid: string,
-  email: string
-): boolean {
-  if (!isStudioAccount(email)) return false;
-  const mine = all[uid];
-  if (
-    mine &&
-    mine.status !== "none" &&
-    !isStudioRecord(mine, uid)
-  ) {
-    return false;
+/** The Approved Forest Buddies Studio row Admin already lists. Not a new shop. */
+function studioFromApplication(
+  row: StudioApplication,
+  uid: string
+): SellerProfile | null {
+  const shopName = (row.shopName ?? "").trim();
+  const id = (row.id ?? "").trim();
+  const named =
+    shopNameKey(shopName) === STUDIO_NAME ||
+    shopNameKey(row.companyName) === STUDIO_NAME ||
+    id === "forest-buddies-studio";
+  // Admin already lists this one shop as Approved. Its shared status field
+  // can still say pending. Read that row; do not create another shop.
+  if (!named || (row.status !== "approved" && id !== "forest-buddies-studio")) {
+    return null;
   }
-  const extraKey = Object.keys(all).find(
-    (key) =>
-      key !== uid &&
-      all[key].status === "approved" &&
-      isStudioRecord(all[key], key)
-  );
-  const source =
-    (extraKey ? all[extraKey] : null) ??
-    (mine && mine.status === "approved" && isStudioRecord(mine, uid) ? mine : null);
-  if (!source) return false;
-  const emailSet = (mine?.email ?? "").trim().toLowerCase() === STUDIO_ACCOUNT;
-  if (!extraKey && emailSet && mine?.status === "approved" && mine.uid === uid) {
-    return false;
-  }
-  all[uid] = {
-    ...source,
+  return {
     uid,
     email: STUDIO_ACCOUNT,
+    shopName: shopName || "Forest Buddies Studio",
+    slug: id || "forest-buddies-studio",
+    sellerType: row.sellerType === "individual" ? "individual" : "business",
+    bio: "",
+    companyName: (row.companyName ?? "").trim() || shopName || "Forest Buddies Studio",
+    servicesOffered: row.servicesOffered,
     status: "approved",
-    sellerType: source.sellerType ?? "business",
-    companyName: source.companyName || source.shopName,
+    appliedAt: row.appliedAt,
+    products: [],
+    earnings: emptyEarnings(),
+    analytics: emptyAnalytics(),
+    payouts: emptyPayouts(),
   };
-  if (extraKey && extraKey !== uid) delete all[extraKey];
-  if (uid !== "forest-buddies-studio") delete all["forest-buddies-studio"];
-  return true;
 }
 
 /**
@@ -376,32 +333,67 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const [allSellers, setAllSellers] = useState<SellerProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const readStudio = useRef<SellerProfile | null>(null);
+
   const refreshSellers = useCallback(() => {
     ensureDemoShops();
     const all = loadAllSellers();
-    let changed = false;
-    if (user && adoptApprovedShop(all, user.uid, user.email)) changed = true;
-    if (user?.email && releaseStudioFromAdmin(all, user.uid, user.email)) changed = true;
-    if (stampStudioEmail(all)) changed = true;
-    if (user?.email && linkStudioShop(all, user.uid, user.email)) changed = true;
-    if (changed) saveAllSellers(all);
+    if (user && adoptApprovedShop(all, user.uid, user.email)) {
+      saveAllSellers(all);
+    }
     const list = Object.values(all).map(normalizeSeller);
     setAllSellers(list);
-    if (user) {
-      const mine = all[user.uid] ? normalizeSeller(all[user.uid]) : null;
-      setSeller(sellerForSignedInAccount(mine, list, user.email, user.uid));
+    if (!user) return;
+    const mine = all[user.uid] ? normalizeSeller(all[user.uid]) : null;
+    const local = sellerForSignedInAccount(mine, list, user.email, user.uid);
+    if (local && local.status !== "none") {
+      setSeller(local);
+      return;
     }
+    if (isStudioAccount(user.email) && readStudio.current) {
+      setSeller({ ...readStudio.current, uid: user.uid });
+      return;
+    }
+    setSeller(local);
   }, [user]);
 
   useEffect(() => {
     // Soft-launch demos + any approved shops — seed even when logged out so
     // /marketplace and /shop match Admin Sellers on the same device.
+    let cancelled = false;
+    setLoading(true);
     ensureDemoShops();
     refreshSellers();
-    setLoading(false);
     if (!user) {
+      readStudio.current = null;
       setSeller(null);
+      setLoading(false);
+      return;
     }
+    if (!isStudioAccount(user.email)) {
+      setLoading(false);
+      return;
+    }
+    fetch("/api/shop-applications", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { applications: [] }))
+      .then((body: { applications?: StudioApplication[] }) => {
+        if (cancelled) return;
+        const row = (body.applications ?? []).find((application) =>
+          studioFromApplication(application, user.uid)
+        );
+        const shop = row ? studioFromApplication(row, user.uid) : null;
+        readStudio.current = shop;
+        if (shop) setSeller(shop);
+      })
+      .catch(() => {
+        readStudio.current = null;
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, refreshSellers]);
 
   useEffect(() => {
@@ -639,21 +631,12 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
 
   const addProduct = useCallback(
     (product: Omit<SellerProduct, "id" | "createdAt">) => {
-      let current = sellerForSignedInAccount(
+      const current = sellerForSignedInAccount(
         seller,
         allSellers,
         user?.email,
         user?.uid
       );
-      if (user?.email && current?.status === "approved" && seller?.status !== "approved") {
-        const all = loadAllSellers();
-        const linked =
-          adoptApprovedShop(all, user.uid) || linkStudioShop(all, user.uid, user.email);
-        if (linked) saveAllSellers(all);
-        if (all[user.uid]?.status === "approved") {
-          current = normalizeSeller(all[user.uid]);
-        }
-      }
       if (!current || current.status !== "approved") return;
       const prepared = prepareProduct(current, product, `sp-${Date.now()}`);
       const next =
