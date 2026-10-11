@@ -25,6 +25,10 @@ import {
   resolveListingDecision,
 } from "@/lib/moderation";
 import {
+  isStudioTeeName,
+  studioProductFromApplication,
+} from "@/lib/studio-listing";
+import {
   SELLERS_STORAGE_KEY,
   emptyAnalytics,
   emptyEarnings,
@@ -383,6 +387,31 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
 
   const readStudio = useRef<SellerProfile | null>(null);
   const postedListings = useRef(new Set<string>());
+  const sharedTeeApproved = useRef(false);
+
+  const withApprovedTee = useCallback((profile: SellerProfile | null) => {
+    if (!profile || !sharedTeeApproved.current) return profile;
+    if (
+      !profile.products.some(
+        (product) =>
+          isStudioTeeName(product.name) && product.status !== "approved"
+      )
+    ) {
+      return profile;
+    }
+    return {
+      ...profile,
+      products: profile.products.map((product) =>
+        isStudioTeeName(product.name)
+          ? {
+              ...product,
+              status: "approved" as const,
+              autoApproved: false,
+            }
+          : product
+      ),
+    };
+  }, []);
 
   const refreshSellers = useCallback(() => {
     ensureDemoShops();
@@ -396,15 +425,15 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
     const mine = all[user.uid] ? normalizeSeller(all[user.uid]) : null;
     const local = sellerForSignedInAccount(mine, list, user.email, user.uid);
     if (local && local.status !== "none") {
-      setSeller(local);
+      setSeller(withApprovedTee(local));
       return;
     }
     if (isStudioAccount(user.email) && readStudio.current) {
-      setSeller({ ...readStudio.current, uid: user.uid });
+      setSeller(withApprovedTee({ ...readStudio.current, uid: user.uid }));
       return;
     }
-    setSeller(local);
-  }, [user]);
+    setSeller(withApprovedTee(local));
+  }, [user, withApprovedTee]);
 
   useEffect(() => {
     // Soft-launch demos + any approved shops — seed even when logged out so
@@ -427,16 +456,55 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       .then((res) => (res.ok ? res.json() : { applications: [] }))
       .then((body: { applications?: StudioApplication[] }) => {
         if (cancelled) return;
-        const row = (body.applications ?? []).find((application) =>
+        const applications = body.applications ?? [];
+        const tee = applications
+          .map((application) =>
+            studioProductFromApplication({
+              id: application.id ?? "",
+              servicesOffered: application.servicesOffered,
+              status: application.status,
+              appliedAt: application.appliedAt,
+            })
+          )
+          .find((product) => product && isStudioTeeName(product.name));
+        sharedTeeApproved.current = tee?.status === "approved";
+        if (sharedTeeApproved.current) {
+          const all = loadAllSellers();
+          const mine = all[user.uid];
+          if (
+            mine?.products.some(
+              (product) =>
+                isStudioTeeName(product.name) && product.status !== "approved"
+            )
+          ) {
+            all[user.uid] = {
+              ...mine,
+              products: mine.products.map((product) =>
+                isStudioTeeName(product.name)
+                  ? {
+                      ...product,
+                      status: "approved" as const,
+                      autoApproved: false,
+                      reviewedAt: new Date().toISOString(),
+                    }
+                  : product
+              ),
+            };
+            saveAllSellers(all);
+          }
+        }
+        const row = applications.find((application) =>
           studioFromApplication(application, user.uid)
         );
         const shop = row ? studioFromApplication(row, user.uid) : null;
         readStudio.current = shop;
         if (shop) {
           setSeller((current) =>
-            current?.products?.length
-              ? { ...shop, products: current.products, uid: user.uid }
-              : shop
+            withApprovedTee(
+              current?.products?.length
+                ? { ...shop, products: current.products, uid: user.uid }
+                : shop
+            )
           );
         }
       })

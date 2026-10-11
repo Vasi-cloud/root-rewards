@@ -212,6 +212,18 @@ export async function approveStoredShopApplication(id: string): Promise<boolean>
   if (!clean || DEMO_SHOP_IDS.has(clean)) return false;
   const base = firestoreBase();
   if (!base) return false;
+  const docUrl = base.replace(
+    "/shopApplications?key=",
+    `/shopApplications/${encodeURIComponent(clean)}?key=`
+  );
+  const existing = await fetch(docUrl, { cache: "no-store" });
+  if (!existing.ok) return false;
+  const current = (await existing.json()) as {
+    fields?: Record<string, RestField>;
+  };
+  const status = restString(current.fields, "status");
+  if (status === "approved") return true;
+  if (status !== "pending") return false;
   const url = base.replace(
     "/shopApplications?key=",
     `/shopApplications/${encodeURIComponent(clean)}?updateMask.fieldPaths=status&updateMask.fieldPaths=reviewedAt&key=`

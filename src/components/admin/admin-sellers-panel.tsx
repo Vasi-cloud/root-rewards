@@ -601,9 +601,8 @@ export function AdminSellersPanel({
       saveAllSellers(all);
     } else if (all[uid] && !uid.startsWith("demo-") && uid !== "forest-buddies-studio") {
       setSellerAccountStatus(uid, "approved");
-    } else {
-      return;
     }
+    if (!applicationShop || applicationShop.status === "approved") return;
     setShopApplications((prev) =>
       prev.map((row) => (row.id === uid ? { ...row, status: "approved" } : row))
     );
@@ -634,8 +633,9 @@ export function AdminSellersPanel({
         for (const key of Object.keys(all)) {
           if (key.startsWith("demo-")) continue;
           const shop = all[key];
+          if (!shop || !isForestBuddiesStudio(shop)) continue;
           if (
-            !shop?.products?.some(
+            !shop.products?.some(
               (product) =>
                 isStudioTeeName(product.name) && product.status !== "approved"
             )
