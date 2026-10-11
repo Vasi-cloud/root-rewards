@@ -57,6 +57,30 @@ const ADMIN_SELLERS_TABLE_CAP = 100;
 const SHOP_DETAIL_CAP = 20;
 const DEMO_LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 
+function shopNameKey(name?: string) {
+  return (name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isForestBuddiesStudio(shop: {
+  uid?: string;
+  slug?: string;
+  shopName?: string;
+  companyName?: string;
+}) {
+  if ((shop.uid ?? "").startsWith("demo-")) return false;
+  return (
+    shopNameKey(shop.shopName) === "forest buddies studio" ||
+    shopNameKey(shop.companyName) === "forest buddies studio" ||
+    shop.uid === "forest-buddies-studio" ||
+    shop.slug === "forest-buddies-studio"
+  );
+}
+
 function isAdminListingRow(product: { status?: string; listingType?: string }) {
   if (
     product.status === "pending" &&
@@ -451,10 +475,45 @@ export function AdminSellersPanel({
       );
   }, [shopApplications, visibleSellers]);
 
-  const shopsForAdmin = useMemo(
-    () => [...visibleSellers, ...applicationShops],
-    [visibleSellers, applicationShops]
-  );
+  const shopsForAdmin = useMemo(() => {
+    const combined = [...visibleSellers, ...applicationShops];
+    const studioRows = combined.filter((shop) => isForestBuddiesStudio(shop));
+    if (studioRows.length === 0) return combined;
+    const seen = new Set<string>();
+    const products: SellerProduct[] = [];
+    let owner: SellerProfile | undefined;
+    for (const shop of allSellers) {
+      if (shop.uid.startsWith("demo-")) continue;
+      const studioShop = isForestBuddiesStudio(shop);
+      const taken = studioShop
+        ? shop.products
+        : shop.products.filter(
+            (product) =>
+              shopNameKey(product.name) === "forest buddies organic tee"
+          );
+      if (taken.length === 0) continue;
+      if (!owner) owner = shop;
+      for (const product of taken) {
+        if (seen.has(product.id)) continue;
+        seen.add(product.id);
+        products.push(product);
+      }
+    }
+    const keeper =
+      studioRows.find((shop) => shop.appliedAt?.startsWith("2026-10-10")) ??
+      studioRows.find((shop) => shop.uid === "forest-buddies-studio") ??
+      studioRows[0];
+    const studioShop: SellerProfile = {
+      ...keeper,
+      uid:
+        owner && isForestBuddiesStudio(owner) ? owner.uid : keeper.uid,
+      products,
+    };
+    return [
+      ...combined.filter((shop) => !isForestBuddiesStudio(shop)),
+      studioShop,
+    ];
+  }, [visibleSellers, applicationShops, allSellers]);
 
   function approveListedShop(uid: string) {
     const applicationShop = applicationShops.find((shop) => shop.uid === uid);
@@ -537,7 +596,21 @@ export function AdminSellersPanel({
       }));
   }, [leaListings, allSellers]);
 
-  const pendingListings = pendingFromOpened;
+  const studioPendingListings = useMemo(() => {
+    const shop = shopsForAdmin.find((row) => isForestBuddiesStudio(row));
+    if (!shop) return [];
+    return shop.products
+      .filter((product) => (product.status ?? "pending") === "pending")
+      .map((product) => ({ seller: shop, product }));
+  }, [shopsForAdmin]);
+
+  const pendingListings = useMemo(() => {
+    const seen = new Set(studioPendingListings.map((row) => row.product.id));
+    return [
+      ...studioPendingListings,
+      ...pendingFromOpened.filter((row) => !seen.has(row.product.id)),
+    ];
+  }, [studioPendingListings, pendingFromOpened]);
 
   const liveListings = useMemo(
     () => allListings.filter((r) => r.product.status === "approved"),
@@ -559,7 +632,7 @@ export function AdminSellersPanel({
   );
 
   const listingRows =
-    listingFilter === "pending" ? pendingFromOpened : tableListings;
+    listingFilter === "pending" ? pendingListings : tableListings;
 
   const selectedShop = useMemo(() => {
     if (selectedShopUid == null) return null;
@@ -1299,7 +1372,7 @@ export function AdminSellersPanel({
                     <span className="ml-1 opacity-70">
                       (
                       {value === "pending"
-                        ? pendingFromOpened.length
+                        ? pendingListings.length
                         : allListings.filter((r) => r.product.status === value)
                             .length}
                       )
