@@ -157,6 +157,9 @@ function prepareProduct(
   };
 }
 
+const STUDIO_ACCOUNT = "paarolimited@gmail.com";
+const STUDIO_NAME = "forest buddies studio";
+
 function shopNameKey(name?: string) {
   return (name ?? "")
     .trim()
@@ -164,6 +167,20 @@ function shopNameKey(name?: string) {
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isStudioAccount(email?: string | null) {
+  return (email ?? "").trim().toLowerCase() === STUDIO_ACCOUNT;
+}
+
+function isStudioRecord(shop: SellerProfile, key: string) {
+  if (key.startsWith("demo-") || (shop.uid ?? "").startsWith("demo-")) return false;
+  return (
+    shopNameKey(shop.shopName) === STUDIO_NAME ||
+    shopNameKey(shop.companyName) === STUDIO_NAME ||
+    key === "forest-buddies-studio" ||
+    shop.slug === "forest-buddies-studio"
+  );
 }
 
 function isApprovedTwin(mine: SellerProfile, shop: SellerProfile): boolean {
@@ -202,13 +219,140 @@ export function sellerReadingApprovedShop(
 }
 
 /**
+ * The signed-in account has no profile, so /seller shows the application form.
+ * Admin already has one Approved Forest Buddies Studio shop. Use that shop.
+ */
+export function sellerForSignedInAccount(
+  mine: SellerProfile | null,
+  shops: SellerProfile[],
+  email?: string | null,
+  uid?: string | null
+): SellerProfile | null {
+  const read = sellerReadingApprovedShop(mine, shops);
+  if (!isStudioAccount(email) || !uid) {
+    if (read && isStudioRecord(read, read.uid)) return null;
+    return read;
+  }
+  if (
+    read &&
+    read.status !== "none" &&
+    read.status !== "pending" &&
+    !isStudioRecord(read, read.uid)
+  ) {
+    return read;
+  }
+  const studio = shops.find(
+    (shop) => shop.status === "approved" && isStudioRecord(shop, shop.uid)
+  );
+  if (!studio) return read;
+  return {
+    ...studio,
+    uid,
+    email: STUDIO_ACCOUNT,
+    status: "approved",
+    sellerType: studio.sellerType ?? "business",
+    companyName: studio.companyName || studio.shopName,
+  };
+}
+
+/** Write the company email on the existing Approved studio row. */
+function stampStudioEmail(all: Record<string, SellerProfile>): boolean {
+  let changed = false;
+  const studioKeys = Object.keys(all).filter(
+    (key) => all[key].status === "approved" && isStudioRecord(all[key], key)
+  );
+  if (studioKeys.length > 1 && all["forest-buddies-studio"]) {
+    const keeper = studioKeys.find((key) => key !== "forest-buddies-studio");
+    if (keeper) {
+      delete all["forest-buddies-studio"];
+      changed = true;
+    }
+  }
+  for (const key of Object.keys(all)) {
+    const shop = all[key];
+    if (shop.status !== "approved" || !isStudioRecord(shop, key)) continue;
+    if ((shop.email ?? "").trim().toLowerCase() === STUDIO_ACCOUNT) continue;
+    all[key] = { ...shop, email: STUDIO_ACCOUNT };
+    changed = true;
+  }
+  return changed;
+}
+
+/** The admin account must not keep this shop. Park the same row off that uid. */
+function releaseStudioFromAdmin(
+  all: Record<string, SellerProfile>,
+  uid: string,
+  email: string
+): boolean {
+  if (email.trim().toLowerCase() !== "cvasi.crisan@gmail.com") return false;
+  const mine = all[uid];
+  if (!mine || !isStudioRecord(mine, uid)) return false;
+  const parked = all["forest-buddies-studio"];
+  all["forest-buddies-studio"] = {
+    ...(parked ?? mine),
+    ...mine,
+    uid: "forest-buddies-studio",
+    email: STUDIO_ACCOUNT,
+    status: "approved",
+    sellerType: mine.sellerType ?? parked?.sellerType ?? "business",
+    companyName: mine.companyName || parked?.companyName || mine.shopName,
+    products: mine.products?.length ? mine.products : parked?.products ?? [],
+  };
+  delete all[uid];
+  return true;
+}
+
+/** Move the existing Approved studio onto this account. Does not add a shop. */
+function linkStudioShop(
+  all: Record<string, SellerProfile>,
+  uid: string,
+  email: string
+): boolean {
+  if (!isStudioAccount(email)) return false;
+  const mine = all[uid];
+  if (
+    mine &&
+    mine.status !== "none" &&
+    !isStudioRecord(mine, uid)
+  ) {
+    return false;
+  }
+  const extraKey = Object.keys(all).find(
+    (key) =>
+      key !== uid &&
+      all[key].status === "approved" &&
+      isStudioRecord(all[key], key)
+  );
+  const source =
+    (extraKey ? all[extraKey] : null) ??
+    (mine && mine.status === "approved" && isStudioRecord(mine, uid) ? mine : null);
+  if (!source) return false;
+  const emailSet = (mine?.email ?? "").trim().toLowerCase() === STUDIO_ACCOUNT;
+  if (!extraKey && emailSet && mine?.status === "approved" && mine.uid === uid) {
+    return false;
+  }
+  all[uid] = {
+    ...source,
+    uid,
+    email: STUDIO_ACCOUNT,
+    status: "approved",
+    sellerType: source.sellerType ?? "business",
+    companyName: source.companyName || source.shopName,
+  };
+  if (extraKey && extraKey !== uid) delete all[extraKey];
+  if (uid !== "forest-buddies-studio") delete all["forest-buddies-studio"];
+  return true;
+}
+
+/**
  * The seller page reads only the signed-in profile. Admin approval of this
  * application was stored on a separate row. Copy that approval onto the
  * existing profile and drop the extra row. Other shops stay as stored.
  */
 function adoptApprovedShop(
   all: Record<string, SellerProfile>,
-  uid: string
+  uid: string,
+  email?: string | null
 ): boolean {
   const mine = all[uid];
   if (!mine || mine.status !== "pending") return false;
@@ -216,6 +360,7 @@ function adoptApprovedShop(
     (key) => key !== uid && isApprovedTwin(mine, { ...all[key], uid: all[key].uid || key })
   );
   if (!extraKey) return false;
+  if (isStudioRecord(all[extraKey], extraKey) && !isStudioAccount(email)) return false;
   all[uid] = {
     ...mine,
     status: "approved",
@@ -234,13 +379,17 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const refreshSellers = useCallback(() => {
     ensureDemoShops();
     const all = loadAllSellers();
-    if (user && adoptApprovedShop(all, user.uid)) {
-      saveAllSellers(all);
-    }
+    let changed = false;
+    if (user && adoptApprovedShop(all, user.uid, user.email)) changed = true;
+    if (user?.email && releaseStudioFromAdmin(all, user.uid, user.email)) changed = true;
+    if (stampStudioEmail(all)) changed = true;
+    if (user?.email && linkStudioShop(all, user.uid, user.email)) changed = true;
+    if (changed) saveAllSellers(all);
     const list = Object.values(all).map(normalizeSeller);
     setAllSellers(list);
     if (user) {
-      setSeller(all[user.uid] ? normalizeSeller(all[user.uid]) : null);
+      const mine = all[user.uid] ? normalizeSeller(all[user.uid]) : null;
+      setSeller(sellerForSignedInAccount(mine, list, user.email, user.uid));
     }
   }, [user]);
 
@@ -490,10 +639,17 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
 
   const addProduct = useCallback(
     (product: Omit<SellerProduct, "id" | "createdAt">) => {
-      let current = sellerReadingApprovedShop(seller, allSellers);
-      if (user && seller?.status === "pending" && current?.status === "approved") {
+      let current = sellerForSignedInAccount(
+        seller,
+        allSellers,
+        user?.email,
+        user?.uid
+      );
+      if (user?.email && current?.status === "approved" && seller?.status !== "approved") {
         const all = loadAllSellers();
-        if (adoptApprovedShop(all, user.uid)) saveAllSellers(all);
+        const linked =
+          adoptApprovedShop(all, user.uid) || linkStudioShop(all, user.uid, user.email);
+        if (linked) saveAllSellers(all);
         if (all[user.uid]?.status === "approved") {
           current = normalizeSeller(all[user.uid]);
         }

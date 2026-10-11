@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import {
-  sellerReadingApprovedShop,
+  sellerForSignedInAccount,
   useSeller,
 } from "@/contexts/seller-context";
 import { buildLoginHref, buildRegisterHref } from "@/lib/auth-redirect";
@@ -299,8 +299,14 @@ export default function SellerPage() {
     updateSellerProfile,
   } = useSeller();
   const seller = useMemo(
-    () => sellerReadingApprovedShop(storedSeller, allSellers),
-    [storedSeller, allSellers]
+    () =>
+      sellerForSignedInAccount(
+        storedSeller,
+        allSellers,
+        user?.email,
+        user?.uid
+      ),
+    [storedSeller, allSellers, user?.email, user?.uid]
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
