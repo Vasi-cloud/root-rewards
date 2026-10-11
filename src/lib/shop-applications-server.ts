@@ -2,6 +2,16 @@ import "server-only";
 
 import { firebaseConfig } from "@/lib/firebase/config";
 
+export type StoredShopListing = {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  listingType: "product" | "service" | "rental";
+  status: "pending" | "approved" | "rejected";
+  stock: number;
+};
+
 export type StoredShopApplication = {
   id: string;
   shopName: string;
@@ -12,6 +22,7 @@ export type StoredShopApplication = {
   status: "pending" | "approved";
   autoApproved: false;
   appliedAt: string;
+  listings: StoredShopListing[];
 };
 
 const DEMO_SHOP_IDS = new Set([
@@ -24,7 +35,14 @@ const DEMO_SHOP_IDS = new Set([
   "demo-lea-valley-cycle-hire",
 ]);
 
-type RestField = { stringValue?: string; booleanValue?: boolean };
+type RestField = {
+  stringValue?: string;
+  booleanValue?: boolean;
+  doubleValue?: number;
+  integerValue?: string;
+  arrayValue?: { values?: RestField[] };
+  mapValue?: { fields?: Record<string, RestField> };
+};
 
 function firestoreBase(): string | null {
   const projectId = firebaseConfig.projectId?.trim();
@@ -44,6 +62,40 @@ function restString(fields: Record<string, RestField> | undefined, key: string) 
 function docId(name: string): string {
   const parts = name.split("/");
   return parts[parts.length - 1] ?? "";
+}
+
+function restNumber(field: RestField | undefined): number {
+  if (!field) return 0;
+  if (typeof field.doubleValue === "number") return field.doubleValue;
+  if (field.integerValue != null) return Number(field.integerValue) || 0;
+  return 0;
+}
+
+function restListings(fields: Record<string, RestField> | undefined): StoredShopListing[] {
+  const values = fields?.listings?.arrayValue?.values ?? [];
+  const rows: StoredShopListing[] = [];
+  for (const value of values) {
+    const map = value.mapValue?.fields;
+    const id = map?.id?.stringValue?.trim() ?? "";
+    const name = map?.name?.stringValue?.trim() ?? "";
+    if (!id || !name || rows.some((row) => row.id === id)) continue;
+    const listingType = map?.listingType?.stringValue;
+    const status = map?.status?.stringValue;
+    rows.push({
+      id,
+      name,
+      price: restNumber(map?.price),
+      category: map?.category?.stringValue?.trim() || "Apparel",
+      listingType:
+        listingType === "service" || listingType === "rental"
+          ? listingType
+          : "product",
+      status:
+        status === "approved" || status === "rejected" ? status : "pending",
+      stock: Math.max(0, Math.round(restNumber(map?.stock))),
+    });
+  }
+  return rows;
 }
 
 function toStored(
@@ -66,6 +118,7 @@ function toStored(
     status,
     autoApproved: false,
     appliedAt: restString(fields, "appliedAt") || new Date().toISOString(),
+    listings: restListings(fields),
   };
 }
 
@@ -122,6 +175,7 @@ export async function createStoredShopApplication(input: {
     status: "pending",
     autoApproved: false,
     appliedAt: input.appliedAt || new Date().toISOString(),
+    listings: [],
   };
   const res = await fetch(`${base}&documentId=${encodeURIComponent(id)}`, {
     method: "POST",
@@ -179,3 +233,4 @@ export async function approveStoredShopApplication(id: string): Promise<boolean>
   }
   return true;
 }
+

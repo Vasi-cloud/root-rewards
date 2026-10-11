@@ -66,6 +66,54 @@ function shopNameKey(name?: string) {
     .trim();
 }
 
+function studioProductFromApplication(application: {
+  id: string;
+  servicesOffered?: string;
+  appliedAt?: string;
+}): SellerProduct | null {
+  if (!application.id.startsWith("studio-product-")) return null;
+  let parsed: {
+    name?: string;
+    price?: number;
+    category?: string;
+    listingType?: string;
+    stock?: number;
+  };
+  try {
+    parsed = JSON.parse(application.servicesOffered ?? "") as typeof parsed;
+  } catch {
+    return null;
+  }
+  const name = (parsed?.name ?? "").trim();
+  if (!name) return null;
+  const listingType =
+    parsed.listingType === "service" || parsed.listingType === "rental"
+      ? parsed.listingType
+      : "product";
+  return {
+    id: application.id.slice("studio-product-".length) || application.id,
+    name,
+    subtitle: "",
+    description: "",
+    category: (parsed.category ?? "").trim() || "Apparel",
+    tags: [],
+    price: Number(parsed.price) || 0,
+    ecoScore: 0,
+    stock: Math.max(0, Math.round(Number(parsed.stock) || 0)),
+    listingType,
+    status: "pending",
+    views: 0,
+    sales: 0,
+    createdAt: application.appliedAt || new Date(0).toISOString(),
+  };
+}
+
+function listingIdentity(product: { id: string; name: string }) {
+  const name = shopNameKey(product.name);
+  if (name === "forest buddies organic tee") return `name:${name}`;
+  return `id:${product.id}`;
+}
+
 function isForestBuddiesStudio(shop: {
   uid?: string;
   slug?: string;
@@ -388,6 +436,15 @@ export function AdminSellersPanel({
       email: string;
       status: "pending" | "approved";
       appliedAt: string;
+      listings?: {
+        id: string;
+        name: string;
+        price: number;
+        category: string;
+        listingType: "product" | "service" | "rental";
+        status: "pending" | "approved" | "rejected";
+        stock: number;
+      }[];
     }[]
   >([]);
 
@@ -418,13 +475,16 @@ export function AdminSellersPanel({
     const names = new Set(
       visibleSellers.map((shop) => shop.shopName.trim().toLowerCase())
     );
-    const submitted = shopApplications.some(
+    const shopRows = shopApplications.filter(
+      (application) => !application.id.startsWith("studio-product-")
+    );
+    const submitted = shopRows.some(
       (application) =>
         application.shopName.trim().toLowerCase() === "forest buddies studio"
     )
-      ? shopApplications
+      ? shopRows
       : [
-          ...shopApplications,
+          ...shopRows,
           {
             id: "forest-buddies-studio",
             shopName: "Forest Buddies Studio",
@@ -455,7 +515,22 @@ export function AdminSellersPanel({
           servicesOffered: application.servicesOffered,
           status: application.status,
           appliedAt: application.appliedAt,
-          products: [],
+          products: (application.listings ?? []).map((listing) => ({
+            id: listing.id,
+            name: listing.name,
+            subtitle: "",
+            description: "",
+            category: listing.category,
+            tags: [],
+            price: listing.price,
+            ecoScore: 0,
+            stock: listing.stock,
+            listingType: listing.listingType,
+            status: listing.status,
+            views: 0,
+            sales: 0,
+            createdAt: application.appliedAt,
+          })),
           earnings: {
             total: 0,
             pending: 0,
@@ -482,6 +557,16 @@ export function AdminSellersPanel({
     const seen = new Set<string>();
     const products: SellerProduct[] = [];
     let owner: SellerProfile | undefined;
+    const addProductRow = (product: SellerProduct, shop?: SellerProfile) => {
+      const key = listingIdentity(product);
+      if (seen.has(key)) return;
+      seen.add(key);
+      products.push(product);
+      if (!owner && shop && isForestBuddiesStudio(shop)) owner = shop;
+    };
+    for (const shop of studioRows) {
+      for (const product of shop.products ?? []) addProductRow(product, shop);
+    }
     for (const shop of allSellers) {
       if (shop.uid.startsWith("demo-")) continue;
       const studioShop = isForestBuddiesStudio(shop);
@@ -493,11 +578,11 @@ export function AdminSellersPanel({
           );
       if (taken.length === 0) continue;
       if (!owner) owner = shop;
-      for (const product of taken) {
-        if (seen.has(product.id)) continue;
-        seen.add(product.id);
-        products.push(product);
-      }
+      for (const product of taken) addProductRow(product, shop);
+    }
+    for (const application of shopApplications) {
+      const product = studioProductFromApplication(application);
+      if (product) addProductRow(product);
     }
     const keeper =
       studioRows.find((shop) => shop.appliedAt?.startsWith("2026-10-10")) ??
@@ -513,7 +598,7 @@ export function AdminSellersPanel({
       ...combined.filter((shop) => !isForestBuddiesStudio(shop)),
       studioShop,
     ];
-  }, [visibleSellers, applicationShops, allSellers]);
+  }, [visibleSellers, applicationShops, allSellers, shopApplications]);
 
   function approveListedShop(uid: string) {
     const applicationShop = applicationShops.find((shop) => shop.uid === uid);

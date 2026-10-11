@@ -242,18 +242,65 @@ export function sellerForSignedInAccount(
   ) {
     return read;
   }
-  const studio = shops.find(
+  const studios = shops.filter(
     (shop) => shop.status === "approved" && isStudioRecord(shop, shop.uid)
   );
+  const studio =
+    studios.find((shop) => shop.products.length > 0) ?? studios[0];
   if (!studio) return read;
+  const products =
+    read && isStudioRecord(read, read.uid) && read.products.length > 0
+      ? read.products
+      : studio.products;
   return {
     ...studio,
     uid,
     email: STUDIO_ACCOUNT,
     status: "approved",
-    sellerType: studio.sellerType ?? "business",
+    sellerType: studio.sellerType ?? read?.sellerType ?? "business",
     companyName: studio.companyName || studio.shopName,
+    products,
   };
+}
+
+function rememberStudioListing(product: {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  listingType?: string;
+  stock?: number;
+}) {
+  const slug =
+    shopNameKey(product.name) === "forest buddies organic tee"
+      ? "forest-buddies-organic-tee"
+      : product.id;
+  const id = `studio-product-${slug}`
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  void fetch("/api/shop-applications", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id,
+      shopName: "Forest Buddies Studio",
+      sellerType: "business",
+      companyName: "Forest Buddies Studio",
+      servicesOffered: JSON.stringify({
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        listingType: product.listingType ?? "product",
+        stock: product.stock ?? 0,
+      }),
+      email: STUDIO_ACCOUNT,
+      appliedAt: new Date().toISOString(),
+    }),
+  }).catch((err) => {
+    console.warn("[seller] Studio listing was not saved", err);
+  });
 }
 
 type StudioApplication = {
@@ -274,6 +321,7 @@ function studioFromApplication(
 ): SellerProfile | null {
   const shopName = (row.shopName ?? "").trim();
   const id = (row.id ?? "").trim();
+  if (id.startsWith("studio-product-")) return null;
   const named =
     shopNameKey(shopName) === STUDIO_NAME ||
     shopNameKey(row.companyName) === STUDIO_NAME ||
@@ -334,6 +382,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const readStudio = useRef<SellerProfile | null>(null);
+  const postedListings = useRef(new Set<string>());
 
   const refreshSellers = useCallback(() => {
     ensureDemoShops();
@@ -383,7 +432,13 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         );
         const shop = row ? studioFromApplication(row, user.uid) : null;
         readStudio.current = shop;
-        if (shop) setSeller(shop);
+        if (shop) {
+          setSeller((current) =>
+            current?.products?.length
+              ? { ...shop, products: current.products, uid: user.uid }
+              : shop
+          );
+        }
       })
       .catch(() => {
         readStudio.current = null;
@@ -395,6 +450,29 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [user, refreshSellers]);
+
+  useEffect(() => {
+    if (!user || !isStudioAccount(user.email)) return;
+    const mine = allSellers.find((shop) => shop.uid === user.uid);
+    const profile = sellerForSignedInAccount(
+      seller,
+      allSellers,
+      user.email,
+      user.uid
+    );
+    const products = [...(profile?.products ?? []), ...(mine?.products ?? [])];
+    for (const product of products) {
+      if (postedListings.current.has(product.id)) continue;
+      if ((product.status ?? "pending") !== "pending") continue;
+      const onStudio =
+        shopNameKey(product.name) === "forest buddies organic tee" ||
+        (mine != null && isStudioRecord(mine, mine.uid)) ||
+        (profile != null && isStudioRecord(profile, profile.uid));
+      if (!onStudio) continue;
+      postedListings.current.add(product.id);
+      rememberStudioListing(product);
+    }
+  }, [user, seller, allSellers]);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -653,6 +731,9 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         ...current,
         products: [next, ...current.products],
       });
+      if (isStudioAccount(user?.email) || isStudioRecord(current, current.uid)) {
+        rememberStudioListing(next);
+      }
       if (next.listingType === "rental" && isLeaValleySeller(current)) {
         void saveNewLeaValleyHireListing(next).catch((err) => {
           console.warn("[seller] Hire listing was not saved", err);
