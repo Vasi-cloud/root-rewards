@@ -862,10 +862,7 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
         ),
       });
       if (isStudioAccount(user?.email) || isStudioRecord(seller, seller.uid)) {
-        rememberStudioListing({
-          ...nextProduct,
-          status: existing?.status === "approved" ? "approved" : "pending",
-        });
+        rememberStudioListing(nextProduct);
       }
       publishHireListingTerms(nextProduct);
       void saveSellerFirstPartyListing(seller.uid, nextProduct).catch((err) => {
