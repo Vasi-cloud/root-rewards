@@ -193,12 +193,71 @@ export async function createStoredShopApplication(input: {
       },
     }),
   });
+  if (res.status === 409 && id.startsWith("studio-product-")) {
+    const existing = await readStoredShopApplication(id);
+    if (!existing) return null;
+    if (existing.status === "pending") {
+      await replaceStudioProductDetails(id, created.servicesOffered);
+      return { ...existing, servicesOffered: created.servicesOffered, status: "pending" };
+    }
+    return existing;
+  }
   if (!res.ok) {
     const detail = (await res.text()).slice(0, 300);
     console.error("[shop-applications] create failed", res.status, detail);
     return null;
   }
   return created;
+}
+
+async function readStoredShopApplication(
+  id: string
+): Promise<StoredShopApplication | null> {
+  const base = firestoreBase();
+  if (!base) return null;
+  const url = base.replace(
+    "/shopApplications?key=",
+    `/shopApplications/${encodeURIComponent(id)}?key=`
+  );
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { fields?: Record<string, RestField> };
+  return toStored(id, body.fields);
+}
+
+const STUDIO_TEE_ID = "studio-product-forest-buddies-organic-tee";
+
+async function patchStudioTee(
+  field: "servicesOffered",
+  value: string
+): Promise<boolean> {
+  const base = firestoreBase();
+  if (!base) return false;
+  const url = base.replace(
+    "/shopApplications?key=",
+    `/shopApplications/${encodeURIComponent(STUDIO_TEE_ID)}?updateMask.fieldPaths=${field}&key=`
+  );
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fields: { [field]: { stringValue: value } },
+    }),
+  });
+  if (!res.ok) {
+    const detail = (await res.text()).slice(0, 300);
+    console.error("[shop-applications] studio product update failed", res.status, detail);
+    return false;
+  }
+  return true;
+}
+
+async function replaceStudioProductDetails(
+  id: string,
+  servicesOffered: string
+): Promise<void> {
+  if (id !== STUDIO_TEE_ID || !servicesOffered) return;
+  await patchStudioTee("servicesOffered", servicesOffered);
 }
 
 /** Set one application to approved. Does not touch the existing shops. */

@@ -861,12 +861,18 @@ export function SellerProvider({ children }: { children: React.ReactNode }) {
           p.id === id ? nextProduct : p
         ),
       });
+      if (isStudioAccount(user?.email) || isStudioRecord(seller, seller.uid)) {
+        rememberStudioListing({
+          ...nextProduct,
+          status: existing?.status === "approved" ? "approved" : "pending",
+        });
+      }
       publishHireListingTerms(nextProduct);
       void saveSellerFirstPartyListing(seller.uid, nextProduct).catch((err) => {
         console.warn("[seller] Marketplace sync failed", err);
       });
     },
-    [seller, persistCurrent]
+    [seller, user, persistCurrent]
   );
 
   const deleteProduct = useCallback(
