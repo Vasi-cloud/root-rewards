@@ -27,6 +27,11 @@ import {
   withApprovedServerHires,
 } from "@/lib/lea-valley-hire-listings";
 import {
+  buildShopsForAdmin,
+  isForestBuddiesStudio,
+  type AdminShopApplication,
+} from "@/lib/admin-seller-shops";
+import {
   emptyAnalytics,
   emptyEarnings,
   emptyPayouts,
@@ -34,11 +39,6 @@ import {
   getSellerBySlug,
   listPublicShops,
 } from "@/lib/seller-storage";
-import {
-  isStudioTeeName,
-  studioProductFromApplication,
-  type StudioApplicationRow,
-} from "@/lib/studio-listing";
 import type { Product, SellerProfile, SellerProduct } from "@/types";
 
 function shopNameKey(name?: string) {
@@ -77,21 +77,23 @@ function studioShopProfile(): SellerProfile {
   };
 }
 
-function withApprovedStudioTee(
+/** Same shop row Admin already shows. Does not read the marketplace catalog. */
+function studioShopFromAdmin(
   shop: SellerProfile,
-  applications: StudioApplicationRow[]
+  applications: AdminShopApplication[]
 ): SellerProfile {
-  const tee = applications
-    .map((row) => studioProductFromApplication(row))
-    .find((product) => product && isStudioTeeName(product.name) && product.status === "approved");
-  if (!tee) return shop;
-  const products = [...(shop.products ?? [])];
-  const index = products.findIndex(
-    (product) => isStudioTeeName(product.name) || product.id === tee.id
-  );
-  if (index >= 0) products[index] = { ...products[index], ...tee, status: "approved" };
-  else products.push(tee);
-  return { ...shop, status: "approved", products };
+  const { shops } = buildShopsForAdmin([shop], applications, {
+    studioFallback: true,
+  });
+  const studio = shops.find((row) => isForestBuddiesStudio(row)) ?? shop;
+  return {
+    ...shop,
+    ...studio,
+    slug: "forest-buddies-studio",
+    shopName: studio.shopName || shop.shopName,
+    status: "approved",
+    products: studio.products ?? [],
+  };
 }
 
 function sellerProductToCartItem(
@@ -182,13 +184,12 @@ export default function SellerShopPage() {
           ? { ...next, status: "approved" as const }
           : studioShopProfile();
     setShop(base);
-    if (!next || next.status !== "approved") setReady(false);
-    else setReady(true);
+    setReady(false);
     fetch("/api/shop-applications", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : { applications: [] }))
-      .then((body: { applications?: StudioApplicationRow[] }) => {
+      .then((body: { applications?: AdminShopApplication[] }) => {
         if (cancelled) return;
-        setShop(withApprovedStudioTee(base, body.applications ?? []));
+        setShop(studioShopFromAdmin(base, body.applications ?? []));
       })
       .catch(() => {
         if (!cancelled) setShop(base);
