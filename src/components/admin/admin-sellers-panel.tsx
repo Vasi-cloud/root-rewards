@@ -27,19 +27,25 @@ import { TRUST_CONFIG } from "@/lib/moderation";
 import {
   isLeaValleyHireListing,
   isLeaValleyLiveBike,
-  isLeaValleySeller,
 } from "@/lib/lea-valley-guest";
 import {
   keepLiveBikesApproved,
   leaValleyStorageKeyFor,
   readLeaValleyShopForAdmin,
 } from "@/lib/lea-valley-admin";
-import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
 import {
-  STUDIO_TEE_ID,
-  isStudioTeeName,
-  studioProductFromApplication,
-} from "@/lib/studio-listing";
+  buildShopsForAdmin,
+  isAdminListingRow,
+  isDemoLeaValleyShop,
+  isForestBuddiesStudio,
+  isLeaValleyCycleHireShop,
+  pendingOnAdminShops,
+  visibleAdminSellers,
+  watchShopApplications,
+  type AdminShopApplication,
+} from "@/lib/admin-seller-shops";
+import { loadAllSellers, saveAllSellers } from "@/lib/seller-storage";
+import { STUDIO_TEE_ID, isStudioTeeName } from "@/lib/studio-listing";
 import {
   approveLeaValleyHireListing,
   listLeaValleyHireListings,
@@ -60,79 +66,18 @@ export type SellersSubView = "shops" | "listings";
 const ADMIN_SELLERS_TABLE_CAP = 100;
 /** Shop detail for one opened store — never a full-catalog merge. */
 const SHOP_DETAIL_CAP = 20;
-const DEMO_LEA_VALLEY_UID = "demo-lea-valley-cycle-hire";
 
-function shopNameKey(name?: string) {
-  return (name ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+type LeaListingRow = { ownerUid: string; product: SellerProduct };
 
-function listingIdentity(product: { id: string; name: string }) {
-  const name = shopNameKey(product.name);
-  if (name === "forest buddies organic tee") return `name:${name}`;
-  return `id:${product.id}`;
-}
-
-function isForestBuddiesStudio(shop: {
-  uid?: string;
-  slug?: string;
-  shopName?: string;
-  companyName?: string;
-}) {
-  if ((shop.uid ?? "").startsWith("demo-")) return false;
-  return (
-    shopNameKey(shop.shopName) === "forest buddies studio" ||
-    shopNameKey(shop.companyName) === "forest buddies studio" ||
-    shop.uid === "forest-buddies-studio" ||
-    shop.slug === "forest-buddies-studio"
-  );
-}
-
-function isAdminListingRow(product: { status?: string; listingType?: string }) {
-  if (
-    product.status === "pending" &&
-    product.listingType === "rental"
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function isDemoLeaValleyShop(shop: {
+function isLeaValleyApplication(shop: {
   uid: string;
   email?: string;
+  shopName?: string;
+  tradingName?: string;
+  slug?: string;
   products?: { id: string }[];
 }) {
-  if (shop.uid === DEMO_LEA_VALLEY_UID) return true;
-  if (shop.email?.toLowerCase() === "hire@leavalleycycles.demo") return true;
-  const products = shop.products ?? [];
-  return (
-    products.length > 0 &&
-    products.every((product) => product.id.startsWith("demo-lv-pending"))
-  );
-}
-
-function isLeaValleyCycleHireShop(shop: {
-  uid?: string;
-  slug?: string;
-  shopName?: string;
-  tradingName?: string;
-}) {
-  if (isLeaValleySeller(shop)) return true;
-  const label = `${shop.shopName ?? ""} ${shop.tradingName ?? ""} ${shop.slug ?? ""}`.toLowerCase();
-  return label.includes("lea valley");
-}
-
-function isLeaValleyName(shop: {
-  shopName?: string;
-  tradingName?: string;
-  slug?: string;
-}) {
-  return isLeaValleyCycleHireShop(shop);
+  return isLeaValleyCycleHireShop(shop) && !isDemoLeaValleyShop(shop);
 }
 
 /** Pending services already on a loaded seller. Not a marketplace read. Flags do not hide them. */
@@ -155,19 +100,6 @@ function pendingServiceRows(sellers: SellerProfile[]): LeaListingRow[] {
   }
   return rows;
 }
-
-function isLeaValleyApplication(shop: {
-  uid: string;
-  email?: string;
-  shopName?: string;
-  tradingName?: string;
-  slug?: string;
-  products?: { id: string }[];
-}) {
-  return isLeaValleyName(shop) && !isDemoLeaValleyShop(shop);
-}
-
-type LeaListingRow = { ownerUid: string; product: SellerProduct };
 
 function collectLeaValleyListingRows(): {
   rows: LeaListingRow[];
@@ -261,18 +193,33 @@ function StatCard({
   value,
   hint,
   accent,
+  onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   hint: string;
   accent?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Card
-      className={
+      className={`${
         accent ? "border-emerald-200 bg-emerald-50/50" : "border-border/80"
-      }
+      }${onClick ? " cursor-pointer text-left hover:border-emerald-300" : ""}`}
+      {...(onClick
+        ? {
+            role: "button" as const,
+            tabIndex: 0,
+            onClick,
+            onKeyDown: (event: React.KeyboardEvent) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick();
+              }
+            },
+          }
+        : {})}
     >
       <CardHeader className="pb-2">
         <CardTitle
@@ -390,187 +337,29 @@ export function AdminSellersPanel({
   } | null>(null);
   const [serverHires, setServerHires] = useState<SellerProduct[]>([]);
   const [shopApplications, setShopApplications] = useState<
-    {
-      id: string;
-      shopName: string;
-      sellerType: "business" | "individual";
-      companyName: string;
-      servicesOffered: string;
-      email: string;
-      status: "pending" | "approved";
-      appliedAt: string;
-      listings?: {
-        id: string;
-        name: string;
-        price: number;
-        category: string;
-        listingType: "product" | "service" | "rental";
-        status: "pending" | "approved" | "rejected";
-        stock: number;
-      }[];
-    }[]
+    AdminShopApplication[]
   >([]);
+  const [applicationsReady, setApplicationsReady] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    fetch("/api/shop-applications", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { applications: [] }))
-      .then((body: { applications?: typeof shopApplications }) => {
-        if (!cancelled) setShopApplications(body.applications ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setShopApplications([]);
-      });
-    return () => {
-      cancelled = true;
-    };
+    return watchShopApplications((rows) => {
+      setShopApplications(rows);
+      setApplicationsReady(true);
+    });
   }, []);
 
-  const visibleSellers = useMemo(() => {
-    const hasApplication = allSellers.some((s) => isLeaValleyApplication(s));
-    return allSellers.filter((s) => {
-      if (!isDemoLeaValleyShop(s)) return true;
-      return !hasApplication;
-    });
-  }, [allSellers]);
+  const visibleSellers = useMemo(
+    () => visibleAdminSellers(allSellers),
+    [allSellers]
+  );
 
-  const applicationShops = useMemo(() => {
-    const names = new Set(
-      visibleSellers.map((shop) => shop.shopName.trim().toLowerCase())
-    );
-    const shopRows = shopApplications.filter(
-      (application) => !application.id.startsWith("studio-product-")
-    );
-    const submitted = shopRows.some(
-      (application) =>
-        application.shopName.trim().toLowerCase() === "forest buddies studio"
-    )
-      ? shopRows
-      : [
-          ...shopRows,
-          {
-            id: "forest-buddies-studio",
-            shopName: "Forest Buddies Studio",
-            sellerType: "business" as const,
-            companyName: "Forest Buddies Studio",
-            servicesOffered: "Products / goods",
-            email: "",
-            status: "pending" as const,
-            appliedAt: "2026-10-10T00:00:00.000Z",
-          },
-        ];
-    return submitted
-      .filter(
-        (application) =>
-          (application.status === "pending" || application.status === "approved") &&
-          application.shopName.trim() &&
-          !names.has(application.shopName.trim().toLowerCase())
-      )
-      .map(
-        (application): SellerProfile => ({
-          uid: application.id,
-          email: application.email,
-          shopName: application.shopName,
-          slug: application.id,
-          sellerType: application.sellerType,
-          bio: "",
-          companyName: application.companyName,
-          servicesOffered: application.servicesOffered,
-          status: application.status,
-          appliedAt: application.appliedAt,
-          products: (application.listings ?? []).map((listing) => ({
-            id: listing.id,
-            name: listing.name,
-            subtitle: "",
-            description: "",
-            category: listing.category,
-            tags: [],
-            price: listing.price,
-            ecoScore: 0,
-            stock: listing.stock,
-            listingType: listing.listingType,
-            status: listing.status,
-            views: 0,
-            sales: 0,
-            createdAt: application.appliedAt,
-          })),
-          earnings: {
-            total: 0,
-            pending: 0,
-            available: 0,
-            thisMonth: 0,
-            orders: 0,
-          },
-          analytics: {
-            views: 0,
-            viewsThisMonth: 0,
-            sales: 0,
-            salesThisMonth: 0,
-            conversionRate: 0,
-          },
-          payouts: [],
-        })
-      );
-  }, [shopApplications, visibleSellers]);
-
-  const shopsForAdmin = useMemo(() => {
-    const combined = [...visibleSellers, ...applicationShops];
-    const studioRows = combined.filter((shop) => isForestBuddiesStudio(shop));
-    if (studioRows.length === 0) return combined;
-    const seen = new Set<string>();
-    const products: SellerProduct[] = [];
-    let owner: SellerProfile | undefined;
-    const addProductRow = (
-      product: SellerProduct,
-      shop?: SellerProfile,
-      shared = false
-    ) => {
-      const key = listingIdentity(product);
-      if (seen.has(key)) {
-        if (!shared) return;
-        const index = products.findIndex((row) => listingIdentity(row) === key);
-        if (index >= 0) products[index] = product;
-        return;
-      }
-      seen.add(key);
-      products.push(product);
-      if (!owner && shop && isForestBuddiesStudio(shop)) owner = shop;
-    };
-    for (const shop of studioRows) {
-      for (const product of shop.products ?? []) addProductRow(product, shop);
-    }
-    for (const shop of allSellers) {
-      if (shop.uid.startsWith("demo-")) continue;
-      const studioShop = isForestBuddiesStudio(shop);
-      const taken = studioShop
-        ? shop.products
-        : shop.products.filter(
-            (product) =>
-              shopNameKey(product.name) === "forest buddies organic tee"
-          );
-      if (taken.length === 0) continue;
-      if (!owner) owner = shop;
-      for (const product of taken) addProductRow(product, shop);
-    }
-    for (const application of shopApplications) {
-      const product = studioProductFromApplication(application);
-      if (product) addProductRow(product, undefined, true);
-    }
-    const keeper =
-      studioRows.find((shop) => shop.appliedAt?.startsWith("2026-10-10")) ??
-      studioRows.find((shop) => shop.uid === "forest-buddies-studio") ??
-      studioRows[0];
-    const studioShop: SellerProfile = {
-      ...keeper,
-      uid:
-        owner && isForestBuddiesStudio(owner) ? owner.uid : keeper.uid,
-      products,
-    };
-    return [
-      ...combined.filter((shop) => !isForestBuddiesStudio(shop)),
-      studioShop,
-    ];
-  }, [visibleSellers, applicationShops, allSellers, shopApplications]);
+  const { shops: shopsForAdmin, applicationShops } = useMemo(
+    () =>
+      buildShopsForAdmin(allSellers, shopApplications, {
+        studioFallback: applicationsReady,
+      }),
+    [allSellers, shopApplications, applicationsReady]
+  );
 
   function approveListedShop(uid: string) {
     const applicationShop = applicationShops.find((shop) => shop.uid === uid);
@@ -701,21 +490,18 @@ export function AdminSellersPanel({
       }));
   }, [leaListings, allSellers]);
 
-  const studioPendingListings = useMemo(() => {
-    const shop = shopsForAdmin.find((row) => isForestBuddiesStudio(row));
-    if (!shop) return [];
-    return shop.products
-      .filter((product) => (product.status ?? "pending") === "pending")
-      .map((product) => ({ seller: shop, product }));
-  }, [shopsForAdmin]);
+  const pendingQueue = useMemo(
+    () => pendingOnAdminShops(shopsForAdmin),
+    [shopsForAdmin]
+  );
 
   const pendingListings = useMemo(() => {
-    const seen = new Set(studioPendingListings.map((row) => row.product.id));
+    const seen = new Set(pendingQueue.products.map((row) => row.product.id));
     return [
-      ...studioPendingListings,
+      ...pendingQueue.products,
       ...pendingFromOpened.filter((row) => !seen.has(row.product.id)),
     ];
-  }, [studioPendingListings, pendingFromOpened]);
+  }, [pendingQueue, pendingFromOpened]);
 
   const liveListings = useMemo(
     () => allListings.filter((r) => r.product.status === "approved"),
@@ -1268,6 +1054,11 @@ export function AdminSellersPanel({
           label="Seller shops"
           value={String(shopCounts.total)}
           hint={`${shopCounts.pending} awaiting approval`}
+          onClick={
+            pendingQueue.shops[0]
+              ? () => setSelectedShopUid(pendingQueue.shops[0].uid)
+              : undefined
+          }
         />
         <StatCard
           icon={ShoppingBag}
@@ -1275,6 +1066,11 @@ export function AdminSellersPanel({
           value={String(pendingListings.length)}
           hint="Pending product approvals"
           accent
+          onClick={
+            pendingListings[0]
+              ? () => setSelectedShopUid(pendingListings[0].seller.uid)
+              : undefined
+          }
         />
         <StatCard
           icon={Check}
@@ -1506,12 +1302,18 @@ export function AdminSellersPanel({
                 const badge = listingBadge(product.status ?? "pending");
                 const key = `${s.uid}-${product.id}`;
                 const isRejecting = rejectingKey === key;
+                const pendingRow = (product.status ?? "pending") === "pending";
                 return (
                   <div
                     key={key}
                     className={`space-y-3 px-5 py-4 ${
-                      product.status === "pending" ? "bg-gold/10" : ""
+                      pendingRow ? "cursor-pointer bg-gold/10" : ""
                     }`}
+                    onClick={
+                      pendingRow
+                        ? () => setSelectedShopUid(s.uid)
+                        : undefined
+                    }
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
@@ -1576,7 +1378,10 @@ export function AdminSellersPanel({
                         )}
                       </div>
                       {!isRejecting && (
-                        <div className="flex shrink-0 flex-wrap gap-2">
+                        <div
+                          className="flex shrink-0 flex-wrap gap-2"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           {product.status !== "approved" && (
                             <Button
                               size="sm"
@@ -1616,7 +1421,10 @@ export function AdminSellersPanel({
                       )}
                     </div>
                     {isRejecting && (
-                      <div className="rounded-xl border border-destructive/20 bg-background p-3">
+                      <div
+                        className="rounded-xl border border-destructive/20 bg-background p-3"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <label className="mb-1 block text-xs font-medium text-muted-foreground">
                           Note for seller (optional)
                         </label>

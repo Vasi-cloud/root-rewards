@@ -22,6 +22,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useModeration } from "@/contexts/moderation-context";
+import { useSeller } from "@/contexts/seller-context";
+import {
+  buildShopsForAdmin,
+  pendingOnAdminShops,
+  watchShopApplications,
+  type AdminShopApplication,
+} from "@/lib/admin-seller-shops";
 import { ADMIN_EXPORT_CURRENCY } from "@/lib/admin-csv";
 import {
   exportCausesCsv,
@@ -86,6 +93,11 @@ type AdminOverviewPanelProps = {
 
 export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
   const { openReports } = useModeration();
+  const { allSellers } = useSeller();
+  const [shopApplications, setShopApplications] = useState<
+    AdminShopApplication[]
+  >([]);
+  const [applicationsReady, setApplicationsReady] = useState(false);
   const [memberCount, setMemberCount] = useState(0);
   const [causesMonth, setCausesMonth] = useState(0);
   const [knownAccounts, setKnownAccounts] = useState(0);
@@ -133,6 +145,23 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
       setLeaShopUid(null);
     }
   };
+
+  useEffect(() => {
+    return watchShopApplications((rows) => {
+      setShopApplications(rows);
+      setApplicationsReady(true);
+    });
+  }, []);
+
+  const pendingQueue = useMemo(() => {
+    const { shops } = buildShopsForAdmin(allSellers, shopApplications, {
+      studioFallback: applicationsReady,
+    });
+    return pendingOnAdminShops(shops);
+  }, [allSellers, shopApplications, applicationsReady]);
+
+  const pendingTarget =
+    pendingQueue.products[0]?.seller.uid ?? pendingQueue.shops[0]?.uid ?? null;
 
   useEffect(() => {
     refresh();
@@ -254,12 +283,27 @@ export function AdminOverviewPanel({ onNavigate }: AdminOverviewPanelProps) {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <StatTile
-          icon={Store}
-          label="Stores"
-          value={String(storeStats.total)}
-          hint={`${storeStats.pending} awaiting · ${storeStats.approved} approved · ${storeStats.paused} paused`}
-        />
+        {pendingTarget ? (
+          <button
+            type="button"
+            onClick={() => onNavigate("sellers", pendingTarget)}
+            className="h-full w-full text-left"
+          >
+            <StatTile
+              icon={Store}
+              label="Stores"
+              value={String(storeStats.total)}
+              hint={`${pendingQueue.shops.length} awaiting · ${pendingQueue.products.length} in review · ${storeStats.approved} approved · ${storeStats.paused} paused`}
+            />
+          </button>
+        ) : (
+          <StatTile
+            icon={Store}
+            label="Stores"
+            value={String(storeStats.total)}
+            hint={`${pendingQueue.shops.length} awaiting · ${pendingQueue.products.length} in review · ${storeStats.approved} approved · ${storeStats.paused} paused`}
+          />
+        )}
         <button
           type="button"
           onClick={() => onNavigate("sellers", leaShopUid)}
