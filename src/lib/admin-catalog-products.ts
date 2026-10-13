@@ -18,7 +18,9 @@ import {
 import { isFirebaseClientConfigured } from "@/lib/firebase/config";
 import { getFirebaseFirestore } from "@/lib/firebase/firestore";
 import { DEFAULT_BOOKING_NOTE, isValidHttpUrl } from "@/lib/listing-categories";
+import { loadApprovedStudioShop, shopNameKey } from "@/lib/admin-seller-shops";
 import {
+  approvedShopMarketplaceProducts,
   listApprovedSellerMarketplaceProducts,
 } from "@/lib/seller-storage";
 import type {
@@ -615,13 +617,41 @@ export async function listLiveMarketplaceProducts(): Promise<Product[]> {
     }
   }
 
+  let catalog: Product[] = [];
   try {
     const merged = mergeMarketplaceCatalog(live, sellerLive);
-    return merged.length > 0 ? merged : [...sellerLive, ...live];
+    catalog = merged.length > 0 ? merged : [...sellerLive, ...live];
   } catch (err) {
     console.warn("[products] Catalogue merge failed", err);
-    return sellerLive.length > 0 ? sellerLive : live;
+    catalog = sellerLive.length > 0 ? sellerLive : live;
   }
+
+  try {
+    const studio = await loadApprovedStudioShop();
+    if (studio) {
+      catalog = withStudioProducts(
+        catalog,
+        approvedShopMarketplaceProducts(studio)
+      );
+    }
+  } catch (err) {
+    console.warn("[products] Studio shop was not added", err);
+  }
+  return catalog;
+}
+
+function withStudioProducts(catalog: Product[], extra: Product[]): Product[] {
+  const next = [...catalog];
+  for (const product of extra) {
+    const name = shopNameKey(product.name);
+    const exists = next.some(
+      (row) =>
+        row.id === product.id ||
+        (name === "forest buddies organic tee" && shopNameKey(row.name) === name)
+    );
+    if (!exists) next.push(product);
+  }
+  return next;
 }
 
 /**

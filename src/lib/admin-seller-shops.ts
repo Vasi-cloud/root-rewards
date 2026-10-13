@@ -292,6 +292,25 @@ export function pendingOnAdminShops(shops: SellerProfile[]): {
   };
 }
 
+/** The approved Studio shop Admin already lists. Does not read the marketplace catalog. */
+export async function loadApprovedStudioShop(): Promise<SellerProfile | null> {
+  let applications: AdminShopApplication[] = [];
+  try {
+    const res = await fetch("/api/shop-applications", { cache: "no-store" });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { applications?: AdminShopApplication[] };
+    applications = body.applications ?? [];
+  } catch {
+    return null;
+  }
+  const { shops } = buildShopsForAdmin([], applications, {
+    studioFallback: false,
+  });
+  const studio = shops.find((shop) => isForestBuddiesStudio(shop));
+  if (!studio || studio.status !== "approved") return null;
+  return { ...studio, slug: "forest-buddies-studio", status: "approved" };
+}
+
 /** Re-read the same shop applications while Admin is open. Does not write sellers. */
 export function watchShopApplications(
   onRows: (rows: AdminShopApplication[]) => void

@@ -354,6 +354,20 @@ export function listPublicSoloShops(): SellerProfile[] {
   return listPublicShops().filter((s) => s.sellerType === "individual");
 }
 
+/** Approved products on one shop, in the marketplace row shape. */
+export function approvedShopMarketplaceProducts(shop: SellerProfile): Product[] {
+  const rows: Product[] = [];
+  for (const product of shop.products ?? []) {
+    if (product.status !== "approved") continue;
+    try {
+      rows.push(sellerProductToMarketplaceProduct(product, shop));
+    } catch (err) {
+      console.warn("[sellers] Skipped marketplace row", product.id, err);
+    }
+  }
+  return rows;
+}
+
 /**
  * Approved listings from approved shops — same source Admin Sellers uses.
  * Maps seller products into marketplace `Product` rows (goods + services).

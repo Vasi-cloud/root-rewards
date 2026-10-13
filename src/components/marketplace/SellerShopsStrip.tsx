@@ -6,6 +6,10 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
+  isForestBuddiesStudio,
+  loadApprovedStudioShop,
+} from "@/lib/admin-seller-shops";
+import {
   SELLERS_STORAGE_KEY,
   ensureDemoShops,
   listPublicShops,
@@ -23,10 +27,22 @@ export function SellerShopsStrip() {
   useEffect(() => {
     function refresh() {
       ensureDemoShops();
-      const next = listPublicShops().sort((a, b) =>
+      const local = listPublicShops().sort((a, b) =>
         shopLabel(a).localeCompare(shopLabel(b))
       );
-      setShops(next);
+      setShops(local);
+      void loadApprovedStudioShop()
+        .then((studio) => {
+          if (!studio || local.some((shop) => isForestBuddiesStudio(shop))) return;
+          setShops(
+            [...local, studio].sort((a, b) =>
+              shopLabel(a).localeCompare(shopLabel(b))
+            )
+          );
+        })
+        .catch((err) => {
+          console.warn("[marketplace] Studio shop was not listed", err);
+        });
     }
     refresh();
     const onStorage = (e: StorageEvent) => {
