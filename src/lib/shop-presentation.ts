@@ -1,3 +1,4 @@
+import { isStudioOrganicTee } from "@/lib/studio-listing";
 import type { SellerProduct } from "@/types";
 
 /** Category → soft photo palette for shop cards (no stock photos required). */
@@ -69,8 +70,18 @@ export function defaultProductImage(
 }
 
 export function productGallery(
-  product: Pick<SellerProduct, "id" | "category" | "imageUrl" | "gallery">
+  product: Pick<SellerProduct, "id" | "category" | "imageUrl" | "gallery"> & {
+    name?: string;
+  }
 ): string[] {
+  if (isStudioOrganicTee(product)) {
+    const saved = product.imageUrl?.trim();
+    if (!saved) return [];
+    const rest = (product.gallery ?? []).filter(
+      (url) => url?.trim() && url.trim() !== saved
+    );
+    return [saved, ...rest];
+  }
   if (product.imageUrl?.startsWith("data:image/")) return [product.imageUrl];
   if (product.imageUrl && !product.imageUrl.endsWith(".svg")) {
     const rest = (product.gallery ?? []).filter(

@@ -24,6 +24,7 @@ import {
   type ProductReview,
 } from "@/lib/trust";
 import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
+import { isStudioOrganicTee } from "@/lib/studio-listing";
 import type { ProductReviewRecord } from "@/types/reviews";
 
 function Stars({
@@ -212,7 +213,10 @@ export function ProductReviews({
     };
   }, [hideSeeds, user, productId, productName]);
 
-  const hideMockStars = hideSeeds || listingType === "service";
+  const hideMockStars =
+    hideSeeds ||
+    listingType === "service" ||
+    isStudioOrganicTee({ id: productId, name: productName });
 
   const community = useMemo(
     () =>
@@ -484,7 +488,8 @@ export function ProductRatingBadge({
 }) {
   const hideSeeds =
     hideDemoReviews === true ||
-    isLeaValleyHireListing({ id: productId, name: productName });
+    isLeaValleyHireListing({ id: productId, name: productName }) ||
+    isStudioOrganicTee({ id: productId, name: productName });
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
 

@@ -56,6 +56,7 @@ import {
 } from "@/lib/listing-categories";
 import { hasProductSpecs } from "@/lib/product-details";
 import { mergeLeaValleyHires, isLeaValleyHireListing } from "@/lib/lea-valley-guest";
+import { isStudioOrganicTee, STUDIO_TEE_ECO } from "@/lib/studio-listing";
 import {
   ensureDemoShops,
   listApprovedSellerMarketplaceProducts,
@@ -1209,7 +1210,12 @@ function ListingGrid({
         const comparison = getPriceComparison(product);
         const isService = isServiceListing(product);
         const isRental = isRentalListing(product);
-        const showAddToCart = canAddProductToCart(product);
+        const studioTee = isStudioOrganicTee(product);
+        const showAddToCart = studioTee || canAddProductToCart(product);
+        const ecoScore =
+          studioTee && product.sustainabilityScore <= 0
+            ? STUDIO_TEE_ECO
+            : product.sustainabilityScore;
 
         return (
           <Card
@@ -1273,7 +1279,7 @@ function ListingGrid({
             <CardContent className="flex flex-1 flex-col gap-2 px-4 sm:px-6">
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <Badge variant="outline">{product.category}</Badge>
-                {isAffiliateProduct(product) && !isService && !isRental ? (
+                {isAffiliateProduct(product) && !isService && !isRental && !studioTee ? (
                   <Badge className="bg-emerald-100 text-xs text-emerald-900">
                     Amazon
                   </Badge>
@@ -1292,12 +1298,12 @@ function ListingGrid({
                 {!isService && !isRental && (
                   <Badge
                     className={
-                      product.sustainabilityScore >= 90
+                      ecoScore >= 90
                         ? "bg-emerald-100 text-emerald-700"
                         : "bg-gold/15 text-primary"
                     }
                   >
-                    {product.sustainabilityScore}% eco
+                    {ecoScore}% eco
                   </Badge>
                 )}
                 {qtyInCart > 0 && showAddToCart && (
@@ -1310,7 +1316,7 @@ function ListingGrid({
                 )}
               </div>
 
-              {!isService && !isRental && isAffiliateProduct(product) && (
+              {!isService && !isRental && isAffiliateProduct(product) && !studioTee && (
                 <div className="rounded-lg border border-border/60 bg-background/80 px-2.5 py-2">
                   <ProductPartnerLinks product={product} />
                 </div>

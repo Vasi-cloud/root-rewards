@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { isAffiliateProduct } from "@/lib/commerce-type";
 import { PublicHireTerms } from "@/components/hire/hire-listing-terms";
 import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
+import { isStudioOrganicTee, STUDIO_TEE_ECO } from "@/lib/studio-listing";
 import {
   canAddProductToCart,
   formatListingPrice,
@@ -43,9 +44,15 @@ export function MarketplaceProductDetail({
   const isService = isServiceListing(product);
   const isRental = isRentalListing(product);
   const isAffiliate = isAffiliateProduct(product);
-  const showAddToCart = canAddProductToCart(product);
+  const studioTee = isStudioOrganicTee(product);
+  const showAsAffiliate = isAffiliate && !studioTee;
+  const showAddToCart = studioTee || canAddProductToCart(product);
   const isBookable = isService || isRental;
   const isLeaValleyHire = isLeaValleyHireListing(product);
+  const ecoScore =
+    studioTee && product.sustainabilityScore <= 0
+      ? STUDIO_TEE_ECO
+      : product.sustainabilityScore;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -66,7 +73,7 @@ export function MarketplaceProductDetail({
       ? "Rental details"
       : "Product details";
 
-  const trustCopy = isAffiliate
+  const trustCopy = showAsAffiliate
     ? "Sold on Amazon via our Associates link — stock and fulfilment are handled by Amazon."
     : isRental
       ? "Rental — partner confirms dates. Availability is not live on Forest Buddies®."
@@ -133,7 +140,7 @@ export function MarketplaceProductDetail({
                 </p>
               ) : null}
               <div className="mt-2 flex flex-wrap gap-2">
-                {isAffiliate ? (
+                {showAsAffiliate ? (
                   <Badge className="bg-emerald-100 text-emerald-900">
                     Amazon affiliate
                   </Badge>
@@ -151,12 +158,12 @@ export function MarketplaceProductDetail({
                 {!isBookable && (
                   <Badge
                     className={
-                      product.sustainabilityScore >= 90
+                      ecoScore >= 90
                         ? "bg-emerald-100 text-emerald-800"
                         : "bg-gold/15 text-primary"
                     }
                   >
-                    {product.sustainabilityScore}% eco
+                    {ecoScore}% eco
                   </Badge>
                 )}
               </div>
@@ -211,11 +218,11 @@ export function MarketplaceProductDetail({
 
           <TrustBadges variant="product" />
 
-          {!isBookable && isAffiliate && (
+          {!isBookable && showAsAffiliate && (
             <ProductPartnerLinks product={product} />
           )}
 
-          {!isAffiliate && !isBookable && (
+          {!showAsAffiliate && !isBookable && (
             <ProductDetailsPanel
               details={product}
               category={product.category}

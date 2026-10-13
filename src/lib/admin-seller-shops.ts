@@ -1,5 +1,9 @@
 import { isLeaValleySeller } from "@/lib/lea-valley-guest";
-import { studioProductFromApplication } from "@/lib/studio-listing";
+import {
+  STUDIO_TEE_ECO,
+  isStudioTeeName,
+  studioProductFromApplication,
+} from "@/lib/studio-listing";
 import type { SellerProduct, SellerProfile } from "@/types";
 
 /** Shop applications Admin → Sellers already lists. Not the marketplace catalog. */
@@ -168,7 +172,7 @@ function applicationShopsFrom(
           category: listing.category,
           tags: [],
           price: listing.price,
-          ecoScore: 0,
+          ecoScore: isStudioTeeName(listing.name) ? STUDIO_TEE_ECO : 0,
           stock: listing.stock,
           listingType: listing.listingType,
           status: listing.status,
@@ -224,7 +228,12 @@ export function buildShopsForAdmin(
     if (seen.has(key)) {
       if (!shared) return;
       const index = products.findIndex((row) => listingIdentity(row) === key);
-      if (index >= 0) products[index] = product;
+      if (index >= 0) {
+        const prev = products[index];
+        const imageUrl = product.imageUrl?.trim() || prev.imageUrl;
+        const ecoScore = product.ecoScore > 0 ? product.ecoScore : prev.ecoScore;
+        products[index] = { ...prev, ...product, imageUrl, ecoScore };
+      }
       return;
     }
     seen.add(key);

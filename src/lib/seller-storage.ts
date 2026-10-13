@@ -13,6 +13,7 @@ import {
   deriveTrustTier,
 } from "@/lib/moderation";
 import { PLATFORM_FEE_RATE } from "@/lib/platform-fee";
+import { isStudioOrganicTee } from "@/lib/studio-listing";
 
 export const SELLERS_STORAGE_KEY = "forest-buddies-sellers";
 
@@ -416,10 +417,11 @@ function sellerProductToMarketplaceProduct(
       product.subtitle?.trim() ||
       shop.shopName,
     price: product.price,
-    imageUrl:
-      product.imageUrl?.trim() ||
-      product.gallery?.[0]?.trim() ||
-      "/shop/cover-grove.svg",
+    imageUrl: isStudioOrganicTee(product)
+      ? product.imageUrl?.trim() || ""
+      : product.imageUrl?.trim() ||
+        product.gallery?.[0]?.trim() ||
+        "/shop/cover-grove.svg",
     category: product.category,
     sustainabilityScore: product.ecoScore,
     affiliateCommissionPercent: 10,

@@ -17,6 +17,7 @@ import { ProductGallery } from "@/components/shop/product-photo";
 import { TrustBadges } from "@/components/trust/trust-badges";
 import { PublicHireTerms } from "@/components/hire/hire-listing-terms";
 import { isLeaValleyHireListing } from "@/lib/lea-valley-guest";
+import { isStudioOrganicTee } from "@/lib/studio-listing";
 import type { Product } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ export function ShopProductDetail({
 }) {
   const isService = product.listingType === "service";
   const isRental = product.listingType === "rental";
+  const printedToOrder =
+    !isService && !isRental && isStudioOrganicTee(product);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -128,7 +131,11 @@ export function ShopProductDetail({
                     {DELIVERY_MODE_LABELS[product.deliveryMode]}
                   </Badge>
                 )}
-                {product.stock > 0 ? (
+                {printedToOrder ? (
+                  <Badge className="border border-border bg-cream text-forest">
+                    Printed to order
+                  </Badge>
+                ) : product.stock > 0 ? (
                   <Badge className="border border-border bg-cream text-forest">
                     {isService
                       ? `${product.stock} slots open`
@@ -173,7 +180,7 @@ export function ShopProductDetail({
 
             <TrustBadges variant="product" />
 
-            {!isService && !isRental && (
+            {!isService && !isRental && !printedToOrder && (
               <ProductPartnerLinks
                 product={
                   {
@@ -264,7 +271,7 @@ export function ShopProductDetail({
               <Button
                 size="lg"
                 className="min-h-12 w-full gap-2 text-base"
-                disabled={product.stock < 1}
+                disabled={!printedToOrder && product.stock < 1}
                 onClick={onAdd}
               >
                 <Leaf className="size-4" />

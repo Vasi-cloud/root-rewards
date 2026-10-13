@@ -22,9 +22,13 @@ export function ProductPhoto({
   showFrame?: boolean;
 }) {
   const gallery = productGallery(product);
-  const src = gallery[Math.min(activeIndex, gallery.length - 1)] ?? gallery[0];
+  const src =
+    gallery.length > 0
+      ? (gallery[Math.min(activeIndex, gallery.length - 1)] ?? gallery[0])
+      : "";
   const scene = productScene(product);
   const [failed, setFailed] = useState(false);
+  const remote = src.startsWith("http://") || src.startsWith("https://");
 
   useEffect(() => {
     setFailed(false);
@@ -41,13 +45,14 @@ export function ProductPhoto({
         background: `linear-gradient(145deg, ${scene.from}, ${scene.to})`,
       }}
     >
-      {!failed ? (
-        src.startsWith("data:") ? (
+      {src && !failed ? (
+        src.startsWith("data:") || remote ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={src}
             alt={product.name}
             className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            onError={() => setFailed(true)}
           />
         ) : (
           <Image

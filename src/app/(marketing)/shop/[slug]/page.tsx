@@ -16,6 +16,10 @@ import { ShopTrustBar } from "@/components/shop/shop-trust-bar";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
 import { defaultProductImage } from "@/lib/shop-presentation";
+import {
+  isStudioOrganicTee,
+  presentStudioTee,
+} from "@/lib/studio-listing";
 import { recordShopView } from "@/lib/seller-analytics";
 import {
   applyLeaValleyGuestShop,
@@ -112,7 +116,9 @@ function sellerProductToCartItem(
     name: product.name,
     description: product.description || product.subtitle || shopName,
     price: product.price,
-    imageUrl: defaultProductImage(product),
+    imageUrl: isStudioOrganicTee(product)
+      ? product.imageUrl?.trim() || ""
+      : defaultProductImage(product),
     category: product.category,
     sustainabilityScore: product.ecoScore,
     affiliateCommissionPercent: 10,
@@ -227,7 +233,9 @@ export default function SellerShopPage() {
     if (isLeaValleyShopSlug(slug) || isLeaValleyShopSlug(shop?.slug)) {
       return withApprovedServerHires(serverHires);
     }
-    return (shop?.products ?? []).filter((p) => p.status === "approved");
+    const products = (shop?.products ?? []).filter((p) => p.status === "approved");
+    if (!isStudioShop(shop)) return products;
+    return products.map((product) => presentStudioTee(product));
   }, [shop, slug, serverHires]);
 
   function addProduct(product: SellerProduct) {
